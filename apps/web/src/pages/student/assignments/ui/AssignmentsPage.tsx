@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useStudentHomework } from '@/entities/assignment';
 import { AsyncState, DashboardSkeleton } from '@/shared/ui';
-import { HomeworkMap } from '@/widgets/homework-map';
+import { HomeworkBackdrop, HomeworkMap } from '@/widgets/homework-map';
 import { HomeworkRecommendations } from '@/widgets/homework-recommendations';
 import { StudentHomeStats } from '@/widgets/student-home-stats';
 
@@ -19,6 +19,7 @@ export function AssignmentsPage() {
 
   return (
     <Screen gap={6} fill>
+      <HomeworkBackdrop />
       <VisuallyHidden as="h1">{t('homework.title')}</VisuallyHidden>
       <AsyncState
         query={query}

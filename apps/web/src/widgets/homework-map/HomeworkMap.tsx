@@ -4,7 +4,7 @@ import {
   type ClubCategory,
   type HomeworkClub,
 } from '@edu/contracts';
-import { PlanetMap, type PlanetMapItem } from '@edu/ui';
+import { AppLayout, PlanetMap, type PlanetMapItem } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { diffCalendarDays, formatDate } from '@/shared/lib/dates';
 import planetArt from './assets/planet-art.png';
@@ -15,6 +15,22 @@ import planetProgramming from './assets/planet-programming.png';
 import planetRobotics from './assets/planet-robotics.png';
 import planetScience from './assets/planet-science.png';
 import stars from './assets/stars.png';
+
+/**
+ * Звёздное небо из макета на весь экран «Задания» — под шапкой, карточками и меню
+ * (54% непрозрачности, масштаб как в макете). Рендерится страницей рядом с картой.
+ */
+export function HomeworkBackdrop() {
+  return (
+    <AppLayout.Backdrop
+      image={stars}
+      opacity={0.54}
+      size="260% auto"
+      position="40% 0"
+      repeat="repeat"
+    />
+  );
+}
 
 /**
  * Планеты из макета по предмету (категории кружка). Предметы без своей планеты
@@ -89,13 +105,5 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
     locked: true,
   }));
 
-  return (
-    <PlanetMap
-      items={[...enrolled, ...locked]}
-      backdrop={stars}
-      grow
-      bleed
-      aria-label={t('homework.map')}
-    />
-  );
+  return <PlanetMap items={[...enrolled, ...locked]} grow bleed aria-label={t('homework.map')} />;
 }
