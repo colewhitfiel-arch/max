@@ -23,7 +23,9 @@ describe('AiService (mock provider)', () => {
   });
 
   it('gigachat без ключа не создаётся', () => {
-    expect(() => testEnv({ AI_PROVIDER: 'gigachat' })).toThrow(/GIGACHAT_AUTH_KEY/);
+    expect(() => testEnv({ AI_PROVIDER: 'gigachat', GIGACHAT_AUTH_KEY: '' })).toThrow(
+      /GIGACHAT_AUTH_KEY/,
+    );
   });
 });
 

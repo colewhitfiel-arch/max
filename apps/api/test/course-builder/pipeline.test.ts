@@ -7,7 +7,11 @@ import {
   windowAtoms,
 } from '../../src/modules/course-builder/pipeline/atoms';
 import { coverageStats, verifySurvey } from '../../src/modules/course-builder/pipeline/citations';
-import { mapLesson, mapLessonBlock } from '../../src/modules/course-builder/pipeline/draft-mapper';
+import {
+  mapLesson,
+  mapLessonBlock,
+  theoryFromNodes,
+} from '../../src/modules/course-builder/pipeline/draft-mapper';
 import { planModules } from '../../src/modules/course-builder/pipeline/planner';
 
 const node = (id: string, atomIds: number[], importance = 2): KnowledgeNode => ({
@@ -62,6 +66,18 @@ describe('atomize', () => {
     const atoms = atomize(text, 'topic');
     expect(atoms).toHaveLength(1);
     expect(atoms[0]!.text).toContain('Введение. Цикл for');
+  });
+
+  it('mapLimit после ошибки не стартует новые элементы', async () => {
+    const started: number[] = [];
+    await expect(
+      mapLimit([1, 2, 3, 4], 1, async (n) => {
+        started.push(n);
+        if (n === 2) throw new Error('boom');
+        return n;
+      }),
+    ).rejects.toThrow('boom');
+    expect(started).toEqual([1, 2]);
   });
 
   it('окна и mapLimit сохраняют порядок', async () => {
@@ -155,6 +171,29 @@ describe('planModules', () => {
 });
 
 describe('draft-mapper', () => {
+  it('без теории от модели подставляет теорию из узлов и атомов', () => {
+    const theory = theoryFromNodes([
+      {
+        title: 'Резистор',
+        statement: 'Ограничивает ток.',
+        evidence: [{ text: 'Светодиод ставят через резистор 220 Ом.' }],
+      },
+    ]);
+    expect(theory).toContain('### Резистор');
+    expect(theory).toContain('- Светодиод ставят через резистор 220 Ом.');
+    const module = mapLesson(
+      'Урок',
+      {
+        summary: 'Кратко.',
+        blocks: [{ kind: 'HOMEWORK', title: 'ДЗ', instructions: 'Собери схему' }],
+      },
+      ['topic'],
+      { theoryMarkdown: theory },
+    );
+    expect(module.blocks[0]).toMatchObject({ type: 'TEXT', content: { markdown: theory } });
+    expect(module.blocks).toHaveLength(2);
+  });
+
   it('маппит все виды блоков и генерирует идентификаторы', () => {
     const quiz = mapLessonBlock({
       kind: 'QUIZ',
@@ -173,8 +212,25 @@ describe('draft-mapper', () => {
         multiple: true,
       });
     }
+    expect(mapLessonBlock({ kind: 'QUIZ', title: '', questions: [] })).toBeNull();
+    expect(
+      mapLessonBlock({ kind: 'PRACTICE', title: '  ', instructions: 'собери схему' }),
+    ).toMatchObject({ type: 'PRACTICE', title: 'Практика' });
     expect(mapLessonBlock({ kind: 'FILL_GAPS', title: 'x', text: 'без пропусков' })).toBeNull();
-    expect(mapLessonBlock({ kind: 'FILL_GAPS', title: 'x', text: 'есть {{пропуск}}' })?.type).toBe(
+    expect(
+      mapLessonBlock({ kind: 'FILL_GAPS', title: 'x', text: 'Проверь **{{ответ}}** схемы.' }),
+    ).toBeNull();
+    expect(
+      mapLessonBlock({
+        kind: 'FILL_GAPS',
+        title: 'Блок 3: Пропуски',
+        text: 'Проверь **{{ответ}}** схемы. Светодиод ставят через **{{резистор}}**.',
+      }),
+    ).toMatchObject({
+      title: 'Пропуски',
+      content: { data: { text: 'Светодиод ставят через {{резистор}}.' } },
+    });
+    expect(mapLessonBlock({ kind: 'FILL_GAPS', title: 'x', text: 'есть {{ток}}' })?.type).toBe(
       'INTERACTIVE',
     );
     expect(mapLessonBlock({ kind: 'HOMEWORK', title: 'x', instructions: 'сделай' })).toMatchObject({

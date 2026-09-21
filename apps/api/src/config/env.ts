@@ -52,14 +52,16 @@ export const envSchema = z
     AI_PROVIDER: z.enum(['mock', 'gigachat']).default('mock'),
     GIGACHAT_AUTH_KEY: optionalString,
     GIGACHAT_SCOPE: z.string().default('GIGACHAT_API_PERS'),
-    GIGACHAT_MODEL: z.string().default('GigaChat'),
+    GIGACHAT_MODEL: z.string().default('GigaChat-2'),
     GIGACHAT_OAUTH_URL: z
       .string()
       .url()
       .default('https://ngw.devices.sberbank.ru:9443/api/v2/oauth'),
     GIGACHAT_API_URL: z.string().url().default('https://gigachat.devices.sberbank.ru/api/v1'),
     GIGACHAT_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
-    GIGACHAT_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+    GIGACHAT_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
+    /** Одновременных запросов к GigaChat: персональный тариф — 1 (иначе 429), B2B — больше. */
+    GIGACHAT_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(1),
     GIGACHAT_CA_CERT_PATH: optionalString,
     /** Лимит сообщений тьютору на пользователя в сутки (429 при превышении). */
     AI_TUTOR_DAILY_LIMIT: z.coerce.number().int().positive().default(50),

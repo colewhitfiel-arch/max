@@ -26,6 +26,39 @@ import {
 
 const ai = new AiService({ provider: new MockAiProvider({ responses: productMockRules }) });
 
+describe('LessonResultSchema', () => {
+  it('отбрасывает невалидные блоки и пустые заголовки не роняют урок', () => {
+    const lesson = LessonResultSchema.parse({
+      summary: '',
+      blocks: [
+        { kind: 'TEXT', title: '', markdown: 'Теория.' },
+        { kind: 'QUIZ', title: 'Тест' }, // нет questions — выбрасывается
+        { kind: 'UNKNOWN', title: 'x' },
+        { kind: 'PRACTICE', markdown: 'без instructions' },
+        { kind: 'HOMEWORK', title: 'ДЗ', instructions: 'Собери схему' },
+      ],
+    });
+    expect(lesson.summary).toBe('');
+    expect(lesson.blocks.map((b) => b.kind)).toEqual(['TEXT', 'HOMEWORK']);
+    expect(lesson.blocks[0]?.title).toBe('');
+  });
+
+  it('урок только из теории — ошибка схемы (модель переспросится)', () => {
+    const result = LessonResultSchema.safeParse({
+      summary: 'x',
+      blocks: [{ kind: 'TEXT', title: 'Теория', markdown: 'Текст.' }],
+    });
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('практического');
+  });
+
+  it('урок без единого валидного блока — ошибка схемы', () => {
+    expect(LessonResultSchema.safeParse({ summary: 'x', blocks: [{ kind: 'QUIZ' }] }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('продуктовые промпты', () => {
   it('регистрируются без дублей', () => {
     expect(createProductRegistry().size).toBe(7);

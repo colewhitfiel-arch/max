@@ -33,15 +33,18 @@ export interface TopicMaterialVars {
 
 export const topicMaterialPrompt = definePrompt({
   id: 'course-builder.material-from-topic',
-  version: 1,
+  version: 2,
   description:
     'Преподаватель описал тему/практику без конспекта — модель пишет учебный конспект, который дальше режется на атомы',
   system: [
     'Ты — методист дополнительного образования для школьников. Преподаватель описал тему занятия или практику,',
     'но у него нет конспекта. Напиши учебный конспект по этой теме на русском языке.',
-    'Правила: 4–8 разделов, в каждом 3–6 абзацев. Каждый абзац — одна законченная мысль',
-    '(определение, факт, шаг порядка действий или пример) длиной 1–3 предложения, без воды.',
+    'Объём: 6–10 разделов, в каждом 4–6 абзацев, всего не меньше 900 слов — это полноценный конспект',
+    'на несколько занятий, а не аннотация. Каждый абзац — одна законченная мысль',
+    '(определение, факт, шаг порядка действий, типичная ошибка или пример) длиной 2–4 предложения, без воды.',
     'Термины объясняй, приводи конкретные примеры и числа, где уместно. Не выдумывай ссылок и фамилий.',
+    'Только предметное содержание: никаких разделов про организацию занятия — целей урока, плана,',
+    'рефлексии, домашнего задания, тестов и «закрепления»; задания и проверки к конспекту добавит другая модель.',
     'Отвечай строго JSON: {"title": string, "sections": [{"heading": string, "paragraphs": string[]}]}.',
   ].join(' '),
   user: (vars: TopicMaterialVars) =>
@@ -115,48 +118,73 @@ const quizQuestion = z.object({
   explanation: z.string().optional(),
 });
 
+/** Заголовок блока: модель иногда оставляет его пустым — тогда его подставит код (draft-mapper). */
+const blockTitle = z.string().catch('');
+
 export const LessonBlockSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('TEXT'), title: z.string().min(1), markdown: z.string().min(1) }),
+  z.object({ kind: z.literal('TEXT'), title: blockTitle, markdown: z.string().min(1) }),
   z.object({
     kind: z.literal('QUIZ'),
-    title: z.string().min(1),
+    title: blockTitle,
     questions: z.array(quizQuestion).min(1).max(6),
   }),
   z.object({
     kind: z.literal('FILL_GAPS'),
-    title: z.string().min(1),
+    title: blockTitle,
     /** Текст с пропусками вида {{ответ}}. */
     text: z.string().min(1),
   }),
   z.object({
     kind: z.literal('FLASHCARDS'),
-    title: z.string().min(1),
+    title: blockTitle,
     cards: z.array(z.object({ front: z.string().min(1), back: z.string().min(1) })).min(2),
   }),
   z.object({
     kind: z.literal('PRACTICE'),
-    title: z.string().min(1),
+    title: blockTitle,
     instructions: z.string().min(1),
   }),
   z.object({
     kind: z.literal('HOMEWORK'),
-    title: z.string().min(1),
+    title: blockTitle,
     instructions: z.string().min(1),
   }),
   z.object({
     kind: z.literal('QUESTION'),
-    title: z.string().min(1),
+    title: blockTitle,
     prompt: z.string().min(1),
     expectedAnswer: z.string().optional(),
   }),
 ]);
 export type LessonBlock = z.infer<typeof LessonBlockSchema>;
 
-export const LessonResultSchema = z.object({
-  summary: z.string().min(1),
-  blocks: z.array(LessonBlockSchema).min(2),
-});
-export type LessonResult = z.infer<typeof LessonResultSchema>;
+/**
+ * Блоки проверяются по одному: невалидный блок (нет вопросов, пустой текст, неизвестный kind)
+ * выбрасывается, а не роняет весь урок — модель отдаёт payload, код решает, что из него годится.
+ */
+export const LessonResultSchema = z
+  .object({
+    summary: z.string().catch(''),
+    blocks: z.array(z.unknown()).min(1),
+  })
+  .transform(({ summary, blocks }) => ({
+    summary,
+    blocks: blocks.flatMap((block) => {
+      const parsed = LessonBlockSchema.safeParse(block);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  }))
+  .refine((lesson) => lesson.blocks.length >= 1, {
+    message: 'ни один блок урока не прошёл проверку',
+    path: ['blocks'],
+  })
+  // Урок из одной теории — не урок: пусть модель переспросится и добавит практику
+  .refine((lesson) => lesson.blocks.some((block) => block.kind !== 'TEXT'), {
+    message:
+      'в уроке нет ни одного практического блока — добавь QUIZ с 3–5 вопросами (4 варианта, correctIndexes) и FILL_GAPS',
+    path: ['blocks'],
+  });
+export type LessonResult = z.output<typeof LessonResultSchema>;
 
 export interface LessonVars {
   moduleTitle: string;
@@ -169,7 +197,7 @@ export interface LessonVars {
 
 export const lessonPrompt = definePrompt({
   id: 'course-builder.block',
-  version: 1,
+  version: 2,
   description: 'Написать урок (блоки курса) по узлам модуля, опираясь только на атомы-улики',
   system: [
     'Ты — преподаватель дополнительного образования и автор интерактивных уроков для школьников.',
@@ -177,9 +205,10 @@ export const lessonPrompt = definePrompt({
     'Напиши урок только на основе этих атомов — не добавляй фактов, которых там нет.',
     'Состав урока: 1–3 блока TEXT (markdown, короткие абзацы, подзаголовки, объяснение простым языком, пример),',
     'затем практика после теории: обязательно один QUIZ (3–5 вопросов, 4 варианта, для заблуждений используй неправильные варианты),',
-    'один FILL_GAPS (3–6 предложений с пропусками {{ответ}} — пропускай ключевые термины),',
+    'один FILL_GAPS (3–6 предложений, в каждом пропущен ключевой термин в двойных фигурных скобках, например',
+    '«Светодиод подключают через {{резистор}}» — внутри скобок само пропущенное слово, а не слово «ответ»),',
     'по желанию FLASHCARDS (термин → определение) и один блок PRACTICE или HOMEWORK с конкретным заданием.',
-    'Названия блоков — конкретные, без слова «блок». Язык — русский, обращение на «ты».',
+    'У каждого блока обязателен непустой title — конкретное название без слова «блок». Язык — русский, обращение на «ты».',
     'Отвечай строго JSON: {"summary": string, "blocks": [ {"kind":"TEXT","title","markdown"} | {"kind":"QUIZ","title","questions":[{"text","options":[],"correctIndexes":[],"explanation"}]} | {"kind":"FILL_GAPS","title","text"} | {"kind":"FLASHCARDS","title","cards":[{"front","back"}]} | {"kind":"PRACTICE","title","instructions"} | {"kind":"HOMEWORK","title","instructions"} | {"kind":"QUESTION","title","prompt","expectedAnswer"} ]}.',
   ].join(' '),
   user: (vars: LessonVars) =>

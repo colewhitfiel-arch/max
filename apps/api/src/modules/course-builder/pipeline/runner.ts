@@ -16,7 +16,7 @@ import { InjectEnv } from '../../../config/env.module';
 import { FilesService } from '../../files/files.service';
 import { atomize, mapLimit, renderTopicMaterial, windowAtoms } from './atoms';
 import { coverageStats, verifySurvey } from './citations';
-import { mapLesson } from './draft-mapper';
+import { mapLesson, theoryFromNodes } from './draft-mapper';
 import { CourseGenerator } from './generator';
 import { planModules } from './planner';
 
@@ -132,10 +132,11 @@ export class CoursePipelineRunner {
     let written = 0;
     const modules = await mapLimit(plan, parallel, async (module, index) => {
       const nodes = module.nodeIds.map((id) => nodeById.get(id)!).filter(Boolean);
+      const promptNodes = nodes.map((n) => this.toPromptNode(n, atomById));
       const lesson = await this.generator.writeLesson(
         {
           moduleTitle: module.title,
-          nodesText: renderNodesForPrompt(nodes.map((n) => this.toPromptNode(n, atomById))),
+          nodesText: renderNodesForPrompt(promptNodes),
           ...(instructions ? { instructions } : {}),
           position: { index, total: plan.length },
         },
@@ -149,7 +150,9 @@ export class CoursePipelineRunner {
       const sourceRefs = [
         ...new Set(nodes.flatMap((n) => n.atomIds.map((id) => atomById.get(id)?.source ?? ''))),
       ].filter(Boolean);
-      return mapLesson(module.title, lesson, sourceRefs);
+      return mapLesson(module.title, lesson, sourceRefs, {
+        theoryMarkdown: theoryFromNodes(promptNodes),
+      });
     });
     await guard();
 

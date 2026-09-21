@@ -4,6 +4,7 @@ import type { AiLogger } from '../../logger';
 import { describeError, noopLogger } from '../../logger';
 import type { AiProvider } from '../../provider';
 import { withRetry } from '../../retry';
+import { Semaphore } from '../../semaphore';
 import type {
   AiChatRequest,
   AiChatResponse,
@@ -38,6 +39,14 @@ export interface GigaChatProviderOptions {
   maxRetries?: number;
   retryBaseDelayMs?: number;
   retryMaxDelayMs?: number;
+  /** Минимальная пауза при 429 без `Retry-After` (растёт экспоненциально). */
+  rateLimitDelayMs?: number;
+  /**
+   * Сколько запросов (chat/stream/embed) держать в полёте одновременно. Персональный тариф
+   * GigaChat (`GIGACHAT_API_PERS`) принимает один запрос за раз — остальные отвечают 429.
+   * Для B2B/CORP можно поднять. Стрим занимает слот до конца итерации.
+   */
+  maxConcurrency?: number;
   /** За сколько до истечения обновлять OAuth-токен. */
   tokenRefreshSkewMs?: number;
   /** Пауза между чанками стрима, после которой он считается зависшим. По умолчанию = timeoutMs. */
@@ -53,14 +62,16 @@ export interface GigaChatProviderOptions {
 
 export const GIGACHAT_DEFAULTS = {
   scope: 'GIGACHAT_API_PERS',
-  model: 'GigaChat',
+  model: 'GigaChat-2',
   embeddingsModel: 'Embeddings',
   oauthUrl: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
   apiUrl: 'https://gigachat.devices.sberbank.ru/api/v1',
   timeoutMs: 30_000,
-  maxRetries: 2,
+  maxRetries: 3,
   retryBaseDelayMs: 500,
-  retryMaxDelayMs: 8_000,
+  retryMaxDelayMs: 20_000,
+  rateLimitDelayMs: 2_000,
+  maxConcurrency: 1,
   tokenRefreshSkewMs: 60_000,
 } as const;
 
@@ -75,6 +86,7 @@ interface ResolvedConfig {
   maxRetries: number;
   retryBaseDelayMs: number;
   retryMaxDelayMs: number;
+  rateLimitDelayMs: number;
   tokenRefreshSkewMs: number;
   streamIdleTimeoutMs: number;
   now: () => number;
@@ -98,6 +110,7 @@ export class GigaChatProvider implements AiProvider {
   private readonly http: GigaChatHttp;
   private readonly tokens: GigaChatTokenManager;
   private readonly logger: AiLogger;
+  private readonly slots: Semaphore;
 
   constructor(options: GigaChatProviderOptions) {
     if (!options.authKey) throw new Error('GigaChatProvider: authKey обязателен');
@@ -113,12 +126,14 @@ export class GigaChatProvider implements AiProvider {
       maxRetries: options.maxRetries ?? GIGACHAT_DEFAULTS.maxRetries,
       retryBaseDelayMs: options.retryBaseDelayMs ?? GIGACHAT_DEFAULTS.retryBaseDelayMs,
       retryMaxDelayMs: options.retryMaxDelayMs ?? GIGACHAT_DEFAULTS.retryMaxDelayMs,
+      rateLimitDelayMs: options.rateLimitDelayMs ?? GIGACHAT_DEFAULTS.rateLimitDelayMs,
       tokenRefreshSkewMs: options.tokenRefreshSkewMs ?? GIGACHAT_DEFAULTS.tokenRefreshSkewMs,
       streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? timeoutMs,
       now: options.now ?? Date.now,
       uuid: options.uuid ?? randomUUID,
     };
     this.logger = options.logger ?? noopLogger;
+    this.slots = new Semaphore(options.maxConcurrency ?? GIGACHAT_DEFAULTS.maxConcurrency);
     this.http = createGigaChatHttp({ fetch: options.fetch, caCertPath: options.caCertPath });
     this.tokens = new GigaChatTokenManager(
       this.http,
@@ -139,7 +154,44 @@ export class GigaChatProvider implements AiProvider {
     return this.config.model;
   }
 
+  /** Сколько запросов ждут свободного слота (для метрик и тестов). */
+  get queued(): number {
+    return this.slots.waiting;
+  }
+
   async chat(req: AiChatRequest): Promise<AiChatResponse> {
+    const release = await this.slots.acquire(req.signal);
+    try {
+      return await this.chatUnbounded(req);
+    } finally {
+      release();
+    }
+  }
+
+  async *stream(req: AiChatRequest): AsyncIterable<AiStreamChunk> {
+    let release: () => void;
+    try {
+      release = await this.slots.acquire(req.signal);
+    } catch {
+      return; // отмена вызывающим во время ожидания слота — как отмена стрима
+    }
+    try {
+      yield* this.streamUnbounded(req);
+    } finally {
+      release();
+    }
+  }
+
+  async embed(req: AiEmbedRequest): Promise<AiEmbedResponse> {
+    const release = await this.slots.acquire(req.signal);
+    try {
+      return await this.embedUnbounded(req);
+    } finally {
+      release();
+    }
+  }
+
+  private async chatUnbounded(req: AiChatRequest): Promise<AiChatResponse> {
     const model = req.model ?? this.config.model;
     const body = JSON.stringify(buildChatBody(req, model, false));
     const response = await this.withRetries('chat', req.signal, () =>
@@ -168,7 +220,7 @@ export class GigaChatProvider implements AiProvider {
     return result;
   }
 
-  async *stream(req: AiChatRequest): AsyncIterable<AiStreamChunk> {
+  private async *streamUnbounded(req: AiChatRequest): AsyncIterable<AiStreamChunk> {
     const model = req.model ?? this.config.model;
     const body = JSON.stringify(buildChatBody(req, model, true));
 
@@ -280,7 +332,7 @@ export class GigaChatProvider implements AiProvider {
     yield { type: 'done', response: result };
   }
 
-  async embed(req: AiEmbedRequest): Promise<AiEmbedResponse> {
+  private async embedUnbounded(req: AiEmbedRequest): Promise<AiEmbedResponse> {
     const model = req.model ?? this.config.embeddingsModel;
     const body = JSON.stringify({ model, input: req.input });
     const response = await this.withRetries('embeddings', req.signal, () =>
@@ -315,6 +367,7 @@ export class GigaChatProvider implements AiProvider {
       maxRetries: this.config.maxRetries,
       baseDelayMs: this.config.retryBaseDelayMs,
       maxDelayMs: this.config.retryMaxDelayMs,
+      rateLimitDelayMs: this.config.rateLimitDelayMs,
       signal,
       onRetry: ({ error, attempt, delayMs }) => {
         this.logger.warn('gigachat.retry', { op, attempt, delayMs, ...describeError(error) });

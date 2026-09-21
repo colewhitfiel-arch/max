@@ -47,6 +47,7 @@ describe('parseJsonResponse', () => {
     expect(parseJsonResponse('```json\n{"name":"Маша","age":12}\n```', schema)).toEqual({
       ok: true,
       data: { name: 'Маша', age: 12 },
+      repaired: false,
     });
   });
 
@@ -56,10 +57,29 @@ describe('parseJsonResponse', () => {
     if (!result.ok) expect(result.error).toContain('не найден');
   });
 
-  it('ошибка при синтаксически невалидном JSON', () => {
+  it('синтаксически битый JSON чинится и дальше проверяется схемой', () => {
     const result = parseJsonResponse('{"name": "x", "age": }', schema);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/Невалидный JSON/);
+    if (!result.ok) expect(result.error).toMatch(/схеме|Невалидный JSON/);
+  });
+
+  it('чинит типичные ошибки модели: потерянная и лишняя скобка между элементами, висящая запятая', () => {
+    const listSchema = z.object({
+      items: z.array(z.object({ h: z.string(), p: z.array(z.string()) })),
+    });
+    const missingBrace = '{"items": [{"h": "a", "p": ["x"], {"h": "b", "p": ["y"]}]}';
+    const extraBrace = '{"items": [{"h": "a", "p": ["x"}], {"h": "b", "p": ["y"]}]}';
+    const trailingComma = '{"items": [{"h": "a", "p": ["x",],},]}';
+    for (const text of [missingBrace, extraBrace, trailingComma]) {
+      const result = parseJsonResponse(text, listSchema);
+      expect(result.ok, text).toBe(true);
+      if (result.ok) {
+        expect(result.repaired).toBe(true);
+        expect(result.data.items[0]).toEqual({ h: 'a', p: ['x'] });
+      }
+    }
+    const clean = parseJsonResponse('{"items": []}', listSchema);
+    expect(clean.ok && clean.repaired).toBe(false);
   });
 
   it('ошибка с путями полей при несоответствии схеме', () => {
