@@ -25,12 +25,14 @@ export interface BottomNavItem {
   icon: ComponentType<IconProps>;
   /** Акцентный (крупный центральный) пункт, см. `BottomNavigationItem.prominent`. */
   prominent?: boolean;
+  /** Размер иконки, см. `BottomNavigationItem.iconSize`. */
+  iconSize?: 'md' | 'lg';
 }
 
 export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
   STUDENT: [
     { key: 'home', path: '/student', labelKey: 'nav.home', icon: HomeIcon },
-    { key: 'tutor', path: '/student/tutor', labelKey: 'nav.tutor', icon: AiIcon },
+    { key: 'tutor', path: '/student/tutor', labelKey: 'nav.tutor', icon: AiIcon, iconSize: 'lg' },
     {
       key: 'courses',
       path: '/student/courses',
