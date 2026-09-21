@@ -8,4 +8,4 @@ export {
   useRefreshTrajectory,
   useCompleteOnboarding,
 } from './api';
-export { ChatMessage, type ChatMessageProps } from './ui/ChatMessage';
+export { ChatMessage, TutorAvatar, type ChatMessageProps } from './ui/ChatMessage';

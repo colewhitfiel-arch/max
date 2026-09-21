@@ -1,0 +1,53 @@
+.ui-tag {
+  --ui-tag-color: var(--ui-color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  min-height: 32px;
+  padding: 0 var(--ui-space-3);
+  border-radius: var(--ui-radius-full);
+  /* Нейтральный тег лежит на карточке — подложка на ступень светлее поверхности. */
+  background: var(--ui-color-surface-2);
+  color: var(--ui-tag-color);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+.ui-tag:not([data-tone='neutral']) {
+  background: color-mix(in srgb, var(--ui-tag-color) 14%, transparent);
+}
+
+.ui-tag[data-tone='info'] {
+  --ui-tag-color: var(--ui-color-primary);
+}
+
+.ui-tag[data-tone='success'] {
+  --ui-tag-color: var(--ui-color-success);
+}
+
+.ui-tag[data-tone='warning'] {
+  --ui-tag-color: var(--ui-color-warning);
+}
+
+.ui-tag[data-tone='danger'] {
+  --ui-tag-color: var(--ui-color-danger);
+}
+
+.ui-tag__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ui-tag__icon > .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-tag__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

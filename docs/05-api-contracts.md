@@ -71,7 +71,8 @@ GET /student/home        → { today: LessonDto[], upcoming: LessonDto[] /* 7 д
                              week?: { date: DateOnly, status: ATTENDED|MISSED|TODAY|UPCOMING|NO_LESSONS }[] /* пн–вс, дуга «Посещения» */,
                              streakDays?: number /* серия дней с активностью */, points?: number /* баллы */ }
 GET /student/profile     → { user: UserBrief, classLabel?, school?: { id, name }, clubs: ClubProgress[],
-                             stats: StatsBrief, interests: string[], goals: string[] }
+                             stats: StatsBrief, interests: string[], goals: string[],
+                             streakDays?: number, points?: number /* как на главной */ }
 
 GET /parent/children/:studentId/home
                          → { student: StudentBrief, today: LessonDto[], upcoming: LessonDto[],

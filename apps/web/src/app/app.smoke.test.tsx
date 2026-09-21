@@ -95,7 +95,7 @@ describe('foundation smoke (mock API)', () => {
       // Настройки → выход → снова экран входа.
       await user.click(nav().getByRole('button', { name: 'Настройки' }));
       await expectPage('Настройки');
-      await user.click(await screen.findByRole('button', { name: 'Выйти' }, WAIT));
+      await user.click(await screen.findByRole('button', { name: 'Выйти из аккаунта' }, WAIT));
       await expectPage('Вход');
       expect(useAuthStore.getState().status).toBe('anonymous');
     },
@@ -122,9 +122,10 @@ describe('foundation smoke (mock API)', () => {
       await findText('Алексей Смирнов');
       expect(router.state.location.pathname).toMatch(/^\/teacher\/groups\//);
 
-      // Ещё → Сменить роль → Родитель.
+      // Ещё → строка «Роль» открывает sheet → Родитель.
       await user.click(nav().getByRole('button', { name: 'Ещё' }));
       await expectPage('Ещё');
+      await user.click(await screen.findByRole('button', { name: /^Роль/ }, WAIT));
       await user.click(await screen.findByRole('button', { name: 'Родитель' }, WAIT));
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);

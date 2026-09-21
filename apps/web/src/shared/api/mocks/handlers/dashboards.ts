@@ -110,14 +110,18 @@ export const dashboardsHandlers = [
       ({ auth }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
+        const stats = statsBrief(student.id);
         return json(StudentProfileDtoSchema, {
           user: userBrief(auth.user.id),
           classLabel: student.classLabel,
           school: student.schoolId ? { id: demoSchool.id, name: demoSchool.name } : null,
           clubs: groupIdsOfStudent(student.id).map((g) => clubProgress(student.id, g)),
-          stats: statsBrief(student.id),
+          stats,
           interests: student.interests,
           goals: student.goals,
+          // Те же заглушки геймификации, что на главной (формулы — в modules/analytics).
+          streakDays: 3 + Math.round((stats.attendanceRate ?? 0) * 8),
+          points: stats.activityScore * 2,
         });
       },
       ['STUDENT'],

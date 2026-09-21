@@ -10,20 +10,29 @@ import {
   Button,
   CalendarClockIcon,
   Card,
+  ChatBubble,
+  ChatComposer,
   Checkbox,
   Chip,
+  ClipboardIcon,
   Divider,
   EmptyState,
   ErrorState,
   Field,
   FireIcon,
   GemIcon,
+  GlobeIcon,
+  Grid,
   HomeIcon,
   IconButton,
+  IconTile,
   Inline,
   Input,
   ListRow,
+  LogoutIcon,
+  LifebuoyIcon,
   Modal,
+  MoonIcon,
   PageHeader,
   PlusIcon,
   ProgressBar,
@@ -32,7 +41,10 @@ import {
   SegmentedControl,
   SettingsIcon,
   Select,
+  SendIcon,
   Sheet,
+  SparkIcon,
+  StarIcon,
   Skeleton,
   SkeletonText,
   Spinner,
@@ -40,7 +52,10 @@ import {
   StatTile,
   Switch,
   Tabs,
+  Tag,
   Text,
+  TrashIcon,
+  TypingIndicator,
   Textarea,
   Toast,
   ToastProvider,
@@ -133,6 +148,45 @@ function ToastDemo() {
         очистить
       </Button>
     </Row>
+  );
+}
+
+function ChatDemo() {
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const robot = (
+    <IconTile tone="info" size="sm">
+      <AiIcon />
+    </IconTile>
+  );
+  return (
+    <Stack gap={3}>
+      <ChatBubble avatar={robot} meta="12:30">
+        Привет! Я твой тьютор. Спроси, что сделать сегодня или как решить задачу.
+      </ChatBubble>
+      <ChatBubble side="end" meta="12:31">
+        Объясни цикл for в Python
+      </ChatBubble>
+      <ChatBubble avatar={robot} streaming typingLabel="Тьютор печатает…" />
+      <ChatBubble avatar={robot} streaming>
+        Цикл for перебирает элементы
+      </ChatBubble>
+      <Row label="TypingIndicator">
+        <TypingIndicator />
+      </Row>
+      <ChatComposer
+        value={draft}
+        onChange={setDraft}
+        onSubmit={() => {
+          setDraft('');
+          setBusy(true);
+          setTimeout(() => setBusy(false), 1500);
+        }}
+        busy={busy}
+        onStop={() => setBusy(false)}
+        placeholder="Напиши вопрос…"
+      />
+    </Stack>
   );
 }
 
@@ -338,6 +392,18 @@ function LayoutDemo() {
         }
       >
         <AppLayout.Content>
+          <PageHeader
+            variant="plain"
+            title="Профиль"
+            onBack={() => {}}
+            actions={
+              <IconButton aria-label="Уведомления">
+                <Text as="span" tone="muted">
+                  <BellIcon size={30} count={2} />
+                </Text>
+              </IconButton>
+            }
+          />
           <Screen>
             <Text variant="title">Экран «{active}»</Text>
             <Inline gap={3}>
@@ -470,11 +536,35 @@ function PlaygroundContent() {
             с точкой
           </Badge>
         </Row>
+        <Row label="Tag">
+          {TONES.map((tone) => (
+            <Tag key={tone} tone={tone}>
+              {tone}
+            </Tag>
+          ))}
+          <Tag tone="info" icon={<SparkIcon />}>
+            с иконкой
+          </Tag>
+        </Row>
+        <Row label="IconTile">
+          {TONES.map((tone) => (
+            <IconTile key={tone} tone={tone}>
+              <StarIcon />
+            </IconTile>
+          ))}
+          <IconTile size="sm">
+            <MoonIcon />
+          </IconTile>
+          <IconTile size="lg" tone="info">
+            <AiIcon />
+          </IconTile>
+        </Row>
         <Row label="Avatar">
           <Avatar name="Анна Петрова" size="sm" />
           <Avatar name="Анна Петрова" />
           <Avatar name="Анна Петрова" size="lg" />
           <Avatar name="Анна Петрова" size="xl" />
+          <Avatar name="Анна Петрова" size="xl" ring />
           <Avatar />
           <Avatar name="Битая ссылка" src="https://invalid.local/x.png" />
         </Row>
@@ -573,7 +663,22 @@ function PlaygroundContent() {
         </Card>
       </Section>
 
+      <Section title="ChatBubble, ChatComposer">
+        <ChatDemo />
+      </Section>
+
       <Section title="Иконки">
+        <Row label="Контурные">
+          <SendIcon />
+          <TrashIcon />
+          <MoonIcon />
+          <GlobeIcon />
+          <LifebuoyIcon />
+          <LogoutIcon />
+          <SparkIcon />
+          <StarIcon />
+          <ClipboardIcon />
+        </Row>
         <Row label="Заливочные (Figma)">
           <HomeIcon size={32} />
           <AiIcon size={32} />
@@ -627,6 +732,14 @@ function PlaygroundContent() {
       <Section title="Toast">
         <ToastDemo />
         <Toast tone="info" title="Статичный тост" description="Рендер без провайдера" />
+      </Section>
+
+      <Section title="Grid">
+        <Grid columns={2}>
+          {TONES.map((tone) => (
+            <StatTile key={tone} label={tone} value="42" tone={tone} />
+          ))}
+        </Grid>
       </Section>
 
       <Section title="Divider, Stack, Inline">

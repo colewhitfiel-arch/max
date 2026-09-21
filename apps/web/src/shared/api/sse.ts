@@ -163,8 +163,9 @@ export function useAiStream() {
         });
         if (current.status === 'streaming') update({ status: 'done' });
       } catch (cause) {
-        if (!controller.signal.aborted)
-          update({ status: 'error', error: apiErrorFromException(cause) });
+        // Прерывание пользователем — не ошибка: оставляем накопленный текст, статус done.
+        if (controller.signal.aborted) update({ status: 'done' });
+        else update({ status: 'error', error: apiErrorFromException(cause) });
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
       }

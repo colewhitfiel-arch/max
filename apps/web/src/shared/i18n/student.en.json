@@ -29,14 +29,34 @@
   },
   "tutor": {
     "title": "AI tutor",
+    "assistant": "Tutor",
+    "you": "You",
+    "greeting": "Hi, {{name}}!",
+    "greetingAnon": "Hi!",
+    "intro": "I can explain a topic, help with a task or plan your day",
+    "suggestions": {
+      "today": "What should I do today?",
+      "explain": "Explain the for loop in Python",
+      "help": "Help me with homework",
+      "plan": "How do I prepare for a lesson?"
+    },
+    "history": "Conversations",
+    "historyEmpty": "No conversations yet — start with a question below",
     "newConversation": "New conversation",
-    "empty": "No conversations yet",
-    "emptyHint": "Ask the tutor what to do today or how to solve a task",
     "untitled": "Conversation",
     "placeholder": "Type a question…",
     "send": "Send",
+    "stop": "Stop",
+    "online": "online",
+    "typing": "typing…",
     "thinking": "Tutor is typing…",
-    "noMessages": "No messages yet"
+    "noMessages": "No messages yet",
+    "emptyChat": "Ask a question — I will answer with your clubs and tasks in mind",
+    "delete": "Delete conversation",
+    "deleteConfirm": "Delete this conversation? The history cannot be restored.",
+    "deleted": "Conversation deleted",
+    "today": "Today",
+    "yesterday": "Yesterday"
   },
   "courses": {
     "title": "Courses",
@@ -84,6 +104,14 @@
     "linkCodeHint": "Show it to your parent so they can link you in their app",
     "strengths": "Strengths",
     "growth": "Growth areas",
-    "nextSteps": "Next steps"
+    "nextSteps": "Next steps",
+    "stats": "Statistics",
+    "period": "last 30 days",
+    "clubsHint": "{{count}} clubs",
+    "trajectoryUpdated": "Updated {{date}}",
+    "trajectoryQueued": "Recalculating — will update in a minute",
+    "recommendations": "Recommendations",
+    "copied": "Code copied",
+    "copyFailed": "Could not copy — write the code down manually"
   }
 }

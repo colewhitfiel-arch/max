@@ -8,8 +8,15 @@
   color: var(--ui-color-text);
 }
 
-.ui-page-header__back {
+.ui-page-header__lead,
+.ui-page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
   flex-shrink: 0;
+}
+
+.ui-page-header__back {
   margin-left: calc(-1 * var(--ui-space-1));
 }
 
@@ -20,6 +27,7 @@
 }
 
 .ui-page-header__title {
+  margin: 0;
   font-size: var(--ui-font-size-lg);
   font-weight: var(--ui-font-weight-bold);
   line-height: 1.25;
@@ -36,9 +44,31 @@
   white-space: nowrap;
 }
 
-.ui-page-header__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--ui-space-1);
-  flex-shrink: 0;
+/* plain: без плашки, боковые слоты одинаковой ширины держат заголовок по центру;
+ * отступы совпадают с контентом экрана (16px), иконки — приглушённые, как на главной. */
+.ui-page-header[data-variant='plain'] {
+  padding: var(--ui-space-3) var(--ui-space-4) 0;
+  background: transparent;
+}
+
+.ui-page-header[data-variant='plain'] .ui-page-header__lead,
+.ui-page-header[data-variant='plain'] .ui-page-header__actions {
+  min-width: var(--ui-control-height-md);
+}
+
+.ui-page-header[data-variant='plain'] .ui-page-header__lead {
+  justify-content: flex-start;
+}
+
+.ui-page-header[data-variant='plain'] .ui-page-header__actions {
+  justify-content: flex-end;
+}
+
+.ui-page-header[data-variant='plain'] .ui-page-header__back {
+  margin-left: calc(-1 * var(--ui-space-2));
+  color: var(--ui-color-text-muted);
+}
+
+.ui-page-header[data-variant='plain'] .ui-page-header__text {
+  text-align: center;
 }

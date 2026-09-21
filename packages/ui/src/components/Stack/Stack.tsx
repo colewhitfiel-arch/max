@@ -14,19 +14,22 @@ export interface StackProps extends HTMLAttributes<HTMLElement> {
   align?: FlexAlign;
   /** justify-content. */
   justify?: FlexJustify;
+  /** Занимать свободное место родителя-flex (`flex: 1`). */
+  grow?: boolean;
   /** HTML-тег. По умолчанию `div`. */
   as?: ElementType;
 }
 
 /** Вертикальная flex-раскладка с gap из токенов. */
 export const Stack = forwardRef<HTMLElement, StackProps>(function Stack(
-  { gap = 3, align, justify, as = 'div', className, ...rest },
+  { gap = 3, align, justify, grow = false, as = 'div', className, ...rest },
   ref,
 ) {
   return createElement(as, {
     ref,
     className: cx('ui-stack', className),
     'data-gap': gap,
+    'data-grow': grow || undefined,
     'data-align': align,
     'data-justify': justify,
     ...rest,

@@ -40,6 +40,12 @@ export * from './components/Spinner';
 export * from './components/EmptyState';
 export * from './components/ErrorState';
 export * from './components/Toast';
+export * from './components/IconTile';
+export * from './components/Tag';
+
+// Чат
+export * from './components/ChatBubble';
+export * from './components/ChatComposer';
 
 // Данные
 export * from './components/Card';
@@ -53,6 +59,7 @@ export * from './components/WeekArc';
 // Раскладка и текст
 export * from './components/Stack';
 export * from './components/Inline';
+export * from './components/Grid';
 export * from './components/Divider';
 export * from './components/Text';
 export * from './components/VisuallyHidden';

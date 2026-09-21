@@ -1,5 +1,8 @@
 {
-  "app": { "name": "Кружки", "loading": "Загрузка…" },
+  "app": {
+    "name": "Кружки",
+    "loading": "Загрузка…"
+  },
   "nav": {
     "home": "Главная",
     "tutor": "ИИ-тьютор",
@@ -13,7 +16,8 @@
     "groups": "Группы",
     "assignments": "Задания",
     "more": "Ещё",
-    "notifications": "Уведомления"
+    "notifications": "Уведомления",
+    "notificationsUnread": "Уведомления: {{count}} непрочитанных"
   },
   "actions": {
     "retry": "Повторить",
@@ -29,7 +33,10 @@
     "markAllRead": "Прочитать все",
     "refresh": "Обновить",
     "send": "Отправить",
-    "create": "Создать"
+    "create": "Создать",
+    "copy": "Скопировать",
+    "delete": "Удалить",
+    "done": "Готово"
   },
   "states": {
     "loading": "Загрузка…",
@@ -49,8 +56,17 @@
     "TEACHER": "Преподаватель",
     "SCHOOL_ADMIN": "Администратор школы"
   },
-  "theme": { "label": "Тема", "SYSTEM": "Как в MAX", "LIGHT": "Светлая", "DARK": "Тёмная" },
-  "locale": { "label": "Язык", "ru": "Русский", "en": "English" },
+  "theme": {
+    "label": "Тема",
+    "SYSTEM": "Как в MAX",
+    "LIGHT": "Светлая",
+    "DARK": "Тёмная"
+  },
+  "locale": {
+    "label": "Язык",
+    "ru": "Русский",
+    "en": "English"
+  },
   "account": {
     "title": "Аккаунт",
     "role": "Роль",
@@ -95,5 +111,49 @@
     "period30": "за 30 дней",
     "progress": "Прогресс"
   },
-  "dev": { "playground": "UI Playground" }
+  "dev": {
+    "playground": "UI Playground"
+  },
+  "settings": {
+    "appearance": "Внешний вид",
+    "theme": "Тема",
+    "language": "Язык",
+    "languageSheet": "Язык приложения",
+    "notifications": "Уведомления",
+    "notificationsUnavailable": "Настройки уведомлений появятся позже",
+    "notify": {
+      "lessons": {
+        "title": "Занятия",
+        "hint": "Перед началом занятия"
+      },
+      "assignments": {
+        "title": "Задания",
+        "hint": "Новые и дедлайны"
+      },
+      "grades": {
+        "title": "Оценки",
+        "hint": "Проверенные работы"
+      },
+      "attendance": {
+        "title": "Посещаемость",
+        "hint": "Отметки и пропуски"
+      },
+      "insights": {
+        "title": "Советы ИИ",
+        "hint": "Подсказки тьютора"
+      },
+      "payments": {
+        "title": "Оплата",
+        "hint": "Счета и напоминания"
+      }
+    },
+    "account": "Аккаунт",
+    "role": "Роль",
+    "roleSheet": "Сменить роль",
+    "support": "Поддержка",
+    "supportHint": "Напишем в чате MAX",
+    "openProfile": "Открыть профиль",
+    "logout": "Выйти из аккаунта",
+    "about": "Мини-приложение «Кружки» для MAX"
+  }
 }

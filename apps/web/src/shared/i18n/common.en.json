@@ -1,5 +1,8 @@
 {
-  "app": { "name": "Clubs", "loading": "Loading…" },
+  "app": {
+    "name": "Clubs",
+    "loading": "Loading…"
+  },
   "nav": {
     "home": "Home",
     "tutor": "AI tutor",
@@ -13,7 +16,8 @@
     "groups": "Groups",
     "assignments": "Assignments",
     "more": "More",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications: {{count}} unread"
   },
   "actions": {
     "retry": "Retry",
@@ -29,7 +33,10 @@
     "markAllRead": "Mark all read",
     "refresh": "Refresh",
     "send": "Send",
-    "create": "Create"
+    "create": "Create",
+    "copy": "Copy",
+    "delete": "Delete",
+    "done": "Done"
   },
   "states": {
     "loading": "Loading…",
@@ -49,8 +56,17 @@
     "TEACHER": "Teacher",
     "SCHOOL_ADMIN": "School admin"
   },
-  "theme": { "label": "Theme", "SYSTEM": "As in MAX", "LIGHT": "Light", "DARK": "Dark" },
-  "locale": { "label": "Language", "ru": "Русский", "en": "English" },
+  "theme": {
+    "label": "Theme",
+    "SYSTEM": "As in MAX",
+    "LIGHT": "Light",
+    "DARK": "Dark"
+  },
+  "locale": {
+    "label": "Language",
+    "ru": "Русский",
+    "en": "English"
+  },
   "account": {
     "title": "Account",
     "role": "Role",
@@ -62,7 +78,12 @@
     "cancelled": "Cancelled",
     "done": "Done",
     "room": "room",
-    "attendance": { "PRESENT": "Present", "ABSENT": "Absent", "LATE": "Late", "EXCUSED": "Excused" }
+    "attendance": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "LATE": "Late",
+      "EXCUSED": "Excused"
+    }
   },
   "assignment": {
     "due": "Due",
@@ -90,5 +111,49 @@
     "period30": "last 30 days",
     "progress": "Progress"
   },
-  "dev": { "playground": "UI Playground" }
+  "dev": {
+    "playground": "UI Playground"
+  },
+  "settings": {
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "language": "Language",
+    "languageSheet": "App language",
+    "notifications": "Notifications",
+    "notificationsUnavailable": "Notification settings are coming soon",
+    "notify": {
+      "lessons": {
+        "title": "Lessons",
+        "hint": "Before a lesson starts"
+      },
+      "assignments": {
+        "title": "Assignments",
+        "hint": "New and deadlines"
+      },
+      "grades": {
+        "title": "Grades",
+        "hint": "Graded work"
+      },
+      "attendance": {
+        "title": "Attendance",
+        "hint": "Marks and absences"
+      },
+      "insights": {
+        "title": "AI tips",
+        "hint": "Hints from the tutor"
+      },
+      "payments": {
+        "title": "Payments",
+        "hint": "Invoices and reminders"
+      }
+    },
+    "account": "Account",
+    "role": "Role",
+    "roleSheet": "Switch role",
+    "support": "Support",
+    "supportHint": "Chat with us in MAX",
+    "openProfile": "Open profile",
+    "logout": "Log out",
+    "about": "“Clubs” mini app for MAX"
+  }
 }

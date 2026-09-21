@@ -28,6 +28,14 @@
   --ui-avatar-size: 80px;
 }
 
+/* Кольцо: зазор в цвет фона + обод primary + мягкое свечение. */
+.ui-avatar[data-ring] {
+  box-shadow:
+    0 0 0 3px var(--ui-color-bg),
+    0 0 0 6px var(--ui-color-primary),
+    0 0 28px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
+}
+
 .ui-avatar__image {
   width: 100%;
   height: 100%;
