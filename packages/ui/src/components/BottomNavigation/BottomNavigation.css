@@ -66,7 +66,8 @@
   outline-offset: 2px;
 }
 
-/* Акцентный пункт: круг primary, иконка белая; активность подсвечивается кольцом. */
+/* Акцентный пункт: круг primary, иконка белая; активность — тёмная обводка внутри круга
+ * (#0d0d0d, как в макете, не зависит от темы). */
 .ui-bottom-nav__item[data-prominent] {
   width: var(--ui-bottom-nav-prominent-size);
   height: var(--ui-bottom-nav-prominent-size);
@@ -75,7 +76,7 @@
 }
 
 .ui-bottom-nav__item[data-prominent][data-active] {
-  box-shadow: 0 0 0 3px var(--ui-color-primary-contrast) inset;
+  box-shadow: 0 0 0 3px #0d0d0d inset;
 }
 
 .ui-bottom-nav__icon {
