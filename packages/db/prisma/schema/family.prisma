@@ -1,0 +1,17 @@
+// family: привязка родитель ↔ ребёнок. Владелец — B8.
+
+model ParentStudentLink {
+  parentId    String     @map("parent_id") @db.Uuid
+  studentId   String     @map("student_id") @db.Uuid
+  status      LinkStatus @default(ACTIVE)
+  requestedAt DateTime   @default(now()) @map("requested_at") @db.Timestamptz
+  confirmedAt DateTime?  @map("confirmed_at") @db.Timestamptz
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  parent  ParentProfile  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@index([studentId])
+  @@map("parent_student_links")
+}

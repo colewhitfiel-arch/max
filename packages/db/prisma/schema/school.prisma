@@ -1,0 +1,18 @@
+// school: школа и её политики. Владелец — B1/school.
+
+model School {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  name       String
+  timezone   String   @default("Europe/Moscow")
+  inviteCode String   @unique @map("invite_code")
+  /// { showTeacherContacts: boolean }
+  settings   Json     @default("{\"showTeacherContacts\": false}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  students StudentProfile[]
+  teachers TeacherProfile[]
+  clubs    Club[]
+
+  @@map("schools")
+}

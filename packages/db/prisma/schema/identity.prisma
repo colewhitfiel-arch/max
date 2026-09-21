@@ -1,0 +1,105 @@
+// identity: роли, профили, refresh-токены. Владелец схемы — B1 (только добавление полей).
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+model StudentProfile {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  userId                String    @unique @map("user_id") @db.Uuid
+  schoolId              String?   @map("school_id") @db.Uuid
+  classLabel            String?   @map("class_label")
+  birthYear             Int?      @map("birth_year")
+  interests             String[]  @default([])
+  goals                 String[]  @default([])
+  weeklyHours           Int?      @map("weekly_hours")
+  preferredFormats      String[]  @default([]) @map("preferred_formats")
+  aiProfileSummary      String?   @map("ai_profile_summary")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at") @db.Timestamptz
+  linkCode              String    @unique @map("link_code")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School? @relation(fields: [schoolId], references: [id])
+
+  enrollments    Enrollment[]
+  attendance     Attendance[]
+  blockProgress  BlockProgress[]
+  courseProgress CourseProgress[]
+  submissions    Submission[]
+  activityEvents ActivityEvent[]
+  statsDaily     StudentStatsDaily[]
+  conversations  AiConversation[]
+  insights       AiInsight[]
+  trajectories   Trajectory[]
+  parentLinks    ParentStudentLink[]
+  payments       Payment[]
+
+  @@index([schoolId])
+  @@map("student_profiles")
+}
+
+model ParentProfile {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  studentLinks ParentStudentLink[]
+  payments     Payment[]
+
+  @@map("parent_profiles")
+}
+
+model TeacherProfile {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  qualification   String?
+  bio             String?
+  photoUrl        String?  @map("photo_url")
+  contactPhone    String?  @map("contact_phone")
+  contactEmail    String?  @map("contact_email")
+  contactsVisible Boolean  @default(false) @map("contacts_visible")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id])
+
+  groups            Group[]
+  courses           Course[]
+  assignments       Assignment[]
+  markedAttendance  Attendance[]  @relation("AttendanceMarkedBy")
+  gradedSubmissions Submission[]  @relation("SubmissionGradedBy")
+  generationJobs    CourseGenerationJob[]
+
+  @@index([schoolId])
+  @@map("teacher_profiles")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  /// Активная роль сессии — восстанавливается при refresh
+  activeRole Role?     @map("active_role")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

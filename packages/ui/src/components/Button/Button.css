@@ -1,0 +1,101 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-2);
+  min-height: var(--ui-control-height-md);
+  padding: 0 var(--ui-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ui-duration-fast) var(--ui-easing),
+    border-color var(--ui-duration-fast) var(--ui-easing),
+    opacity var(--ui-duration-fast) var(--ui-easing),
+    transform var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-button[data-size='sm'] {
+  min-height: var(--ui-control-height-sm);
+  padding: 0 var(--ui-space-3);
+  font-size: var(--ui-font-size-sm);
+  border-radius: var(--ui-radius-sm);
+}
+
+.ui-button[data-size='lg'] {
+  min-height: var(--ui-control-height-lg);
+  padding: 0 var(--ui-space-5);
+}
+
+.ui-button[data-variant='secondary'] {
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  border-color: var(--ui-color-border);
+}
+
+.ui-button[data-variant='ghost'] {
+  background: transparent;
+  color: var(--ui-color-primary);
+}
+
+.ui-button[data-variant='danger'] {
+  background: var(--ui-color-danger);
+  color: #ffffff;
+}
+
+.ui-button[data-full-width] {
+  width: 100%;
+}
+
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-button[data-loading] {
+  cursor: progress;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+.ui-button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .ui-button:not(:disabled):hover {
+    filter: brightness(0.96);
+  }
+
+  .ui-button[data-variant='ghost']:not(:disabled):hover {
+    background: var(--ui-color-surface-2);
+    filter: none;
+  }
+}
+
+.ui-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-button__icon > .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.ui-button__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

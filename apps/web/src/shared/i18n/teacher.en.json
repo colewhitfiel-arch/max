@@ -1,0 +1,80 @@
+{
+  "home": {
+    "title": "Home",
+    "today": "Today",
+    "upcoming": "Upcoming lessons",
+    "groups": "Groups",
+    "toGrade": "To grade",
+    "events": "Events",
+    "noLessonsToday": "No lessons today",
+    "nothingToGrade": "Everything is graded",
+    "pending": "{{count}} pending",
+    "stats": {
+      "groups": "Groups",
+      "students": "Students",
+      "attendance": "Attendance",
+      "completion": "Completion",
+      "needsAttention": "Need attention"
+    }
+  },
+  "groups": {
+    "title": "Groups",
+    "empty": "No groups yet",
+    "students": "{{count}} students",
+    "needsAttention": "{{count}} need attention",
+    "nextLesson": "Next lesson",
+    "schedule": "Schedule",
+    "studentsList": "Students",
+    "lessons": "Lessons",
+    "noLessons": "No lessons in this period",
+    "ok": "all good"
+  },
+  "students": {
+    "title": "Student",
+    "groups": "Groups",
+    "history": "Submission history",
+    "attendanceHistory": "Attendance",
+    "aiSummary": "AI summary",
+    "needsAttention": "Needs attention",
+    "class": "Class"
+  },
+  "courses": {
+    "title": "Courses",
+    "empty": "No courses yet",
+    "emptyHint": "Create a course manually or generate one from materials",
+    "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "ARCHIVED": "Archived" },
+    "counts": "{{modules}} modules · {{blocks}} blocks",
+    "avgProgress": "Average progress",
+    "modules": "Modules",
+    "create": "New course",
+    "createTitle": "Course title",
+    "group": "Group",
+    "created": "Course created"
+  },
+  "courseBuilder": {
+    "title": "Course builder",
+    "description": "Upload materials, AI generates the structure, you review the draft. Coming soon.",
+    "jobs": "Generation jobs",
+    "empty": "No generation jobs yet",
+    "stage": {
+      "QUEUED": "Queued",
+      "EXTRACTING": "Extracting text",
+      "OUTLINING": "Outlining",
+      "GENERATING": "Generating",
+      "ASSEMBLING": "Assembling",
+      "READY": "Ready for review",
+      "ACCEPTED": "Accepted",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "assignments": {
+    "title": "Assignments",
+    "empty": "No assignments yet",
+    "filter": { "open": "Open", "closed": "Closed" },
+    "submitted": "{{submitted}} of {{students}} submitted",
+    "graded": "{{count}} graded",
+    "draft": "Draft"
+  },
+  "more": { "title": "More", "school": "School" }
+}

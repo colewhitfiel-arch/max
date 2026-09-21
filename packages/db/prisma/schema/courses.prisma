@@ -1,0 +1,102 @@
+// courses: структура курса, прогресс. Владелец — B4.
+
+model Course {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  groupId         String       @map("group_id") @db.Uuid
+  teacherId       String       @map("teacher_id") @db.Uuid
+  title           String
+  description     String?
+  status          CourseStatus @default(DRAFT)
+  version         Int          @default(1)
+  publishedAt     DateTime?    @map("published_at") @db.Timestamptz
+  generationJobId String?      @unique @map("generation_job_id") @db.Uuid
+  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  group         Group                @relation(fields: [groupId], references: [id])
+  teacher       TeacherProfile       @relation(fields: [teacherId], references: [id])
+  generationJob CourseGenerationJob? @relation(fields: [generationJobId], references: [id])
+
+  modules     CourseModule[]
+  progress    CourseProgress[]
+  assignments Assignment[]
+
+  @@index([groupId, status])
+  @@index([teacherId])
+  @@map("courses")
+}
+
+model CourseModule {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
+  order     Int
+  title     String
+  summary   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  course Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  blocks CourseBlock[]
+
+  @@index([courseId, order])
+  @@map("course_modules")
+}
+
+model CourseBlock {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  moduleId         String    @map("module_id") @db.Uuid
+  order            Int
+  type             BlockType
+  title            String
+  /// Схема зависит от type — packages/contracts/src/blocks
+  content          Json
+  estimatedMinutes Int?      @map("estimated_minutes")
+  isRequired       Boolean   @default(true) @map("is_required")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  module CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  progress   BlockProgress[]
+  assignment Assignment?
+
+  @@index([moduleId, order])
+  @@map("course_blocks")
+}
+
+model BlockProgress {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  studentId   String              @map("student_id") @db.Uuid
+  blockId     String              @map("block_id") @db.Uuid
+  status      BlockProgressStatus @default(OPENED)
+  openedAt    DateTime            @default(now()) @map("opened_at") @db.Timestamptz
+  completedAt DateTime?           @map("completed_at") @db.Timestamptz
+  attempts    Int                 @default(0)
+  score       Int?
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id])
+  block   CourseBlock    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, blockId])
+  @@map("block_progress")
+}
+
+/// Read-model: пересчитывается модулем courses при завершении блока.
+model CourseProgress {
+  studentId       String    @map("student_id") @db.Uuid
+  courseId        String    @map("course_id") @db.Uuid
+  completedBlocks Int       @default(0) @map("completed_blocks")
+  totalBlocks     Int       @default(0) @map("total_blocks")
+  percent         Int       @default(0)
+  lastActivityAt  DateTime? @map("last_activity_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id])
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, courseId])
+  @@map("course_progress")
+}

@@ -1,0 +1,24 @@
+// files: загруженные файлы и результат извлечения текста. Владелец — B7.
+
+model File {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  ownerUserId      String      @map("owner_user_id") @db.Uuid
+  purpose          FilePurpose
+  fileName         String      @map("file_name")
+  mime             String
+  sizeBytes        Int         @map("size_bytes")
+  storageKey       String      @unique @map("storage_key")
+  confirmedAt      DateTime?   @map("confirmed_at") @db.Timestamptz
+  status           FileStatus  @default(UPLOADED)
+  extractedTextKey String?     @map("extracted_text_key")
+  /// { pages?: number, headings?: string[] }
+  extractMeta      Json?       @map("extract_meta")
+  error            String?
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner User @relation(fields: [ownerUserId], references: [id])
+
+  @@index([ownerUserId, purpose])
+  @@map("files")
+}

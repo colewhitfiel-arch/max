@@ -1,0 +1,62 @@
+{
+  "name": "max-edu",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Мини-приложение дополнительного образования в MAX: ученик, родитель, преподаватель",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/ensure-env.mjs && pnpm install && pnpm db:up && pnpm db:migrate && pnpm db:seed",
+    "env:init": "node scripts/ensure-env.mjs",
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter @edu/web dev",
+    "dev:api": "pnpm --filter @edu/api dev",
+    "dev:worker": "pnpm --filter @edu/api dev:worker",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ownership:check": "node scripts/check-ownership.mjs",
+    "db:up": "pnpm --filter @edu/db db:up",
+    "db:down": "pnpm --filter @edu/db db:down",
+    "db:generate": "pnpm --filter @edu/db generate",
+    "db:migrate": "pnpm --filter @edu/db migrate:dev",
+    "db:deploy": "pnpm --filter @edu/db migrate:deploy",
+    "db:seed": "turbo run seed --filter=@edu/db",
+    "db:reset": "pnpm --filter @edu/db reset",
+    "db:studio": "pnpm --filter @edu/db studio",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64",
+      "@embedded-postgres/linux-arm64",
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/windows-x64",
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "@swc/core",
+      "embedded-postgres",
+      "esbuild",
+      "msw",
+      "prisma",
+      "unrs-resolver"
+    ]
+  },
+  "devDependencies": {
+    "@edu/config": "workspace:*",
+    "eslint": "^9.30.0",
+    "prettier": "^3.6.0",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.5.0",
+    "typescript": "~5.9.3"
+  }
+}

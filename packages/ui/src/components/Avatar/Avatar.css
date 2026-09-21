@@ -1,0 +1,40 @@
+.ui-avatar {
+  --ui-avatar-size: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ui-avatar-size);
+  height: var(--ui-avatar-size);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-surface-2);
+  color: var(--ui-color-text-muted);
+  overflow: hidden;
+  font-weight: var(--ui-font-weight-medium);
+  font-size: calc(var(--ui-avatar-size) * 0.4);
+  line-height: 1;
+  user-select: none;
+}
+
+.ui-avatar[data-size='sm'] {
+  --ui-avatar-size: 28px;
+}
+
+.ui-avatar[data-size='lg'] {
+  --ui-avatar-size: 56px;
+}
+
+.ui-avatar[data-size='xl'] {
+  --ui-avatar-size: 80px;
+}
+
+.ui-avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ui-avatar__fallback {
+  width: 60%;
+  height: 60%;
+}

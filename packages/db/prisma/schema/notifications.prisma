@@ -1,0 +1,34 @@
+// notifications: уведомления и настройки. Владелец — B9.
+
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String?
+  /// { entityType?, entityId?, route? }
+  payload   Json?
+  readAt    DateTime?        @map("read_at") @db.Timestamptz
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model NotificationSettings {
+  userId      String   @id @map("user_id") @db.Uuid
+  lessons     Boolean  @default(true)
+  assignments Boolean  @default(true)
+  grades      Boolean  @default(true)
+  attendance  Boolean  @default(true)
+  insights    Boolean  @default(true)
+  payments    Boolean  @default(true)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}

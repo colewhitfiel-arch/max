@@ -1,0 +1,34 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# generated
+packages/db/generated/
+apps/web/public/mockServiceWorker.js
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# local data (embedded postgres, local storage, logs)
+.data/
+*.log
+
+# editors / os
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# tests
+playwright-report/
+test-results/

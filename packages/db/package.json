@@ -1,0 +1,62 @@
+{
+  "name": "@edu/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma-схема, миграции, клиент и seed. Локальный PostgreSQL без Docker — scripts/pg.mjs",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "dist",
+    "generated",
+    "prisma"
+  ],
+  "prisma": {
+    "schema": "prisma/schema",
+    "seed": "tsx src/seed/index.ts"
+  },
+  "scripts": {
+    "db:up": "node scripts/pg.mjs up",
+    "db:down": "node scripts/pg.mjs down",
+    "db:status": "node scripts/pg.mjs status",
+    "generate": "prisma generate",
+    "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "migrate:status": "dotenv -e ../../.env -- prisma migrate status",
+    "seed": "dotenv -e ../../.env -- prisma db seed",
+    "reset": "dotenv -e ../../.env -- prisma migrate reset --force",
+    "studio": "dotenv -e ../../.env -- prisma studio",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "dotenv -e ../../.env -- vitest run",
+    "clean": "rimraf dist generated"
+  },
+  "dependencies": {
+    "@edu/contracts": "workspace:*",
+    "@prisma/client": "~6.19.0"
+  },
+  "devDependencies": {
+    "@edu/config": "workspace:*",
+    "@types/node": "^22.15.0",
+    "dotenv-cli": "^8.0.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "eslint": "^9.30.0",
+    "prisma": "~6.19.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

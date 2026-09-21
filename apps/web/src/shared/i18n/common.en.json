@@ -1,0 +1,94 @@
+{
+  "app": { "name": "Clubs", "loading": "Loading…" },
+  "nav": {
+    "home": "Home",
+    "tutor": "AI tutor",
+    "courses": "Courses",
+    "settings": "Settings",
+    "profile": "Profile",
+    "children": "Children",
+    "analytics": "Analytics",
+    "clubs": "Clubs",
+    "payments": "Payments",
+    "groups": "Groups",
+    "assignments": "Assignments",
+    "more": "More",
+    "notifications": "Notifications"
+  },
+  "actions": {
+    "retry": "Retry",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "open": "Open",
+    "logout": "Log out",
+    "switchRole": "Switch role",
+    "addRole": "Add role",
+    "goHome": "Go home",
+    "markRead": "Mark read",
+    "markAllRead": "Mark all read",
+    "refresh": "Refresh",
+    "send": "Send",
+    "create": "Create"
+  },
+  "states": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "error": "Failed to load",
+    "inDevelopment": "Coming soon",
+    "inDevelopmentHint": "This section is not ready on the server yet",
+    "notFound": "Page not found",
+    "notFoundHint": "The link may be outdated",
+    "forbidden": "Access denied",
+    "forbiddenHint": "Your role has no access to this section",
+    "aiPending": "AI comment is being prepared"
+  },
+  "roles": {
+    "STUDENT": "Student",
+    "PARENT": "Parent",
+    "TEACHER": "Teacher",
+    "SCHOOL_ADMIN": "School admin"
+  },
+  "theme": { "label": "Theme", "SYSTEM": "As in MAX", "LIGHT": "Light", "DARK": "Dark" },
+  "locale": { "label": "Language", "ru": "Русский", "en": "English" },
+  "account": {
+    "title": "Account",
+    "role": "Role",
+    "support": "Contact support",
+    "settingsSaved": "Settings saved",
+    "settingsError": "Failed to save settings"
+  },
+  "lesson": {
+    "cancelled": "Cancelled",
+    "done": "Done",
+    "room": "room",
+    "attendance": { "PRESENT": "Present", "ABSENT": "Absent", "LATE": "Late", "EXCUSED": "Excused" }
+  },
+  "assignment": {
+    "due": "Due",
+    "noDue": "No deadline",
+    "status": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "SUBMITTED": "Submitted",
+      "GRADED": "Graded",
+      "RETURNED": "Returned"
+    },
+    "type": {
+      "HOMEWORK": "Homework",
+      "QUIZ": "Quiz",
+      "QUESTION": "Question",
+      "PRACTICE": "Practice"
+    }
+  },
+  "stats": {
+    "attendance": "Attendance",
+    "completion": "Completion",
+    "activity": "Activity",
+    "absences": "Absences",
+    "late": "Late",
+    "period30": "last 30 days",
+    "progress": "Progress"
+  },
+  "dev": { "playground": "UI Playground" }
+}

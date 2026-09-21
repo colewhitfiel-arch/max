@@ -1,0 +1,246 @@
+// Базовый файл схемы: datasource, generator, все enum'ы, User, AuditLog.
+// Владелец — db (docs/10-ownership.md §10.3). Enum'ы должны совпадать 1:1 с
+// packages/contracts/src/enums.ts и docs/04-data-model.md §4.1.
+// Остальные модели — в файлах по модулям в этой же папке (multi-file schema).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enum'ы
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  PARENT
+  TEACHER
+  SCHOOL_ADMIN
+}
+
+enum Locale {
+  ru
+  en
+}
+
+enum Theme {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum LinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  LEFT
+}
+
+enum LessonStatus {
+  PLANNED
+  DONE
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BlockType {
+  TEXT
+  VIDEO
+  IMAGE
+  FILE
+  QUIZ
+  QUESTION
+  PRACTICE
+  HOMEWORK
+  INTERACTIVE
+}
+
+enum AssignmentType {
+  HOMEWORK
+  QUIZ
+  QUESTION
+  PRACTICE
+}
+
+enum SubmissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  RETURNED
+}
+
+enum BlockProgressStatus {
+  OPENED
+  COMPLETED
+}
+
+enum FileStatus {
+  UPLOADED
+  EXTRACTING
+  EXTRACTED
+  FAILED
+}
+
+enum FilePurpose {
+  MATERIAL
+  SUBMISSION
+  BLOCK_MEDIA
+  AVATAR
+}
+
+enum GenerationStage {
+  QUEUED
+  EXTRACTING
+  OUTLINING
+  GENERATING
+  ASSEMBLING
+  READY
+  ACCEPTED
+  FAILED
+  CANCELLED
+}
+
+enum ConversationKind {
+  ONBOARDING
+  TUTOR
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum InsightKind {
+  STUDENT_HOME_COMMENT
+  PARENT_SUMMARY
+  TEACHER_STUDENT_SUMMARY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum BillingPeriod {
+  MONTH
+}
+
+enum NotificationType {
+  LESSON_SOON
+  LESSON_CANCELLED
+  ASSIGNMENT_NEW
+  ASSIGNMENT_DUE
+  ASSIGNMENT_GRADED
+  ATTENDANCE_ABSENT
+  SUBMISSION_RECEIVED
+  COURSE_PUBLISHED
+  PAYMENT_DUE
+  PAYMENT_SUCCEEDED
+  GENERATION_DONE
+  INSIGHT_READY
+}
+
+enum ActivityType {
+  APP_OPENED
+  BLOCK_OPENED
+  BLOCK_COMPLETED
+  SUBMISSION_SUBMITTED
+  LESSON_ATTENDED
+  TUTOR_MESSAGE
+}
+
+enum TicketStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+}
+
+enum ClubCategory {
+  ROBOTICS
+  PROGRAMMING
+  LANGUAGES
+  CHESS
+  MATH
+  ART
+  MUSIC
+  SPORT
+  SCIENCE
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// User, AuditLog
+// ---------------------------------------------------------------------------
+
+model User {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  maxUserId  String    @unique @map("max_user_id")
+  firstName  String    @map("first_name")
+  lastName   String?   @map("last_name")
+  nickname   String?
+  avatarUrl  String?   @map("avatar_url")
+  locale     Locale    @default(ru)
+  theme      Theme     @default(SYSTEM)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  roles                UserRole[]
+  student              StudentProfile?
+  parent               ParentProfile?
+  teacher              TeacherProfile?
+  refreshTokens        RefreshToken[]
+  files                File[]
+  conversations        AiConversation[]
+  activityEvents       ActivityEvent[]
+  notifications        Notification[]
+  notificationSettings NotificationSettings?
+  supportTickets       SupportTicket[]
+  auditLogs            AuditLog[]
+
+  @@map("users")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  diff        Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}

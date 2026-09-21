@@ -1,0 +1,34 @@
+.ui-skeleton {
+  display: block;
+  width: 100%;
+  height: 16px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface-2);
+  animation: ui-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.ui-skeleton[data-round] {
+  border-radius: var(--ui-radius-full);
+}
+
+.ui-skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+
+@keyframes ui-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton {
+    animation: none;
+  }
+}

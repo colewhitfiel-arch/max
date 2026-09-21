@@ -1,0 +1,56 @@
+/**
+ * Адаптер MAX Bridge (docs/02 §2.8). Единственная точка контакта с мессенджером:
+ * launch-параметры, тема, viewport, storage, haptic, ссылки. Вне MAX — mock-реализация.
+ */
+export type MaxBridgeMode = 'mock' | 'real';
+export type MaxTheme = 'light' | 'dark';
+export type HapticKind = 'light' | 'medium' | 'success' | 'error';
+export type MaxBridgeEvent = 'theme' | 'viewport' | 'back';
+
+export interface MaxUser {
+  id: string;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+  avatarUrl?: string;
+  locale?: string;
+}
+
+export interface MaxViewport {
+  width: number;
+  height: number;
+  safeArea: { top: number; bottom: number };
+}
+
+export interface MaxStorage {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  remove(key: string): Promise<void>;
+}
+
+export type MaxEventHandler<E extends MaxBridgeEvent> = E extends 'theme'
+  ? (theme: MaxTheme) => void
+  : E extends 'viewport'
+    ? (viewport: MaxViewport) => void
+    : () => void;
+
+export interface MaxBridge {
+  readonly mode: MaxBridgeMode;
+  /** Инициализация SDK; вызывается один раз до рендера. */
+  init(): Promise<void>;
+  /** true — приложение открыто внутри MAX (не в обычном браузере). */
+  isInsideMax(): boolean;
+  /** Сырые launch-параметры для `POST /auth/max`; null — их нет. */
+  getLaunchParams(): string | null;
+  getUser(): MaxUser | null;
+  getTheme(): MaxTheme;
+  getViewport(): MaxViewport;
+  /** Сообщить MAX, что приложение готово (скрыть сплэш мессенджера). */
+  ready(): void;
+  close(): void;
+  openLink(url: string): void;
+  haptic(kind: HapticKind): void;
+  storage: MaxStorage;
+  /** Подписка на события; возвращает функцию отписки. */
+  on<E extends MaxBridgeEvent>(event: E, handler: MaxEventHandler<E>): () => void;
+}

@@ -1,0 +1,99 @@
+{
+  "app": { "name": "Кружки", "loading": "Загрузка…" },
+  "nav": {
+    "home": "Главная",
+    "tutor": "ИИ-тьютор",
+    "courses": "Курсы",
+    "settings": "Настройки",
+    "profile": "Профиль",
+    "children": "Дети",
+    "analytics": "Аналитика",
+    "clubs": "Кружки",
+    "payments": "Оплата",
+    "groups": "Группы",
+    "assignments": "Задания",
+    "more": "Ещё",
+    "notifications": "Уведомления"
+  },
+  "actions": {
+    "retry": "Повторить",
+    "back": "Назад",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "open": "Открыть",
+    "logout": "Выйти",
+    "switchRole": "Сменить роль",
+    "addRole": "Добавить роль",
+    "goHome": "На главную",
+    "markRead": "Прочитано",
+    "markAllRead": "Прочитать все",
+    "refresh": "Обновить",
+    "send": "Отправить",
+    "create": "Создать"
+  },
+  "states": {
+    "loading": "Загрузка…",
+    "empty": "Пока пусто",
+    "error": "Не удалось загрузить",
+    "inDevelopment": "Раздел в разработке",
+    "inDevelopmentHint": "Эта часть приложения ещё не готова на сервере",
+    "notFound": "Страница не найдена",
+    "notFoundHint": "Возможно, ссылка устарела",
+    "forbidden": "Нет доступа",
+    "forbiddenHint": "У твоей роли нет прав на этот раздел",
+    "aiPending": "ИИ-комментарий готовится"
+  },
+  "roles": {
+    "STUDENT": "Ученик",
+    "PARENT": "Родитель",
+    "TEACHER": "Преподаватель",
+    "SCHOOL_ADMIN": "Администратор школы"
+  },
+  "theme": { "label": "Тема", "SYSTEM": "Как в MAX", "LIGHT": "Светлая", "DARK": "Тёмная" },
+  "locale": { "label": "Язык", "ru": "Русский", "en": "English" },
+  "account": {
+    "title": "Аккаунт",
+    "role": "Роль",
+    "support": "Написать в поддержку",
+    "settingsSaved": "Настройки сохранены",
+    "settingsError": "Не удалось сохранить настройки"
+  },
+  "lesson": {
+    "cancelled": "Отменено",
+    "done": "Прошло",
+    "room": "каб.",
+    "attendance": {
+      "PRESENT": "Был",
+      "ABSENT": "Пропуск",
+      "LATE": "Опоздал",
+      "EXCUSED": "Уважительная"
+    }
+  },
+  "assignment": {
+    "due": "Срок",
+    "noDue": "Без срока",
+    "status": {
+      "NOT_STARTED": "Не начато",
+      "IN_PROGRESS": "В работе",
+      "SUBMITTED": "Сдано",
+      "GRADED": "Проверено",
+      "RETURNED": "На доработку"
+    },
+    "type": {
+      "HOMEWORK": "Домашнее задание",
+      "QUIZ": "Тест",
+      "QUESTION": "Вопрос",
+      "PRACTICE": "Практика"
+    }
+  },
+  "stats": {
+    "attendance": "Посещаемость",
+    "completion": "Выполнение",
+    "activity": "Активность",
+    "absences": "Пропуски",
+    "late": "Опоздания",
+    "period30": "за 30 дней",
+    "progress": "Прогресс"
+  },
+  "dev": { "playground": "UI Playground" }
+}

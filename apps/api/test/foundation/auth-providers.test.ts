@@ -1,0 +1,72 @@
+import { createHmac } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import { DevAuthProvider } from '../../src/common/auth/providers/dev-auth.provider';
+import { MaxAuthProvider } from '../../src/common/auth/providers/max-auth.provider';
+import { testEnv } from '../helpers/env';
+
+describe('DevAuthProvider', () => {
+  const dev = new DevAuthProvider();
+
+  it('знает демо-пользователей из фикстур', async () => {
+    const identity = await dev.verify({ kind: 'dev', maxUserId: 'max-teacher-1' });
+    expect(identity.firstName).toBe('Мария');
+  });
+
+  it('создаёт личность для неизвестного id', async () => {
+    const identity = await dev.verify({ kind: 'dev', maxUserId: 'someone', firstName: 'Тест' });
+    expect(identity).toMatchObject({ maxUserId: 'someone', firstName: 'Тест' });
+  });
+
+  it('не принимает launch-параметры MAX', async () => {
+    await expect(dev.verify({ kind: 'max', launchParams: '' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
+describe('MaxAuthProvider (схема подписи — проверить по dev.max.ru)', () => {
+  const secret = 'max-app-secret';
+  const max = new MaxAuthProvider(testEnv({ AUTH_PROVIDER: 'max', MAX_APP_SECRET: secret }));
+
+  function sign(params: Record<string, string>): string {
+    const dataCheckString = Object.entries(params)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    const key = createHmac('sha256', 'WebAppData').update(secret).digest();
+    const hash = createHmac('sha256', key).update(dataCheckString).digest('hex');
+    return new URLSearchParams({ ...params, hash }).toString();
+  }
+
+  const user = JSON.stringify({
+    id: 42,
+    first_name: 'Иван',
+    last_name: 'Петров',
+    username: 'ivan',
+  });
+
+  it('принимает валидную подпись', async () => {
+    const identity = await max.verify({
+      kind: 'max',
+      launchParams: sign({ user, auth_date: String(Math.floor(Date.now() / 1000)) }),
+    });
+    expect(identity).toMatchObject({ maxUserId: '42', firstName: 'Иван', nickname: 'ivan' });
+  });
+
+  it('отклоняет подделанную подпись', async () => {
+    const forged = sign({ user, auth_date: String(Math.floor(Date.now() / 1000)) }).replace(
+      /hash=\w{4}/,
+      'hash=dead',
+    );
+    await expect(max.verify({ kind: 'max', launchParams: forged })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+
+  it('отклоняет устаревшие параметры', async () => {
+    const old = sign({ user, auth_date: String(Math.floor(Date.now() / 1000) - 3 * 86400) });
+    await expect(max.verify({ kind: 'max', launchParams: old })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});

@@ -1,0 +1,73 @@
+// assignments: задания, сдачи, попытки. Владелец — B5.
+
+model Assignment {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  groupId         String         @map("group_id") @db.Uuid
+  teacherId       String         @map("teacher_id") @db.Uuid
+  courseId        String?        @map("course_id") @db.Uuid
+  blockId         String?        @unique @map("block_id") @db.Uuid
+  title           String
+  description     String?
+  type            AssignmentType @default(HOMEWORK)
+  dueAt           DateTime?      @map("due_at") @db.Timestamptz
+  maxScore        Int            @default(100) @map("max_score")
+  allowedAttempts Int?           @map("allowed_attempts")
+  publishedAt     DateTime?      @map("published_at") @db.Timestamptz
+  deletedAt       DateTime?      @map("deleted_at") @db.Timestamptz
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  group   Group          @relation(fields: [groupId], references: [id])
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id])
+  course  Course?        @relation(fields: [courseId], references: [id])
+  block   CourseBlock?   @relation(fields: [blockId], references: [id])
+
+  submissions Submission[]
+
+  @@index([groupId, dueAt])
+  @@index([courseId])
+  @@map("assignments")
+}
+
+model Submission {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  assignmentId  String           @map("assignment_id") @db.Uuid
+  studentId     String           @map("student_id") @db.Uuid
+  status        SubmissionStatus @default(NOT_STARTED)
+  attemptsCount Int              @default(0) @map("attempts_count")
+  score         Int?
+  answers       Json?
+  fileIds       String[]         @default([]) @map("file_ids") @db.Uuid
+  text          String?
+  submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz
+  gradedAt      DateTime?        @map("graded_at") @db.Timestamptz
+  gradedById    String?          @map("graded_by_id") @db.Uuid
+  feedback      String?
+  isLate        Boolean          @default(false) @map("is_late")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  assignment Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    StudentProfile  @relation(fields: [studentId], references: [id])
+  gradedBy   TeacherProfile? @relation("SubmissionGradedBy", fields: [gradedById], references: [id])
+
+  attempts SubmissionAttempt[]
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId, submittedAt])
+  @@map("submissions")
+}
+
+model SubmissionAttempt {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  submissionId String   @map("submission_id") @db.Uuid
+  n            Int
+  answers      Json
+  score        Int?
+  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, n])
+  @@map("submission_attempts")
+}

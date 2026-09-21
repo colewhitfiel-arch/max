@@ -1,0 +1,42 @@
+// analytics: лента активности и дневные агрегаты. Владелец — B6.
+
+model ActivityEvent {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  studentId  String?      @map("student_id") @db.Uuid
+  type       ActivityType
+  entityType String?      @map("entity_type")
+  entityId   String?      @map("entity_id")
+  meta       Json?
+  occurredAt DateTime     @default(now()) @map("occurred_at") @db.Timestamptz
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student StudentProfile? @relation(fields: [studentId], references: [id])
+
+  @@index([studentId, occurredAt])
+  @@index([userId, occurredAt])
+  @@map("activity_events")
+}
+
+/// Read-model: пересчитывается worker'ом по событиям и ночью полностью.
+model StudentStatsDaily {
+  studentId             String   @map("student_id") @db.Uuid
+  date                  DateTime @db.Date
+  lessonsPlanned        Int      @default(0) @map("lessons_planned")
+  lessonsAttended       Int      @default(0) @map("lessons_attended")
+  lessonsLate           Int      @default(0) @map("lessons_late")
+  lessonsExcused        Int      @default(0) @map("lessons_excused")
+  assignmentsDue        Int      @default(0) @map("assignments_due")
+  assignmentsDoneOnTime Int      @default(0) @map("assignments_done_on_time")
+  assignmentsDoneLate   Int      @default(0) @map("assignments_done_late")
+  blocksCompleted       Int      @default(0) @map("blocks_completed")
+  tutorMessages         Int      @default(0) @map("tutor_messages")
+  appOpens              Int      @default(0) @map("app_opens")
+  activityScore         Int      @default(0) @map("activity_score")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, date])
+  @@map("student_stats_daily")
+}

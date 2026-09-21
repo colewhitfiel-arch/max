@@ -1,0 +1,40 @@
+{
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Dev mode: pick a demo user",
+    "demoUsers": "Demo users",
+    "custom": "Custom user",
+    "maxUserId": "maxUserId",
+    "maxUserIdPlaceholder": "e.g. max-test-1",
+    "roles": "Roles",
+    "submit": "Sign in",
+    "rolesRequired": "Pick at least one role",
+    "maxTitle": "Signing in via MAX…",
+    "maxHint": "Verifying messenger launch params",
+    "maxFailed": "Failed to sign in via MAX",
+    "loginAs": "Sign in as {{name}}"
+  },
+  "roleSetup": {
+    "title": "Who are you?",
+    "subtitle": "Pick a role — you can switch later",
+    "current": "Your roles",
+    "add": "Add role",
+    "inviteCode": "School invite code",
+    "inviteCodeHint": "Required for the teacher role",
+    "continue": "Continue",
+    "STUDENT": "I am a student",
+    "PARENT": "I am a parent",
+    "TEACHER": "I am a teacher"
+  },
+  "switch": {
+    "title": "Switch role",
+    "subtitle": "The active role defines the home screen and menu",
+    "active": "Active",
+    "switched": "Role switched"
+  },
+  "onboarding": {
+    "title": "AI onboarding",
+    "description": "The AI will ask a few questions about interests and goals to suggest clubs. Coming soon.",
+    "skip": "Skip (dev)"
+  }
+}

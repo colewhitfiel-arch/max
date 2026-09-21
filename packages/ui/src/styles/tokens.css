@@ -1,0 +1,124 @@
+/*
+ * Токены дизайн-системы. Это ВРЕМЕННЫЙ визуальный слой: финальный дизайн
+ * заменяет значения здесь и в CSS компонентов, не трогая их API.
+ *
+ * Тема:
+ *  - нет атрибута / data-theme="system" → следуем prefers-color-scheme;
+ *  - data-theme="light" | "dark" → принудительно.
+ * Атрибут ставится на <html> хелпером applyTheme() из src/theme.ts.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Цвета */
+  --ui-color-bg: #f4f5f7;
+  --ui-color-surface: #ffffff;
+  --ui-color-surface-2: #eceef2;
+  --ui-color-text: #1b1f24;
+  --ui-color-text-muted: #6b7380;
+  --ui-color-primary: #2f6fed;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-success: #1f9d55;
+  --ui-color-warning: #d9820b;
+  --ui-color-danger: #d93a3a;
+  --ui-color-border: #d8dce3;
+  --ui-color-focus: #2f6fed;
+
+  /* Типографика */
+  --ui-font-family:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ui-font-size-xs: 12px;
+  --ui-font-size-sm: 14px;
+  --ui-font-size-md: 16px;
+  --ui-font-size-lg: 20px;
+  --ui-font-size-xl: 24px;
+  --ui-line-height: 1.4;
+  --ui-font-weight-regular: 400;
+  --ui-font-weight-medium: 500;
+  --ui-font-weight-bold: 700;
+
+  /* Отступы, сетка 4px */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-7: 28px;
+  --ui-space-8: 32px;
+
+  /* Радиусы */
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-full: 9999px;
+
+  /* Тени */
+  --ui-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --ui-shadow-md: 0 4px 16px rgba(16, 24, 40, 0.12);
+
+  /* Слои (дублируются в src/tokens.ts) */
+  --ui-z-sheet: 100;
+  --ui-z-modal: 200;
+  --ui-z-toast: 300;
+
+  /* Анимации (дублируются в src/tokens.ts) */
+  --ui-duration-fast: 120ms;
+  --ui-duration-normal: 200ms;
+  --ui-easing: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Раскладка и размеры контролов */
+  --ui-content-max-width: 640px;
+  --ui-control-height-sm: 32px;
+  --ui-control-height-md: 44px;
+  --ui-control-height-lg: 52px;
+}
+
+/* Тёмная тема: системная (атрибут не задан или "system") */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --ui-color-bg: #121417;
+    --ui-color-surface: #1c1f24;
+    --ui-color-surface-2: #272b32;
+    --ui-color-text: #eaedf1;
+    --ui-color-text-muted: #9aa3b0;
+    --ui-color-primary: #5b8def;
+    --ui-color-primary-contrast: #ffffff;
+    --ui-color-success: #3fbf74;
+    --ui-color-warning: #e9a03a;
+    --ui-color-danger: #ef5b5b;
+    --ui-color-border: #353a43;
+    --ui-color-focus: #7fa6f5;
+    --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Тёмная тема: принудительная. Значения намеренно продублированы —
+ * без препроцессора один блок нельзя применить к двум разным условиям. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ui-color-bg: #121417;
+  --ui-color-surface: #1c1f24;
+  --ui-color-surface-2: #272b32;
+  --ui-color-text: #eaedf1;
+  --ui-color-text-muted: #9aa3b0;
+  --ui-color-primary: #5b8def;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-success: #3fbf74;
+  --ui-color-warning: #e9a03a;
+  --ui-color-danger: #ef5b5b;
+  --ui-color-border: #353a43;
+  --ui-color-focus: #7fa6f5;
+  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-duration-fast: 0ms;
+    --ui-duration-normal: 0ms;
+  }
+}

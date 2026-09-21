@@ -1,0 +1,68 @@
+{
+  "childSwitcher": { "label": "Ребёнок", "noChildren": "Нет детей" },
+  "home": {
+    "title": "Главная",
+    "today": "Сегодня",
+    "upcoming": "Ближайшие занятия",
+    "missed": "Пропущенные занятия",
+    "newAssignments": "Новые задания",
+    "overdue": "Просроченные задания",
+    "aiSummary": "Итоги от ИИ",
+    "trend": "Динамика",
+    "noLessonsToday": "Сегодня занятий нет"
+  },
+  "children": {
+    "title": "Дети",
+    "empty": "Детей пока нет",
+    "emptyHint": "Попроси у ребёнка код из его профиля и привяжи его здесь",
+    "linkTitle": "Привязать ребёнка",
+    "code": "Код из профиля ребёнка",
+    "codePlaceholder": "Например, ALX123",
+    "link": "Привязать",
+    "linked": "Ребёнок привязан",
+    "linkStatus": { "PENDING": "Ожидает", "ACTIVE": "Привязан", "REVOKED": "Отвязан" },
+    "select": "Выбрать"
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "period": "Период",
+    "days7": "7 дней",
+    "days30": "30 дней",
+    "days90": "90 дней",
+    "clubs": "По кружкам",
+    "weekly": "По неделям",
+    "recentResults": "Последние результаты",
+    "attendanceHistory": "История посещений",
+    "aiSummary": "Итоги от ИИ",
+    "week": "Неделя с {{date}}"
+  },
+  "courses": {
+    "title": "Кружки",
+    "empty": "Кружков пока нет",
+    "paidUntil": "Оплачено до {{date}}",
+    "notPaid": "Оплат ещё не было",
+    "nextPayment": "Следующий платёж {{date}}",
+    "teacher": "Преподаватель",
+    "schedule": "Расписание",
+    "contacts": "Контакты",
+    "contactsHidden": "Контакты скрыты по политике школы",
+    "qualification": "Квалификация",
+    "bio": "О преподавателе",
+    "teacherClubs": "Ведёт кружки"
+  },
+  "payments": {
+    "title": "Оплата",
+    "periods": "К оплате",
+    "history": "История платежей",
+    "empty": "Платежей пока нет",
+    "pay": "Оплатить",
+    "status": {
+      "PENDING": "Ожидает оплаты",
+      "SUCCEEDED": "Оплачено",
+      "FAILED": "Ошибка",
+      "CANCELLED": "Отменён",
+      "REFUNDED": "Возврат"
+    },
+    "periodsCount": "{{count}} мес."
+  }
+}

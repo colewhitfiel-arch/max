@@ -1,0 +1,26 @@
+// course-builder: задачи пайплайна «материалы → курс». Владелец — A5.
+
+model CourseGenerationJob {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  teacherId    String          @map("teacher_id") @db.Uuid
+  groupId      String          @map("group_id") @db.Uuid
+  materialIds  String[]        @default([]) @map("material_ids") @db.Uuid
+  instructions String?
+  targetTitle  String?         @map("target_title")
+  stage        GenerationStage @default(QUEUED)
+  progress     Int             @default(0)
+  /// CourseDraft из contracts
+  draft        Json?
+  error        String?
+  startedAt    DateTime?       @map("started_at") @db.Timestamptz
+  finishedAt   DateTime?       @map("finished_at") @db.Timestamptz
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id])
+  group   Group          @relation(fields: [groupId], references: [id])
+  course  Course?
+
+  @@index([teacherId, createdAt])
+  @@map("course_generation_jobs")
+}

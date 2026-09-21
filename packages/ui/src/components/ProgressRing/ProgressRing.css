@@ -1,0 +1,54 @@
+.ui-progress-ring {
+  --ui-progress-color: var(--ui-color-primary);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ui-progress-ring[data-tone='neutral'] {
+  --ui-progress-color: var(--ui-color-text-muted);
+}
+
+.ui-progress-ring[data-tone='success'] {
+  --ui-progress-color: var(--ui-color-success);
+}
+
+.ui-progress-ring[data-tone='warning'] {
+  --ui-progress-color: var(--ui-color-warning);
+}
+
+.ui-progress-ring[data-tone='danger'] {
+  --ui-progress-color: var(--ui-color-danger);
+}
+
+.ui-progress-ring__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ui-progress-ring__track,
+.ui-progress-ring__value {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.ui-progress-ring__track {
+  stroke: var(--ui-color-surface-2);
+}
+
+.ui-progress-ring__value {
+  stroke: var(--ui-progress-color);
+  transition: stroke-dashoffset var(--ui-duration-normal) var(--ui-easing);
+}
+
+.ui-progress-ring__label {
+  position: relative;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1;
+}

@@ -1,0 +1,83 @@
+{
+  "home": {
+    "title": "Главная",
+    "today": "Сегодня",
+    "upcoming": "Ближайшие занятия",
+    "groups": "Группы",
+    "toGrade": "На проверку",
+    "events": "События",
+    "noLessonsToday": "Сегодня занятий нет",
+    "nothingToGrade": "Всё проверено",
+    "pending": "{{count}} на проверке",
+    "stats": {
+      "groups": "Группы",
+      "students": "Ученики",
+      "attendance": "Посещаемость",
+      "completion": "Выполнение",
+      "needsAttention": "Требуют внимания"
+    }
+  },
+  "groups": {
+    "title": "Группы",
+    "empty": "Групп пока нет",
+    "students": "{{count}} уч.",
+    "needsAttention": "{{count}} требуют внимания",
+    "nextLesson": "Следующее занятие",
+    "schedule": "Расписание",
+    "studentsList": "Ученики",
+    "lessons": "Занятия",
+    "noLessons": "Занятий за период нет",
+    "ok": "всё в порядке"
+  },
+  "students": {
+    "title": "Ученик",
+    "groups": "Группы",
+    "history": "История сдач",
+    "attendanceHistory": "Посещаемость",
+    "aiSummary": "Итоги от ИИ",
+    "needsAttention": "Требует внимания",
+    "class": "Класс"
+  },
+  "courses": {
+    "title": "Курсы",
+    "empty": "Курсов пока нет",
+    "emptyHint": "Создай курс вручную или сгенерируй из материалов",
+    "status": { "DRAFT": "Черновик", "PUBLISHED": "Опубликован", "ARCHIVED": "В архиве" },
+    "counts": "{{modules}} мод. · {{blocks}} бл.",
+    "avgProgress": "Средний прогресс",
+    "modules": "Модули",
+    "create": "Новый курс",
+    "createTitle": "Название курса",
+    "group": "Группа",
+    "created": "Курс создан"
+  },
+  "courseBuilder": {
+    "title": "Конструктор курса",
+    "description": "Загрузка материалов, генерация структуры ИИ и ревью черновика. Раздел в разработке.",
+    "jobs": "Задачи генерации",
+    "empty": "Задач генерации пока нет",
+    "stage": {
+      "QUEUED": "В очереди",
+      "EXTRACTING": "Извлечение текста",
+      "OUTLINING": "Структура",
+      "GENERATING": "Генерация",
+      "ASSEMBLING": "Сборка",
+      "READY": "Готово к ревью",
+      "ACCEPTED": "Принято",
+      "FAILED": "Ошибка",
+      "CANCELLED": "Отменено"
+    }
+  },
+  "assignments": {
+    "title": "Задания",
+    "empty": "Заданий пока нет",
+    "filter": { "open": "Открытые", "closed": "Закрытые" },
+    "submitted": "{{submitted}} из {{students}} сдали",
+    "graded": "{{count}} проверено",
+    "draft": "Черновик"
+  },
+  "more": {
+    "title": "Ещё",
+    "school": "Школа"
+  }
+}

@@ -1,0 +1,46 @@
+// payments: платежи и оплаченные периоды. Владелец — B8.
+
+model Payment {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  parentId          String        @map("parent_id") @db.Uuid
+  studentId         String        @map("student_id") @db.Uuid
+  enrollmentId      String        @map("enrollment_id") @db.Uuid
+  amountKopecks     Int           @map("amount_kopecks")
+  currency          String        @default("RUB")
+  status            PaymentStatus @default(PENDING)
+  provider          String
+  providerPaymentId String?       @unique @map("provider_payment_id")
+  confirmationUrl   String?       @map("confirmation_url")
+  periodsCount      Int           @default(1) @map("periods_count")
+  idempotencyKey    String        @unique @map("idempotency_key")
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz
+  failReason        String?       @map("fail_reason")
+  raw               Json?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  parent     ParentProfile  @relation(fields: [parentId], references: [id])
+  student    StudentProfile @relation(fields: [studentId], references: [id])
+  enrollment Enrollment     @relation(fields: [enrollmentId], references: [id])
+
+  paidPeriods PaidPeriod[]
+
+  @@index([parentId, createdAt])
+  @@index([studentId])
+  @@map("payments")
+}
+
+model PaidPeriod {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  enrollmentId String   @map("enrollment_id") @db.Uuid
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  paymentId    String   @map("payment_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  payment    Payment    @relation(fields: [paymentId], references: [id])
+
+  @@index([enrollmentId, periodEnd])
+  @@map("paid_periods")
+}

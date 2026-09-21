@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications",
+  "unread": "{{count}} unread",
+  "onlyUnread": "Unread only",
+  "all": "All",
+  "type": {
+    "LESSON_SOON": "Lesson soon",
+    "LESSON_CANCELLED": "Lesson cancelled",
+    "ASSIGNMENT_NEW": "New assignment",
+    "ASSIGNMENT_DUE": "Deadline soon",
+    "ASSIGNMENT_GRADED": "Assignment graded",
+    "ATTENDANCE_ABSENT": "Missed lesson",
+    "SUBMISSION_RECEIVED": "New submission",
+    "COURSE_PUBLISHED": "Course published",
+    "PAYMENT_DUE": "Payment due",
+    "PAYMENT_SUCCEEDED": "Payment succeeded",
+    "GENERATION_DONE": "Course generated",
+    "INSIGHT_READY": "AI report ready"
+  }
+}

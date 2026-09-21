@@ -1,0 +1,22 @@
+// catalog: кружки. Владелец — B2.
+
+model Club {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  schoolId      String        @map("school_id") @db.Uuid
+  title         String
+  description   String
+  category      ClubCategory
+  coverUrl      String?       @map("cover_url")
+  priceKopecks  Int           @map("price_kopecks")
+  billingPeriod BillingPeriod @default(MONTH) @map("billing_period")
+  isActive      Boolean       @default(true) @map("is_active")
+  tags          String[]      @default([])
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  school School  @relation(fields: [schoolId], references: [id])
+  groups Group[]
+
+  @@index([schoolId, isActive])
+  @@map("clubs")
+}

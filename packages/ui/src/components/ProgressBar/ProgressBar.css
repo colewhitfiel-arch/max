@@ -1,0 +1,35 @@
+.ui-progress-bar {
+  --ui-progress-color: var(--ui-color-primary);
+  width: 100%;
+  height: 8px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-surface-2);
+  overflow: hidden;
+}
+
+.ui-progress-bar[data-size='sm'] {
+  height: 4px;
+}
+
+.ui-progress-bar[data-tone='neutral'] {
+  --ui-progress-color: var(--ui-color-text-muted);
+}
+
+.ui-progress-bar[data-tone='success'] {
+  --ui-progress-color: var(--ui-color-success);
+}
+
+.ui-progress-bar[data-tone='warning'] {
+  --ui-progress-color: var(--ui-color-warning);
+}
+
+.ui-progress-bar[data-tone='danger'] {
+  --ui-progress-color: var(--ui-color-danger);
+}
+
+.ui-progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui-progress-color);
+  transition: width var(--ui-duration-normal) var(--ui-easing);
+}

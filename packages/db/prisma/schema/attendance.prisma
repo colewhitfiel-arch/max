@@ -1,0 +1,21 @@
+// attendance: посещаемость. Владелец — B3.
+
+model Attendance {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  lessonId   String           @map("lesson_id") @db.Uuid
+  studentId  String           @map("student_id") @db.Uuid
+  status     AttendanceStatus
+  comment    String?
+  markedById String           @map("marked_by_id") @db.Uuid
+  markedAt   DateTime         @default(now()) @map("marked_at") @db.Timestamptz
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  lesson   Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student  StudentProfile @relation(fields: [studentId], references: [id])
+  markedBy TeacherProfile @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+
+  @@unique([lessonId, studentId])
+  @@index([studentId, markedAt])
+  @@map("attendance")
+}

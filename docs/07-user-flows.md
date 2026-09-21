@@ -1,0 +1,74 @@
+# 7. Основные user flows
+
+Формат: шаги пользователя → что делает система (модули, события). Эти сценарии — основа e2e-тестов (I3).
+
+## F1. Первый вход ученика + онбординг
+1. MAX открывает мини-апп → `POST /auth/max` → пользователь новый: `roles=[]`, `needsRoleSetup=true`.
+2. Экран выбора роли → «Я ученик» → `POST /auth/roles {STUDENT, inviteCode?}` → `StudentProfile`, JWT с `activeRole=STUDENT`.
+3. `student.onboardingCompleted=false` → редирект `/onboarding`. `POST /student/onboarding/start` → ИИ задаёт первый вопрос.
+4. Диалог 5–8 реплик (интересы, предметы, навыки, цели, время, форматы), ответы стримятся. Когда профиль полный — `done.isComplete=true` + `profileDraft`.
+5. `GET /student/onboarding/recommendations` → 3–5 кружков с причинами (ИИ ранжирует каталог школы по профилю; без школы — весь каталог).
+6. Выбор кружков → `POST /student/onboarding/complete` → профиль обновлён, `Enrollment` созданы, события `enrollment.created`, `student.profile.updated`.
+7. Редирект `/student/home`.
+
+## F2. Ученик: главная → выполнить задание
+1. `GET /student/home` — сегодня/ближайшие, задачи, статистика, ИИ-комментарий (из кэша `AiInsight`, может быть `null`).
+2. Тап по заданию → `GET /student/assignments/:id`. Если задание из блока курса — кнопка «Открыть в курсе».
+3. Сдача: текст/файлы (`POST /files/upload-url` → PUT в S3 → `POST /files/:id/confirm`) → `POST /student/assignments/:id/submit` с `Idempotency-Key`.
+4. Система: `Submission(SUBMITTED, isLate)`; для QUIZ — автопроверка → `GRADED`. События `submission.submitted` (+ `submission.graded`).
+5. Обработчики: `analytics` пересчитывает день; `notifications` → преподавателю `SUBMISSION_RECEIVED`; `ai` помечает инсайты ученика устаревшими.
+6. Преподаватель видит сдачу в «на проверку», родитель — в динамике, тьютор — в контексте следующего сообщения.
+
+## F3. Ученик: прохождение курса
+1. `/student/courses` → карточка с прогрессом и «следующий блок».
+2. Открытие блока → `POST /student/blocks/:id/open` → `BlockProgress(OPENED)`, событие `block.opened`.
+3. Просмотр/ответ → `POST /student/blocks/:id/complete` → `BlockProgress(COMPLETED)`, `CourseProgress` пересчитан синхронно в `courses`, событие `block.completed`.
+4. Если блок — задание (QUIZ/QUESTION/PRACTICE/HOMEWORK), `complete` делегирует в `AssignmentsService.submitFromBlock` → дальше как F2 п.4–6.
+
+## F4. Ученик: ИИ-тьютор
+1. `/student/tutor` → список диалогов, «Новый диалог».
+2. Сообщение → `POST /ai/conversations/:id/messages` → сервер берёт `StudentContext` (кэш 5 мин) → системный промпт `tutor.system@1` + последние 20 сообщений → GigaChat stream → SSE.
+3. Сохранение `AiMessage` (user/assistant), событие `tutor.message.sent` → `ActivityEvent`.
+4. Лимит сообщений в сутки → 429 с человеческим текстом в UI.
+
+## F5. Профиль и «Моя траектория»
+1. `/student/profile` → статистика, кружки, `GET /student/trajectory`.
+2. Траектория генерируется worker'ом: еженедельно по cron и при ≥5 значимых событиях (сдачи/оценки) с последней генерации; `sourceHash` исключает повтор на тех же данных.
+3. Ручной «Обновить» → 202, job в очередь, UI показывает «обновляется» и перезапрашивает через 10 с.
+
+## F6. Преподаватель: отметить посещаемость
+1. `/teacher/home` → занятие сегодня → «Отметить».
+2. `GET /teacher/lessons/:id/attendance` → зачисленные ученики с текущими статусами.
+3. По умолчанию все `PRESENT`, тапом меняется → `PUT /teacher/lessons/:id/attendance` (оптимистично).
+4. Система: upsert `Attendance`, `Lesson→DONE`, `AuditLog`, событие `attendance.marked`.
+5. Обработчики: `analytics` (день каждого ученика), `notifications` (родителю `ATTENDANCE_ABSENT`, если включено), `ai` (инвалидация).
+
+## F7. Преподаватель: простое задание
+1. `/teacher/assignments` → «Новое задание» → группа, текст, дедлайн → `POST /teacher/assignments {publish:true}`.
+2. `notifications` → ученикам группы `ASSIGNMENT_NEW`; задание появляется в `/student/home` и у родителя в «новые задания».
+3. Проверка: `GET /teacher/assignments/:id/submissions` → сдача → `POST /teacher/submissions/:id/grade` → событие `submission.graded` → уведомления ученику/родителю, аналитика.
+
+## F8. Преподаватель: материалы → курс (course builder)
+1. `/teacher/course-builder` → группа → загрузка файлов (presigned) → инструкция («для 7 класса, 6 занятий, упор на практику») → `POST /teacher/course-builder/jobs`.
+2. Worker: EXTRACT → OUTLINE → GENERATE → ASSEMBLE; фронт опрашивает job, показывает этап и прогресс.
+3. `READY` → уведомление `GENERATION_DONE` → экран ревью: модули/блоки, редактирование любых блоков, добавление/удаление, `PUT .../draft` (автосохранение с дебаунсом).
+4. «Принять» → `POST .../accept` → `Course(DRAFT)` → редактор курса → «Опубликовать» → дедлайны для блоков-заданий → `POST /teacher/courses/:id/publish`.
+5. Событие `course.published` → `assignments` создаёт `Assignment` на блоки, `notifications` → ученикам `COURSE_PUBLISHED`.
+
+## F9. Родитель: привязка ребёнка и просмотр
+1. Вход → роль PARENT → `/parent/children` пуст → «Добавить ребёнка» → код из профиля ребёнка → `POST /parent/children/link`.
+2. Выбор ребёнка (Zustand `selectedChildId`, персистится в MAX storage) → `/parent/home` → `GET /parent/children/:id/home`.
+3. Аналитика за период, кружки, карточка преподавателя (контакты по политике школы).
+4. Переключение ребёнка в шапке → все запросы перезапрашиваются по новому `studentId` (ключи Query содержат `studentId`).
+
+## F10. Родитель: оплата
+1. `/parent/payments` → кружок → «Оплатить» → количество месяцев → `POST /parent/children/:id/payments` → `confirmationUrl`.
+2. Открытие платёжной страницы через `MaxBridge.openLink`.
+3. Провайдер → `POST /webhooks/payments/:provider` → подпись → `Payment(SUCCEEDED)` → `PaidPeriod` → событие `payment.succeeded` → уведомление родителю.
+4. Фронт после возврата опрашивает `GET /parent/payments/:id` до терминального статуса (≤60 с), затем показывает результат.
+
+## F11. Переключение ролей
+Пользователь с несколькими ролями (преподаватель, у которого свой ребёнок) — в профиле «Сменить роль» → `POST /auth/switch-role` → новый JWT → редирект на корень роли. Добавить роль — `POST /auth/roles`.
+
+## F12. Отмена занятия
+Преподаватель → `PATCH /teacher/lessons/:id {status: CANCELLED}` → событие `lesson.cancelled` → уведомления ученикам и родителям группы; занятие исключается из `countable` в посещаемости.

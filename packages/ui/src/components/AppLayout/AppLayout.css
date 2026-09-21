@@ -1,0 +1,32 @@
+.ui-app-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--ui-content-max-width);
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
+}
+
+.ui-app-layout__header {
+  flex: none;
+  padding-top: env(safe-area-inset-top);
+  background: var(--ui-color-surface);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.ui-app-layout__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.ui-app-layout__nav {
+  flex: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ui-color-surface);
+}

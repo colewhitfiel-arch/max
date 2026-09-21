@@ -1,0 +1,66 @@
+{
+  "home": {
+    "title": "Home",
+    "today": "Today",
+    "upcoming": "Upcoming lessons",
+    "tasks": "Assignments",
+    "allTasks": "All assignments",
+    "clubs": "My clubs",
+    "aiComment": "AI comment",
+    "noLessonsToday": "No lessons today",
+    "noTasks": "No open assignments"
+  },
+  "tutor": {
+    "title": "AI tutor",
+    "newConversation": "New conversation",
+    "empty": "No conversations yet",
+    "emptyHint": "Ask the tutor what to do today or how to solve a task",
+    "untitled": "Conversation",
+    "placeholder": "Type a question…",
+    "send": "Send",
+    "thinking": "Tutor is typing…",
+    "noMessages": "No messages yet"
+  },
+  "courses": {
+    "title": "Courses",
+    "empty": "No courses yet",
+    "emptyHint": "The teacher has not published a course for your group",
+    "nextBlock": "Next block",
+    "blocks": "{{completed}} of {{total}} blocks",
+    "modules": "Modules",
+    "required": "required",
+    "minutes": "{{count}} min",
+    "openInCourse": "Open in course",
+    "blockOpened": "Block opened",
+    "complete": "Complete block",
+    "completed": "Block completed",
+    "contentNotSupported": "This block type is not rendered yet"
+  },
+  "assignments": {
+    "title": "Assignments",
+    "filter": { "open": "Open", "done": "Done", "all": "All" },
+    "empty": "No assignments",
+    "description": "Description",
+    "submission": "Your submission",
+    "feedback": "Teacher feedback",
+    "attemptsLeft": "Attempts left: {{count}}",
+    "notSubmitted": "Not submitted yet"
+  },
+  "settings": { "title": "Settings" },
+  "profile": {
+    "title": "Profile",
+    "school": "School",
+    "class": "Class",
+    "interests": "Interests",
+    "goals": "Goals",
+    "clubs": "Clubs",
+    "trajectory": "My trajectory",
+    "trajectoryEmpty": "Trajectory is not built yet",
+    "trajectoryHint": "AI will build it after the first lessons and assignments",
+    "linkCode": "Code for parent",
+    "linkCodeHint": "Show it to your parent so they can link you in their app",
+    "strengths": "Strengths",
+    "growth": "Growth areas",
+    "nextSteps": "Next steps"
+  }
+}

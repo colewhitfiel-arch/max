@@ -1,0 +1,68 @@
+{
+  "childSwitcher": { "label": "Child", "noChildren": "No children" },
+  "home": {
+    "title": "Home",
+    "today": "Today",
+    "upcoming": "Upcoming lessons",
+    "missed": "Missed lessons",
+    "newAssignments": "New assignments",
+    "overdue": "Overdue assignments",
+    "aiSummary": "AI summary",
+    "trend": "Trend",
+    "noLessonsToday": "No lessons today"
+  },
+  "children": {
+    "title": "Children",
+    "empty": "No children yet",
+    "emptyHint": "Ask your child for the code from their profile and link them here",
+    "linkTitle": "Link a child",
+    "code": "Code from the child's profile",
+    "codePlaceholder": "e.g. ALX123",
+    "link": "Link",
+    "linked": "Child linked",
+    "linkStatus": { "PENDING": "Pending", "ACTIVE": "Linked", "REVOKED": "Unlinked" },
+    "select": "Select"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "period": "Period",
+    "days7": "7 days",
+    "days30": "30 days",
+    "days90": "90 days",
+    "clubs": "By club",
+    "weekly": "By week",
+    "recentResults": "Recent results",
+    "attendanceHistory": "Attendance history",
+    "aiSummary": "AI summary",
+    "week": "Week of {{date}}"
+  },
+  "courses": {
+    "title": "Clubs",
+    "empty": "No clubs yet",
+    "paidUntil": "Paid until {{date}}",
+    "notPaid": "No payments yet",
+    "nextPayment": "Next payment {{date}}",
+    "teacher": "Teacher",
+    "schedule": "Schedule",
+    "contacts": "Contacts",
+    "contactsHidden": "Contacts are hidden by school policy",
+    "qualification": "Qualification",
+    "bio": "About",
+    "teacherClubs": "Teaches"
+  },
+  "payments": {
+    "title": "Payments",
+    "periods": "To pay",
+    "history": "Payment history",
+    "empty": "No payments yet",
+    "pay": "Pay",
+    "status": {
+      "PENDING": "Pending",
+      "SUCCEEDED": "Paid",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded"
+    },
+    "periodsCount": "{{count}} mo."
+  }
+}

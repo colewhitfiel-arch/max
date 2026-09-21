@@ -1,0 +1,70 @@
+// ai: диалоги, сообщения, кэш инсайтов, траектория. Владелец — B10.
+
+model AiConversation {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  studentId       String?          @map("student_id") @db.Uuid
+  kind            ConversationKind
+  title           String?
+  contextSnapshot Json?            @map("context_snapshot")
+  lastMessageAt   DateTime?        @map("last_message_at") @db.Timestamptz
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student StudentProfile? @relation(fields: [studentId], references: [id])
+
+  messages AiMessage[]
+
+  @@index([userId, kind, lastMessageAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  role           MessageRole
+  content        String
+  promptId       String?     @map("prompt_id")
+  tokensIn       Int?        @map("tokens_in")
+  tokensOut      Int?        @map("tokens_out")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+model AiInsight {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  kind        InsightKind
+  studentId   String      @map("student_id") @db.Uuid
+  periodFrom  DateTime    @map("period_from") @db.Date
+  periodTo    DateTime    @map("period_to") @db.Date
+  content     String
+  promptId    String      @map("prompt_id")
+  sourceHash  String      @map("source_hash")
+  generatedAt DateTime    @default(now()) @map("generated_at") @db.Timestamptz
+  expiresAt   DateTime    @map("expires_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, studentId, periodFrom, periodTo])
+  @@map("ai_insights")
+}
+
+model Trajectory {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  /// TrajectoryContent из contracts
+  content     Json
+  promptId    String   @map("prompt_id")
+  sourceHash  String   @map("source_hash")
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, generatedAt])
+  @@map("trajectories")
+}
