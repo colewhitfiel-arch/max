@@ -22,6 +22,17 @@ Foundation завершён (`docs/FOUNDATION.md`). Ниже — независ�
 | **K** | **Production GigaChat.** Сверка `GigaChatProvider` с актуальным API (OAuth `expires_at`, `response_format`, stream `usage`, embeddings), сертификат НУЦ, smoke-скрипт за флагом, лимиты/стоимость, метрики по `promptId`. | `packages/ai/src/providers/gigachat/**`, `packages/ai/README.md`, `scripts/smoke-gigachat.mjs`, `apps/api/src/modules/ai/ai.factory.ts` (координация) | — | `AiProvider` | Живой вызов chat/stream/embed проходит; 100 существующих тестов зелёные; ошибки маппятся в `AiProviderError` |
 | **L** (опц.) | **Notifications, settings, support.** BE `notifications` (обработчики событий → уведомления по настройкам, напоминания job), `support`. FE: центр уведомлений, бейдж, настройки уведомлений, форма поддержки. | `apps/api/src/modules/{notifications,support}/**`, `packages/db/prisma/schema/{notifications,support}.prisma`, `apps/web/src/pages/notifications/**`, `apps/web/src/pages/student/settings/**` (согласовать), `apps/web/src/entities/notification/**`, `apps/web/src/features/{mark-notification-read,support}/**` | события всех модулей | `notificationsContract`, `supportContract`, `DomainEventBus`, `JOB_QUEUE` | Событие → уведомление нужным получателям с учётом настроек (тест) |
 
+## Состояние (2026-09-21)
+
+- **G** — реализовано: `files` (upload-url/confirm/get, локальные ссылки, извлечение txt/md/pdf/docx), `course-builder`
+  (пайплайн атомы → узлы → уроки на GigaChat, режим «по теме без конспекта», ревью и accept, экраны преподавателя,
+  MSW-моки, интеграционные тесты). Не сделано: редакторы блоков на клиенте, pptx/OCR, S3-адаптер. Детали — `13-course-pipeline.md`.
+- **C** — реализовано: онбординг-диалог с подбором кружков и зачислением, тьютор (SSE, контекст ученика, дневной лимит),
+  траектория (job, sourceHash, ручной refresh раз в сутки), экран онбординга, виджет траектории. Не сделано: инсайты
+  (`AiInsight`) для главной/родителя/преподавателя.
+- Минимальные публичные сервисы для зависимостей: `GroupsService` (E), `CatalogService` (D), `CoursesService.createFromDraft` (B) —
+  владельцы workstream'ов расширяют их, не ломая сигнатуры.
+
 ## Порядок запуска
 
 1. **E** первым (policies групп нужны почти всем), параллельно **A** (формулы/дашборды по seed), **G** (files + пайплайн), **J**, **K**, **L**.

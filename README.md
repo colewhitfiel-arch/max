@@ -68,7 +68,7 @@ pnpm dev
 |---|---|---|
 | `DATABASE_URL`, `DATABASE_URL_TEST` | строка подключения | локальный embedded PostgreSQL, базы `edu` / `edu_test` |
 | `AUTH_PROVIDER` | `dev` / `max` | `dev` — вход по `POST /auth/dev` |
-| `AI_PROVIDER` | `mock` / `gigachat` | `mock` |
+| `AI_PROVIDER` | `mock` / `gigachat` | `mock` (mock отвечает детерминированно по каждому промпту) |
 | `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` |
 | `STORAGE_DRIVER` | `local` / `s3` | `local` (`.data/storage`) |
 | `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` |
@@ -77,6 +77,16 @@ pnpm dev
 | `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
 
 Api не стартует при невалидном окружении и печатает список проблемных переменных.
+
+## ИИ-функции (GigaChat через `@edu/ai`)
+
+- **Конструктор курса** (`/teacher/course-builder`): по теме/практике без конспекта или из файлов (pdf, docx, txt, md) →
+  атомы знаний → узлы с проверяемыми цитатами → уроки с тестами, пропусками и практикой → ревью → курс. Схема — `docs/13-course-pipeline.md`.
+- **Онбординг ученика** (`/onboarding`): диалог с ИИ, черновик профиля, подбор кружков школы, зачисление.
+- **ИИ-тьютор** (`/student/tutor`): SSE-чат с учётом расписания, заданий, посещаемости и прогресса; лимит `AI_TUTOR_DAILY_LIMIT`.
+- **Моя траектория** (`/student/profile`): строится job'ом по данным ученика, обновляется после онбординга и по кнопке (раз в сутки).
+
+Реальный GigaChat: `AI_PROVIDER=gigachat` + `GIGACHAT_AUTH_KEY`; без ключа всё работает на mock-провайдере.
 
 ## База данных
 

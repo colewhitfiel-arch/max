@@ -7,6 +7,7 @@ import { fullName } from '@/shared/lib/format';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 import { ClubProgressList } from '@/widgets/club-progress-list';
 import { StatsTiles } from '@/widgets/stats-tiles';
+import { TrajectoryCard } from '@/widgets/trajectory';
 
 /** `/student/profile` — `GET /student/profile` + траектория (F5) + код для родителя. */
 export function ProfilePage() {
@@ -107,24 +108,7 @@ export function ProfilePage() {
               />
             }
           >
-            {(value) =>
-              value && (
-                <Card>
-                  <Stack gap={2}>
-                    <Text>{value.content.summary}</Text>
-                    <Text variant="caption" weight="medium">
-                      {t('profile.strengths')}: {value.content.strengths.join(', ')}
-                    </Text>
-                    <Text variant="caption" weight="medium">
-                      {t('profile.growth')}: {value.content.growthAreas.join(', ')}
-                    </Text>
-                    <Text variant="caption" weight="medium">
-                      {t('profile.nextSteps')}: {value.content.nextSteps.join('; ')}
-                    </Text>
-                  </Stack>
-                </Card>
-              )
-            }
+            {(value) => value && <TrajectoryCard trajectory={value} />}
           </AsyncState>
         </Stack>
 

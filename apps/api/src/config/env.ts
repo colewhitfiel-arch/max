@@ -61,6 +61,10 @@ export const envSchema = z
     GIGACHAT_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
     GIGACHAT_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
     GIGACHAT_CA_CERT_PATH: optionalString,
+    /** Лимит сообщений тьютору на пользователя в сутки (429 при превышении). */
+    AI_TUTOR_DAILY_LIMIT: z.coerce.number().int().positive().default(50),
+    /** Сколько окон survey / уроков course-builder генерируется параллельно. */
+    COURSE_BUILDER_MAX_PARALLEL: z.coerce.number().int().min(1).max(8).default(3),
 
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('.data/storage'),

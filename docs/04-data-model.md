@@ -140,8 +140,9 @@ File            id PK, ownerUserId FK, purpose FilePurpose, fileName, mime, size
                 confirmedAt?, status MaterialStatus=UPLOADED, extractedTextKey?,
                 extractMeta json? { pages, headings[] }, error?
 CourseGenerationJob id PK, teacherId FK, groupId FK, courseId FK?, materialIds string[] (File.id),
-                instructions text?, targetTitle?, stage GenerationStage=QUEUED, progress int=0,
-                draft json? (CourseDraft), error?, startedAt?, finishedAt?
+                instructions text?, targetTitle?, sourceKind string='MATERIALS' (MATERIALS|TOPIC), topic text?,
+                knowledge json? (KnowledgeBase: atoms, nodes, plan, stats), stage GenerationStage=QUEUED,
+                progress int=0, draft json? (CourseDraft), error?, startedAt?, finishedAt?
 ```
 
 ### family (`family.prisma`)

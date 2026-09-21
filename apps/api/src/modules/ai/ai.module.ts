@@ -3,15 +3,30 @@ import { AiService } from '@edu/ai';
 import { AppLogger } from '../../common/logger/logger.service';
 import { type Env } from '../../config/env';
 import { ENV } from '../../config/env.module';
+import { CatalogModule } from '../catalog/catalog.module';
+import { CoursesModule } from '../courses/courses.module';
+import { GroupsModule } from '../groups/groups.module';
+import { IdentityModule } from '../identity/identity.module';
+import { AiStreamController } from './ai-stream.controller';
+import { AiController } from './ai.controller';
+import { AiEvents } from './ai.events';
 import { buildAiService } from './ai.factory';
+import { AiJobs } from './ai.jobs';
+import { AiRepository } from './ai.repository';
+import { StudentContextBuilder } from './context-builder';
+import { OnboardingService } from './onboarding.service';
+import { TrajectoryService } from './trajectory.service';
+import { TutorService } from './tutor.service';
 
 /**
- * Модуль ai (M09). Foundation: предоставляет AiService (mock | gigachat по AI_PROVIDER).
- * Диалоги, контекст ученика, инсайты и траектория — задачи Agent C / Agent K.
+ * Модуль ai (M09): AiService (mock | gigachat по AI_PROVIDER) — глобально; поверх него —
+ * онбординг с подбором кружков, тьютор (SSE) и персональная траектория (workstream C).
  * Никакой модуль не импортирует GigaChat напрямую — только AiService.
  */
 @Global()
 @Module({
+  imports: [IdentityModule, GroupsModule, CatalogModule, CoursesModule],
+  controllers: [AiController, AiStreamController],
   providers: [
     {
       provide: AiService,
@@ -19,7 +34,14 @@ import { buildAiService } from './ai.factory';
       useFactory: (env: Env, logger: AppLogger) =>
         buildAiService(env, logger.child({ module: 'ai' })),
     },
+    AiRepository,
+    StudentContextBuilder,
+    TutorService,
+    OnboardingService,
+    TrajectoryService,
+    AiJobs,
+    AiEvents,
   ],
-  exports: [AiService],
+  exports: [AiService, StudentContextBuilder],
 })
 export class AiModule {}

@@ -4,14 +4,12 @@ import {
   CompleteBlockBodySchema,
   CompleteBlockResultSchema,
   CreateCourseBodySchema,
-  GenerationJobListItemSchema,
   OpenBlockResultSchema,
   StudentBlockDetailSchema,
   StudentCourseDetailSchema,
   StudentCoursesListSchema,
   TeacherCourseDetailSchema,
   TeacherCoursesListSchema,
-  paginated,
 } from '@edu/contracts';
 import { http } from 'msw';
 import {
@@ -311,22 +309,6 @@ export const coursesHandlers = [
         if (!course) return apiError('NOT_FOUND', 'Курс не найден');
         if (!teacher || course.teacherId !== teacher.id) return apiError('FORBIDDEN', 'Чужой курс');
         return json(TeacherCourseDetailSchema, teacherCourseDetail(course.id));
-      },
-      ['TEACHER'],
-    ),
-  ),
-
-  http.get(
-    apiUrl('/teacher/course-builder/jobs'),
-    authed(
-      ({ auth }) => {
-        const teacher = teacherOfUser(auth.user.id);
-        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
-        return json(paginated(GenerationJobListItemSchema), {
-          items: db.generationJobs
-            .filter((j) => j.teacherId === teacher.id)
-            .map(({ draft: _draft, ...job }) => job),
-        });
       },
       ['TEACHER'],
     ),

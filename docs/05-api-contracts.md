@@ -230,7 +230,7 @@ GET  /files/:fileId         → FileDto        // доступ по policies в�
 
 ### `course-builder.ts` — владелец A5 (скелет в F4)
 ```
-POST /teacher/course-builder/jobs        { groupId, materialIds: Id[], instructions?, targetTitle? } → GenerationJobDto
+POST /teacher/course-builder/jobs        { groupId, materialIds?: Id[], topic?: string, instructions?, targetTitle? } → GenerationJobDto   // materialIds или topic (тема/практика без конспекта)
 GET  /teacher/course-builder/jobs?cursor → Paginated<Omit<GenerationJobDto,'draft'>>
 GET  /teacher/course-builder/jobs/:id    → GenerationJobDto
 PUT  /teacher/course-builder/jobs/:id/draft { draft: CourseDraft } → GenerationJobDto     // правки до accept
@@ -238,7 +238,9 @@ POST /teacher/course-builder/jobs/:id/accept → { courseId }                   
 POST /teacher/course-builder/jobs/:id/cancel → GenerationJobDto
 
 GenerationJobDto = { id, groupId, stage: GenerationStage, progress: number, materials: FileDto[], instructions?,
-                     draft?: CourseDraft, courseId?, error?, createdAt, finishedAt? }
+                     sourceKind: 'MATERIALS'|'TOPIC', topic?, knowledge?: KnowledgeBase (атомы, узлы с цитатами, план),
+                     draft?: CourseDraft, courseId?, error?, createdAt, finishedAt? }     // в списке — без draft и knowledge
+Пайплайн стадий и формат KnowledgeBase — docs/13-course-pipeline.md.
 ```
 
 ### `notifications.ts`, `support.ts` — владелец B9

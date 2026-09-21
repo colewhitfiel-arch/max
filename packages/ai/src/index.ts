@@ -10,7 +10,7 @@ export * from './timeout';
 export * from './json';
 
 // Промпты и контекст
-export * from './prompts/registry';
+export * from './prompts';
 export * from './context/student-context';
 
 // Провайдеры

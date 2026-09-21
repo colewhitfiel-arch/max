@@ -111,6 +111,12 @@ function ensureDatabase(name) {
     ],
     { env, encoding: 'utf8' },
   );
+  if (check.error || check.stdout === undefined) {
+    // В сборке embedded-postgres для некоторых платформ (darwin-arm64) нет psql:
+    // базу создаст prisma при `migrate dev` / `migrate deploy`.
+    console.log(`pg: psql недоступен — базу ${name} создаст prisma migrate`);
+    return;
+  }
   if (check.stdout.trim() === '1') return;
   run('psql', [
     '-h',

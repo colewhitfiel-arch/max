@@ -71,3 +71,17 @@ export function useCompleteOnboarding() {
     onSuccess: (me) => updateMe(me),
   });
 }
+
+/** `POST /student/onboarding/start` → диалог и первый вопрос ИИ (F1). */
+export function useStartOnboarding() {
+  return useMutation({ mutationFn: () => call(api.ai.startOnboarding()) });
+}
+
+/** `GET /student/onboarding/recommendations` — после `done.isComplete`. */
+export function useOnboardingRecommendations(enabled: boolean) {
+  return useQuery({
+    queryKey: aiKeys.recommendations(),
+    queryFn: () => call(api.ai.getOnboardingRecommendations()),
+    enabled,
+  });
+}

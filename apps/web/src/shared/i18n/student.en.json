@@ -84,6 +84,8 @@
     "linkCodeHint": "Show it to your parent so they can link you in their app",
     "strengths": "Strengths",
     "growth": "Growth areas",
-    "nextSteps": "Next steps"
+    "nextSteps": "Next steps",
+    "recommendations": "Recommendations",
+    "trajectoryUpdated": "Updated {{date}}"
   }
 }

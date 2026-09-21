@@ -84,6 +84,8 @@
     "linkCodeHint": "Покажи его родителю, чтобы он привязал тебя в своём приложении",
     "strengths": "Сильные стороны",
     "growth": "Зоны роста",
-    "nextSteps": "Следующие шаги"
+    "nextSteps": "Следующие шаги",
+    "recommendations": "Рекомендации",
+    "trajectoryUpdated": "Обновлено {{date}}"
   }
 }

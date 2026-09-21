@@ -14,6 +14,7 @@ import type {
   CourseGenerationJob,
   CourseModule,
   Enrollment,
+  FileDto,
   Group,
   Lesson,
   Notification as NotificationEntity,
@@ -205,6 +206,10 @@ function buildState() {
     messages: clone(demoMessages) as AiMessage[],
     trajectories: [trajectory] as Trajectory[],
     generationJobs: [] as CourseGenerationJob[],
+    /** Загруженные файлы (мета + текст для text/*): владелец, подтверждение, содержимое. */
+    files: [] as Array<
+      FileDto & { ownerUserId: string; confirmed: boolean; uploaded: boolean; text: string | null }
+    >,
     /** userId → maxUserId для ad-hoc dev-пользователей. */
     maxIds: new Map<string, string>(Object.values(demoUsers).map((u) => [u.maxUserId, u.id])),
   };

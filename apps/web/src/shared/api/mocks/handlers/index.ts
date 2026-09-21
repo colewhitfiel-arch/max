@@ -8,9 +8,11 @@ import { aiHandlers } from './ai';
 import { assignmentsHandlers } from './assignments';
 import { authHandlers } from './auth';
 import { catalogHandlers } from './catalog';
+import { courseBuilderHandlers } from './course-builder';
 import { coursesHandlers } from './courses';
 import { dashboardsHandlers } from './dashboards';
 import { familyHandlers } from './family';
+import { filesHandlers } from './files';
 import { groupsHandlers } from './groups';
 import { healthHandlers } from './health';
 import { notificationsHandlers } from './notifications';
@@ -23,6 +25,8 @@ export const handlers = [
   ...catalogHandlers,
   ...groupsHandlers,
   ...coursesHandlers,
+  ...courseBuilderHandlers,
+  ...filesHandlers,
   ...assignmentsHandlers,
   ...familyHandlers,
   ...paymentsHandlers,

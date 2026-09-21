@@ -33,8 +33,16 @@
     "switched": "Role switched"
   },
   "onboarding": {
-    "title": "AI onboarding",
-    "description": "The AI will ask a few questions about interests and goals to suggest clubs. Coming soon.",
-    "skip": "Skip (dev)"
+    "title": "Meet your AI tutor",
+    "description": "Sayd will ask a few questions about your interests and goals, then suggest clubs.",
+    "placeholder": "Type your answer…",
+    "send": "Send",
+    "skip": "Skip (dev)",
+    "recommendationsTitle": "Clubs for you",
+    "recommendationsHint": "Pick the ones you like — we will enrol you right away.",
+    "noClubs": "No active clubs at the school yet",
+    "choose": "Enrol",
+    "finishWithClubs": "Enrol in clubs ({{count}}) and continue",
+    "finishWithout": "Continue without enrolling"
   }
 }

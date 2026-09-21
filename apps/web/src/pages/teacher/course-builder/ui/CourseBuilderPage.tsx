@@ -1,19 +1,28 @@
 import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
-import { useGenerationJobs } from '@/entities/course';
+import { useNavigate } from 'react-router';
+import { isGenerationRunning, useGenerationJobs } from '@/entities/generation';
+import { GenerateCourseForm } from '@/features/generate-course';
 import { formatDateTime } from '@/shared/lib/dates';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
-/** `/teacher/course-builder` — заглушка пайплайна (F8): список задач генерации. */
+/** `/teacher/course-builder` — запуск генерации (по теме или из файлов) и список задач (F8). */
 export function CourseBuilderPage() {
   const { t, i18n } = useTranslation('teacher');
+  const navigate = useNavigate();
   const jobs = useGenerationJobs();
+
   return (
     <>
       <ScreenHeader title={t('courseBuilder.title')} back="/teacher/courses" />
       <Screen>
         <Card>
-          <Text tone="muted">{t('courseBuilder.description')}</Text>
+          <Stack gap={3}>
+            <Text tone="muted">{t('courseBuilder.description')}</Text>
+            <GenerateCourseForm
+              onCreated={(jobId) => navigate(`/teacher/course-builder/${jobId}`)}
+            />
+          </Stack>
         </Card>
         <Stack gap={2}>
           <SectionTitle>{t('courseBuilder.jobs')}</SectionTitle>
@@ -27,10 +36,26 @@ export function CourseBuilderPage() {
                 {page.items.map((job) => (
                   <ListRow
                     key={job.id}
-                    title={job.targetTitle ?? job.id}
-                    subtitle={formatDateTime(job.createdAt, i18n.language)}
+                    title={
+                      job.targetTitle ??
+                      job.topic?.slice(0, 60) ??
+                      job.materials[0]?.fileName ??
+                      job.id
+                    }
+                    subtitle={`${t(`courseBuilder.source.${job.sourceKind ?? 'MATERIALS'}`)} · ${formatDateTime(job.createdAt, i18n.language)}`}
+                    onClick={() => navigate(`/teacher/course-builder/${job.id}`)}
                     right={
-                      <Badge tone={job.stage === 'FAILED' ? 'danger' : 'info'}>
+                      <Badge
+                        tone={
+                          job.stage === 'FAILED'
+                            ? 'danger'
+                            : job.stage === 'READY' || job.stage === 'ACCEPTED'
+                              ? 'success'
+                              : isGenerationRunning(job.stage)
+                                ? 'info'
+                                : 'neutral'
+                        }
+                      >
                         {t(`courseBuilder.stage.${job.stage}`)}
                       </Badge>
                     }

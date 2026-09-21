@@ -7,5 +7,7 @@ export {
   useTrajectory,
   useRefreshTrajectory,
   useCompleteOnboarding,
+  useStartOnboarding,
+  useOnboardingRecommendations,
 } from './api';
 export { ChatMessage, type ChatMessageProps } from './ui/ChatMessage';

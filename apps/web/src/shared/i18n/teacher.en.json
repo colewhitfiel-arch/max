@@ -42,7 +42,11 @@
     "title": "Courses",
     "empty": "No courses yet",
     "emptyHint": "Create a course manually or generate one from materials",
-    "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "ARCHIVED": "Archived" },
+    "status": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published",
+      "ARCHIVED": "Archived"
+    },
     "counts": "{{modules}} modules · {{blocks}} blocks",
     "avgProgress": "Average progress",
     "modules": "Modules",
@@ -53,7 +57,7 @@
   },
   "courseBuilder": {
     "title": "Course builder",
-    "description": "Upload materials, AI generates the structure, you review the draft. Coming soon.",
+    "description": "Describe a topic or practice in your own words — the AI writes the notes, splits them into knowledge atoms and builds a course with lessons and practice. Or upload your materials (pdf, docx, txt, md).",
     "jobs": "Generation jobs",
     "empty": "No generation jobs yet",
     "stage": {
@@ -66,15 +70,70 @@
       "ACCEPTED": "Accepted",
       "FAILED": "Failed",
       "CANCELLED": "Cancelled"
+    },
+    "source": {
+      "MATERIALS": "From materials",
+      "TOPIC": "From a topic, no notes"
+    },
+    "stageHint": {
+      "QUEUED": "Queued, starting soon",
+      "EXTRACTING": "Extracting text from materials or writing notes for the topic, splitting into atoms",
+      "OUTLINING": "The AI extracts knowledge nodes citing atoms; citations are verified by code",
+      "GENERATING": "Writing lessons per module: theory, quiz, gaps, practice",
+      "ASSEMBLING": "Assembling the course draft",
+      "READY": "Draft is ready — review and accept to create the course",
+      "ACCEPTED": "Course created as a draft",
+      "FAILED": "Failed — try refining the topic or uploading another file",
+      "CANCELLED": "Generation cancelled"
+    },
+    "form": {
+      "modeTopic": "By topic",
+      "modeMaterials": "From files",
+      "modeTopicHint": "No notes: describe the topic, lesson plan or practice — the AI writes the notes itself.",
+      "modeMaterialsHint": "Upload notes, a handbook or slides — text is extracted automatically.",
+      "group": "Group",
+      "groupPlaceholder": "Choose a group",
+      "materials": "Materials",
+      "pickFiles": "Choose files",
+      "filesHint": "pdf, docx, txt, md — up to 50 MB each",
+      "removeFile": "Remove file",
+      "uploading": "Uploading…",
+      "topic": "Topic or practice",
+      "topicExtra": "Addition to materials (optional)",
+      "topicHint": "At least {{min}} characters. E.g. \"for and while loops in Python, list practice, grade 7, 2 lessons\"",
+      "topicPlaceholder": "What to learn, for whom, what practice is needed",
+      "instructions": "Wishes",
+      "instructionsPlaceholder": "E.g. more practice, short texts, quiz at the end",
+      "title": "Course title",
+      "submit": "Generate course",
+      "started": "Generation started"
+    },
+    "job": {
+      "title": "Course generation",
+      "progress": "Generation progress",
+      "accept": "Accept draft",
+      "accepted": "Course created",
+      "openCourse": "Open course",
+      "cancel": "Cancel",
+      "tabDraft": "Course draft",
+      "tabKnowledge": "Knowledge base",
+      "knowledgeTitle": "Atoms and knowledge nodes",
+      "knowledgeStats": "Atoms: {{atoms}} · nodes: {{nodes}} · source coverage: {{coverage}} · nodes rejected without citations: {{rejected}}"
     }
   },
   "assignments": {
     "title": "Assignments",
     "empty": "No assignments yet",
-    "filter": { "open": "Open", "closed": "Closed" },
+    "filter": {
+      "open": "Open",
+      "closed": "Closed"
+    },
     "submitted": "{{submitted}} of {{students}} submitted",
     "graded": "{{count}} graded",
     "draft": "Draft"
   },
-  "more": { "title": "More", "school": "School" }
+  "more": {
+    "title": "More",
+    "school": "School"
+  }
 }
