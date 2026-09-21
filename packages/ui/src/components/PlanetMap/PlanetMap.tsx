@@ -35,8 +35,8 @@ export interface PlanetMapItem {
 
 export interface PlanetMapProps extends HTMLAttributes<HTMLDivElement> {
   /**
-   * Планеты по порядку вдоль траектории (снизу-слева вверх-вправо). Видны четыре;
-   * остальные листаются свайпом по траектории или стрелками с клавиатуры.
+   * Планеты по порядку вдоль траектории: первая — вверху справа, дальше вниз-влево.
+   * Видны четыре; остальные листаются свайпом вправо по траектории или стрелками.
    */
   items: PlanetMapItem[];
   /** Картинка фона (звёзды) за всей картой; накладывается полупрозрачно. */
@@ -53,18 +53,23 @@ export interface PlanetMapProps extends HTMLAttributes<HTMLDivElement> {
   'aria-label'?: string;
 }
 
-/* Геометрия из макета (ширина 402): четыре слота по диагонали снизу-слева вверх-вправо.
- * Координаты — px макета, рендерятся в процентах, чтобы карта масштабировалась с шириной. */
+/* Геометрия по мотивам макета (ширина 402): планеты одного размера на прямой траектории
+ * из левого нижнего угла в правый верхний с одинаковым шагом. Координаты — px макета,
+ * рендерятся в процентах, чтобы карта масштабировалась с шириной. */
 const VIEW_W = 402;
 const VIEW_H = 460;
-/** Сколько планет видно одновременно (слотов в макете). */
+/** Сколько планет видно одновременно (слотов на траектории). */
 export const PLANET_MAP_WINDOW = 4;
+const PLANET_SIZE = 96;
+/** Центры крайних планет траектории: нижняя левая → верхняя правая. */
+const TRACK_START = { x: 55, y: 352 };
+const TRACK_END = { x: 325, y: 96 };
 /** Высота крупного числа: подпись ставится так, чтобы число лежало на линии. */
 const VALUE_H = 30;
-/** Средний шаг между соседними слотами по горизонтали, px макета: один свайп — одна планета. */
-const STEP_X = 95;
+/** Шаг между соседними планетами по горизонтали, px макета: один свайп — одна планета. */
+const STEP_X = (TRACK_END.x - TRACK_START.x) / (PLANET_MAP_WINDOW - 1);
 /** Наклон траектории (dy/dx): контент при свайпе едет по диагонали. */
-const TRACK_SLOPE = -256 / 280;
+const TRACK_SLOPE = (TRACK_END.y - TRACK_START.y) / (TRACK_END.x - TRACK_START.x);
 /** Порог, после которого движение считается свайпом, а не тапом. */
 const DRAG_THRESHOLD = 6;
 const SLIDE_MS = durations.normal * 1.6;
@@ -74,6 +79,17 @@ interface Planet {
   y: number;
   w: number;
   h: number;
+}
+
+/** Планета с центром в точке t траектории (0 — нижняя левая, 3 — верхняя правая). */
+function planetAt(t: number): Planet {
+  const k = t / (PLANET_MAP_WINDOW - 1);
+  return {
+    x: TRACK_START.x + (TRACK_END.x - TRACK_START.x) * k - PLANET_SIZE / 2,
+    y: TRACK_START.y + (TRACK_END.y - TRACK_START.y) * k - PLANET_SIZE / 2,
+    w: PLANET_SIZE,
+    h: PLANET_SIZE,
+  };
 }
 
 interface Slot {
@@ -92,10 +108,10 @@ interface Slot {
   marker?: { x: number; y: number; side: 'bottom' };
 }
 
-/** Слоты в порядке траектории: снизу-слева (первая планета) вверх-вправо. */
+/** Слоты снизу-слева вверх-вправо; подписи чередуют стороны, как в макете. */
 const SLOTS: Slot[] = [
   {
-    planet: { x: 11, y: 302, w: 88, h: 100 },
+    planet: planetAt(0),
     label: { x: 103, y: 420 },
     line: [
       [68, 383],
@@ -106,37 +122,40 @@ const SLOTS: Slot[] = [
     marker: { x: 50, y: 402, side: 'bottom' },
   },
   {
-    planet: { x: 46, y: 190, w: 108, h: 112 },
-    label: { x: 157, y: 301 },
+    planet: planetAt(1),
+    label: { x: 207, y: 325 },
     line: [
-      [125, 281],
-      [157, 301],
-      [221, 301],
+      [182, 300],
+      [207, 325],
+      [271, 325],
     ],
   },
   {
-    planet: { x: 190, y: 110, w: 77, h: 77 },
-    label: { x: 208, y: 101, align: 'end' },
+    planet: planetAt(2),
+    label: { x: 205, y: 124, align: 'end' },
     line: [
-      [121, 101],
-      [208, 101],
-      [221, 116],
+      [127, 124],
+      [205, 124],
+      [217, 140],
     ],
   },
   {
-    planet: { x: 283, y: 44, w: 104, h: 104 },
-    label: { x: 266, y: 181 },
+    planet: planetAt(3),
+    label: { x: 296, y: 176 },
     line: [
-      [266, 181],
-      [340, 181],
-      [346, 125],
+      [296, 176],
+      [332, 176],
+      [334, 140],
     ],
   },
 ];
 
-/** Краешки планет за пределами окна: намёк, что дальше есть ещё. */
-const EDGE_BEFORE: Planet = { x: -64, y: 400, w: 80, h: 80 };
-const EDGE_AFTER: Planet = { x: 384, y: 32, w: 84, h: 84 };
+/** Краешки соседних планет за пределами окна: намёк, что дальше есть ещё. */
+const EDGE_PREV = planetAt(PLANET_MAP_WINDOW - 1 + 0.9);
+const EDGE_NEXT = planetAt(-0.9);
+
+/** Первая видимая планета стоит вверху справа, следующие спускаются по траектории влево-вниз. */
+const slotForRel = (rel: number): Slot | undefined => SLOTS[PLANET_MAP_WINDOW - 1 - rel];
 
 const px = (value: number, total: number) => `${((value / total) * 100).toFixed(3)}%`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -151,10 +170,10 @@ function planetStyle(planet: Planet): CSSProperties {
 }
 
 /**
- * «Карта планет»: картинки-планеты по диагональной траектории на звёздном фоне, к каждой —
- * подпись (крупное число + название) с тонкой линией-выноской и необязательная пометка.
- * Видны четыре планеты; остальные листаются свайпом вдоль траектории (следующие входят
- * сверху-справа) или стрелками. Домена не знает: что за число и картинка — решает потребитель.
+ * «Карта планет»: картинки-планеты с одинаковым шагом на диагональной траектории поверх
+ * звёздного фона, к каждой — подпись (крупное число + название) с тонкой линией-выноской
+ * и необязательная пометка. Видны четыре планеты; свайп вправо (или →) ведёт контент
+ * вверх по траектории, следующие планеты входят снизу-слева. Домена не знает.
  */
 export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function PlanetMap(
   {
@@ -218,7 +237,7 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
       setDragging(true);
     }
     // На краях — «резинка».
-    const atEdge = (dx > 0 && offset === 0) || (dx < 0 && offset === maxOffset);
+    const atEdge = (dx < 0 && offset === 0) || (dx > 0 && offset === maxOffset);
     setDragX(atEdge ? dx * 0.35 : dx);
   };
 
@@ -232,9 +251,9 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
     const dx = event.clientX - state.x;
     const scale = (canvasRef.current?.clientWidth ?? VIEW_W) / VIEW_W;
     const stepPx = STEP_X * scale;
-    // Свайп влево-вниз открывает следующие планеты (они входят сверху-справа).
-    let steps = Math.round(-dx / stepPx);
-    if (steps === 0 && Math.abs(dx) > stepPx * 0.35) steps = dx < 0 ? 1 : -1;
+    // Свайп вправо-вверх открывает следующие планеты (они входят снизу-слева).
+    let steps = Math.round(dx / stepPx);
+    if (steps === 0 && Math.abs(dx) > stepPx * 0.35) steps = dx > 0 ? 1 : -1;
     suppressClickUntil.current = Date.now() + 400;
     setDragging(false);
     setDragX(0);
@@ -303,7 +322,7 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
           focusable="false"
         >
           {visible.map(({ item, rel }) => {
-            const slot = SLOTS[rel];
+            const slot = slotForRel(rel);
             return slot ? (
               <polyline
                 key={item.key}
@@ -320,8 +339,8 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
           onKeyDown={onKeyDown}
         >
           {visible.map(({ item, rel }) => {
-            const slot = SLOTS[rel];
-            const planet = slot ? slot.planet : rel < 0 ? EDGE_BEFORE : EDGE_AFTER;
+            const slot = slotForRel(rel);
+            const planet = slot ? slot.planet : rel < 0 ? EDGE_PREV : EDGE_NEXT;
             const title = item.title ?? (typeof item.label === 'string' ? item.label : undefined);
             const clickable = !!item.onClick && !!slot && !item.locked;
             const image = (

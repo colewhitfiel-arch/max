@@ -176,9 +176,10 @@ button.ui-planet-map__planet:active {
 .ui-planet-map__name {
   padding-top: 3px;
   font-family: var(--ui-font-family-mono);
-  font-size: var(--ui-font-size-xs);
+  font-size: 11px;
   line-height: 1.3;
-  overflow-wrap: anywhere;
+  /* Перенос только по словам: длинное слово лучше чуть выйдет за край, чем разорвётся. */
+  overflow-wrap: normal;
 }
 
 /* Пометка над планетой: текст + двойной шеврон, центрируется по планете, стоит на её верхе. */
