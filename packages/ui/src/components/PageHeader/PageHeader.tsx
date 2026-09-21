@@ -20,16 +20,24 @@ export interface PageHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
    * `plain` — без фона, заголовок по центру между «Назад» и действиями (как на главной из макета).
    */
   variant?: PageHeaderVariant;
+  /** Прилипать к верху скролл-области (чат, длинные ленты); подложка растворяется в фон. */
+  sticky?: boolean;
 }
 
 /** Шапка экрана: назад | заголовок/подзаголовок | действия. */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { title, subtitle, onBack, actions, variant = 'solid', className, ...rest },
+  { title, subtitle, onBack, actions, variant = 'solid', sticky = false, className, ...rest },
   ref,
 ) {
   const plain = variant === 'plain';
   return (
-    <header ref={ref} className={cx('ui-page-header', className)} data-variant={variant} {...rest}>
+    <header
+      ref={ref}
+      className={cx('ui-page-header', className)}
+      data-variant={variant}
+      data-sticky={sticky || undefined}
+      {...rest}
+    >
       {(onBack || plain) && (
         <div className="ui-page-header__lead">
           {onBack && (

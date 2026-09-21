@@ -51,6 +51,17 @@
   background: transparent;
 }
 
+.ui-page-header[data-sticky] {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.ui-page-header[data-variant='plain'][data-sticky] {
+  padding-bottom: var(--ui-space-3);
+  background: linear-gradient(to top, transparent, var(--ui-color-bg) 45%);
+}
+
 .ui-page-header[data-variant='plain'] .ui-page-header__lead,
 .ui-page-header[data-variant='plain'] .ui-page-header__actions {
   min-width: var(--ui-control-height-md);

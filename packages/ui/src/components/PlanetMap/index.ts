@@ -1,1 +1,1 @@
-export { PlanetMap, type PlanetMapItem, type PlanetMapProps } from './PlanetMap';
+export { PLANET_MAP_WINDOW, PlanetMap, type PlanetMapItem, type PlanetMapProps } from './PlanetMap';
