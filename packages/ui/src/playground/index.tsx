@@ -12,6 +12,7 @@ import {
   Card,
   ChatBubble,
   ChatComposer,
+  ChevronsDownIcon,
   Checkbox,
   Chip,
   ClipboardIcon,
@@ -61,6 +62,7 @@ import {
   ToastProvider,
   UserIcon,
   WeekArc,
+  PlanetMap,
   applyTheme,
   getTheme,
   useToast,
@@ -70,6 +72,12 @@ import {
 import './playground.css';
 
 const TONES: Tone[] = ['neutral', 'info', 'success', 'warning', 'danger'];
+
+/** Планета-заглушка для PlanetMap: цветной круг (в приложении — картинки из макета). */
+const planet = (color: string) =>
+  `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="${color}"/><ellipse cx="38" cy="36" rx="16" ry="10" fill="white" opacity="0.35"/></svg>`,
+  )}`;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -663,6 +671,27 @@ function PlaygroundContent() {
         </Card>
       </Section>
 
+      <Section title="PlanetMap">
+        <PlanetMap
+          aria-label="Карта заданий по кружкам"
+          items={[
+            { key: 'prog', image: planet('#5b3fd6'), value: 160, label: 'программирование' },
+            { key: 'eng', image: planet('#1858fa'), value: 120, label: 'английский' },
+            {
+              key: 'rob',
+              image: planet('#3aa0ff'),
+              value: 150,
+              label: 'робототехника',
+              marker: 'сделать до завтра',
+              title: 'Робототехника: 150 баллов',
+              onClick: () => alert('Робототехника'),
+            },
+            { key: 'chess', image: planet('#f2b705'), value: 125, label: 'шахматы' },
+            { key: 'math', image: planet('#2cda00'), value: 90, label: 'математика' },
+          ]}
+        />
+      </Section>
+
       <Section title="ChatBubble, ChatComposer">
         <ChatDemo />
       </Section>
@@ -693,6 +722,9 @@ function PlaygroundContent() {
           </Text>
           <Text as="span" tone="primary">
             <GemIcon size={32} />
+          </Text>
+          <Text as="span" tone="warning">
+            <ChevronsDownIcon />
           </Text>
         </Row>
       </Section>

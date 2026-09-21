@@ -34,9 +34,9 @@ export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
     { key: 'home', path: '/student', labelKey: 'nav.home', icon: HomeIcon },
     { key: 'tutor', path: '/student/tutor', labelKey: 'nav.tutor', icon: AiIcon, iconSize: 'lg' },
     {
-      key: 'courses',
-      path: '/student/courses',
-      labelKey: 'nav.courses',
+      key: 'assignments',
+      path: '/student/assignments',
+      labelKey: 'nav.assignments',
       icon: BookIcon,
       prominent: true,
     },

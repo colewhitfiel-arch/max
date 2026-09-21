@@ -182,6 +182,18 @@ export function GemIcon(props: IconProps) {
   );
 }
 
+/** Двойной шеврон вниз (маркер «сделать до …» на карте заданий), 35×28. */
+export function ChevronsDownIcon(props: IconProps) {
+  return (
+    <FilledIcon viewBox="0 0 35 28" width={35} height={28} {...props}>
+      <g transform="matrix(1 0 0 -1 0 28)">
+        <path d="M35 18.4463H26.7373L17.5 8.70996L8.26367 18.4463H0L17.5 0L35 18.4463Z" />
+        <path d="M31.6175 27.9996H24.9515L17.5003 20.1451L10.0482 27.9996H3.38217L17.5003 13.1187L31.6175 27.9996Z" />
+      </g>
+    </FilledIcon>
+  );
+}
+
 export function ChevronLeftIcon(props: IconProps) {
   return (
     <Icon viewBox="0 0 15 22" strokeWidth={4} {...props}>

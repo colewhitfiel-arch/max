@@ -66,6 +66,7 @@ describe('apiContract', () => {
         "GET /teacher/courses/:courseId/progress",
         "GET /student/assignments",
         "GET /student/assignments/:assignmentId",
+        "GET /student/homework",
         "POST /student/assignments/:assignmentId/submit",
         "GET /teacher/assignments",
         "POST /teacher/assignments",

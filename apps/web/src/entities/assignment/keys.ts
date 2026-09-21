@@ -6,6 +6,7 @@ export const assignmentKeys = {
     [...queryKeys.student, 'assignments', query] as const,
   studentDetail: (assignmentId: string) =>
     [...queryKeys.student, 'assignments', 'detail', assignmentId] as const,
+  studentHomework: () => [...queryKeys.student, 'homework'] as const,
   teacherList: (query: ListTeacherAssignmentsQuery) =>
     [...queryKeys.teacher, 'assignments', query] as const,
   submissions: (assignmentId: string) =>

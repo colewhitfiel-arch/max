@@ -165,6 +165,8 @@ CourseDraft = { title, description?, modules: [{ id?, title, summary?, sourceRef
 GET  /student/assignments?status=open|done|all&cursor → Paginated<AssignmentBrief>
 GET  /student/assignments/:id            → AssignmentBrief & { description?, block?: { id, courseId }, submission?: SubmissionDto, attemptsLeft?: number }
 POST /student/assignments/:id/submit     { answers?: unknown, text?: string, fileIds?: Id[] } → SubmissionDto   // Idempotency-Key
+GET  /student/homework                   → { clubs: HomeworkClub[] /* по ближайшему дедлайну */,
+                                             streakDays?: number, points?: number /* как на главной */ }   // экран «Задания» (карта кружков)
 
 GET  /teacher/assignments?groupId&status=open|closed&cursor → Paginated<TeacherAssignmentCard>
 POST /teacher/assignments                { groupId, title, description?, type?: AssignmentType='HOMEWORK', dueAt?, maxScore?, allowedAttempts?, publish: boolean } → TeacherAssignmentCard
@@ -176,6 +178,8 @@ POST /teacher/submissions/:id/grade      { score: number, feedback?: string, sta
 
 SubmissionDto = { id, assignmentId, status, score?, isLate, attemptsCount, submittedAt?, gradedAt?, feedback?, text?, fileIds: Id[] }
 TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentsCount, submittedCount, gradedCount }
+HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открытые задания */, points /* баллы по кружку, формула — analytics */,
+                 nextAssignment?: AssignmentBrief /* ближайшее открытое по дедлайну */ }
 ```
 
 ### `ai.ts` — владелец B10 (секции — A1/A2/A4)

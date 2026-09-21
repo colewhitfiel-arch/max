@@ -6,6 +6,7 @@ import {
   CreateAssignmentBodySchema,
   GradeSubmissionBodySchema,
   StudentAssignmentDetailSchema,
+  StudentHomeworkDtoSchema,
   type Submission,
   SubmissionDtoSchema,
   SubmitAssignmentBodySchema,
@@ -19,8 +20,11 @@ import {
   assignmentBrief,
   assignmentsOfStudent,
   dueAtOf,
+  groupBrief,
+  groupIdsOfStudent,
   groupsOfTeacher,
   isDone,
+  statsBrief,
   studentBrief,
   studentIdsOfGroup,
 } from '../demo';
@@ -60,6 +64,57 @@ export const assignmentsHandlers = [
           })
           .map((a) => assignmentBrief(a.id, student.id));
         return json(paginated(AssignmentBriefSchema), { items });
+      },
+      ['STUDENT'],
+    ),
+  ),
+
+  http.get(
+    apiUrl('/student/homework'),
+    authed(
+      ({ auth }) => {
+        const student = studentOfUser(auth.user.id);
+        if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
+        const dueTime = (a: Assignment) => {
+          const due = dueAtOf(a.id);
+          return due ? new Date(due).getTime() : Number.POSITIVE_INFINITY;
+        };
+        const clubs = groupIdsOfStudent(student.id).map((groupId) => {
+          const group = groupBrief(groupId);
+          const open = assignmentsOfStudent(student.id)
+            .filter((a) => a.groupId === groupId && !isDone(a.id, student.id))
+            .sort((a, b) => dueTime(a) - dueTime(b));
+          // Баллы по кружку — сумма оценок за проверенные сдачи (заглушка формулы analytics).
+          const points = db.submissions
+            .filter(
+              (s) =>
+                s.studentId === student.id &&
+                s.status === 'GRADED' &&
+                db.assignments.some((a) => a.id === s.assignmentId && a.groupId === groupId),
+            )
+            .reduce((sum, s) => sum + (s.score ?? 0), 0);
+          const next = open[0];
+          return {
+            club: group.club,
+            group,
+            openCount: open.length,
+            points,
+            nextAssignment: next ? assignmentBrief(next.id, student.id) : null,
+            nextDue: next ? dueTime(next) : Number.POSITIVE_INFINITY,
+          };
+        });
+        const stats = statsBrief(student.id);
+        const present = db.attendance.filter(
+          (a) => a.studentId === student.id && (a.status === 'PRESENT' || a.status === 'LATE'),
+        ).length;
+        return json(StudentHomeworkDtoSchema, {
+          clubs: clubs
+            .sort((a, b) => a.nextDue - b.nextDue)
+            .map(({ nextDue: _due, ...club }) => club),
+          // Те же заглушки геймификации, что на главной (`/student/home`).
+          streakDays: 3 + present * 4,
+          points: stats.activityScore * 2,
+        });
       },
       ['STUDENT'],
     ),

@@ -1,48 +1,45 @@
-import type { StudentAssignmentsFilter } from '@edu/contracts';
-import { Card, EmptyState, Screen, SegmentedControl } from '@edu/ui';
-import { useState } from 'react';
+import { EmptyState, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { AssignmentCard, useStudentAssignments } from '@/entities/assignment';
-import { AsyncState, ScreenHeader } from '@/shared/ui';
+import { useStudentHomework } from '@/entities/assignment';
+import { AsyncState, DashboardSkeleton } from '@/shared/ui';
+import { HomeworkMap } from '@/widgets/homework-map';
+import { HomeworkRecommendations } from '@/widgets/homework-recommendations';
+import { StudentHomeStats } from '@/widgets/student-home-stats';
 
-const FILTERS: StudentAssignmentsFilter[] = ['open', 'done', 'all'];
-
-/** `/student/assignments` — `GET /student/assignments?status`. */
+/**
+ * `/student/assignments` — экран «Задания» по макету Figma: серия/баллы, «Рекомендации на
+ * сегодня» (кружки с открытыми заданиями) и карта планет по кружкам. Данные — `GET /student/homework`.
+ * Тап по планете открывает ближайшее задание кружка.
+ */
 export function AssignmentsPage() {
   const { t } = useTranslation('student');
   const navigate = useNavigate();
-  const [status, setStatus] = useState<StudentAssignmentsFilter>('open');
-  const query = useStudentAssignments({ status });
+  const query = useStudentHomework();
+
   return (
-    <>
-      <ScreenHeader title={t('assignments.title')} back="/student" />
-      <Screen>
-        <SegmentedControl
-          fullWidth
-          aria-label={t('assignments.title')}
-          value={status}
-          onChange={(value) => setStatus(value as StudentAssignmentsFilter)}
-          options={FILTERS.map((value) => ({ value, label: t(`assignments.filter.${value}`) }))}
-        />
-        <AsyncState
-          query={query}
-          isEmpty={(page) => page.items.length === 0}
-          empty={<EmptyState title={t('assignments.empty')} />}
-        >
-          {(page) => (
-            <Card padding="none">
-              {page.items.map((assignment) => (
-                <AssignmentCard
-                  key={assignment.id}
-                  assignment={assignment}
-                  onClick={() => navigate(`/student/assignments/${assignment.id}`)}
-                />
-              ))}
-            </Card>
-          )}
-        </AsyncState>
-      </Screen>
-    </>
+    <Screen gap={6} fill>
+      <VisuallyHidden as="h1">{t('homework.title')}</VisuallyHidden>
+      <AsyncState
+        query={query}
+        skeleton={<DashboardSkeleton />}
+        isEmpty={(homework) => homework.clubs.length === 0}
+        empty={<EmptyState title={t('homework.empty')} description={t('homework.emptyHint')} />}
+      >
+        {(homework) => (
+          <>
+            <StudentHomeStats streakDays={homework.streakDays} points={homework.points} />
+            <Stack gap={5}>
+              <Text variant="title">{t('homework.recommendations')}</Text>
+              <HomeworkRecommendations clubs={homework.clubs} />
+            </Stack>
+            <HomeworkMap
+              clubs={homework.clubs}
+              onOpenAssignment={(id) => navigate(`/student/assignments/${id}`)}
+            />
+          </>
+        )}
+      </AsyncState>
+    </Screen>
   );
 }

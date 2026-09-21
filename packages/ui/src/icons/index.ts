@@ -10,6 +10,7 @@ export {
   ChatIcon,
   CheckIcon,
   ChevronLeftIcon,
+  ChevronsDownIcon,
   ChevronRightIcon,
   ClipboardIcon,
   CloseIcon,

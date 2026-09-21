@@ -73,14 +73,27 @@
     "completed": "Block completed",
     "contentNotSupported": "This block type is not rendered yet"
   },
+  "homework": {
+    "title": "Assignments",
+    "recommendations": "Today's recommendations",
+    "columns": {
+      "club": "Club",
+      "count": "Assignments"
+    },
+    "noOpen": "No open assignments — all done",
+    "empty": "No clubs yet",
+    "emptyHint": "Assignments will appear once you join a group",
+    "map": "Assignments map by club",
+    "planet": "{{club}}: {{points}} points, open assignments: {{open}}",
+    "due": {
+      "today": "do it today",
+      "tomorrow": "due tomorrow",
+      "overdue": "overdue",
+      "date": "due by {{date}}"
+    }
+  },
   "assignments": {
     "title": "Assignments",
-    "filter": {
-      "open": "Open",
-      "done": "Done",
-      "all": "All"
-    },
-    "empty": "No assignments",
     "description": "Description",
     "submission": "Your submission",
     "feedback": "Teacher feedback",

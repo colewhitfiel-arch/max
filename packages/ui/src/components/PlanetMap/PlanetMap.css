@@ -1,0 +1,142 @@
+/* Макет: тёмное поле со звёздами (png, 54% непрозрачности), планеты и подписи
+ * в координатах макета (402px), пересчитанных в проценты; линии — тонкий svg-оверлей. */
+.ui-planet-map {
+  position: relative;
+  min-width: 0;
+  color: var(--ui-color-text);
+}
+
+.ui-planet-map[data-grow] {
+  flex: 1 0 auto;
+}
+
+.ui-planet-map[data-bleed] {
+  margin-inline: calc(-1 * var(--ui-space-4));
+}
+
+.ui-planet-map__backdrop {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  background-size: 260% auto;
+  background-position: 40% 0;
+  opacity: 0.54;
+  pointer-events: none;
+}
+
+.ui-planet-map__canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--ui-planet-map-ratio, 402 / 445);
+}
+
+.ui-planet-map__lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-planet-map__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-planet-map__item {
+  display: contents;
+}
+
+.ui-planet-map__planet {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--ui-radius-full);
+  transition: transform var(--ui-duration-normal) var(--ui-easing);
+}
+
+button.ui-planet-map__planet {
+  cursor: pointer;
+}
+
+button.ui-planet-map__planet:active {
+  transform: scale(0.96);
+}
+
+.ui-planet-map__planet:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 4px;
+}
+
+.ui-planet-map__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Подпись: число лежит на линии-выноске, название — под ней. */
+.ui-planet-map__label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.ui-planet-map__label[data-align='end'] {
+  align-items: flex-end;
+  text-align: end;
+}
+
+.ui-planet-map__value {
+  font-family: var(--ui-font-family-display);
+  font-size: 30px;
+  font-weight: var(--ui-font-weight-regular);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ui-planet-map__name {
+  padding-top: 3px;
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* Пометка над планетой: текст + двойной шеврон, центрируется по планете, стоит на её верхе. */
+.ui-planet-map__marker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform: translate(-50%, -100%);
+  color: var(--ui-color-warning);
+  pointer-events: none;
+}
+
+.ui-planet-map__marker-text {
+  font-family: var(--ui-font-family-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ui-planet-map__marker-arrow {
+  width: 35px;
+  height: 28px;
+}

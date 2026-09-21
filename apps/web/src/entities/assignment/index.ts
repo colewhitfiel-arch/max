@@ -2,6 +2,7 @@ export { assignmentKeys } from './keys';
 export {
   useStudentAssignments,
   useStudentAssignment,
+  useStudentHomework,
   useSubmitAssignment,
   useTeacherAssignments,
   useCreateAssignment,

@@ -32,6 +32,9 @@
   --ui-font-family:
     'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     sans-serif;
+  /* Акцидентные шрифты «карты заданий»: пиксельные числа и моноширинные подписи. */
+  --ui-font-family-display: 'Jersey 20', 'Montserrat Variable', system-ui, sans-serif;
+  --ui-font-family-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Menlo, monospace;
   --ui-font-size-xs: 12px;
   --ui-font-size-sm: 14px;
   --ui-font-size-md: 16px;

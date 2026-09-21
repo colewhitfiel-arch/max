@@ -62,6 +62,12 @@ pnpm typecheck && pnpm lint && pnpm test
 - `Avatar ring` — кольцо primary со свечением; `Stack grow`, `Screen fill` — для экранов с панелью у нижнего края.
 - Контурные иконки: `SendIcon`, `StopIcon`, `TrashIcon`, `CopyIcon`, `LogoutIcon`, `MoonIcon`, `GlobeIcon`, `LifebuoyIcon`, `SparkIcon`, `StarIcon`, `ClipboardIcon`, `RefreshIcon`, `EyeIcon`, `ShieldIcon`, `CreditCardIcon`, `TargetIcon`, `HeartIcon`, `LinkIcon`.
 
+## Экран «Задания» ученика (карта планет)
+
+- `PlanetMap` — планеты-картинки на звёздном фоне (`backdrop`), к каждой подпись «число + название» с линией-выноской и пометка над планетой (`marker`); четыре слота-«витка» из макета повторяются для 5+ планет; `grow`/`bleed` — под `Screen fill` на всю ширину.
+- Токены `--ui-font-family-display` (Jersey 20 — пиксельные числа) и `--ui-font-family-mono` (JetBrains Mono — подписи); шрифты подключаются в `src/index.ts`.
+- `ChevronsDownIcon` — двойной шеврон-маркер (35×28) из макета.
+
 ## Что временно
 
 - Светлая палитра — зеркало тёмной, в макете её нет.

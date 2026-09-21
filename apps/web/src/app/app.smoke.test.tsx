@@ -80,11 +80,19 @@ describe('foundation smoke (mock API)', () => {
       expect(screen.getByRole('button', { name: 'Следующий день' })).toBeEnabled();
       expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeDisabled();
 
-      // Нижнее меню → курсы.
-      await user.click(nav().getByRole('button', { name: 'Курсы' }));
+      // Нижнее меню (центральная кнопка) → задания: рекомендации и карта планет из фикстур.
+      await user.click(nav().getByRole('button', { name: 'Задания' }));
+      await expectPage('Задания');
+      await findText('Рекомендации на сегодня');
+      expect(router.state.location.pathname).toBe('/student/assignments');
+      expect(
+        screen.getByRole('button', { name: /^Робототехника: \d+ баллов, открытых заданий: 2$/ }),
+      ).toBeInTheDocument();
+
+      // Курсы — по прямому адресу.
+      await router.navigate('/student/courses');
       await expectPage('Курсы');
       await findText('Основы робототехники');
-      expect(router.state.location.pathname).toBe('/student/courses');
 
       // Профиль: траектория и код для родителя.
       await user.click(nav().getByRole('button', { name: 'Профиль' }));
