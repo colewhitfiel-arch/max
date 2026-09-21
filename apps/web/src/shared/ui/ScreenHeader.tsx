@@ -16,6 +16,8 @@ export interface ScreenHeaderProps {
   actions?: ReactNode;
   /** По умолчанию `plain` — без плашки, заголовок по центру (как на главной из макета). */
   variant?: PageHeaderVariant;
+  /** Прилипать к верху скролл-области (см. `PageHeader.sticky`). */
+  sticky?: boolean;
 }
 
 /** Колокольчик как на главной: 30px, приглушённый; с непрочитанными — жёлтый со счётчиком. */
@@ -51,6 +53,7 @@ export function ScreenHeader({
   bell = false,
   actions,
   variant = 'plain',
+  sticky,
 }: ScreenHeaderProps) {
   const navigate = useNavigate();
   const onBack = back
@@ -59,6 +62,7 @@ export function ScreenHeader({
   return (
     <PageHeader
       variant={variant}
+      sticky={sticky}
       title={title}
       subtitle={subtitle}
       onBack={onBack}
