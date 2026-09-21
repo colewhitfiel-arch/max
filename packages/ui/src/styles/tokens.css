@@ -1,6 +1,6 @@
 /*
- * Токены дизайн-системы. Это ВРЕМЕННЫЙ визуальный слой: финальный дизайн
- * заменяет значения здесь и в CSS компонентов, не трогая их API.
+ * Токены дизайн-системы. Значения — из макета Figma (главный экран ученика):
+ * тёмная тема первична (#0d0d0d / #1e1e1e, Montserrat), светлая — её зеркало.
  *
  * Тема:
  *  - нет атрибута / data-theme="system" → следуем prefers-color-scheme;
@@ -17,17 +17,21 @@
   --ui-color-surface-2: #eceef2;
   --ui-color-text: #1b1f24;
   --ui-color-text-muted: #6b7380;
-  --ui-color-primary: #2f6fed;
+  --ui-color-primary: #0264ce;
   --ui-color-primary-contrast: #ffffff;
+  --ui-color-info: #1858fa;
   --ui-color-success: #1f9d55;
-  --ui-color-warning: #d9820b;
-  --ui-color-danger: #d93a3a;
+  --ui-color-warning: #d9a10b;
+  --ui-color-danger: #c90000;
   --ui-color-border: #d8dce3;
-  --ui-color-focus: #2f6fed;
+  --ui-color-focus: #0264ce;
+  /* Декоративное свечение фона приложения (в светлой теме выключено). */
+  --ui-color-bg-glow: transparent;
 
   /* Типографика */
   --ui-font-family:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
   --ui-font-size-xs: 12px;
   --ui-font-size-sm: 14px;
   --ui-font-size-md: 16px;
@@ -36,7 +40,7 @@
   --ui-line-height: 1.4;
   --ui-font-weight-regular: 400;
   --ui-font-weight-medium: 500;
-  --ui-font-weight-bold: 700;
+  --ui-font-weight-bold: 600;
 
   /* Отступы, сетка 4px */
   --ui-space-1: 4px;
@@ -51,7 +55,8 @@
   /* Радиусы */
   --ui-radius-sm: 8px;
   --ui-radius-md: 12px;
-  --ui-radius-lg: 16px;
+  --ui-radius-lg: 20px;
+  --ui-radius-xl: 30px;
   --ui-radius-full: 9999px;
 
   /* Тени */
@@ -79,19 +84,21 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --ui-color-bg: #121417;
-    --ui-color-surface: #1c1f24;
-    --ui-color-surface-2: #272b32;
-    --ui-color-text: #eaedf1;
-    --ui-color-text-muted: #9aa3b0;
-    --ui-color-primary: #5b8def;
+    --ui-color-bg: #0d0d0d;
+    --ui-color-surface: #1e1e1e;
+    --ui-color-surface-2: #2a2a2a;
+    --ui-color-text: #ffffff;
+    --ui-color-text-muted: #b9b9b9;
+    --ui-color-primary: #0264ce;
     --ui-color-primary-contrast: #ffffff;
-    --ui-color-success: #3fbf74;
-    --ui-color-warning: #e9a03a;
-    --ui-color-danger: #ef5b5b;
-    --ui-color-border: #353a43;
-    --ui-color-focus: #7fa6f5;
-    --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ui-color-info: #1858fa;
+    --ui-color-success: #2cda00;
+    --ui-color-warning: #fbcc1d;
+    --ui-color-danger: #c90000;
+    --ui-color-border: #2a2a2a;
+    --ui-color-focus: #5b8def;
+    --ui-color-bg-glow: rgba(13, 63, 208, 0.45);
+    --ui-shadow-sm: none;
     --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   }
 }
@@ -100,19 +107,21 @@
  * без препроцессора один блок нельзя применить к двум разным условиям. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --ui-color-bg: #121417;
-  --ui-color-surface: #1c1f24;
-  --ui-color-surface-2: #272b32;
-  --ui-color-text: #eaedf1;
-  --ui-color-text-muted: #9aa3b0;
-  --ui-color-primary: #5b8def;
+  --ui-color-bg: #0d0d0d;
+  --ui-color-surface: #1e1e1e;
+  --ui-color-surface-2: #2a2a2a;
+  --ui-color-text: #ffffff;
+  --ui-color-text-muted: #b9b9b9;
+  --ui-color-primary: #0264ce;
   --ui-color-primary-contrast: #ffffff;
-  --ui-color-success: #3fbf74;
-  --ui-color-warning: #e9a03a;
-  --ui-color-danger: #ef5b5b;
-  --ui-color-border: #353a43;
-  --ui-color-focus: #7fa6f5;
-  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ui-color-info: #1858fa;
+  --ui-color-success: #2cda00;
+  --ui-color-warning: #fbcc1d;
+  --ui-color-danger: #c90000;
+  --ui-color-border: #2a2a2a;
+  --ui-color-focus: #5b8def;
+  --ui-color-bg-glow: rgba(13, 63, 208, 0.45);
+  --ui-shadow-sm: none;
   --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 

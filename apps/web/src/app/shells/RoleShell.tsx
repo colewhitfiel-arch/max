@@ -29,6 +29,7 @@ export function RoleShell({ role, header, children }: RoleShellProps) {
             label: t(item.labelKey),
             icon: <item.icon />,
             active: item.key === active,
+            prominent: item.prominent,
           }))}
           onSelect={(key) => {
             const item = items.find((i) => i.key === key);

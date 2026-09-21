@@ -2,13 +2,30 @@
   "home": {
     "title": "Главная",
     "today": "Сегодня",
-    "upcoming": "Ближайшие занятия",
-    "tasks": "Задания",
-    "allTasks": "Все задания",
-    "clubs": "Мои кружки",
-    "aiComment": "Комментарий ИИ",
+    "tomorrow": "Завтра",
+    "streak": "Серия: {{count}} дн.",
+    "points": "Баллы: {{count}}",
+    "attendance": "Посещения",
+    "attendanceWeek": "Посещения за неделю",
+    "dayStatus": {
+      "ATTENDED": "посещено",
+      "MISSED": "пропуск",
+      "TODAY": "сегодня",
+      "UPCOMING": "предстоит",
+      "NO_LESSONS": "нет уроков"
+    },
+    "calendar": "Календарь: вернуться к сегодняшнему дню",
+    "prevDay": "Предыдущий день",
+    "nextDay": "Следующий день",
+    "notifications": "Уведомления",
+    "notificationsUnread": "Уведомления: {{count}} непрочитанных",
+    "columns": {
+      "name": "Название",
+      "group": "Группа",
+      "time": "Время"
+    },
     "noLessonsToday": "Сегодня занятий нет",
-    "noTasks": "Открытых заданий нет"
+    "noLessonsOnDay": "В этот день занятий нет"
   },
   "tutor": {
     "title": "ИИ-тьютор",
@@ -38,7 +55,11 @@
   },
   "assignments": {
     "title": "Задания",
-    "filter": { "open": "Открытые", "done": "Сделанные", "all": "Все" },
+    "filter": {
+      "open": "Открытые",
+      "done": "Сделанные",
+      "all": "Все"
+    },
     "empty": "Заданий нет",
     "description": "Описание",
     "submission": "Твоя сдача",

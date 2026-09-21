@@ -1,0 +1,47 @@
+/* Макет: карточки-колонки с отступом 8px, радиусом 20px, строки через 20px. */
+.ui-card-columns {
+  display: grid;
+  grid-template-columns: var(--ui-card-columns-template, repeat(3, minmax(0, 1fr)));
+  grid-template-rows: repeat(var(--ui-card-columns-rows, 1), auto);
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  min-width: 0;
+}
+
+.ui-card-columns__column {
+  display: grid;
+  grid-row: 1 / -1;
+  grid-template-rows: subgrid;
+  row-gap: var(--ui-space-5);
+  min-width: 0;
+  padding: var(--ui-space-2);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-card-columns__cell {
+  min-width: 0;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height);
+}
+
+.ui-card-columns__header {
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.ui-card-columns__column[data-align='center'] .ui-card-columns__cell {
+  text-align: center;
+}
+
+.ui-card-columns__column[data-align='end'] .ui-card-columns__cell {
+  text-align: end;
+}
+
+.ui-card-columns__column[data-nowrap] .ui-card-columns__cell {
+  white-space: nowrap;
+}

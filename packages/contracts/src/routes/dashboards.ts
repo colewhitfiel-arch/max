@@ -4,7 +4,14 @@
  */
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import { DateTimeSchema, IdSchema, PercentSchema, PeriodQuerySchema, RateSchema } from '../common';
+import {
+  DateOnlySchema,
+  DateTimeSchema,
+  IdSchema,
+  PercentSchema,
+  PeriodQuerySchema,
+  RateSchema,
+} from '../common';
 import { AttendanceStatusSchema } from '../enums';
 import {
   AiTextSchema,
@@ -54,6 +61,18 @@ export type AssignmentHistoryItem = z.infer<typeof AssignmentHistoryItemSchema>;
 
 // ---------- Ученик ----------
 
+/** Статус дня в недельной дуге посещений на главной ученика. */
+export const WEEK_DAY_STATUSES = ['ATTENDED', 'MISSED', 'TODAY', 'UPCOMING', 'NO_LESSONS'] as const;
+export const WeekDayStatusSchema = z.enum(WEEK_DAY_STATUSES);
+export type WeekDayStatus = z.infer<typeof WeekDayStatusSchema>;
+
+/** День текущей недели (пн–вс) с итогом посещаемости; считает analytics. */
+export const WeekDaySchema = z.object({
+  date: DateOnlySchema,
+  status: WeekDayStatusSchema,
+});
+export type WeekDay = z.infer<typeof WeekDaySchema>;
+
 export const StudentHomeDtoSchema = z.object({
   today: z.array(LessonDtoSchema),
   /** Ближайшие 7 дней, не более 10. */
@@ -63,6 +82,12 @@ export const StudentHomeDtoSchema = z.object({
   stats: StatsBriefSchema,
   clubs: z.array(ClubProgressSchema),
   aiComment: AiTextSchema,
+  /** Текущая неделя (7 дней, пн–вс) для дуги «Посещения»; нет — пока не посчитано. */
+  week: z.array(WeekDaySchema).optional(),
+  /** Серия дней подряд с активностью (посещение/сдача/блок). */
+  streakDays: z.number().int().nonnegative().optional(),
+  /** Баллы за активность. */
+  points: z.number().int().nonnegative().optional(),
 });
 export type StudentHomeDto = z.infer<typeof StudentHomeDtoSchema>;
 

@@ -1,0 +1,91 @@
+.ui-week-arc {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+/* Легенда: квадрат 14px с радиусом 2px + подпись 12px. */
+.ui-week-arc__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-week-arc__legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ui-week-arc__swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--ui-week-arc-tone, var(--ui-color-text-muted));
+}
+
+.ui-week-arc__figure {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 213px;
+  margin-left: auto;
+}
+
+.ui-week-arc__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ui-week-arc__chip-bg {
+  fill: var(--ui-week-arc-tone, var(--ui-color-text-muted));
+}
+
+/* Подписи на цветных плашках — тёмные (как в макете), на приглушённых — muted. */
+.ui-week-arc__chip-label {
+  fill: #000000;
+  font-family: var(--ui-font-family);
+  font-size: 12px;
+  font-weight: var(--ui-font-weight-regular);
+}
+
+.ui-week-arc__chip[data-tone='muted'] .ui-week-arc__chip-label {
+  fill: var(--ui-color-text-muted);
+}
+
+/* Тона → токены (общие для плашек и легенды). */
+.ui-week-arc__chip[data-tone='neutral'],
+.ui-week-arc__swatch[data-tone='neutral'] {
+  --ui-week-arc-tone: var(--ui-color-text-muted);
+}
+.ui-week-arc__chip[data-tone='info'],
+.ui-week-arc__swatch[data-tone='info'] {
+  --ui-week-arc-tone: var(--ui-color-info);
+}
+.ui-week-arc__chip[data-tone='success'],
+.ui-week-arc__swatch[data-tone='success'] {
+  --ui-week-arc-tone: var(--ui-color-success);
+}
+.ui-week-arc__chip[data-tone='warning'],
+.ui-week-arc__swatch[data-tone='warning'] {
+  --ui-week-arc-tone: var(--ui-color-warning);
+}
+.ui-week-arc__chip[data-tone='danger'],
+.ui-week-arc__swatch[data-tone='danger'] {
+  --ui-week-arc-tone: var(--ui-color-danger);
+}
+.ui-week-arc__chip[data-tone='muted'],
+.ui-week-arc__swatch[data-tone='muted'] {
+  --ui-week-arc-tone: var(--ui-color-surface-2);
+}

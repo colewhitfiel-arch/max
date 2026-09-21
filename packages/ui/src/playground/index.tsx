@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  AiIcon,
   AppLayout,
   Avatar,
   Badge,
@@ -7,14 +8,16 @@ import {
   BookIcon,
   BottomNavigation,
   Button,
+  CalendarClockIcon,
   Card,
-  ChatIcon,
   Checkbox,
   Chip,
   Divider,
   EmptyState,
   ErrorState,
   Field,
+  FireIcon,
+  GemIcon,
   HomeIcon,
   IconButton,
   Inline,
@@ -27,6 +30,7 @@ import {
   ProgressRing,
   Screen,
   SegmentedControl,
+  SettingsIcon,
   Select,
   Sheet,
   Skeleton,
@@ -41,6 +45,7 @@ import {
   Toast,
   ToastProvider,
   UserIcon,
+  WeekArc,
   applyTheme,
   getTheme,
   useToast,
@@ -301,13 +306,25 @@ function LayoutDemo() {
           <BottomNavigation
             items={[
               { key: 'home', label: 'Главная', icon: <HomeIcon />, active: active === 'home' },
-              { key: 'courses', label: 'Курсы', icon: <BookIcon />, active: active === 'courses' },
               {
                 key: 'tutor',
                 label: 'Тьютор',
-                icon: <ChatIcon />,
+                icon: <AiIcon />,
                 active: active === 'tutor',
                 badge: 3,
+              },
+              {
+                key: 'courses',
+                label: 'Курсы',
+                icon: <BookIcon />,
+                active: active === 'courses',
+                prominent: true,
+              },
+              {
+                key: 'settings',
+                label: 'Настройки',
+                icon: <SettingsIcon />,
+                active: active === 'settings',
               },
               {
                 key: 'profile',
@@ -525,6 +542,53 @@ function PlaygroundContent() {
           <ProgressRing value={75} size={80} thickness={8}>
             75%
           </ProgressRing>
+        </Row>
+      </Section>
+
+      <Section title="WeekArc">
+        <Card>
+          <Stack gap={3}>
+            <Text weight="bold" align="center">
+              Посещения
+            </Text>
+            <WeekArc
+              aria-label="Посещения за неделю"
+              items={[
+                { key: 'mon', label: 'пн', tone: 'neutral', title: 'понедельник — нет уроков' },
+                { key: 'tue', label: 'вт', tone: 'neutral', title: 'вторник — нет уроков' },
+                { key: 'wed', label: 'ср', tone: 'success', title: 'среда — посещено' },
+                { key: 'thu', label: 'чт', tone: 'success', title: 'четверг — посещено' },
+                { key: 'fri', label: 'пт', tone: 'danger', title: 'пятница — пропуск' },
+                { key: 'sat', label: 'сб', tone: 'muted', title: 'суббота — предстоит' },
+                { key: 'sun', label: 'вс', tone: 'info', title: 'воскресенье — сегодня' },
+              ]}
+              legend={[
+                { tone: 'success', label: 'посещено' },
+                { tone: 'danger', label: 'пропуск' },
+                { tone: 'info', label: 'сегодня' },
+                { tone: 'neutral', label: 'нет уроков' },
+              ]}
+            />
+          </Stack>
+        </Card>
+      </Section>
+
+      <Section title="Иконки">
+        <Row label="Заливочные (Figma)">
+          <HomeIcon size={32} />
+          <AiIcon size={32} />
+          <BookIcon size={32} />
+          <SettingsIcon size={32} />
+          <UserIcon size={32} />
+          <CalendarClockIcon size={32} />
+          <BellIcon size={32} />
+          <BellIcon size={32} count={5} />
+          <Text as="span" tone="warning">
+            <FireIcon size={32} />
+          </Text>
+          <Text as="span" tone="primary">
+            <GemIcon size={32} />
+          </Text>
         </Row>
       </Section>
 

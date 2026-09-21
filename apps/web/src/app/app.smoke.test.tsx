@@ -71,13 +71,14 @@ describe('foundation smoke (mock API)', () => {
       await expectPage('Вход');
       await user.click(await findText('Алексей Смирнов'));
 
-      // /student: главная с занятиями и заданиями из фикстур.
+      // /student: главная по макету — посещения за неделю и расписание на сегодня из фикстур.
       await expectPage('Главная');
       expect(useAuthStore.getState().me?.activeRole).toBe('STUDENT');
       expect(router.state.location.pathname).toBe('/student');
-      await findText(/Датчики расстояния/);
-      await findText('Домашнее задание: схема с датчиком');
-      expect(screen.getByText('Комментарий ИИ', { exact: false })).toBeInTheDocument();
+      await findText('Посещения');
+      await findText('Робототехника');
+      expect(screen.getByRole('button', { name: 'Следующий день' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeDisabled();
 
       // Нижнее меню → курсы.
       await user.click(nav().getByRole('button', { name: 'Курсы' }));

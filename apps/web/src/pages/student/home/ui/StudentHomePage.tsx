@@ -1,98 +1,44 @@
-import { Button, Card, EmptyState, Screen, Stack } from '@edu/ui';
+import { Screen, VisuallyHidden } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { AssignmentCard } from '@/entities/assignment';
 import { useStudentHome } from '@/entities/dashboard';
-import { LessonCard } from '@/entities/lesson';
-import { AsyncState, DashboardSkeleton, ScreenHeader, SectionTitle } from '@/shared/ui';
-import { AiTextCard } from '@/widgets/ai-text-card';
-import { ClubProgressList } from '@/widgets/club-progress-list';
-import { StatsTiles } from '@/widgets/stats-tiles';
+import { useNotifications } from '@/entities/notification';
+import { AsyncState, DashboardSkeleton } from '@/shared/ui';
+import { AttendanceWeekCard } from '@/widgets/student-home-attendance';
+import { StudentHomeHero } from '@/widgets/student-home-hero';
+import { DaySchedule } from '@/widgets/student-home-schedule';
+import { StudentHomeStats } from '@/widgets/student-home-stats';
 
-/** `/student` — `GET /student/home` (F2). */
+/**
+ * `/student` — главный экран ученика по макету Figma: серия/баллы, дуга посещений за неделю,
+ * маскот, расписание по дням с колокольчиком уведомлений. Данные — `GET /student/home` (F2).
+ */
 export function StudentHomePage() {
   const { t } = useTranslation('student');
   const navigate = useNavigate();
   const query = useStudentHome();
+  // Счётчик в колокольчике; в real-режиме до workstream L ручки нет — бейдж просто не показывается.
+  const notifications = useNotifications({ unreadOnly: true });
+  const unreadCount = notifications.data?.unreadCount ?? 0;
 
   return (
-    <>
-      <ScreenHeader title={t('home.title')} bell />
-      <Screen>
-        <AsyncState query={query} skeleton={<DashboardSkeleton />}>
-          {(home) => (
-            <>
-              <StatsTiles stats={home.stats} />
-
-              <Stack gap={2}>
-                <SectionTitle>{t('home.today')}</SectionTitle>
-                {home.today.length === 0 ? (
-                  <Card>
-                    <EmptyState title={t('home.noLessonsToday')} />
-                  </Card>
-                ) : (
-                  <Card padding="none">
-                    {home.today.map((lesson) => (
-                      <LessonCard key={lesson.id} lesson={lesson} withDate={false} />
-                    ))}
-                  </Card>
-                )}
-              </Stack>
-
-              {home.upcoming.length > 0 && (
-                <Stack gap={2}>
-                  <SectionTitle>{t('home.upcoming')}</SectionTitle>
-                  <Card padding="none">
-                    {home.upcoming.map((lesson) => (
-                      <LessonCard key={lesson.id} lesson={lesson} />
-                    ))}
-                  </Card>
-                </Stack>
-              )}
-
-              <Stack gap={2}>
-                <SectionTitle
-                  action={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate('/student/assignments')}
-                    >
-                      {t('home.allTasks')}
-                    </Button>
-                  }
-                >
-                  {t('home.tasks')}
-                </SectionTitle>
-                {home.tasks.length === 0 ? (
-                  <Card>
-                    <EmptyState title={t('home.noTasks')} />
-                  </Card>
-                ) : (
-                  <Card padding="none">
-                    {home.tasks.map((task) => (
-                      <AssignmentCard
-                        key={task.id}
-                        assignment={task}
-                        onClick={() => navigate(`/student/assignments/${task.id}`)}
-                      />
-                    ))}
-                  </Card>
-                )}
-              </Stack>
-
-              {home.clubs.length > 0 && (
-                <Stack gap={2}>
-                  <SectionTitle>{t('home.clubs')}</SectionTitle>
-                  <ClubProgressList clubs={home.clubs} />
-                </Stack>
-              )}
-
-              <AiTextCard title={t('home.aiComment')} value={home.aiComment} />
-            </>
-          )}
-        </AsyncState>
-      </Screen>
-    </>
+    <Screen gap={5}>
+      <VisuallyHidden as="h1">{t('home.title')}</VisuallyHidden>
+      <AsyncState query={query} skeleton={<DashboardSkeleton />}>
+        {(home) => (
+          <>
+            <StudentHomeStats streakDays={home.streakDays} points={home.points} />
+            {home.week && home.week.length > 0 && <AttendanceWeekCard week={home.week} />}
+            <StudentHomeHero />
+            <DaySchedule
+              today={home.today}
+              upcoming={home.upcoming}
+              unreadCount={unreadCount}
+              onOpenNotifications={() => navigate('/notifications')}
+            />
+          </>
+        )}
+      </AsyncState>
+    </Screen>
   );
 }

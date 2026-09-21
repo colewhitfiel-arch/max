@@ -2,12 +2,14 @@
 import {
   ChildAnalyticsDtoSchema,
   GroupDetailSchema,
+  type Lesson,
   ParentHomeDtoSchema,
   StudentHomeDtoSchema,
   StudentProfileDtoSchema,
   TeacherGroupsListSchema,
   TeacherHomeDtoSchema,
   TeacherStudentCardSchema,
+  type WeekDay,
 } from '@edu/contracts';
 import { demoSchool } from '@edu/contracts/fixtures';
 import { http } from 'msw';
@@ -32,6 +34,7 @@ import {
   userBrief,
   weeklyPoints,
 } from '../demo';
+import { addDays, isSameDay, startOfDay, toDateOnly } from '../../../lib/dates';
 import { apiError, apiUrl, authed, json, query } from '../lib';
 import { db, parentOfUser, studentOfUser, teacherOfUser } from '../state';
 
@@ -39,6 +42,28 @@ const aiText = (text: string) => ({
   text,
   generatedAt: new Date(Date.now() - 3_600_000).toISOString(),
 });
+
+/** Текущая неделя пн–вс: статус дня по занятиям ученика и его посещаемости (заглушка analytics). */
+function weekOfStudent(studentId: string, lessons: Lesson[], now = new Date()): WeekDay[] {
+  const today = startOfDay(now);
+  const monday = addDays(today, -((today.getDay() + 6) % 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(monday, i);
+    const dayLessons = lessons.filter((l) => isSameDay(l.startsAt, date));
+    const attendance = dayLessons
+      .map((l) => db.attendance.find((a) => a.lessonId === l.id && a.studentId === studentId))
+      .filter((a) => a !== undefined);
+    let status: WeekDay['status'];
+    if (isSameDay(date, today)) status = 'TODAY';
+    else if (dayLessons.length === 0) status = 'NO_LESSONS';
+    else if (date > today) status = 'UPCOMING';
+    else if (attendance.some((a) => a.status === 'ABSENT' || a.status === 'EXCUSED'))
+      status = 'MISSED';
+    else if (attendance.length > 0) status = 'ATTENDED';
+    else status = 'NO_LESSONS';
+    return { date: toDateOnly(date), status };
+  });
+}
 
 export const dashboardsHandlers = [
   http.get(
@@ -48,22 +73,31 @@ export const dashboardsHandlers = [
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
         const groupIds = groupIdsOfStudent(student.id);
-        const { today, upcoming } = splitLessons(lessonsOfGroups(groupIds));
+        const lessons = lessonsOfGroups(groupIds);
+        const { today, upcoming } = splitLessons(lessons);
         const tasks = assignmentsOfStudent(student.id)
           .filter((a) => !isDone(a.id, student.id))
           .map((a) => assignmentBrief(a.id, student.id))
           .slice(0, 10);
+        const stats = statsBrief(student.id);
+        const present = db.attendance.filter(
+          (a) => a.studentId === student.id && (a.status === 'PRESENT' || a.status === 'LATE'),
+        ).length;
         return json(StudentHomeDtoSchema, {
           today: today.map((l) => lessonDto(l, student.id)),
           upcoming: upcoming.map((l) => lessonDto(l, student.id)),
           tasks,
-          stats: statsBrief(student.id),
+          stats,
           clubs: groupIds.map((g) => clubProgress(student.id, g)),
           aiComment: student.aiProfileSummary
             ? aiText(
                 'Сегодня занятие по робототехнике — не забудь про датчики. До пятницы стоит сдать задачи по Python.',
               )
             : null,
+          week: weekOfStudent(student.id, lessons),
+          // Правдоподобные заглушки геймификации; формулы — в modules/analytics.
+          streakDays: 3 + present * 4,
+          points: stats.activityScore * 2,
         });
       },
       ['STUDENT'],

@@ -1,50 +1,81 @@
+/* Макет: «пилюля» 60px с радиусом 30px, отступы 8px, иконки 36–40px,
+ * акцентный пункт — круг 75px цвета primary, выступающий за пилюлю. */
 .ui-bottom-nav {
-  background: var(--ui-color-surface);
-  border-top: 1px solid var(--ui-color-border);
+  --ui-bottom-nav-height: 60px;
+  --ui-bottom-nav-prominent-size: 75px;
+
+  padding: calc((var(--ui-bottom-nav-prominent-size) - var(--ui-bottom-nav-height)) / 2) 0;
 }
 
 .ui-bottom-nav__list {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  height: var(--ui-bottom-nav-height);
   margin: 0;
-  padding: 0;
+  padding: 0 var(--ui-space-4);
   list-style: none;
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 .ui-bottom-nav__cell {
+  display: flex;
+  justify-content: center;
   flex: 1;
   min-width: 0;
 }
 
+.ui-bottom-nav__cell[data-prominent] {
+  flex: 0 0 auto;
+}
+
 .ui-bottom-nav__item {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  width: 100%;
-  min-height: 56px;
-  padding: var(--ui-space-1) var(--ui-space-1);
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
+  border-radius: var(--ui-radius-full);
   background: transparent;
   color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-xs);
-  font-weight: var(--ui-font-weight-medium);
-  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: color var(--ui-duration-fast) var(--ui-easing);
+  transition:
+    color var(--ui-duration-fast) var(--ui-easing),
+    transform var(--ui-duration-fast) var(--ui-easing);
 }
 
 .ui-bottom-nav__item[data-active] {
   color: var(--ui-color-primary);
 }
 
+.ui-bottom-nav__item:active {
+  transform: scale(0.94);
+}
+
 .ui-bottom-nav__item:focus-visible {
   outline: 2px solid var(--ui-color-focus);
-  outline-offset: -2px;
-  border-radius: var(--ui-radius-sm);
+  outline-offset: 2px;
+}
+
+/* Акцентный пункт: круг primary, иконка белая; активность подсвечивается кольцом. */
+.ui-bottom-nav__item[data-prominent] {
+  width: var(--ui-bottom-nav-prominent-size);
+  height: var(--ui-bottom-nav-prominent-size);
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+}
+
+.ui-bottom-nav__item[data-prominent][data-active] {
+  box-shadow: 0 0 0 3px var(--ui-color-primary-contrast) inset;
 }
 
 .ui-bottom-nav__icon {
@@ -53,8 +84,13 @@
 }
 
 .ui-bottom-nav__icon > .ui-icon {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
+}
+
+.ui-bottom-nav__item[data-prominent] .ui-bottom-nav__icon > .ui-icon {
+  width: 47px;
+  height: 47px;
 }
 
 .ui-bottom-nav__badge {
@@ -71,11 +107,4 @@
   font-weight: var(--ui-font-weight-bold);
   line-height: 16px;
   text-align: center;
-}
-
-.ui-bottom-nav__label {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

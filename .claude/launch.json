@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-mock",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:VITE_API_MODE='mock'; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port 5173 --strictPort"
+      ],
+      "port": 5173,
+      "url": "http://127.0.0.1:5173"
+    }
+  ]
+}

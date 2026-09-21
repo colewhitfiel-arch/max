@@ -67,7 +67,9 @@ MeDto = { user: UserBrief, roles: Role[], activeRole: Role|null, needsRoleSetup:
 ```
 GET /student/home        → { today: LessonDto[], upcoming: LessonDto[] /* 7 дней, ≤10 */,
                              tasks: AssignmentBrief[] /* открытые, по дедлайну, ≤10 */,
-                             stats: StatsBrief, clubs: ClubProgress[], aiComment: AiText }
+                             stats: StatsBrief, clubs: ClubProgress[], aiComment: AiText,
+                             week?: { date: DateOnly, status: ATTENDED|MISSED|TODAY|UPCOMING|NO_LESSONS }[] /* пн–вс, дуга «Посещения» */,
+                             streakDays?: number /* серия дней с активностью */, points?: number /* баллы */ }
 GET /student/profile     → { user: UserBrief, classLabel?, school?: { id, name }, clubs: ClubProgress[],
                              stats: StatsBrief, interests: string[], goals: string[] }
 

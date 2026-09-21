@@ -6,7 +6,13 @@
   height: 100vh;
   height: 100dvh;
   margin: 0 auto;
-  background: var(--ui-color-bg);
+  /* Фон макета: тёмное поле с двумя размытыми синими пятнами по углам
+   * (в светлой теме --ui-color-bg-glow прозрачен). */
+  background-color: var(--ui-color-bg);
+  background-image:
+    radial-gradient(ellipse 240px 460px at -8% -6%, var(--ui-color-bg-glow) 0%, transparent 70%),
+    radial-gradient(ellipse 240px 460px at 108% 106%, var(--ui-color-bg-glow) 0%, transparent 70%);
+  background-repeat: no-repeat;
   color: var(--ui-color-text);
 }
 
@@ -25,8 +31,9 @@
   overscroll-behavior: contain;
 }
 
+/* Нижнее меню «плавает» над фоном: боковые отступы как у контента, safe-area снизу. */
 .ui-app-layout__nav {
   flex: none;
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--ui-color-surface);
+  padding: 0 var(--ui-space-4) calc(var(--ui-space-4) + env(safe-area-inset-bottom));
+  background: transparent;
 }

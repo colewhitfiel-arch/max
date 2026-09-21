@@ -4,9 +4,9 @@
  */
 import type { Role } from '@edu/contracts';
 import {
+  AiIcon,
   BookIcon,
   CalendarIcon,
-  ChatIcon,
   CheckIcon,
   HomeIcon,
   InboxIcon,
@@ -23,13 +23,21 @@ export interface BottomNavItem {
   /** Ключ в namespace `common` (nav.*). */
   labelKey: string;
   icon: ComponentType<IconProps>;
+  /** Акцентный (крупный центральный) пункт, см. `BottomNavigationItem.prominent`. */
+  prominent?: boolean;
 }
 
 export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
   STUDENT: [
     { key: 'home', path: '/student', labelKey: 'nav.home', icon: HomeIcon },
-    { key: 'tutor', path: '/student/tutor', labelKey: 'nav.tutor', icon: ChatIcon },
-    { key: 'courses', path: '/student/courses', labelKey: 'nav.courses', icon: BookIcon },
+    { key: 'tutor', path: '/student/tutor', labelKey: 'nav.tutor', icon: AiIcon },
+    {
+      key: 'courses',
+      path: '/student/courses',
+      labelKey: 'nav.courses',
+      icon: BookIcon,
+      prominent: true,
+    },
     { key: 'settings', path: '/student/settings', labelKey: 'nav.settings', icon: SettingsIcon },
     { key: 'profile', path: '/student/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],

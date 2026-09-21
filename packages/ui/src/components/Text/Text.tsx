@@ -2,12 +2,12 @@ import { createElement, forwardRef, type ElementType, type HTMLAttributes } from
 import { cx } from '../../lib/cx';
 import './Text.css';
 
-export type TextVariant = 'body' | 'caption' | 'title' | 'heading';
+export type TextVariant = 'body' | 'small' | 'caption' | 'title' | 'heading';
 export type TextTone = 'default' | 'muted' | 'primary' | 'success' | 'warning' | 'danger';
 export type TextWeight = 'regular' | 'medium' | 'bold';
 
 export interface TextProps extends HTMLAttributes<HTMLElement> {
-  /** Стиль: heading 24px, title 20px, body 16px, caption 12px. По умолчанию `body`. */
+  /** Стиль: heading 24px, title 20px, body 16px, small 14px, caption 12px. По умолчанию `body`. */
   variant?: TextVariant;
   /** Цвет. По умолчанию `default`. */
   tone?: TextTone;
@@ -17,7 +17,7 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
   align?: 'start' | 'center' | 'end';
   /** Обрезать одной строкой с многоточием. */
   truncate?: boolean;
-  /** HTML-тег. По умолчанию: heading → h1, title → h2, body → p, caption → span. */
+  /** HTML-тег. По умолчанию: heading → h1, title → h2, body/small → p, caption → span. */
   as?: ElementType;
 }
 
@@ -25,6 +25,7 @@ const DEFAULT_TAG: Record<TextVariant, ElementType> = {
   heading: 'h1',
   title: 'h2',
   body: 'p',
+  small: 'p',
   caption: 'span',
 };
 

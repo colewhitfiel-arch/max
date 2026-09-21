@@ -1,0 +1,1 @@
+export { StudentHomeHero } from './StudentHomeHero';

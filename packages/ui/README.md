@@ -46,9 +46,16 @@ import { Button, ToastProvider, applyTheme } from '@edu/ui';
 pnpm typecheck && pnpm lint && pnpm test
 ```
 
+## Из макета Figma (главный экран ученика)
+
+- Токены: тёмная тема первична (`#0d0d0d` / `#1e1e1e`, primary `#0264ce`, info `#1858fa`), шрифт Montserrat (`@fontsource-variable/montserrat`, подключается в `src/index.ts`), радиус карточек 20px; `--ui-color-bg-glow` — синее свечение фона в `AppLayout`.
+- `BottomNavigation` — «пилюля» с иконками (подписи скрыты визуально), `prominent` — акцентный круглый пункт.
+- `WeekArc` — дуга дней недели с плашками по тонам и легендой; `CardColumns` — карточки-колонки с выровненными строками (subgrid); `VisuallyHidden`; `Text variant="small"` (14px); `BellIcon count` — колокольчик со счётчиком.
+- Заливочные иконки (`HomeIcon`, `AiIcon`, `BookIcon`, `SettingsIcon`, `UserIcon`, `BellIcon`, `CalendarClockIcon`, `FireIcon`, `GemIcon`) — геометрия из Figma, цвет `currentColor`.
+
 ## Что временно
 
-- Палитра, шрифты, радиусы, тени — нейтральные заглушки.
-- Иконки в `src/icons/` — простые контурные SVG, заменятся финальным набором.
+- Светлая палитра — зеркало тёмной, в макете её нет.
+- Контурные иконки (`ChatIcon`, `UsersIcon`, `CalendarIcon`, `PlusIcon`, …) — заглушки до финального набора.
 - Анимации оверлеев — только вход, без анимации выхода.
 - Компоненты второй волны из `docs/06-shared.md` (чат, файлы, графики, `WeekStrip`, `PeriodPicker`) не включены.

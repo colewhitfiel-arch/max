@@ -2,13 +2,30 @@
   "home": {
     "title": "Home",
     "today": "Today",
-    "upcoming": "Upcoming lessons",
-    "tasks": "Assignments",
-    "allTasks": "All assignments",
-    "clubs": "My clubs",
-    "aiComment": "AI comment",
+    "tomorrow": "Tomorrow",
+    "streak": "Streak: {{count}} days",
+    "points": "Points: {{count}}",
+    "attendance": "Attendance",
+    "attendanceWeek": "Attendance this week",
+    "dayStatus": {
+      "ATTENDED": "attended",
+      "MISSED": "missed",
+      "TODAY": "today",
+      "UPCOMING": "upcoming",
+      "NO_LESSONS": "no lessons"
+    },
+    "calendar": "Calendar: back to today",
+    "prevDay": "Previous day",
+    "nextDay": "Next day",
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications: {{count}} unread",
+    "columns": {
+      "name": "Club",
+      "group": "Group",
+      "time": "Time"
+    },
     "noLessonsToday": "No lessons today",
-    "noTasks": "No open assignments"
+    "noLessonsOnDay": "No lessons on this day"
   },
   "tutor": {
     "title": "AI tutor",
@@ -38,7 +55,11 @@
   },
   "assignments": {
     "title": "Assignments",
-    "filter": { "open": "Open", "done": "Done", "all": "All" },
+    "filter": {
+      "open": "Open",
+      "done": "Done",
+      "all": "All"
+    },
     "empty": "No assignments",
     "description": "Description",
     "submission": "Your submission",
@@ -46,7 +67,9 @@
     "attemptsLeft": "Attempts left: {{count}}",
     "notSubmitted": "Not submitted yet"
   },
-  "settings": { "title": "Settings" },
+  "settings": {
+    "title": "Settings"
+  },
   "profile": {
     "title": "Profile",
     "school": "School",

@@ -5,7 +5,7 @@ import './BottomNavigation.css';
 export interface BottomNavigationItem {
   /** Уникальный ключ пункта. */
   key: string;
-  /** Подпись. */
+  /** Подпись (визуально скрыта, остаётся доступным именем пункта). */
   label: ReactNode;
   /** Иконка. */
   icon?: ReactNode;
@@ -15,6 +15,8 @@ export interface BottomNavigationItem {
   active?: boolean;
   /** Индикатор (число или точка) поверх иконки. */
   badge?: ReactNode;
+  /** Акцентный пункт: крупный круг цвета primary (обычно центральный). */
+  prominent?: boolean;
 }
 
 export interface BottomNavigationProps extends Omit<HTMLAttributes<HTMLElement>, 'onSelect'> {
@@ -27,7 +29,7 @@ export interface BottomNavigationProps extends Omit<HTMLAttributes<HTMLElement>,
   onSelect?: (key: string, event: MouseEvent<HTMLElement>) => void;
 }
 
-/** Нижнее меню: `<nav>` с пунктами, активный помечен `aria-current`. */
+/** Нижнее меню-«пилюля»: `<nav>` с пунктами-иконками, активный помечен `aria-current`. */
 export const BottomNavigation = forwardRef<HTMLElement, BottomNavigationProps>(
   function BottomNavigation({ items, onSelect, className, ...rest }, ref) {
     return (
@@ -45,17 +47,22 @@ export const BottomNavigation = forwardRef<HTMLElement, BottomNavigationProps>(
                   {item.icon}
                   {item.badge != null && <span className="ui-bottom-nav__badge">{item.badge}</span>}
                 </span>
-                <span className="ui-bottom-nav__label">{item.label}</span>
+                <span className="ui-bottom-nav__label ui-visually-hidden">{item.label}</span>
               </>
             );
             const shared = {
               className: 'ui-bottom-nav__item',
               'aria-current': item.active ? ('page' as const) : undefined,
               'data-active': item.active || undefined,
+              'data-prominent': item.prominent || undefined,
               onClick: (event: MouseEvent<HTMLElement>) => onSelect?.(item.key, event),
             };
             return (
-              <li key={item.key} className="ui-bottom-nav__cell">
+              <li
+                key={item.key}
+                className="ui-bottom-nav__cell"
+                data-prominent={item.prominent || undefined}
+              >
                 {item.href ? (
                   <a href={item.href} {...shared}>
                     {content}

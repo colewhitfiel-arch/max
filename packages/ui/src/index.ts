@@ -2,6 +2,7 @@
  * @edu/ui — публичный API дизайн-системы.
  * Стили: токены и reset подключаются здесь один раз; CSS компонентов — самими компонентами.
  */
+import '@fontsource-variable/montserrat';
 import './styles/index.css';
 
 // Тема и токены
@@ -42,13 +43,16 @@ export * from './components/Toast';
 
 // Данные
 export * from './components/Card';
+export * from './components/CardColumns';
 export * from './components/ListRow';
 export * from './components/StatTile';
 export * from './components/ProgressBar';
 export * from './components/ProgressRing';
+export * from './components/WeekArc';
 
 // Раскладка и текст
 export * from './components/Stack';
 export * from './components/Inline';
 export * from './components/Divider';
 export * from './components/Text';
+export * from './components/VisuallyHidden';

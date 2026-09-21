@@ -6,6 +6,10 @@
   line-height: var(--ui-line-height);
 }
 
+.ui-text[data-variant='small'] {
+  font-size: var(--ui-font-size-sm);
+}
+
 .ui-text[data-variant='caption'] {
   font-size: var(--ui-font-size-xs);
   line-height: 1.3;
