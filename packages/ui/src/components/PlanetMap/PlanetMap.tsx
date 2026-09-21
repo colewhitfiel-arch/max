@@ -53,26 +53,24 @@ export interface PlanetMapProps extends HTMLAttributes<HTMLDivElement> {
   'aria-label'?: string;
 }
 
-/* Геометрия по мотивам макета (ширина 402): планеты одного размера на прямой траектории
- * из левого нижнего угла в правый верхний с одинаковым шагом. Координаты — px макета,
- * рендерятся в процентах, чтобы карта масштабировалась с шириной. */
+/* Геометрия из макета (ширина 402): планеты одного размера на кривой траектории из левого
+ * нижнего угла в правый верхний (у низа — круто вверх, к верху — положе), с одинаковым шагом
+ * по длине дуги. Координаты — px макета, рендерятся в процентах, чтобы карта масштабировалась. */
 const VIEW_W = 402;
 const VIEW_H = 460;
 /** Сколько планет видно одновременно (слотов на траектории). */
 export const PLANET_MAP_WINDOW = 4;
 const PLANET_SIZE = 96;
-/** Центры крайних планет траектории: нижняя левая → верхняя правая. */
-const TRACK_START = { x: 55, y: 352 };
-const TRACK_END = { x: 325, y: 96 };
 /** Высота крупного числа: подпись ставится так, чтобы число лежало на линии. */
 const VALUE_H = 30;
-/** Шаг между соседними планетами по горизонтали, px макета: один свайп — одна планета. */
-const STEP_X = (TRACK_END.x - TRACK_START.x) / (PLANET_MAP_WINDOW - 1);
-/** Наклон траектории (dy/dx): контент при свайпе едет по диагонали. */
-const TRACK_SLOPE = (TRACK_END.y - TRACK_START.y) / (TRACK_END.x - TRACK_START.x);
 /** Порог, после которого движение считается свайпом, а не тапом. */
 const DRAG_THRESHOLD = 6;
 const SLIDE_MS = durations.normal * 1.6;
+
+interface Point {
+  x: number;
+  y: number;
+}
 
 interface Planet {
   x: number;
@@ -81,15 +79,76 @@ interface Planet {
   h: number;
 }
 
-/** Планета с центром в точке t траектории (0 — нижняя левая, 3 — верхняя правая). */
-function planetAt(t: number): Planet {
-  const k = t / (PLANET_MAP_WINDOW - 1);
+/** Траектория макета — кубическая Безье через центры четырёх планет (низ-лево → верх-право). */
+const TRACK: [Point, Point, Point, Point] = [
+  { x: 55, y: 352 },
+  { x: 23, y: 254 },
+  { x: 275, y: 114 },
+  { x: 335, y: 96 },
+];
+
+function bezier([p0, p1, p2, p3]: typeof TRACK, t: number): Point {
+  const u = 1 - t;
+  const a = u * u * u;
+  const b = 3 * u * u * t;
+  const c = 3 * u * t * t;
+  const d = t * t * t;
   return {
-    x: TRACK_START.x + (TRACK_END.x - TRACK_START.x) * k - PLANET_SIZE / 2,
-    y: TRACK_START.y + (TRACK_END.y - TRACK_START.y) * k - PLANET_SIZE / 2,
+    x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+    y: a * p0.y + b * p1.y + c * p2.y + d * p3.y,
+  };
+}
+
+/** Точки кривой с равным шагом по длине дуги (первая и последняя — концы кривой). */
+function sampleEvenly(track: typeof TRACK, count: number): { points: Point[]; step: number } {
+  const segments = 400;
+  const samples: Point[] = [];
+  const lengths: number[] = [0];
+  for (let i = 0; i <= segments; i += 1) {
+    const point = bezier(track, i / segments);
+    if (i > 0) {
+      const prev = samples[i - 1]!;
+      lengths.push(lengths[i - 1]! + Math.hypot(point.x - prev.x, point.y - prev.y));
+    }
+    samples.push(point);
+  }
+  const total = lengths[segments]!;
+  const step = total / (count - 1);
+  const points = Array.from({ length: count }, (_, k) => {
+    const target = step * k;
+    const index = lengths.findIndex((length) => length >= target);
+    return samples[index === -1 ? segments : index]!;
+  });
+  return { points, step };
+}
+
+const { points: SLOT_CENTERS, step: TRACK_STEP } = sampleEvenly(TRACK, PLANET_MAP_WINDOW);
+const TRACK_START = SLOT_CENTERS[0]!;
+const TRACK_END = SLOT_CENTERS[PLANET_MAP_WINDOW - 1]!;
+/** Хорда траектории: направление свайпа и выезда планет за край. */
+const CHORD = { x: TRACK_END.x - TRACK_START.x, y: TRACK_END.y - TRACK_START.y };
+const CHORD_LENGTH = Math.hypot(CHORD.x, CHORD.y);
+/** Шаг между соседними планетами по горизонтали, px макета: один свайп — одна планета. */
+const STEP_X = CHORD.x / (PLANET_MAP_WINDOW - 1);
+/** Наклон хорды (dy/dx): контент при свайпе едет по диагонали. */
+const TRACK_SLOPE = CHORD.y / CHORD.x;
+
+function planetAround(center: Point): Planet {
+  return {
+    x: center.x - PLANET_SIZE / 2,
+    y: center.y - PLANET_SIZE / 2,
     w: PLANET_SIZE,
     h: PLANET_SIZE,
   };
+}
+
+/** Планета в слоте траектории (0 — нижняя левая, 3 — верхняя правая). */
+const planetAt = (slot: number): Planet => planetAround(SLOT_CENTERS[slot]!);
+
+/** Планета за концом траектории: на 0.8 шага дальше по хорде (краешек виден у края карты). */
+function planetBeyond(from: Point, direction: 1 | -1): Planet {
+  const distance = (TRACK_STEP * 0.8 * direction) / CHORD_LENGTH;
+  return planetAround({ x: from.x + CHORD.x * distance, y: from.y + CHORD.y * distance });
 }
 
 interface Slot {
@@ -123,36 +182,36 @@ const SLOTS: Slot[] = [
   },
   {
     planet: planetAt(1),
-    label: { x: 207, y: 325 },
+    label: { x: 170, y: 295 },
     line: [
-      [182, 300],
-      [207, 325],
-      [271, 325],
+      [145, 270],
+      [170, 295],
+      [234, 295],
     ],
   },
   {
     planet: planetAt(2),
-    label: { x: 205, y: 124, align: 'end' },
+    label: { x: 186, y: 99, align: 'end' },
     line: [
-      [127, 124],
-      [205, 124],
-      [217, 140],
+      [108, 99],
+      [186, 99],
+      [198, 115],
     ],
   },
   {
     planet: planetAt(3),
-    label: { x: 296, y: 176 },
+    label: { x: 286, y: 176 },
     line: [
-      [296, 176],
-      [332, 176],
-      [334, 140],
+      [286, 176],
+      [330, 176],
+      [333, 140],
     ],
   },
 ];
 
 /** Краешки соседних планет за пределами окна: намёк, что дальше есть ещё. */
-const EDGE_PREV = planetAt(PLANET_MAP_WINDOW - 1 + 0.9);
-const EDGE_NEXT = planetAt(-0.9);
+const EDGE_PREV = planetBeyond(TRACK_END, 1);
+const EDGE_NEXT = planetBeyond(TRACK_START, -1);
 
 /** Первая видимая планета стоит вверху справа, следующие спускаются по траектории влево-вниз. */
 const slotForRel = (rel: number): Slot | undefined => SLOTS[PLANET_MAP_WINDOW - 1 - rel];
@@ -170,7 +229,7 @@ function planetStyle(planet: Planet): CSSProperties {
 }
 
 /**
- * «Карта планет»: картинки-планеты с одинаковым шагом на диагональной траектории поверх
+ * «Карта планет»: картинки-планеты с одинаковым шагом на кривой траектории из макета поверх
  * звёздного фона, к каждой — подпись (крупное число + название) с тонкой линией-выноской
  * и необязательная пометка. Видны четыре планеты; свайп вправо (или →) ведёт контент
  * вверх по траектории, следующие планеты входят снизу-слева. Домена не знает.
