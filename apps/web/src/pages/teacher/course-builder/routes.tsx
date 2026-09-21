@@ -6,4 +6,8 @@ export const teacherCourseBuilderRoutes: RouteObject[] = [
     path: 'course-builder',
     lazy: lazyRoute(() => import('./ui/CourseBuilderPage'), 'CourseBuilderPage'),
   },
+  {
+    path: 'course-builder/:jobId',
+    lazy: lazyRoute(() => import('./ui/GenerationJobPage'), 'GenerationJobPage'),
+  },
 ];

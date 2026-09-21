@@ -104,6 +104,7 @@ owners:
     - apps/web/src/pages/onboarding/**
     - apps/web/src/entities/ai/**
     - apps/web/src/widgets/trajectory/**
+    - apps/api/test/ai/**
   ws-D-parent-family-catalog:
     - apps/api/src/modules/family/**
     - apps/api/src/modules/catalog/**
@@ -143,6 +144,11 @@ owners:
     - apps/web/src/features/publish-course/**
     - apps/web/src/features/generate-course/**
     - apps/web/src/features/upload-file/**
+    - apps/web/src/entities/generation/**
+    - apps/web/src/entities/file/**
+    - apps/web/src/shared/api/mocks/handlers/course-builder.ts
+    - apps/web/src/shared/api/mocks/handlers/files.ts
+    - apps/api/test/course-builder/**
   ws-H-schedule-attendance:
     - apps/api/src/modules/schedule/**
     - apps/api/src/modules/attendance/**

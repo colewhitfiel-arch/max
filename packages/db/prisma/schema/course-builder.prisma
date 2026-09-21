@@ -7,6 +7,12 @@ model CourseGenerationJob {
   materialIds  String[]        @default([]) @map("material_ids") @db.Uuid
   instructions String?
   targetTitle  String?         @map("target_title")
+  /// MATERIALS | TOPIC (GenerationSourceKind из contracts)
+  sourceKind   String          @default("MATERIALS") @map("source_kind")
+  /// Тема / практика для режима TOPIC (ИИ пишет конспект сам)
+  topic        String?
+  /// KnowledgeBase из contracts: атомы, узлы с цитатами, план
+  knowledge    Json?
   stage        GenerationStage @default(QUEUED)
   progress     Int             @default(0)
   /// CourseDraft из contracts

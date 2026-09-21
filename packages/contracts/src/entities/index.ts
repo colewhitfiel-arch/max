@@ -9,6 +9,7 @@ export * from './assignment';
 export * from './analytics';
 export * from './ai';
 export * from './payment';
+export * from './knowledge';
 export * from './file';
 export * from './notification';
 export * from './family';

@@ -1,4 +1,10 @@
-import { type AiConfig, type AiLogger, AiService, createAiService } from '@edu/ai';
+import {
+  type AiConfig,
+  type AiLogger,
+  AiService,
+  createAiService,
+  productMockRules,
+} from '@edu/ai';
 import type { Logger } from 'pino';
 import { type Env } from '../../config/env';
 
@@ -13,7 +19,9 @@ export function pinoAiLogger(log: Logger): AiLogger {
 }
 
 export function aiConfigFromAppEnv(env: Env): AiConfig {
-  if (env.AI_PROVIDER === 'mock') return { provider: 'mock' };
+  // Mock отвечает детерминированным JSON по каждому продуктовому промпту (dev без сети, тесты).
+  if (env.AI_PROVIDER === 'mock')
+    return { provider: 'mock', mock: { responses: productMockRules } };
   return {
     provider: 'gigachat',
     gigachat: {

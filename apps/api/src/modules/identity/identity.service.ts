@@ -149,6 +149,26 @@ export class IdentityService {
     return linkCode;
   }
 
+  /** Публичный метод для модуля ai: сохранить профиль из онбординга и закрыть онбординг. */
+  async completeStudentOnboarding(
+    studentProfileId: string,
+    profile: {
+      interests: string[];
+      goals: string[];
+      weeklyHours: number;
+      preferredFormats: string[];
+      summary: string;
+    },
+  ): Promise<void> {
+    await this.repo.updateStudentOnboarding(studentProfileId, {
+      interests: profile.interests,
+      goals: profile.goals,
+      weeklyHours: profile.weeklyHours > 0 ? profile.weeklyHours : null,
+      preferredFormats: profile.preferredFormats,
+      aiProfileSummary: profile.summary.trim() || null,
+    });
+  }
+
   /** Для других модулей: AuthUser по userId и роли (например, для тестов и фоновых задач). */
   async buildAuthUser(userId: string, activeRole: Role | null): Promise<AuthUser> {
     const user = await this.requireUser(userId);

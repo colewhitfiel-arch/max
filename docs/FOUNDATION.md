@@ -126,10 +126,10 @@ apps/api ──▶ @edu/contracts, @edu/db, @edu/ai
 | Иконки `@edu/ui/icons` | заглушки | дизайн-этап |
 | `DevAuthProvider`, экран `/auth` dev | только dev, запрещён в production | остаётся для dev |
 | `MockMaxBridge`, `MaxSdkBridge` (каркас), схема подписи в `MaxAuthProvider` | mock / допущение | workstream J |
-| `MockAiProvider`, промпт-пример `echo` | mock | workstream C (промпты), K (реальный GigaChat) |
+| `MockAiProvider` с `productMockRules`, промпты онбординга/тьютора/траектории/course-builder | mock отвечает по каждому промпту детерминированно | workstream K (реальный GigaChat) |
 | `InlineJobQueue`, `MemoryKeyValueStore` | dev-реализации | production: bullmq + Redis (I4) |
 | `LocalFsStorage`, `S3Storage`-заглушка | dev / stub | workstream G |
-| `PlainTextExtractor`, `MockCourseTransformer` | stub | workstream G |
+| Извлечение текста (txt/md/pdf/docx) и пайплайн course-builder | реализовано (docs/13); pptx/OCR — нет | workstream G |
 | `FakePaymentProvider` (ещё не создан) | — | workstream I |
 | MSW-моки | dev-инструмент | остаются, обновляются вместе с контрактами |
 

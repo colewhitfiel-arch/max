@@ -357,4 +357,36 @@ describe('mock world (msw/node)', () => {
     expect(done.student?.onboardingCompleted).toBe(true);
     expect((await call(api.dashboards.getStudentHome())).clubs).toHaveLength(1);
   });
+  it(
+    'преподаватель: генерация курса по теме в mock проходит стадии до READY и принимается',
+    { timeout: 15_000 },
+    async () => {
+      await loginAs('teacher');
+      const job = await call(
+        api.courseBuilder.createGenerationJob({
+          body: {
+            groupId: DEMO_IDS.groups.programmingA,
+            topic: 'Циклы в Python: практика на списках',
+          },
+        }),
+      );
+      expect(job).toMatchObject({ stage: 'QUEUED', sourceKind: 'TOPIC' });
+      let current = job;
+      for (let i = 0; i < 30 && current.stage !== 'READY'; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        current = await call(api.courseBuilder.getGenerationJob({ params: { jobId: job.id } }));
+      }
+      expect(current.stage).toBe('READY');
+      expect(current.knowledge?.nodes.length).toBeGreaterThan(0);
+      expect(current.draft?.modules.length).toBeGreaterThan(0);
+      const accepted = await call(
+        api.courseBuilder.acceptGenerationJob({ params: { jobId: job.id } }),
+      );
+      const course = await call(
+        api.courses.getTeacherCourse({ params: { courseId: accepted.courseId } }),
+      );
+      expect(course.status).toBe('DRAFT');
+      expect(course.modules.length).toBe(current.draft?.modules.length);
+    },
+  );
 });

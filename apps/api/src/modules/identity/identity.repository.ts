@@ -93,6 +93,22 @@ export class IdentityRepository {
     await this.prisma.user.update({ where: { id: userId }, data });
   }
 
+  async updateStudentOnboarding(
+    studentProfileId: string,
+    data: {
+      interests: string[];
+      goals: string[];
+      weeklyHours: number | null;
+      preferredFormats: string[];
+      aiProfileSummary: string | null;
+    },
+  ): Promise<void> {
+    await this.prisma.studentProfile.update({
+      where: { id: studentProfileId },
+      data: { ...data, onboardingCompletedAt: new Date() },
+    });
+  }
+
   async setLinkCode(studentProfileId: string, linkCode: string): Promise<void> {
     await this.prisma.studentProfile.update({
       where: { id: studentProfileId },
