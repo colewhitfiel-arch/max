@@ -85,6 +85,7 @@
     "emptyHint": "Assignments will appear once you join a group",
     "map": "Assignments map by club",
     "planet": "{{club}}: {{points}} points, open assignments: {{open}}",
+    "locked": "{{subject}} — not enrolled",
     "due": {
       "today": "do it today",
       "tomorrow": "due tomorrow",

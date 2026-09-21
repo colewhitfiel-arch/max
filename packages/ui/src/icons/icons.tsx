@@ -194,6 +194,16 @@ export function ChevronsDownIcon(props: IconProps) {
   );
 }
 
+/** Замок (заблокированный предмет / раздел). */
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </Icon>
+  );
+}
+
 export function ChevronLeftIcon(props: IconProps) {
   return (
     <Icon viewBox="0 0 15 22" strokeWidth={4} {...props}>

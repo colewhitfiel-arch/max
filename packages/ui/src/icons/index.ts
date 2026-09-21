@@ -25,6 +25,7 @@ export {
   InboxIcon,
   LifebuoyIcon,
   LinkIcon,
+  LockIcon,
   LogoutIcon,
   MoonIcon,
   PlusIcon,

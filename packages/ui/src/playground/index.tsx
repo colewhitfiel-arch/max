@@ -30,6 +30,7 @@ import {
   Inline,
   Input,
   ListRow,
+  LockIcon,
   LogoutIcon,
   LifebuoyIcon,
   Modal,
@@ -687,9 +688,14 @@ function PlaygroundContent() {
               onClick: () => alert('Робототехника'),
             },
             { key: 'chess', image: planet('#f2b705'), value: 125, label: 'шахматы' },
-            { key: 'math', image: planet('#2cda00'), value: 90, label: 'математика' },
+            { key: 'math', image: planet('#2cda00'), label: 'Математика', locked: true },
+            { key: 'art', image: planet('#ff5a8a'), label: 'Искусство', locked: true },
           ]}
         />
+        <Text variant="caption" tone="muted">
+          Свайп по диагонали или стрелки ← → (список в фокусе) листают планеты; серые с замком —
+          заблокированные.
+        </Text>
       </Section>
 
       <Section title="ChatBubble, ChatComposer">
@@ -726,6 +732,7 @@ function PlaygroundContent() {
           <Text as="span" tone="warning">
             <ChevronsDownIcon />
           </Text>
+          <LockIcon />
         </Row>
       </Section>
 
