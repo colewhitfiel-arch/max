@@ -1,0 +1,6 @@
+# Единые окончания строк (LF) во всех текстовых файлах независимо от ОС разработчика
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
