@@ -1,1 +1,1 @@
-export { TrajectoryCard, type TrajectoryCardProps } from './TrajectoryCard';
+export { TrajectoryCard } from './TrajectoryCard';

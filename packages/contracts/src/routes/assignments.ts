@@ -9,7 +9,9 @@ import { DateTimeSchema, IdSchema, PaginationQuerySchema, paginated } from '../c
 import { AssignmentTypeSchema } from '../enums';
 import {
   AssignmentBriefSchema,
+  ClubBriefSchema,
   FileSchema,
+  GroupBriefSchema,
   StudentBriefSchema,
   SubmissionSchema,
 } from '../entities';
@@ -74,6 +76,31 @@ export const TeacherSubmissionDetailSchema = SubmissionDtoSchema.extend({
   attempts: z.array(SubmissionAttemptBriefSchema),
 });
 export type TeacherSubmissionDetail = z.infer<typeof TeacherSubmissionDetailSchema>;
+
+// ---------- Домашние задания ученика (экран «Задания») ----------
+
+/** Кружок на карте заданий: сколько открыто, набранные баллы, ближайшее задание. */
+export const HomeworkClubSchema = z.object({
+  club: ClubBriefSchema,
+  group: GroupBriefSchema,
+  /** Открытые (не сданные) задания. */
+  openCount: z.number().int().nonnegative(),
+  /** Баллы по кружку (сумма оценок за проверенные сдачи; формула — analytics). */
+  points: z.number().int().nonnegative(),
+  /** Ближайшее по дедлайну открытое задание; null — открытых нет. */
+  nextAssignment: AssignmentBriefSchema.nullable(),
+});
+export type HomeworkClub = z.infer<typeof HomeworkClubSchema>;
+
+export const StudentHomeworkDtoSchema = z.object({
+  /** Кружки ученика: сначала с ближайшим дедлайном, без дедлайна — в конце. */
+  clubs: z.array(HomeworkClubSchema),
+  /** Серия дней с активностью — как на главной; нет — пока не посчитано. */
+  streakDays: z.number().int().nonnegative().optional(),
+  /** Баллы за активность. */
+  points: z.number().int().nonnegative().optional(),
+});
+export type StudentHomeworkDto = z.infer<typeof StudentHomeworkDtoSchema>;
 
 // ---------- Query ----------
 
@@ -152,6 +179,13 @@ export const assignmentsContract = c.router(
       pathParams: z.object({ assignmentId: IdSchema }),
       responses: { 200: StudentAssignmentDetailSchema },
       summary: 'Задание ученика с его сдачей',
+      metadata: userRoute('student:assignments.view'),
+    },
+    getStudentHomework: {
+      method: 'GET',
+      path: '/student/homework',
+      responses: { 200: StudentHomeworkDtoSchema },
+      summary: 'Домашние задания ученика: кружки с открытыми заданиями и баллами',
       metadata: userRoute('student:assignments.view'),
     },
     submitAssignment: {

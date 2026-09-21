@@ -53,6 +53,21 @@ pnpm typecheck && pnpm lint && pnpm test
 - `WeekArc` — дуга дней недели с плашками по тонам и легендой; `CardColumns` — карточки-колонки с выровненными строками (subgrid); `VisuallyHidden`; `Text variant="small"` (14px); `BellIcon count` — колокольчик со счётчиком.
 - Заливочные иконки (`HomeIcon`, `AiIcon`, `BookIcon`, `SettingsIcon`, `UserIcon`, `BellIcon`, `CalendarClockIcon`, `FireIcon`, `GemIcon`) — геометрия из Figma, цвет `currentColor`.
 
+## Экраны тьютора, настроек и профиля (в стиле главной)
+
+- `PageHeader variant="plain"` — шапка без плашки: заголовок по центру, боковые слоты одинаковой ширины; в web это дефолт `ScreenHeader`.
+- Чат: `ChatBubble` (сторона `start`/`end`, аватар, подпись, стрим с курсором и `TypingIndicator`), `ChatComposer` («пилюля» с авторастущим textarea, круглая кнопка отправки/«Стоп», `sticky`).
+- `IconTile` — иконка на скруглённой подложке с тоном (слот `left` у `ListRow`), `Tag` — неинтерактивная таблетка, `Grid` — равные колонки.
+- `ListRow below` — контент под строкой на всю ширину (сегменты темы); заголовок и подзаголовок переносятся до двух строк.
+- `Avatar ring` — кольцо primary со свечением; `Stack grow`, `Screen fill` — для экранов с панелью у нижнего края.
+- Контурные иконки: `SendIcon`, `StopIcon`, `TrashIcon`, `CopyIcon`, `LogoutIcon`, `MoonIcon`, `GlobeIcon`, `LifebuoyIcon`, `SparkIcon`, `StarIcon`, `ClipboardIcon`, `RefreshIcon`, `EyeIcon`, `ShieldIcon`, `CreditCardIcon`, `TargetIcon`, `HeartIcon`, `LinkIcon`.
+
+## Экран «Задания» ученика (карта планет)
+
+- `PlanetMap` — планеты-картинки на звёздном фоне (`backdrop`), к каждой подпись «число + название» с линией-выноской и пометка над планетой (`marker`); четыре слота-«витка» из макета повторяются для 5+ планет; `grow`/`bleed` — под `Screen fill` на всю ширину.
+- Токены `--ui-font-family-display` (Jersey 20 — пиксельные числа) и `--ui-font-family-mono` (JetBrains Mono — подписи); шрифты подключаются в `src/index.ts`.
+- `ChevronsDownIcon` — двойной шеврон-маркер (35×28) из макета.
+
 ## Что временно
 
 - Светлая палитра — зеркало тёмной, в макете её нет.

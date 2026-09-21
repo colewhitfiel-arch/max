@@ -8,6 +8,8 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'none' | 'sm' | 'md';
   /** Расстояние между блоками экрана в шагах сетки. По умолчанию 4 (16px). */
   gap?: Space;
+  /** Растянуть на всю высоту скролл-области (для экранов с прижатой к низу панелью). */
+  fill?: boolean;
 }
 
 /**
@@ -15,7 +17,7 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
  * Состояния (loading/error/empty) решает потребитель через Skeleton/ErrorState/EmptyState.
  */
 export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
-  { padding = 'md', gap = 4, className, ...rest },
+  { padding = 'md', gap = 4, fill = false, className, ...rest },
   ref,
 ) {
   return (
@@ -24,6 +26,7 @@ export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
       className={cx('ui-screen', className)}
       data-padding={padding}
       data-gap={gap}
+      data-fill={fill || undefined}
       {...rest}
     />
   );

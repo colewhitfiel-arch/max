@@ -12,6 +12,8 @@ export interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
   name?: string;
   /** Размер: sm 28, md 40, lg 56, xl 80 px. По умолчанию `md`. */
   size?: AvatarSize;
+  /** Акцентное кольцо цвета primary со свечением (герой профиля). */
+  ring?: boolean;
 }
 
 /** Инициалы: первые буквы первых двух слов имени. */
@@ -27,7 +29,7 @@ export function getInitials(name: string): string {
 
 /** Аватар: картинка → инициалы → иконка пользователя. */
 export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
-  { src, name, size = 'md', className, ...rest },
+  { src, name, size = 'md', ring = false, className, ...rest },
   ref,
 ) {
   const [failed, setFailed] = useState(false);
@@ -39,6 +41,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
       ref={ref}
       className={cx('ui-avatar', className)}
       data-size={size}
+      data-ring={ring || undefined}
       role={name ? 'img' : undefined}
       aria-label={name || undefined}
       aria-hidden={name ? undefined : true}

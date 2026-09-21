@@ -1,7 +1,10 @@
 import type { ClubProgress } from '@edu/contracts';
-import { Card, ListRow, ProgressBar, Stack } from '@edu/ui';
+import { BookIcon, Card, IconTile, ListRow, ProgressRing, Text, type Tone } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { formatPercent, formatRate } from '@/shared/lib/format';
+
+const toneOf = (percent: number): Tone =>
+  percent >= 80 ? 'success' : percent >= 40 ? 'info' : 'warning';
 
 /** Кружки с прогрессом (ClubProgress[]) — ученик, родитель, преподаватель. */
 export function ClubProgressList({ clubs }: { clubs: ClubProgress[] }) {
@@ -11,17 +14,29 @@ export function ClubProgressList({ clubs }: { clubs: ClubProgress[] }) {
       {clubs.map((item) => (
         <ListRow
           key={item.group.id}
-          title={item.club.title}
-          subtitle={
-            <Stack gap={1}>
-              <span>
-                {item.group.title} · {t('stats.attendance').toLowerCase()}{' '}
-                {formatRate(item.attendanceRate, i18n.language)}
-              </span>
-              <ProgressBar value={item.percent} size="sm" label={t('stats.progress')} />
-            </Stack>
+          left={
+            <IconTile tone="info">
+              <BookIcon />
+            </IconTile>
           }
-          right={formatPercent(item.percent)}
+          title={item.club.title}
+          subtitle={`${item.group.title} · ${t('stats.attendance').toLowerCase()} ${formatRate(
+            item.attendanceRate,
+            i18n.language,
+          )}`}
+          right={
+            <ProgressRing
+              value={item.percent}
+              size={44}
+              thickness={4}
+              tone={toneOf(item.percent)}
+              label={`${t('stats.progress')}: ${formatPercent(item.percent)}`}
+            >
+              <Text as="span" variant="caption" weight="medium">
+                {formatPercent(item.percent)}
+              </Text>
+            </ProgressRing>
+          }
         />
       ))}
     </Card>

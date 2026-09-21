@@ -1,0 +1,33 @@
+.ui-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ui-grid-columns, 2), minmax(0, 1fr));
+  min-width: 0;
+}
+
+.ui-grid[data-gap='0'] {
+  gap: 0;
+}
+.ui-grid[data-gap='1'] {
+  gap: var(--ui-space-1);
+}
+.ui-grid[data-gap='2'] {
+  gap: var(--ui-space-2);
+}
+.ui-grid[data-gap='3'] {
+  gap: var(--ui-space-3);
+}
+.ui-grid[data-gap='4'] {
+  gap: var(--ui-space-4);
+}
+.ui-grid[data-gap='5'] {
+  gap: var(--ui-space-5);
+}
+.ui-grid[data-gap='6'] {
+  gap: var(--ui-space-6);
+}
+.ui-grid[data-gap='7'] {
+  gap: var(--ui-space-7);
+}
+.ui-grid[data-gap='8'] {
+  gap: var(--ui-space-8);
+}

@@ -1,0 +1,107 @@
+.ui-chat-composer {
+  --ui-chat-composer-height: 52px;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ui-space-2);
+  width: 100%;
+}
+
+/* Прижат к низу скролл-области; подложка растворяется в фон, чтобы сообщения не «резались». */
+.ui-chat-composer[data-sticky] {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-top: var(--ui-space-3);
+  background: linear-gradient(to bottom, transparent, var(--ui-color-bg) 40%);
+}
+
+.ui-chat-composer__field {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--ui-chat-composer-height);
+  padding: 0 var(--ui-space-5);
+  border: 1px solid var(--ui-color-border);
+  border-radius: calc(var(--ui-chat-composer-height) / 2 + 4px);
+  background: var(--ui-color-surface);
+  transition: border-color var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-chat-composer__field:focus-within {
+  border-color: var(--ui-color-focus);
+}
+
+.ui-chat-composer__field[data-disabled] {
+  opacity: 0.6;
+}
+
+.ui-chat-composer__input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: calc((var(--ui-chat-composer-height) - 2px - 1.4em) / 2) 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: var(--ui-font-size-md);
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  overflow-y: hidden;
+}
+
+.ui-chat-composer__input::placeholder {
+  color: var(--ui-color-text-muted);
+}
+
+/* Кнопка — круг primary, как акцентный пункт нижнего меню. */
+.ui-chat-composer__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ui-chat-composer-height);
+  height: var(--ui-chat-composer-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity var(--ui-duration-fast) var(--ui-easing),
+    transform var(--ui-duration-fast) var(--ui-easing),
+    background-color var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-chat-composer__action > .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.ui-chat-composer__action[data-action='send'] > .ui-icon {
+  /* Самолётик оптически центрируется со сдвигом влево-вниз. */
+  transform: translate(-1px, 1px);
+}
+
+.ui-chat-composer__action[data-action='stop'] {
+  background: var(--ui-color-surface-2);
+  color: var(--ui-color-text);
+}
+
+.ui-chat-composer__action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ui-chat-composer__action:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+.ui-chat-composer__action:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}

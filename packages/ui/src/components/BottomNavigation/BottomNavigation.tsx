@@ -17,6 +17,8 @@ export interface BottomNavigationItem {
   badge?: ReactNode;
   /** Акцентный пункт: крупный круг цвета primary (обычно центральный). */
   prominent?: boolean;
+  /** Размер иконки: md 36px, lg 40px — для «лёгких» глифов, чтобы совпадали по массе с соседями. */
+  iconSize?: 'md' | 'lg';
 }
 
 export interface BottomNavigationProps extends Omit<HTMLAttributes<HTMLElement>, 'onSelect'> {
@@ -43,7 +45,7 @@ export const BottomNavigation = forwardRef<HTMLElement, BottomNavigationProps>(
           {items.map((item) => {
             const content = (
               <>
-                <span className="ui-bottom-nav__icon">
+                <span className="ui-bottom-nav__icon" data-size={item.iconSize}>
                   {item.icon}
                   {item.badge != null && <span className="ui-bottom-nav__badge">{item.badge}</span>}
                 </span>

@@ -1,5 +1,5 @@
 import type { MessageRole } from '@edu/contracts';
-import { Card, Stack, Text } from '@edu/ui';
+import { AiIcon, ChatBubble, IconTile } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { formatTime } from '@/shared/lib/dates';
 
@@ -11,24 +11,30 @@ export interface ChatMessageProps {
   streaming?: boolean;
 }
 
-const ROLE_LABEL: Record<MessageRole, string> = {
-  USER: 'Ты',
-  ASSISTANT: 'Тьютор',
-  SYSTEM: 'Система',
-};
-
-/** Сообщение чата на Card/Text — без собственных стилей (визуал заменит @edu/ui позже). */
-export function ChatMessage({ role, content, createdAt, streaming }: ChatMessageProps) {
-  const { i18n } = useTranslation();
+/** Аватар тьютора у пузыря: робот на синей подложке (как пункт нижнего меню). */
+export function TutorAvatar({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   return (
-    <Card padding="sm" data-role={role.toLowerCase()} aria-busy={streaming || undefined}>
-      <Stack gap={1}>
-        <Text variant="caption" tone={role === 'USER' ? 'primary' : 'muted'} weight="medium">
-          {ROLE_LABEL[role]}
-          {createdAt ? ` · ${formatTime(createdAt, i18n.language)}` : ''}
-        </Text>
-        <Text style={{ whiteSpace: 'pre-wrap' }}>{content || (streaming ? '…' : '')}</Text>
-      </Stack>
-    </Card>
+    <IconTile tone="info" size={size}>
+      <AiIcon />
+    </IconTile>
+  );
+}
+
+/** Сообщение чата: роль → сторона пузыря, у тьютора — аватар, под пузырём — время. */
+export function ChatMessage({ role, content, createdAt, streaming }: ChatMessageProps) {
+  const { t, i18n } = useTranslation('student');
+  const own = role === 'USER';
+  return (
+    <ChatBubble
+      side={own ? 'end' : 'start'}
+      avatar={own ? undefined : <TutorAvatar />}
+      meta={createdAt ? formatTime(createdAt, i18n.language) : undefined}
+      streaming={streaming}
+      typingLabel={t('tutor.thinking')}
+      aria-label={own ? t('tutor.you') : t('tutor.assistant')}
+      data-role={role.toLowerCase()}
+    >
+      {content}
+    </ChatBubble>
   );
 }

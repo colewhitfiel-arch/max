@@ -67,3 +67,10 @@
 .ui-inline[data-justify='around'] {
   justify-content: space-around;
 }
+
+/* Как список (`as="ul" | "ol"`): без маркеров и отступов браузера. */
+.ui-inline:is(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

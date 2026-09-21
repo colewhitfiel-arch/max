@@ -12,6 +12,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   left?: ReactNode;
   /** Слот справа (бейдж, значение, стрелка). */
   right?: ReactNode;
+  /** Контент под строкой на всю ширину (переключатель, сегменты, прогресс). */
+  below?: ReactNode;
   /** Если задан — строка становится кнопкой (`role="button"`, Enter/Space). */
   onClick?: HTMLAttributes<HTMLDivElement>['onClick'];
   /** Показывать шеврон справа (по умолчанию — если есть `onClick` и нет `right`). */
@@ -27,6 +29,7 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
     subtitle,
     left,
     right,
+    below,
     onClick,
     chevron,
     disabled = false,
@@ -59,17 +62,21 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
       aria-disabled={interactive && disabled ? true : undefined}
       onClick={interactive && !disabled ? onClick : undefined}
       onKeyDown={interactive ? handleKeyDown : onKeyDown}
+      data-below={below != null || undefined}
       {...rest}
     >
-      {left != null && <div className="ui-list-row__left">{left}</div>}
-      <div className="ui-list-row__body">
-        <div className="ui-list-row__title">{title}</div>
-        {subtitle != null && <div className="ui-list-row__subtitle">{subtitle}</div>}
+      <div className="ui-list-row__main">
+        {left != null && <div className="ui-list-row__left">{left}</div>}
+        <div className="ui-list-row__body">
+          <div className="ui-list-row__title">{title}</div>
+          {subtitle != null && <div className="ui-list-row__subtitle">{subtitle}</div>}
+        </div>
+        {right != null && <div className="ui-list-row__right">{right}</div>}
+        {showChevron && (
+          <ChevronRightIcon className="ui-list-row__chevron" size={20} aria-hidden="true" />
+        )}
       </div>
-      {right != null && <div className="ui-list-row__right">{right}</div>}
-      {showChevron && (
-        <ChevronRightIcon className="ui-list-row__chevron" size={20} aria-hidden="true" />
-      )}
+      {below != null && <div className="ui-list-row__below">{below}</div>}
     </div>
   );
 });

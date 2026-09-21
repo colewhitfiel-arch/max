@@ -7,9 +7,10 @@
       "runtimeArgs": [
         "-NoProfile",
         "-Command",
-        "$env:VITE_API_MODE='mock'; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port 5173 --strictPort"
+        "$env:VITE_API_MODE='mock'; if (-not $env:PORT) { $env:PORT = 5173 }; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port $env:PORT --strictPort"
       ],
       "port": 5173,
+      "autoPort": true,
       "url": "http://127.0.0.1:5173"
     }
   ]

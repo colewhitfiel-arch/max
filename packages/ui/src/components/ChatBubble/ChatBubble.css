@@ -1,0 +1,132 @@
+/* Пузырь: радиус карточек 20px, «хвост» — уменьшенный угол у нижнего края со стороны автора. */
+.ui-chat-bubble {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ui-space-2);
+  max-width: min(85%, 520px);
+  min-width: 0;
+}
+
+.ui-chat-bubble[data-side='start'] {
+  align-self: flex-start;
+}
+
+.ui-chat-bubble[data-side='end'] {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.ui-chat-bubble__avatar {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.ui-chat-bubble__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+
+.ui-chat-bubble[data-side='end'] .ui-chat-bubble__body {
+  align-items: flex-end;
+}
+
+.ui-chat-bubble__content {
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ui-chat-bubble[data-side='start'] .ui-chat-bubble__content {
+  border-bottom-left-radius: 6px;
+}
+
+.ui-chat-bubble[data-side='end'] .ui-chat-bubble__content {
+  border-bottom-right-radius: 6px;
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+}
+
+/* Курсор стрима после текста. */
+.ui-chat-bubble[data-streaming] .ui-chat-bubble__content::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: ui-chat-caret 1s steps(2, start) infinite;
+}
+
+.ui-chat-bubble[data-streaming] .ui-chat-bubble__content:has(.ui-typing)::after {
+  display: none;
+}
+
+.ui-chat-bubble__meta {
+  padding: 0 var(--ui-space-1);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.3;
+  color: var(--ui-color-text-muted);
+}
+
+/* Индикатор набора */
+.ui-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.4em;
+  vertical-align: middle;
+}
+
+.ui-typing__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--ui-radius-full);
+  background: currentColor;
+  opacity: 0.35;
+  animation: ui-typing-dot 1.2s ease-in-out infinite;
+}
+
+.ui-typing__dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ui-typing__dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes ui-typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes ui-chat-caret {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-typing__dot,
+  .ui-chat-bubble[data-streaming] .ui-chat-bubble__content::after {
+    animation: none;
+  }
+  .ui-typing__dot {
+    opacity: 0.7;
+  }
+}

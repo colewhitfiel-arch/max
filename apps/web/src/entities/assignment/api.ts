@@ -25,6 +25,14 @@ export function useStudentAssignment(assignmentId: string) {
   });
 }
 
+/** `GET /student/homework` — карта кружков экрана «Задания». */
+export function useStudentHomework() {
+  return useQuery({
+    queryKey: assignmentKeys.studentHomework(),
+    queryFn: () => call(api.assignments.getStudentHomework()),
+  });
+}
+
 /** `POST /student/assignments/:id/submit` с Idempotency-Key. */
 export function useSubmitAssignment(assignmentId: string) {
   const queryClient = useQueryClient();

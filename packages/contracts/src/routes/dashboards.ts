@@ -99,6 +99,10 @@ export const StudentProfileDtoSchema = z.object({
   stats: StatsBriefSchema,
   interests: z.array(z.string()),
   goals: z.array(z.string()),
+  /** Серия дней подряд с активностью — как на главной; нет — пока не посчитано. */
+  streakDays: z.number().int().nonnegative().optional(),
+  /** Баллы за активность. */
+  points: z.number().int().nonnegative().optional(),
 });
 export type StudentProfileDto = z.infer<typeof StudentProfileDtoSchema>;
 

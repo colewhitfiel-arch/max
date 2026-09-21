@@ -3,6 +3,8 @@
  * Стили: токены и reset подключаются здесь один раз; CSS компонентов — самими компонентами.
  */
 import '@fontsource-variable/montserrat';
+import '@fontsource/jersey-20';
+import '@fontsource-variable/jetbrains-mono';
 import './styles/index.css';
 
 // Тема и токены
@@ -40,6 +42,12 @@ export * from './components/Spinner';
 export * from './components/EmptyState';
 export * from './components/ErrorState';
 export * from './components/Toast';
+export * from './components/IconTile';
+export * from './components/Tag';
+
+// Чат
+export * from './components/ChatBubble';
+export * from './components/ChatComposer';
 
 // Данные
 export * from './components/Card';
@@ -49,10 +57,12 @@ export * from './components/StatTile';
 export * from './components/ProgressBar';
 export * from './components/ProgressRing';
 export * from './components/WeekArc';
+export * from './components/PlanetMap';
 
 // Раскладка и текст
 export * from './components/Stack';
 export * from './components/Inline';
+export * from './components/Grid';
 export * from './components/Divider';
 export * from './components/Text';
 export * from './components/VisuallyHidden';

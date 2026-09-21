@@ -4,6 +4,10 @@
   min-width: 0;
 }
 
+.ui-stack[data-grow] {
+  flex: 1 1 auto;
+}
+
 .ui-stack[data-gap='0'] {
   gap: 0;
 }
@@ -62,4 +66,11 @@
 }
 .ui-stack[data-justify='around'] {
   justify-content: space-around;
+}
+
+/* Как список (`as="ul" | "ol"`): без маркеров и отступов браузера. */
+.ui-stack:is(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
