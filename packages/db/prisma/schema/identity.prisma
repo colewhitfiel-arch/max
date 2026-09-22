@@ -21,6 +21,7 @@ model StudentProfile {
   goals                 String[]  @default([])
   weeklyHours           Int?      @map("weekly_hours")
   preferredFormats      String[]  @default([]) @map("preferred_formats")
+  futureInterests       String[]  @default([]) @map("future_interests")
   aiProfileSummary      String?   @map("ai_profile_summary")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at") @db.Timestamptz
   linkCode              String    @unique @map("link_code")
@@ -40,6 +41,7 @@ model StudentProfile {
   conversations  AiConversation[]
   insights       AiInsight[]
   trajectories   Trajectory[]
+  clubInterests  StudentClubInterest[]
   parentLinks    ParentStudentLink[]
   payments       Payment[]
 
@@ -80,8 +82,8 @@ model TeacherProfile {
   groups            Group[]
   courses           Course[]
   assignments       Assignment[]
-  markedAttendance  Attendance[]  @relation("AttendanceMarkedBy")
-  gradedSubmissions Submission[]  @relation("SubmissionGradedBy")
+  markedAttendance  Attendance[]          @relation("AttendanceMarkedBy")
+  gradedSubmissions Submission[]          @relation("SubmissionGradedBy")
   generationJobs    CourseGenerationJob[]
 
   @@index([schoolId])

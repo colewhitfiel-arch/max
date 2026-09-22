@@ -43,6 +43,15 @@ export class AiController {
     }));
   }
 
+  @RequirePermission('teacher:students.view')
+  @TsRestHandler(aiContract.getClubDemand)
+  getClubDemand(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(aiContract.getClubDemand, async () => ({
+      status: 200,
+      body: await this.onboarding.demand(user),
+    }));
+  }
+
   @RequirePermission('student:tutor.chat')
   @TsRestHandler(aiContract.listConversations)
   listConversations(@CurrentUser() user: AuthUser) {

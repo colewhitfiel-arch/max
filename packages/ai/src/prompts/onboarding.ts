@@ -15,6 +15,8 @@ export const OnboardingProfileSchema = z.object({
   weeklyHours: z.number().int().nonnegative(),
   preferredFormats: z.array(z.string()),
   summary: z.string(),
+  /** Что хотел бы попробовать позже, а не сейчас — направления/кружки «на будущее». */
+  futureInterests: z.array(z.string()).default([]),
 });
 export type OnboardingProfile = z.infer<typeof OnboardingProfileSchema>;
 
@@ -33,23 +35,28 @@ export interface OnboardingVars {
   answered: number;
 }
 
-export const ONBOARDING_MIN_ANSWERS = 3;
+export const ONBOARDING_MIN_ANSWERS = 4;
 export const ONBOARDING_MAX_ANSWERS = 7;
 
 export const onboardingTurnPrompt = definePrompt({
   id: 'onboarding.turn',
-  version: 1,
+  version: 2,
   description: 'Реплика онбординга: следующий вопрос или завершение с черновиком профиля',
   system: (vars: OnboardingVars) =>
     [
       `Ты — дружелюбный ИИ-тьютор, знакомишься с учеником по имени ${vars.studentName} (школьник).`,
       'Цель — за 4–7 коротких вопросов узнать: чем интересуется, какие предметы нравятся, какие навыки хочет развить,',
       'какие цели, сколько часов в неделю готов заниматься, какие форматы подходят (практика, проекты, теория, игры, команда/один).',
+      'Обязательно один из вопросов — про будущее: что хотел бы попробовать ПОЗЖЕ (через полгода-год), но не сейчас —',
+      'потому что нет времени, страшно, «сначала подрасту» или просто любопытно. Это отдельно от того, куда идёт сейчас.',
       'Задавай по ОДНОМУ вопросу за раз, коротко, на «ты», с опорой на предыдущие ответы. Не перечисляй все вопросы сразу.',
       `В школе есть кружки: ${vars.clubsSummary || 'разные направления'}.`,
       `Ученик уже ответил на ${vars.answered} вопрос(ов). Минимум ${ONBOARDING_MIN_ANSWERS} ответа, максимум ${ONBOARDING_MAX_ANSWERS}.`,
+      'Как только известны интересы, цели, время в неделю и «на потом» — СРАЗУ завершай, не задавай уточняющих и',
+      'проверочных вопросов (не проси назвать проекты, жанры, элементы игры и т. п.).',
       'Когда информации достаточно (или достигнут максимум) — заверши: короткая благодарность + скажи, что сейчас подберёшь кружки,',
-      'и заполни profileDraft: interests (3–6 слов/фраз), goals, weeklyHours (целое число, 0 если не сказал), preferredFormats, summary (2 предложения о ученике).',
+      'и заполни profileDraft: interests (3–6 слов/фраз), goals, weeklyHours (целое число, 0 если не сказал), preferredFormats,',
+      'futureInterests (направления «на потом», 0–4 фразы; пусто, если ученик ничего такого не назвал), summary (2 предложения о ученике).',
       'Отвечай строго JSON: {"reply": string, "isComplete": boolean, "profileDraft": {...} | null}. Пока не завершено — profileDraft: null.',
     ].join('\n'),
   schema: OnboardingTurnSchema,
@@ -143,6 +150,7 @@ const MOCK_QUESTIONS = [
   'Здорово! А какие школьные предметы тебе нравятся больше всего?',
   'Понял. Какой навык ты хотел бы прокачать в этом году?',
   'А сколько часов в неделю ты готов уделять кружкам?',
+  'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?',
 ];
 
 export const onboardingMockRules: MockResponseRule[] = [
@@ -173,6 +181,9 @@ export const onboardingMockRules: MockResponseRule[] = [
           goals: ['научиться новому и сделать свой проект'],
           weeklyHours: 4,
           preferredFormats: ['практика', 'проекты'],
+          futureInterests: answers[3]?.content.trim()
+            ? [answers[3].content.trim().slice(0, 60)]
+            : [],
           summary: `Ученик рассказал о себе: ${answers[0]?.content.slice(0, 80) ?? ''}. Любит практику и проекты.`,
         },
       };

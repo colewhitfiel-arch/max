@@ -157,6 +157,7 @@ export class IdentityService {
       goals: string[];
       weeklyHours: number;
       preferredFormats: string[];
+      futureInterests?: string[];
       summary: string;
     },
   ): Promise<void> {
@@ -165,6 +166,7 @@ export class IdentityService {
       goals: profile.goals,
       weeklyHours: profile.weeklyHours > 0 ? profile.weeklyHours : null,
       preferredFormats: profile.preferredFormats,
+      futureInterests: profile.futureInterests ?? [],
       aiProfileSummary: profile.summary.trim() || null,
     });
   }

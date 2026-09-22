@@ -203,6 +203,14 @@ function buildState() {
     paidPeriods: [clone(demoPaidPeriod)] as PaidPeriod[],
     notifications: extraNotifications,
     conversations: [clone(demoConversation)] as AiConversation[],
+    /** Спрос на кружки из онбординга (student_club_interests). */
+    clubInterests: [] as Array<{
+      studentId: string;
+      clubId: string;
+      status: 'CHOSEN' | 'LATER' | 'SKIPPED';
+      score: number | null;
+      reason: string | null;
+    }>,
     messages: clone(demoMessages) as AiMessage[],
     trajectories: [trajectory] as Trajectory[],
     generationJobs: [] as CourseGenerationJob[],
@@ -273,6 +281,7 @@ export function grantRole(user: MockUser, role: Role): void {
           goals: [],
           weeklyHours: null,
           preferredFormats: [],
+          futureInterests: [],
           aiProfileSummary: null,
           onboardingCompletedAt: null,
           linkCode: linkCode(),

@@ -68,3 +68,26 @@ model Trajectory {
   @@index([studentId, generatedAt])
   @@map("trajectories")
 }
+
+/// Спрос на кружки из онбординга: что ученик выбрал сейчас, что хочет попробовать позже,
+/// что ему показали, а он пропустил. Один ряд на пару ученик–кружок, обновляется при повторном онбординге.
+model StudentClubInterest {
+  id        String             @id @default(uuid(7)) @db.Uuid
+  studentId String             @map("student_id") @db.Uuid
+  clubId    String             @map("club_id") @db.Uuid
+  status    ClubInterestStatus
+  /// Релевантность по оценке модели, 0..1 (null — кружок выбран вне рекомендаций).
+  score     Float?
+  /// Причина из рекомендации — «почему этот кружок».
+  reason    String?
+  source    String             @default("ONBOARDING")
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  club    Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, clubId])
+  @@index([clubId, status])
+  @@map("student_club_interests")
+}

@@ -39,10 +39,14 @@
     "send": "Send",
     "skip": "Skip (dev)",
     "recommendationsTitle": "Clubs for you",
-    "recommendationsHint": "Pick the ones you like — we will enrol you right away.",
+    "recommendationsHint": "Choose what to join now and what to keep for later.",
     "noClubs": "No active clubs at the school yet",
     "choose": "Enrol",
     "finishWithClubs": "Enrol in clubs ({{count}}) and continue",
-    "finishWithout": "Continue without enrolling"
+    "finishWithout": "Continue without enrolling",
+    "choiceHint": "“Enrol” signs you up right away. “Maybe later” — your tutor will remind you when there is time.",
+    "futureInterests": "For the future you mentioned: {{list}}",
+    "later": "Maybe later",
+    "finishWithLater": "Remember for later ({{count}}) and continue"
   }
 }

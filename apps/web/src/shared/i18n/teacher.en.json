@@ -135,5 +135,19 @@
   "more": {
     "title": "More",
     "school": "School"
+  },
+  "clubDemand": {
+    "title": "Club demand",
+    "short": "What students pick during onboarding and want to try later",
+    "description": "From the AI tutor onboarding: who enrolled right away, who marked “maybe later”, who was shown a club and skipped it. This is demand, not attendance.",
+    "empty": "No student has completed onboarding yet",
+    "students": "Completed onboarding: {{count}}",
+    "chosen": "Enrolled",
+    "later": "Want later",
+    "skipped": "Skipped",
+    "avgScore": "AI relevance: {{value}}%",
+    "reasons": "Why they choose it",
+    "futureTitle": "Directions “for the future”",
+    "futureHint": "What students want to try later — ideas for new clubs"
   }
 }

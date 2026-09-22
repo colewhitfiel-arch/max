@@ -93,6 +93,7 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
       'Люблю собирать роботов и играть в игры',
       'Информатика и физика',
       'Часа четыре в неделю',
+      'Потом хочу попробовать шахматы',
     ];
     let done: Record<string, unknown> | undefined;
     for (const text of answers) {
@@ -118,9 +119,57 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
     const me = await http()
       .post(`${base}/student/onboarding/complete`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ selectedClubIds: [DEMO_IDS.clubs.robotics], profileDraft: done!.profileDraft })
+      .send({
+        selectedClubIds: [DEMO_IDS.clubs.robotics],
+        laterClubIds: [DEMO_IDS.clubs.programming],
+        profileDraft: done!.profileDraft,
+      })
       .expect(200);
     expect(me.body.student.onboardingCompleted).toBe(true);
+
+    // диалог знакомства стал чатом с тьютором: тот же id, итоговая реплика про «сейчас/позже»
+    const tutorChats = await http()
+      .get(`${base}/ai/conversations?kind=TUTOR`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(tutorChats.body.items.map((c: { id: string }) => c.id)).toContain(
+      start.body.conversationId,
+    );
+    const history = await http()
+      .get(`${base}/ai/conversations/${start.body.conversationId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const last = history.body.items.at(-1);
+    expect(last.role).toBe('ASSISTANT');
+    expect(last.content).toContain('Записал тебя');
+    expect(last.content).toContain('На будущее запомнил');
+
+    // преподаватель школы видит спрос: 1 записался в робототехнику, 1 хочет программирование позже
+    const teacher = await http()
+      .post(`${base}/auth/dev`)
+      .send({ maxUserId: 'max-teacher-1', roles: ['TEACHER'] })
+      .expect(200);
+    const demand = await http()
+      .get(`${base}/teacher/clubs/demand`)
+      .set('Authorization', `Bearer ${teacher.body.accessToken}`)
+      .expect(200);
+    expect(demand.body.students).toBeGreaterThanOrEqual(1);
+    const byClub = new Map(demand.body.items.map((i: { club: { id: string } }) => [i.club.id, i]));
+    expect(byClub.get(DEMO_IDS.clubs.robotics)).toMatchObject({ chosen: expect.any(Number) });
+    expect(
+      (byClub.get(DEMO_IDS.clubs.robotics) as { chosen: number }).chosen,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      (byClub.get(DEMO_IDS.clubs.programming) as { later: number }).later,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      demand.body.futureInterests.some((f: { label: string }) => /шахматы/i.test(f.label)),
+    ).toBe(true);
+    // ученику нельзя
+    await http()
+      .get(`${base}/teacher/clubs/demand`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
 
     await drain();
     const trajectory = await http()

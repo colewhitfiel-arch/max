@@ -46,6 +46,7 @@ User            id PK, maxUserId (unique), firstName, lastName?, nickname?, avat
 UserRole        userId FK, role Role                                    unique(userId, role)
 StudentProfile  id PK, userId FK unique, schoolId FK?, classLabel? ("7Б"), birthYear?,
                 interests string[], goals string[], weeklyHours int?, preferredFormats string[],
+                futureInterests string[],        // «хочу попробовать позже» из онбординга — спрос на будущее
                 aiProfileSummary text?,          // итог онбординга, входит в StudentContext
                 onboardingCompletedAt?, linkCode (unique, 6 символов, ротация по запросу)
 ParentProfile   id PK, userId FK unique
@@ -133,6 +134,9 @@ Trajectory      id PK, studentId FK, content json { summary, strengths[], growth
                 recommendations[{ title, why, clubId?, courseId? }], nextSteps[] },
                 promptId, sourceHash, generatedAt                       index(studentId, generatedAt)
 ```
+StudentClubInterest id PK, studentId FK, clubId FK, status ClubInterestStatus (CHOSEN | LATER | SKIPPED),
+                score? 0..1 (оценка ИИ), reason? (из рекомендации), source "ONBOARDING", createdAt, updatedAt
+                unique(studentId, clubId); index(clubId, status)   // спрос на кружки из онбординга
 
 ### files + course-builder (`files.prisma`, `course-builder.prisma`)
 ```
@@ -184,7 +188,7 @@ Group 1—N Course 1—N CourseModule 1—N CourseBlock 1—N BlockProgress
 Group 1—N Assignment 1—N Submission 1—N SubmissionAttempt
 CourseBlock 1—0..1 Assignment      (блоки-задания)
 Enrollment 1—N PaidPeriod; Payment N—1 Enrollment
-StudentProfile 1—N ActivityEvent / StudentStatsDaily / AiInsight / Trajectory / AiConversation
+StudentProfile 1—N ActivityEvent / StudentStatsDaily / AiInsight / Trajectory / AiConversation / StudentClubInterest
 ```
 
 ## 4.4. Схемы `CourseBlock.content` по типу (`packages/contracts/src/blocks/`)

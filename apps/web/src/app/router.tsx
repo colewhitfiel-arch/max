@@ -22,6 +22,7 @@ import { studentProfileRoutes } from '@/pages/student/profile/routes';
 import { studentSettingsRoutes } from '@/pages/student/settings/routes';
 import { studentTutorRoutes } from '@/pages/student/tutor/routes';
 import { teacherAssignmentsRoutes } from '@/pages/teacher/assignments/routes';
+import { teacherClubDemandRoutes } from '@/pages/teacher/club-demand/routes';
 import { teacherCourseBuilderRoutes } from '@/pages/teacher/course-builder/routes';
 import { teacherCoursesRoutes } from '@/pages/teacher/courses/routes';
 import { teacherGroupsRoutes } from '@/pages/teacher/groups/routes';
@@ -79,6 +80,7 @@ export const routes: RouteObject[] = [
       ...teacherStudentsRoutes,
       ...teacherCoursesRoutes,
       ...teacherCourseBuilderRoutes,
+      ...teacherClubDemandRoutes,
       ...teacherAssignmentsRoutes,
       ...teacherMoreRoutes,
     ],

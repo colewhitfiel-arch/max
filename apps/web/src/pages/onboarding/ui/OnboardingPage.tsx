@@ -3,7 +3,7 @@ import {
   AppLayout,
   Button,
   Card,
-  Checkbox,
+  Chip,
   EmptyState,
   Inline,
   PageHeader,
@@ -34,12 +34,17 @@ const EMPTY_PROFILE: OnboardingProfileDraft = {
   goals: [],
   weeklyHours: 0,
   preferredFormats: [],
+  futureInterests: [],
   summary: '',
 };
 
+/** Что ученик решил по кружку: записаться сейчас или отметить «попробовать позже». */
+type Choice = 'now' | 'later';
+
 /**
  * Онбординг с ИИ (F1): диалог 4–7 реплик через SSE → `done.isComplete` + profileDraft →
- * рекомендованные кружки → выбор → `POST /student/onboarding/complete` → главная.
+ * рекомендованные кружки → «записаться» / «попробовать позже» → `POST /student/onboarding/complete`
+ * → главная. Диалог продолжается как чат с тьютором.
  */
 export function OnboardingPage() {
   const { t } = useTranslation('auth');
@@ -53,7 +58,7 @@ export function OnboardingPage() {
   const [draft, setDraft] = useState('');
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
   const [profile, setProfile] = useState<OnboardingProfileDraft | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [choices, setChoices] = useState<Record<string, Choice>>({});
   const startedRef = useRef(false);
   const recommendations = useOnboardingRecommendations(profile !== null);
 
@@ -103,19 +108,30 @@ export function OnboardingPage() {
     }
   };
 
-  const finish = (profileDraft: OnboardingProfileDraft, clubIds: string[]) =>
+  const idsWith = (choice: Choice) =>
+    Object.entries(choices)
+      .filter(([, value]) => value === choice)
+      .map(([clubId]) => clubId);
+  const selected = idsWith('now');
+  const later = idsWith('later');
+
+  const finish = (profileDraft: OnboardingProfileDraft, clubIds: string[], laterIds: string[]) =>
     complete.mutate(
-      { selectedClubIds: clubIds, profileDraft },
+      { selectedClubIds: clubIds, laterClubIds: laterIds, profileDraft },
       {
         onSuccess: goHome,
         onError: (error) => toast.show({ tone: 'danger', title: describeApiError(error) }),
       },
     );
 
-  const toggle = (clubId: string) =>
-    setSelected((prev) =>
-      prev.includes(clubId) ? prev.filter((id) => id !== clubId) : [...prev, clubId],
-    );
+  /** Повторный клик по активному варианту снимает выбор; варианты взаимоисключающие. */
+  const pick = (clubId: string, choice: Choice) =>
+    setChoices((prev) => {
+      const next = { ...prev };
+      if (next[clubId] === choice) delete next[clubId];
+      else next[clubId] = choice;
+      return next;
+    });
 
   return (
     <AppLayout header={<PageHeader title={t('onboarding.title')} />}>
@@ -164,7 +180,7 @@ export function OnboardingPage() {
                         variant="ghost"
                         size="sm"
                         loading={complete.isPending}
-                        onClick={() => finish(EMPTY_PROFILE, [])}
+                        onClick={() => finish(EMPTY_PROFILE, [], [])}
                       >
                         {t('onboarding.skip')}
                       </Button>
@@ -190,6 +206,16 @@ export function OnboardingPage() {
                   <Text variant="caption" tone="muted">
                     {profile.summary || t('onboarding.recommendationsHint')}
                   </Text>
+                  {profile.futureInterests.length > 0 && (
+                    <Text variant="caption" tone="muted">
+                      {t('onboarding.futureInterests', {
+                        list: profile.futureInterests.join(', '),
+                      })}
+                    </Text>
+                  )}
+                  <Text variant="caption" tone="muted">
+                    {t('onboarding.choiceHint')}
+                  </Text>
                 </Stack>
               </Card>
               <AsyncState
@@ -204,13 +230,22 @@ export function OnboardingPage() {
                         key={item.club.id}
                         club={item.club}
                         extra={
-                          <Stack gap={1}>
+                          <Stack gap={2}>
                             <Text variant="caption">{item.reason}</Text>
-                            <Checkbox
-                              label={t('onboarding.choose')}
-                              checked={selected.includes(item.club.id)}
-                              onChange={() => toggle(item.club.id)}
-                            />
+                            <Inline gap={2} role="group" aria-label={item.club.title}>
+                              <Chip
+                                selected={choices[item.club.id] === 'now'}
+                                onClick={() => pick(item.club.id, 'now')}
+                              >
+                                {t('onboarding.choose')}
+                              </Chip>
+                              <Chip
+                                selected={choices[item.club.id] === 'later'}
+                                onClick={() => pick(item.club.id, 'later')}
+                              >
+                                {t('onboarding.later')}
+                              </Chip>
+                            </Inline>
                           </Stack>
                         }
                       />
@@ -221,11 +256,13 @@ export function OnboardingPage() {
               <Button
                 fullWidth
                 loading={complete.isPending}
-                onClick={() => finish(profile, selected)}
+                onClick={() => finish(profile, selected, later)}
               >
                 {selected.length > 0
                   ? t('onboarding.finishWithClubs', { count: selected.length })
-                  : t('onboarding.finishWithout')}
+                  : later.length > 0
+                    ? t('onboarding.finishWithLater', { count: later.length })
+                    : t('onboarding.finishWithout')}
               </Button>
             </Stack>
           )}

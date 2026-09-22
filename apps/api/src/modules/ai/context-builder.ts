@@ -92,6 +92,7 @@ export class StudentContextBuilder {
       blocksCompleted,
       tutorMessages,
       trajectory,
+      laterClubs,
     ] = await Promise.all([
       this.prisma.lesson.findMany({
         where: { groupId: { in: groupIds }, status: 'PLANNED', startsAt: { gte: now, lt: in7 } },
@@ -119,6 +120,7 @@ export class StudentContextBuilder {
       }),
       this.repo.countUserMessagesSince(student.userId, from30),
       this.repo.latestTrajectory(studentId),
+      this.repo.listClubInterests(studentId, 'LATER'),
     ]);
 
     // Посещаемость: DONE-занятия периода, на которые ученик был зачислен, минус EXCUSED
@@ -200,8 +202,17 @@ export class StudentContextBuilder {
         goals: student.goals,
         ...(student.weeklyHours !== null ? { weeklyHours: student.weeklyHours } : {}),
         preferredFormats: student.preferredFormats,
+        ...(student.futureInterests.length > 0 ? { futureInterests: student.futureInterests } : {}),
         ...(student.aiProfileSummary ? { aiProfileSummary: student.aiProfileSummary } : {}),
       },
+      ...(laterClubs.length > 0
+        ? {
+            laterClubs: laterClubs.map((row) => ({
+              title: row.club.title,
+              ...(row.reason ? { reason: row.reason } : {}),
+            })),
+          }
+        : {}),
       clubs: enrollments.map((e) => {
         const rate = attendanceByGroup.get(e.groupId);
         const percents = progressByGroup.get(e.groupId) ?? [];

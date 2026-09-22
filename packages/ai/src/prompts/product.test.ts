@@ -119,11 +119,14 @@ describe('продуктовые промпты', () => {
       { role: 'user' as const, content: 'Информатика' },
       { role: 'assistant' as const, content: 'Сколько часов?' },
       { role: 'user' as const, content: 'Четыре часа' },
+      { role: 'assistant' as const, content: 'Что попробовать позже?' },
+      { role: 'user' as const, content: 'Может быть, шахматы через год' },
     ];
     const req = buildRequest(onboardingTurnPrompt, vars, { history });
     const { data } = await ai.chatJson(req, OnboardingTurnSchema);
     expect(data.isComplete).toBe(true);
     expect(data.profileDraft?.interests.length).toBeGreaterThan(0);
+    expect(data.profileDraft?.futureInterests).toEqual(['Может быть, шахматы через год']);
   });
 
   it('mock: рекомендации используют id из списка', async () => {

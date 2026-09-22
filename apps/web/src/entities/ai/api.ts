@@ -85,3 +85,11 @@ export function useOnboardingRecommendations(enabled: boolean) {
     enabled,
   });
 }
+
+/** `GET /teacher/clubs/demand` — спрос на кружки школы по итогам онбордингов. */
+export function useClubDemand() {
+  return useQuery({
+    queryKey: aiKeys.clubDemand(),
+    queryFn: () => call(api.ai.getClubDemand()),
+  });
+}
