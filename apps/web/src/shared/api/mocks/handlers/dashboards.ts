@@ -18,6 +18,7 @@ import {
   assignmentsOfStudent,
   childrenIdsOfParent,
   clubProgress,
+  gamification,
   groupCard,
   groupIdsOfStudent,
   groupsOfTeacher,
@@ -80,9 +81,6 @@ export const dashboardsHandlers = [
           .map((a) => assignmentBrief(a.id, student.id))
           .slice(0, 10);
         const stats = statsBrief(student.id);
-        const present = db.attendance.filter(
-          (a) => a.studentId === student.id && (a.status === 'PRESENT' || a.status === 'LATE'),
-        ).length;
         return json(StudentHomeDtoSchema, {
           today: today.map((l) => lessonDto(l, student.id)),
           upcoming: upcoming.map((l) => lessonDto(l, student.id)),
@@ -95,9 +93,8 @@ export const dashboardsHandlers = [
               )
             : null,
           week: weekOfStudent(student.id, lessons),
-          // Правдоподобные заглушки геймификации; формулы — в modules/analytics.
-          streakDays: 3 + present * 4,
-          points: stats.activityScore * 2,
+          // Серия и кристаллы по правилам analytics (docs/04 §4.6).
+          ...gamification(student.id),
         });
       },
       ['STUDENT'],
@@ -120,8 +117,7 @@ export const dashboardsHandlers = [
           interests: student.interests,
           goals: student.goals,
           // Те же заглушки геймификации, что на главной (формулы — в modules/analytics).
-          streakDays: 3 + Math.round((stats.attendanceRate ?? 0) * 8),
-          points: stats.activityScore * 2,
+          ...gamification(student.id),
         });
       },
       ['STUDENT'],

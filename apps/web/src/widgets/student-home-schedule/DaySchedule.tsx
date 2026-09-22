@@ -9,90 +9,104 @@ import {
   EmptyState,
   IconButton,
   Inline,
+  Skeleton,
   Stack,
   Text,
 } from '@edu/ui';
-import { useState } from 'react';
+import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
+import { lessonsOfDay } from '@/entities/lesson';
 import {
   addDays,
+  diffCalendarDays,
   formatDate,
   formatTimeRange,
   formatWeekday,
-  isSameDay,
   startOfDay,
 } from '@/shared/lib/dates';
 
 export interface DayScheduleProps {
-  /** Занятия сегодня и ближайшие (из `StudentHomeDto`). */
-  today: LessonDto[];
-  upcoming: LessonDto[];
-  /** Непрочитанные уведомления — число в колокольчике. */
+  /** Выбранный день. */
+  date: Date;
+  onDateChange: (date: Date) => void;
+  /** Занятия, среди которых ищутся занятия дня (сегодня, ближайшие, месяц календаря). */
+  lessons: LessonDto[];
+  /** Занятия дня ещё грузятся (день за пределами недели главной). */
+  loading?: boolean;
+  /** Непрочитанные уведомления — число в колокольчике (колокольчик жёлтый). */
   unreadCount?: number;
   onOpenNotifications?: () => void;
+  /** Календарь открыт — иконка подсвечена. */
+  calendarOpen?: boolean;
+  onToggleCalendar?: () => void;
+  /** Строка «календарь · день · колокольчик»: к ней пристыковывается шторка календаря. */
+  headerRef?: Ref<HTMLElement>;
 }
 
-/** Глубина навигации по дням: `upcoming` покрывает ближайшие 7 дней (сегодня + 6). */
-const MAX_OFFSET = 6;
-
-function dayLabel(offset: number, date: Date, locale: string, t: (key: string) => string) {
+function dayLabel(date: Date, locale: string, t: (key: string) => string) {
+  const offset = diffCalendarDays(new Date(), date);
   if (offset === 0) return t('home.today');
   if (offset === 1) return t('home.tomorrow');
+  if (offset === -1) return t('home.yesterday');
   const weekday = formatWeekday(date, locale);
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${formatDate(date, locale)}`;
 }
 
 /**
- * Расписание по дням: «‹ Сегодня ›» + три карточки-колонки (название кружка, группа, время).
- * Текущее/ближайшее занятие сегодняшнего дня выделено цветом.
+ * Расписание дня по макету: «календарь · ‹ Сегодня › · колокольчик» и три карточки-колонки
+ * (название кружка, группа, время). Назад — не раньше сегодняшнего дня, вперёд — без
+ * ограничений (дальние дни подгружает календарь). Текущее/ближайшее занятие сегодня
+ * выделено цветом. Иконка календаря открывает шторку-календарь и подсвечивается.
  */
 export function DaySchedule({
-  today,
-  upcoming,
+  date,
+  onDateChange,
+  lessons,
+  loading = false,
   unreadCount,
   onOpenNotifications,
+  calendarOpen = false,
+  onToggleCalendar,
+  headerRef,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
-  const [offset, setOffset] = useState(0);
   const now = new Date();
-  const date = addDays(startOfDay(now), offset);
+  const offset = diffCalendarDays(now, date);
+  const label = dayLabel(date, i18n.language, t);
 
-  const lessons = [...today, ...upcoming]
-    .filter((lesson) => isSameDay(lesson.startsAt, date))
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const dayLessons = lessonsOfDay(lessons, date);
   const highlightedId =
     offset === 0
-      ? (lessons.find((lesson) => new Date(lesson.endsAt).getTime() > now.getTime())?.id ?? null)
+      ? (dayLessons.find((lesson) => new Date(lesson.endsAt).getTime() > now.getTime())?.id ?? null)
       : null;
 
   return (
-    <Stack gap={4}>
-      <Inline justify="between" align="center" wrap={false}>
+    <Stack gap={5}>
+      <Inline ref={headerRef} justify="between" align="center" wrap={false}>
         <IconButton
-          aria-label={t('home.calendar')}
-          onClick={() => setOffset(0)}
-          disabled={offset === 0}
+          aria-label={calendarOpen ? t('home.calendarClose') : t('home.calendar')}
+          aria-expanded={calendarOpen}
+          onClick={onToggleCalendar}
         >
-          <Text as="span" tone="muted">
+          <Text as="span" tone={calendarOpen ? 'warning' : 'muted'}>
             <CalendarClockIcon size={30} />
           </Text>
         </IconButton>
 
-        <Inline gap={6} align="center" wrap={false}>
+        <Inline gap={5} align="center" wrap={false}>
           <IconButton
             aria-label={t('home.prevDay')}
-            onClick={() => setOffset((value) => Math.max(0, value - 1))}
-            disabled={offset === 0}
+            onClick={() => onDateChange(addDays(startOfDay(date), -1))}
+            disabled={offset <= 0}
           >
             <ChevronLeftIcon />
           </IconButton>
-          <Text as="span" variant="title" aria-live="polite">
-            {dayLabel(offset, date, i18n.language, t)}
+          <Text as="span" aria-live="polite">
+            {label}
           </Text>
           <IconButton
             aria-label={t('home.nextDay')}
-            onClick={() => setOffset((value) => Math.min(MAX_OFFSET, value + 1))}
-            disabled={offset === MAX_OFFSET}
+            onClick={() => onDateChange(addDays(startOfDay(date), 1))}
           >
             <ChevronRightIcon />
           </IconButton>
@@ -112,19 +126,21 @@ export function DaySchedule({
         </IconButton>
       </Inline>
 
-      {lessons.length === 0 ? (
+      {loading ? (
+        <Skeleton height={110} aria-busy="true" />
+      ) : dayLessons.length === 0 ? (
         <Card>
           <EmptyState title={offset === 0 ? t('home.noLessonsToday') : t('home.noLessonsOnDay')} />
         </Card>
       ) : (
         <CardColumns
-          aria-label={dayLabel(offset, date, i18n.language, t)}
+          aria-label={label}
           columns={[
             { key: 'name', header: t('home.columns.name'), fit: true },
             { key: 'group', header: t('home.columns.group'), align: 'center' },
             { key: 'time', header: t('home.columns.time'), align: 'center', nowrap: true },
           ]}
-          rows={lessons.map((lesson) => ({
+          rows={dayLessons.map((lesson) => ({
             key: lesson.id,
             cells: {
               name: lesson.group.club.title,

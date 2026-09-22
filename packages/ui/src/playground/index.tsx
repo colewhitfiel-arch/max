@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AiIcon,
   AppLayout,
@@ -17,6 +17,8 @@ import {
   Chip,
   ClipboardIcon,
   Divider,
+  DockSheet,
+  Drawer,
   EmptyState,
   ErrorState,
   Field,
@@ -27,6 +29,7 @@ import {
   HomeIcon,
   IconButton,
   IconTile,
+  IllustrationRow,
   Inline,
   Input,
   ListRow,
@@ -37,6 +40,7 @@ import {
   MoonIcon,
   PageHeader,
   PlusIcon,
+  MonthCalendar,
   ProgressBar,
   ProgressRing,
   Screen,
@@ -202,6 +206,7 @@ function ChatDemo() {
 function OverlaysDemo() {
   const [modalOpen, setModalOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   return (
     <>
       <Row>
@@ -211,7 +216,16 @@ function OverlaysDemo() {
         <Button variant="secondary" onClick={() => setSheetOpen(true)}>
           Открыть Sheet
         </Button>
+        <Button variant="secondary" onClick={() => setDrawerOpen(true)}>
+          Открыть Drawer
+        </Button>
       </Row>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Уведомления">
+        <Card padding="none">
+          <ListRow title="Скоро занятие" subtitle="Робототехника сегодня в 15:00" />
+          <ListRow title="Новое задание" subtitle="Задачи 1–10, стр. 52" />
+        </Card>
+      </Drawer>
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -243,6 +257,51 @@ function OverlaysDemo() {
           <ListRow title="Отметить пропуск" onClick={() => setSheetOpen(false)} />
         </Stack>
       </Sheet>
+    </>
+  );
+}
+
+/** Строка «календарь · день · колокольчик» и пристыкованная к ней шторка с месяцем. */
+function DockSheetDemo() {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(() => new Date());
+  const [selected, setSelected] = useState(() => new Date());
+  return (
+    <>
+      <Inline ref={anchorRef} justify="between" align="center" wrap={false}>
+        <IconButton aria-label="Календарь" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Text as="span" tone={open ? 'warning' : 'muted'}>
+            <CalendarClockIcon size={30} />
+          </Text>
+        </IconButton>
+        <Text as="span">Сегодня</Text>
+        <IconButton aria-label="Уведомления: 5">
+          <BellIcon size={30} count={5} />
+        </IconButton>
+      </Inline>
+      <DockSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={anchorRef}
+        tab={selected.toLocaleDateString('ru')}
+        aside={
+          <Stack gap={1}>
+            <Text variant="caption" tone="primary">
+              17:00–18:30
+            </Text>
+            <Text variant="caption">Робототехника</Text>
+          </Stack>
+        }
+      >
+        <MonthCalendar
+          month={month}
+          onMonthChange={setMonth}
+          selected={selected}
+          onSelect={setSelected}
+          isMarked={(date) => date.getDay() === 2 || date.getDay() === 4}
+        />
+      </DockSheet>
     </>
   );
 }
@@ -670,6 +729,44 @@ function PlaygroundContent() {
             />
           </Stack>
         </Card>
+      </Section>
+
+      <Section title="MonthCalendar, DockSheet">
+        <Card>
+          <div style={{ height: 164 }}>
+            <MonthCalendar
+              month={new Date(2026, 8, 1)}
+              onMonthChange={() => undefined}
+              selected={new Date(2026, 8, 22)}
+              today={new Date(2026, 8, 22)}
+              onSelect={() => undefined}
+              isMarked={(date) => [15, 19, 23, 26].includes(date.getDate())}
+            />
+          </div>
+        </Card>
+        <DockSheetDemo />
+        <Text variant="caption" tone="muted">
+          Иконка календаря открывает шторку: вкладка с датой встаёт на уровень строки, кнопки по
+          бокам остаются нажимаемыми; тап мимо или Escape закрывают.
+        </Text>
+      </Section>
+
+      <Section title="IllustrationRow">
+        <IllustrationRow items={[{ key: 'a', src: planet('#3aa0ff') }]} />
+        <IllustrationRow
+          items={[
+            { key: 'a', src: planet('#3aa0ff') },
+            { key: 'b', src: planet('#f2b705') },
+          ]}
+        />
+        <IllustrationRow
+          muted
+          items={[
+            { key: 'a', src: planet('#3aa0ff') },
+            { key: 'b', src: planet('#f2b705') },
+            { key: 'c', src: planet('#5b3fd6') },
+          ]}
+        />
       </Section>
 
       <Section title="PlanetMap">

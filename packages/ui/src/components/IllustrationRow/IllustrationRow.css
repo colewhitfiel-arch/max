@@ -1,0 +1,64 @@
+/* Макет главной: иллюстрации предметов высотой до 259px по центру между «Посещениями»
+ * и расписанием; вторая стоит чуть впереди первой (заходит на неё). */
+.ui-illustration-row {
+  --ui-illustration-h: 250px;
+  --ui-illustration-w: 220px;
+  --ui-illustration-overlap: 0px;
+  position: relative;
+  min-width: 0;
+  height: 259px;
+  margin-inline: calc(-1 * var(--ui-space-4));
+}
+
+.ui-illustration-row[data-size='two'] {
+  --ui-illustration-h: 240px;
+  --ui-illustration-w: 150px;
+  --ui-illustration-overlap: 22px;
+}
+
+.ui-illustration-row[data-size='many'] {
+  --ui-illustration-h: 180px;
+  --ui-illustration-w: 140px;
+  --ui-illustration-overlap: 10px;
+}
+
+.ui-illustration-row__track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: safe center;
+  height: 100%;
+  padding-inline: var(--ui-space-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.ui-illustration-row__track::-webkit-scrollbar {
+  display: none;
+}
+
+.ui-illustration-row__item {
+  flex: none;
+  width: auto;
+  height: auto;
+  max-width: var(--ui-illustration-w);
+  max-height: var(--ui-illustration-h);
+  object-fit: contain;
+  scroll-snap-align: center;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition:
+    opacity var(--ui-duration-normal) var(--ui-easing),
+    filter var(--ui-duration-normal) var(--ui-easing);
+}
+
+.ui-illustration-row__item + .ui-illustration-row__item {
+  margin-left: calc(-1 * var(--ui-illustration-overlap));
+}
+
+.ui-illustration-row[data-muted] .ui-illustration-row__item {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}

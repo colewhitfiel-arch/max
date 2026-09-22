@@ -4,11 +4,12 @@ import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
 import { lessonKeys } from './keys';
 
-/** `GET /student/calendar?from&to`. */
-export function useStudentCalendar(period: PeriodQuery) {
+/** `GET /student/calendar?from&to`; `enabled: false` — не запрашивать (календарь закрыт). */
+export function useStudentCalendar(period: PeriodQuery, { enabled = true } = {}) {
   return useQuery({
     queryKey: lessonKeys.studentCalendar(period),
     queryFn: () => call(api.groups.getStudentCalendar({ query: period })),
+    enabled,
   });
 }
 

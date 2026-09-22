@@ -95,9 +95,9 @@ export type HomeworkClub = z.infer<typeof HomeworkClubSchema>;
 export const StudentHomeworkDtoSchema = z.object({
   /** Кружки ученика: сначала с ближайшим дедлайном, без дедлайна — в конце. */
   clubs: z.array(HomeworkClubSchema),
-  /** Серия дней с активностью — как на главной; нет — пока не посчитано. */
+  /** Серия — как на главной (docs/04 §4.6); нет — пока не посчитано. */
   streakDays: z.number().int().nonnegative().optional(),
-  /** Баллы за активность. */
+  /** Кристаллы — как на главной (docs/04 §4.6). */
   points: z.number().int().nonnegative().optional(),
 });
 export type StudentHomeworkDto = z.infer<typeof StudentHomeworkDtoSchema>;

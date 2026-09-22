@@ -21,7 +21,7 @@ import type {
   WeeklyPoint,
 } from '@edu/contracts';
 import { demoAssignmentDueOffsets, demoSchool, demoTeacherContacts } from '@edu/contracts/fixtures';
-import { addDays, isSameDay, toDateOnly } from '../../lib/dates';
+import { addDays, isSameDay, startOfDay, toDateOnly } from '../../lib/dates';
 import { db, type MockUser, parentOfUser, studentOfUser, teacherOfUser } from './state';
 
 const DAY_MS = 86_400_000;
@@ -228,6 +228,46 @@ export function statsBrief(studentId: string, days = 30): StatsBrief {
     lateCount: records.filter((a) => a.status === 'LATE').length,
     period: { from: toDateOnly(addDays(new Date(), -(days - 1))), to: toDateOnly(new Date()) },
   };
+}
+
+/**
+ * Серия и кристаллы ученика — фейковый сервер повторяет правила analytics
+ * (`apps/api/src/modules/analytics/gamification.ts`, docs/04 §4.6):
+ * серия — дни от начала до последнего действия (посещение или сданное задание), действие
+ * нужно хотя бы раз в 2 дня; кристаллы — 50 за посещение + 20 за задание больше 75%.
+ */
+export function gamification(studentId: string): { streakDays: number; points: number } {
+  const attended = db.attendance.filter(
+    (a) => a.studentId === studentId && (a.status === 'PRESENT' || a.status === 'LATE'),
+  );
+  const submissions = db.submissions.filter((s) => s.studentId === studentId && s.submittedAt);
+  const activeDays = [
+    ...attended.flatMap((a) => {
+      const lesson = db.lessons.find((l) => l.id === a.lessonId);
+      return lesson ? [toDateOnly(lesson.startsAt)] : [];
+    }),
+    ...submissions.map((s) => toDateOnly(s.submittedAt!)),
+  ];
+  const today = startOfDay();
+  const days = [...new Set(activeDays)]
+    .map((day) => Math.round((startOfDay(day).getTime() - today.getTime()) / 86_400_000))
+    .filter((offset) => offset <= 0)
+    .sort((a, b) => b - a);
+  let streakDays = 0;
+  const last = days[0];
+  if (last !== undefined && -last <= 2) {
+    let start = last;
+    for (const day of days.slice(1)) {
+      if (start - day > 2) break;
+      start = day;
+    }
+    streakDays = last - start + 1;
+  }
+  const passed = submissions.filter((s) => {
+    const assignment = db.assignments.find((a) => a.id === s.assignmentId);
+    return assignment && s.score !== null && s.score / assignment.maxScore > 0.75;
+  }).length;
+  return { streakDays, points: attended.length * 50 + passed * 20 };
 }
 
 export function clubProgress(studentId: string, groupId: string): ClubProgress {

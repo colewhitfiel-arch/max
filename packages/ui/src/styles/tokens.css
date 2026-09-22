@@ -15,6 +15,8 @@
   --ui-color-bg: #f4f5f7;
   --ui-color-surface: #ffffff;
   --ui-color-surface-2: #eceef2;
+  /* Карточки поверх поверхности (календарь в панели). */
+  --ui-color-surface-3: #e3e6eb;
   --ui-color-text: #1b1f24;
   --ui-color-text-muted: #6b7380;
   --ui-color-primary: #0264ce;
@@ -90,6 +92,7 @@
     --ui-color-bg: #0d0d0d;
     --ui-color-surface: #1e1e1e;
     --ui-color-surface-2: #2a2a2a;
+    --ui-color-surface-3: #323131;
     --ui-color-text: #ffffff;
     --ui-color-text-muted: #b9b9b9;
     --ui-color-primary: #0264ce;
@@ -113,6 +116,7 @@
   --ui-color-bg: #0d0d0d;
   --ui-color-surface: #1e1e1e;
   --ui-color-surface-2: #2a2a2a;
+  --ui-color-surface-3: #323131;
   --ui-color-text: #ffffff;
   --ui-color-text-muted: #b9b9b9;
   --ui-color-primary: #0264ce;

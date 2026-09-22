@@ -20,11 +20,11 @@ import {
   assignmentBrief,
   assignmentsOfStudent,
   dueAtOf,
+  gamification,
   groupBrief,
   groupIdsOfStudent,
   groupsOfTeacher,
   isDone,
-  statsBrief,
   studentBrief,
   studentIdsOfGroup,
 } from '../demo';
@@ -103,17 +103,12 @@ export const assignmentsHandlers = [
             nextDue: next ? dueTime(next) : Number.POSITIVE_INFINITY,
           };
         });
-        const stats = statsBrief(student.id);
-        const present = db.attendance.filter(
-          (a) => a.studentId === student.id && (a.status === 'PRESENT' || a.status === 'LATE'),
-        ).length;
         return json(StudentHomeworkDtoSchema, {
           clubs: clubs
             .sort((a, b) => a.nextDue - b.nextDue)
             .map(({ nextDue: _due, ...club }) => club),
-          // Те же заглушки геймификации, что на главной (`/student/home`).
-          streakDays: 3 + present * 4,
-          points: stats.activityScore * 2,
+          // Серия и кристаллы — как на главной (`/student/home`), docs/04 §4.6.
+          ...gamification(student.id),
         });
       },
       ['STUDENT'],

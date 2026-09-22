@@ -84,9 +84,9 @@ export const StudentHomeDtoSchema = z.object({
   aiComment: AiTextSchema,
   /** Текущая неделя (7 дней, пн–вс) для дуги «Посещения»; нет — пока не посчитано. */
   week: z.array(WeekDaySchema).optional(),
-  /** Серия дней подряд с активностью (посещение/сдача/блок). */
+  /** Серия: дни, пока посещение или сдача задания случаются не реже раза в 2 дня (docs/04 §4.6). */
   streakDays: z.number().int().nonnegative().optional(),
-  /** Баллы за активность. */
+  /** Кристаллы: 50 за посещение + 20 за задание, выполненное больше чем на 75% (docs/04 §4.6). */
   points: z.number().int().nonnegative().optional(),
 });
 export type StudentHomeDto = z.infer<typeof StudentHomeDtoSchema>;
@@ -99,9 +99,9 @@ export const StudentProfileDtoSchema = z.object({
   stats: StatsBriefSchema,
   interests: z.array(z.string()),
   goals: z.array(z.string()),
-  /** Серия дней подряд с активностью — как на главной; нет — пока не посчитано. */
+  /** Серия — как на главной (docs/04 §4.6); нет — пока не посчитано. */
   streakDays: z.number().int().nonnegative().optional(),
-  /** Баллы за активность. */
+  /** Кристаллы — как на главной (docs/04 §4.6). */
   points: z.number().int().nonnegative().optional(),
 });
 export type StudentProfileDto = z.infer<typeof StudentProfileDtoSchema>;

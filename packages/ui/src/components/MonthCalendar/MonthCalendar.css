@@ -1,0 +1,130 @@
+/* Сетка месяца под карточку 192×192 из макета календаря: заполняет высоту родителя,
+ * строки делят её поровну, кружок дня — не больше 24px. */
+.ui-month-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  height: 100%;
+  min-height: 0;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1;
+}
+
+.ui-month-calendar__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.ui-month-calendar__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: var(--ui-font-weight-bold);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-month-calendar__nav {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ui-month-calendar__grid {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(0, 1fr);
+  row-gap: 1px;
+}
+
+.ui-month-calendar__row {
+  display: contents;
+}
+
+.ui-month-calendar__weekday {
+  padding-bottom: 3px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.ui-month-calendar__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ui-month-calendar__day {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  max-height: 24px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-month-calendar__day[aria-current='date'] {
+  box-shadow: inset 0 0 0 1.5px var(--ui-color-info);
+  font-weight: var(--ui-font-weight-bold);
+}
+
+.ui-month-calendar__day[aria-pressed='true'] {
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+  box-shadow: none;
+}
+
+/* Точка под числом — в этот день есть занятия. */
+.ui-month-calendar__day[data-marked]::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-warning);
+  transform: translateX(-50%);
+}
+
+.ui-month-calendar__nav:focus-visible,
+.ui-month-calendar__day:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 1px;
+}
+
+.ui-month-calendar__nav:active,
+.ui-month-calendar__day:active {
+  transform: scale(0.94);
+}

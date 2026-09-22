@@ -22,6 +22,8 @@ export * from './components/PageHeader';
 export * from './components/BottomNavigation';
 export * from './components/Modal';
 export * from './components/Sheet';
+export * from './components/Drawer';
+export * from './components/DockSheet';
 export * from './components/Tabs';
 export * from './components/SegmentedControl';
 
@@ -58,6 +60,8 @@ export * from './components/ProgressBar';
 export * from './components/ProgressRing';
 export * from './components/WeekArc';
 export * from './components/PlanetMap';
+export * from './components/MonthCalendar';
+export * from './components/IllustrationRow';
 
 // Раскладка и текст
 export * from './components/Stack';

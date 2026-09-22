@@ -17,17 +17,18 @@ import planetScience from './assets/planet-science.png';
 import stars from './assets/stars.png';
 
 /**
- * Звёздное небо из макета на весь экран «Задания» — под шапкой, карточками и меню
- * (54% непрозрачности, масштаб как в макете). Рендерится страницей рядом с картой.
+ * Звёздное небо из макета на весь экран «Задания» — под шапкой, карточками и меню.
+ * Геометрия макета: картинка 1254px на экране 402px (312%), сдвиг −192px по x
+ * (22.5% свободного хода) и 61px сверху — над серией звёзд нет; 54% непрозрачности.
  */
 export function HomeworkBackdrop() {
   return (
     <AppLayout.Backdrop
       image={stars}
       opacity={0.54}
-      size="260% auto"
-      position="40% 0"
-      repeat="repeat"
+      size="312% auto"
+      position="22.5% 61px"
+      repeat="no-repeat"
     />
   );
 }

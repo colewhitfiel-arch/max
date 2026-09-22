@@ -1,10 +1,11 @@
 import type { LessonDto } from '@edu/contracts';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import '@/shared/i18n';
-import { addDays } from '@/shared/lib/dates';
-import { DaySchedule } from './DaySchedule';
+import { addDays, startOfDay } from '@/shared/lib/dates';
+import { DaySchedule, type DayScheduleProps } from './DaySchedule';
 
 const group = {
   id: 'g1',
@@ -36,13 +37,18 @@ function lesson(id: string, dayOffset: number, hour: number): LessonDto {
   };
 }
 
+/** Расписание со своим состоянием дня — как на главной. */
+function Harness(props: Partial<DayScheduleProps> & { lessons: LessonDto[] }) {
+  const [date, setDate] = useState(() => startOfDay());
+  return <DaySchedule date={date} onDateChange={setDate} {...props} />;
+}
+
 describe('DaySchedule', () => {
-  it('показывает занятия сегодня и листает дни вперёд/назад в пределах недели', async () => {
+  it('показывает занятия сегодня и листает дни вперёд (назад — не раньше сегодня)', async () => {
     const user = userEvent.setup();
     render(
-      <DaySchedule
-        today={[lesson('l1', 0, 23)]}
-        upcoming={[lesson('l2', 1, 10)]}
+      <Harness
+        lessons={[lesson('l1', 0, 23), lesson('l2', 1, 10)]}
         unreadCount={5}
         onOpenNotifications={vi.fn()}
       />,
@@ -59,16 +65,31 @@ describe('DaySchedule', () => {
     await user.click(screen.getByRole('button', { name: 'Следующий день' }));
     expect(screen.getByText('В этот день занятий нет')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Календарь/ }));
+    await user.click(screen.getByRole('button', { name: 'Предыдущий день' }));
+    await user.click(screen.getByRole('button', { name: 'Предыдущий день' }));
     expect(screen.getByText('Сегодня')).toBeInTheDocument();
   });
 
-  it('открывает уведомления по колокольчику', async () => {
+  it('колокольчик открывает уведомления, иконка календаря — шторку', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
-    render(<DaySchedule today={[]} upcoming={[]} onOpenNotifications={onOpen} />);
+    const onToggle = vi.fn();
+    const { rerender } = render(
+      <Harness lessons={[]} onOpenNotifications={onOpen} onToggleCalendar={onToggle} />,
+    );
     expect(screen.getByText('Сегодня занятий нет')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Уведомления' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
+
+    const calendar = screen.getByRole('button', { name: 'Открыть календарь' });
+    expect(calendar).toHaveAttribute('aria-expanded', 'false');
+    await user.click(calendar);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness lessons={[]} calendarOpen onToggleCalendar={onToggle} />);
+    expect(screen.getByRole('button', { name: 'Закрыть календарь' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 });
