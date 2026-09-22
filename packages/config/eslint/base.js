@@ -4,7 +4,18 @@ import tseslint from 'typescript-eslint';
 
 /** Базовые правила для любого TS-пакета. */
 export const base = tseslint.config(
-  { ignores: ['dist/**', 'build/**', 'coverage/**', 'generated/**', 'node_modules/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'build/**',
+      'coverage/**',
+      'generated/**',
+      'node_modules/**',
+      // tsup на время сборки кладёт рядом временный бандл конфига; при параллельном lint в turbo
+      // eslint успевает его увидеть, а файл уже удалён → ENOENT
+      '**/tsup.config.bundled_*',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
