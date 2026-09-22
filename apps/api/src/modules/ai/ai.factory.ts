@@ -32,6 +32,7 @@ export function aiConfigFromAppEnv(env: Env): AiConfig {
       apiUrl: env.GIGACHAT_API_URL,
       timeoutMs: env.GIGACHAT_TIMEOUT_MS,
       maxRetries: env.GIGACHAT_MAX_RETRIES,
+      maxConcurrency: env.GIGACHAT_MAX_CONCURRENCY,
       ...(env.GIGACHAT_CA_CERT_PATH ? { caCertPath: env.GIGACHAT_CA_CERT_PATH } : {}),
     },
   };

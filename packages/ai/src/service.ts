@@ -149,7 +149,26 @@ export class AiService implements AiProvider {
     options?: ChatJsonOptions,
   ): Promise<ChatJsonResult<z.output<S>>> {
     // requestId проставляется один раз — все попытки одного chatJson логируются под ним.
-    return chatJson(this, this.prepareChat(req), schema, options);
+    const prepared = this.prepareChat(req);
+    return chatJson(this, prepared, schema, {
+      ...options,
+      onInvalid: (info) => {
+        // Текст ошибки — пути и сообщения zod, без содержимого ответа модели.
+        this.logger.warn('ai.json.invalid', {
+          ...describeRequest(prepared),
+          attempt: info.attempt,
+          schemaError: info.error.slice(0, 300),
+        });
+        options?.onInvalid?.(info);
+      },
+      onRepaired: (info) => {
+        this.logger.warn('ai.json.repaired', {
+          ...describeRequest(prepared),
+          attempt: info.attempt,
+        });
+        options?.onRepaired?.(info);
+      },
+    });
   }
 
   private prepareChat(req: AiChatRequest): AiChatRequest {

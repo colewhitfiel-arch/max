@@ -16,6 +16,11 @@ export interface RetryOptions {
   baseDelayMs?: number;
   /** Верхняя граница задержки. По умолчанию 5000 мс. */
   maxDelayMs?: number;
+  /**
+   * Нижняя граница задержки при `RATE_LIMITED` без `Retry-After` (растёт как `base * 2^attempt`).
+   * Лимиты провайдера обычно посекундные, короткий джиттер их не переживает.
+   */
+  rateLimitDelayMs?: number;
   /** По умолчанию — `AiProviderError.retryable`; отмена никогда не повторяется. */
   shouldRetry?: (error: unknown, attempt: number) => boolean;
   onRetry?: (info: RetryInfo) => void;
@@ -84,10 +89,22 @@ export async function withRetry<T>(
         baseDelayMs,
         maxDelayMs,
         random: options.random,
-        retryAfterMs: isAiProviderError(error) ? error.retryAfterMs : undefined,
+        retryAfterMs: rateLimitHint(error, attempt, options.rateLimitDelayMs),
       });
       options.onRetry?.({ error, attempt: attempt + 1, delayMs });
       await wait(delayMs, signal);
     }
   }
+}
+
+/** `Retry-After` провайдера, а без него для RATE_LIMITED — экспоненциальный минимум от `rateLimitDelayMs`. */
+function rateLimitHint(
+  error: unknown,
+  attempt: number,
+  rateLimitDelayMs: number | undefined,
+): number | undefined {
+  if (!isAiProviderError(error)) return undefined;
+  if (error.retryAfterMs !== undefined) return error.retryAfterMs;
+  if (error.code === 'RATE_LIMITED' && rateLimitDelayMs) return rateLimitDelayMs * 2 ** attempt;
+  return undefined;
 }

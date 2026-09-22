@@ -1,3 +1,4 @@
+import { jsonrepair } from 'jsonrepair';
 import type { ZodError, ZodTypeAny, z } from 'zod';
 import type { AiProvider } from './provider';
 import type { AiChatMessage, AiChatRequest, AiChatResponse } from './types';
@@ -75,8 +76,76 @@ function findFirstOpener(text: string): number {
   return Math.min(brace, bracket);
 }
 
+/** Область от первой открывающей скобки до последней закрывающей — сырьё для починки. */
+function roughJsonRegion(text: string): string | null {
+  const start = findFirstOpener(text);
+  if (start < 0) return null;
+  const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+  if (end <= start) return null;
+  return text.slice(start, end + 1);
+}
+
 export type ParseJsonResult<T> =
-  { ok: true; data: T } | { ok: false; error: string; issues?: ZodError['issues'] };
+  | { ok: true; data: T; repaired: boolean }
+  | { ok: false; error: string; issues?: ZodError['issues'] };
+
+/**
+ * Модель часто закрывает вложенность в обратном порядке: `"…"}]` вместо `"…"]}` (закрыла объект раньше
+ * массива). Строчно-осознанный проход меняет такие пары местами; `jsonrepair` этот случай не чинит.
+ */
+export function fixSwappedClosers(text: string): string {
+  const out: string[] = [];
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i] as string;
+    if (inString) {
+      out.push(ch);
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === '{' || ch === '[') {
+      stack.push(ch === '{' ? '}' : ']');
+    } else if (ch === '}' || ch === ']') {
+      const expected = stack[stack.length - 1];
+      const outer = stack[stack.length - 2];
+      if (expected !== undefined && ch !== expected && text[i + 1] === expected && ch === outer) {
+        out.push(expected, ch);
+        stack.length -= 2;
+        i += 1;
+        continue;
+      }
+      stack.pop();
+    }
+    out.push(ch);
+  }
+  return out.join('');
+}
+
+/**
+ * `JSON.parse` с починкой типичных ошибок модели: переставленные закрывающие скобки (`fixSwappedClosers`),
+ * потерянная скобка между элементами массива, висящая запятая, одинарные кавычки (`jsonrepair`). Сначала — как есть.
+ */
+function parseLoose(candidate: string): { value: unknown; repaired: boolean } | { error: string } {
+  try {
+    return { value: JSON.parse(candidate), repaired: false };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    for (const variant of [candidate, fixSwappedClosers(candidate)]) {
+      try {
+        return { value: JSON.parse(jsonrepair(variant)), repaired: true };
+      } catch {
+        // пробуем следующий вариант
+      }
+    }
+    return { error: reason };
+  }
+}
 
 /** Человекочитаемое описание ошибок zod — идёт обратно модели при ретрае. */
 export function formatZodIssues(error: ZodError): string {
@@ -93,18 +162,14 @@ export function parseJsonResponse<S extends ZodTypeAny>(
   text: string,
   schema: S,
 ): ParseJsonResult<z.output<S>> {
-  const json = extractJson(text);
-  if (json === null) return { ok: false, error: 'В ответе не найден JSON' };
+  // Сбалансированный фрагмент не нашёлся (модель потеряла/добавила скобку) — чиним грубую область
+  const candidate = extractJson(text) ?? roughJsonRegion(text);
+  if (candidate === null) return { ok: false, error: 'В ответе не найден JSON' };
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return { ok: false, error: `Невалидный JSON: ${reason}` };
-  }
+  const loose = parseLoose(candidate);
+  if ('error' in loose) return { ok: false, error: `Невалидный JSON: ${loose.error}` };
 
-  const result = schema.safeParse(parsed);
+  const result = schema.safeParse(loose.value);
   if (!result.success) {
     return {
       ok: false,
@@ -112,7 +177,7 @@ export function parseJsonResponse<S extends ZodTypeAny>(
       issues: result.error.issues,
     };
   }
-  return { ok: true, data: result.data as z.output<S> };
+  return { ok: true, data: result.data as z.output<S>, repaired: loose.repaired };
 }
 
 export interface ChatJsonOptions {
@@ -120,6 +185,10 @@ export interface ChatJsonOptions {
   maxRetries?: number;
   /** Текст сообщения с ошибкой валидации, отправляемого модели перед повтором. */
   buildRetryMessage?: (error: string) => string;
+  /** Вызывается на каждый невалидный ответ (для логов/метрик): номер попытки и текст ошибки схемы. */
+  onInvalid?: (info: { attempt: number; error: string }) => void;
+  /** Вызывается, когда JSON ответа пришлось чинить (`jsonrepair`), но он прошёл схему. */
+  onRepaired?: (info: { attempt: number }) => void;
 }
 
 export interface ChatJsonResult<T> {
@@ -127,6 +196,8 @@ export interface ChatJsonResult<T> {
   response: AiChatResponse;
   /** Сколько вызовов модели потребовалось (1 = с первого раза). */
   attempts: number;
+  /** JSON последнего ответа пришлось чинить (`jsonrepair`). */
+  repaired: boolean;
 }
 
 export function defaultRetryMessage(error: string): string {
@@ -156,9 +227,13 @@ export async function chatJson<S extends ZodTypeAny>(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
     const response = await provider.chat({ ...req, messages, responseFormat: 'json' });
     const parsed = parseJsonResponse(response.content, schema);
-    if (parsed.ok) return { data: parsed.data, response, attempts: attempt };
+    if (parsed.ok) {
+      if (parsed.repaired) options.onRepaired?.({ attempt });
+      return { data: parsed.data, response, attempts: attempt, repaired: parsed.repaired };
+    }
 
     lastError = parsed.error;
+    options.onInvalid?.({ attempt, error: parsed.error });
     messages = [
       ...messages,
       { role: 'assistant', content: response.content },

@@ -14,8 +14,9 @@ model Club {
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  school School  @relation(fields: [schoolId], references: [id])
-  groups Group[]
+  school    School                @relation(fields: [schoolId], references: [id])
+  groups    Group[]
+  interests StudentClubInterest[]
 
   @@index([schoolId, isActive])
   @@map("clubs")

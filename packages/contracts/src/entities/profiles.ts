@@ -12,6 +12,8 @@ export const StudentProfileSchema = z.object({
   goals: z.array(z.string()),
   weeklyHours: z.number().int().nullable(),
   preferredFormats: z.array(z.string()),
+  /** «Хочу попробовать позже» из онбординга — спрос на будущее. */
+  futureInterests: z.array(z.string()).default([]),
   aiProfileSummary: z.string().nullable(),
   onboardingCompletedAt: DateTimeSchema.nullable(),
   linkCode: z.string(),

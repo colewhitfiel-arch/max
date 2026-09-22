@@ -22,6 +22,8 @@ export const OnboardingProfileDraftSchema = z.object({
   weeklyHours: z.number().int().nonnegative(),
   preferredFormats: z.array(z.string()),
   summary: z.string(),
+  /** Направления, которые ученик хотел бы попробовать позже (не сейчас): спрос на будущее. */
+  futureInterests: z.array(z.string()).default([]),
 });
 export type OnboardingProfileDraft = z.infer<typeof OnboardingProfileDraftSchema>;
 
@@ -59,13 +61,42 @@ export const OnboardingRecommendationsSchema = z.object({
 });
 export type OnboardingRecommendations = z.infer<typeof OnboardingRecommendationsSchema>;
 
+/** Отношение ученика к кружку по итогам онбординга. */
+export const ClubInterestStatusSchema = z.enum(['CHOSEN', 'LATER', 'SKIPPED']);
+export type ClubInterestStatus = z.infer<typeof ClubInterestStatusSchema>;
+
+/** Спрос на кружок: сколько учеников записалось, хотят позже, и кому он был показан. */
+export const ClubDemandSchema = z.object({
+  club: ClubCardSchema,
+  chosen: z.number().int().nonnegative(),
+  later: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  /** Средняя релевантность по оценке ИИ среди всех, кому показывали, 0..1 (null — никому не показывали). */
+  avgScore: z.number().min(0).max(1).nullable(),
+  /** Типичные причины интереса — до трёх формулировок из рекомендаций. */
+  reasons: z.array(z.string()),
+});
+export type ClubDemand = z.infer<typeof ClubDemandSchema>;
+
+export const ClubDemandReportSchema = z.object({
+  /** Сколько учеников школы прошли онбординг. */
+  students: z.number().int().nonnegative(),
+  /** Направления «на будущее» из профилей: текст → сколько учеников назвали. */
+  futureInterests: z.array(z.object({ label: z.string(), count: z.number().int().positive() })),
+  items: z.array(ClubDemandSchema),
+});
+export type ClubDemandReport = z.infer<typeof ClubDemandReportSchema>;
+
 export const TrajectoryRefreshResultSchema = z.object({ queued: z.literal(true) });
 export type TrajectoryRefreshResult = z.infer<typeof TrajectoryRefreshResultSchema>;
 
 // ---------- Query и тела запросов ----------
 
 export const CompleteOnboardingBodySchema = z.object({
+  /** Записаться сейчас. */
   selectedClubIds: z.array(IdSchema),
+  /** Отметил «хочу попробовать позже» — запись не создаётся, фиксируется как спрос. */
+  laterClubIds: z.array(IdSchema).default([]),
   profileDraft: OnboardingProfileDraftSchema,
 });
 export type CompleteOnboardingBody = z.infer<typeof CompleteOnboardingBodySchema>;
@@ -106,6 +137,13 @@ export const aiContract = c.router(
       responses: { 200: MeDtoSchema },
       summary: 'Завершить онбординг: сохранить профиль и записаться в кружки',
       metadata: userRoute('student:onboarding.complete'),
+    },
+    getClubDemand: {
+      method: 'GET',
+      path: '/teacher/clubs/demand',
+      responses: { 200: ClubDemandReportSchema },
+      summary: 'Спрос на кружки школы по итогам онбординга: записались / хотят позже / пропустили',
+      metadata: userRoute('teacher:students.view'),
     },
     listConversations: {
       method: 'GET',

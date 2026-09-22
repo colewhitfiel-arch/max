@@ -5,6 +5,28 @@ import { AiProviderError } from './types';
 const immediateSleep = vi.fn(async () => {});
 
 describe('withRetry', () => {
+  it('при RATE_LIMITED без Retry-After ждёт не меньше rateLimitDelayMs * 2^attempt', async () => {
+    const delays: number[] = [];
+    let calls = 0;
+    await withRetry(
+      async () => {
+        calls += 1;
+        if (calls < 3) throw new AiProviderError('RATE_LIMITED', 'busy');
+        return 'ok';
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 1,
+        maxDelayMs: 10_000,
+        rateLimitDelayMs: 2000,
+        sleep: async (ms) => {
+          delays.push(ms);
+        },
+      },
+    );
+    expect(delays).toEqual([2000, 4000]);
+  });
+
   it('возвращает результат после успешного повтора', async () => {
     let calls = 0;
     const result = await withRetry(

@@ -100,6 +100,7 @@ export class IdentityRepository {
       goals: string[];
       weeklyHours: number | null;
       preferredFormats: string[];
+      futureInterests: string[];
       aiProfileSummary: string | null;
     },
   ): Promise<void> {

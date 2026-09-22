@@ -129,6 +129,13 @@ enum ConversationKind {
   TUTOR
 }
 
+/// Отношение ученика к кружку, зафиксированное в онбординге: записался / хочет позже / показан, но не выбрал.
+enum ClubInterestStatus {
+  CHOSEN
+  LATER
+  SKIPPED
+}
+
 enum MessageRole {
   USER
   ASSISTANT

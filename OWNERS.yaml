@@ -104,6 +104,7 @@ owners:
     - apps/web/src/pages/onboarding/**
     - apps/web/src/entities/ai/**
     - apps/web/src/widgets/trajectory/**
+    - apps/web/src/pages/teacher/club-demand/**
     - apps/api/test/ai/**
   ws-D-parent-family-catalog:
     - apps/api/src/modules/family/**

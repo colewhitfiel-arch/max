@@ -17,6 +17,11 @@ export function MorePage() {
             title={t('courseBuilder.title')}
             onClick={() => navigate('/teacher/course-builder')}
           />
+          <ListRow
+            title={t('clubDemand.title')}
+            subtitle={t('clubDemand.short')}
+            onClick={() => navigate('/teacher/clubs/demand')}
+          />
         </Card>
         <AccountSection />
       </Screen>

@@ -1,11 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import type { ConversationKind, MessageRole, TrajectoryContent } from '@edu/contracts';
-import { type AiConversation, type AiMessage, Prisma, type Trajectory } from '@edu/db';
+import type {
+  ClubInterestStatus,
+  ConversationKind,
+  MessageRole,
+  TrajectoryContent,
+} from '@edu/contracts';
+import {
+  type AiConversation,
+  type AiMessage,
+  Prisma,
+  type StudentClubInterest,
+  type Trajectory,
+} from '@edu/db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type MessageCursor = { createdAt: string; id: string };
 
-/** Таблицы ai_conversations, ai_messages, trajectories. Только этот модуль. */
+export interface ClubInterestInput {
+  clubId: string;
+  status: ClubInterestStatus;
+  score: number | null;
+  reason: string | null;
+}
+
+export interface ClubDemandRow {
+  clubId: string;
+  status: ClubInterestStatus;
+  count: number;
+  avgScore: number | null;
+}
+
+/** Таблицы ai_conversations, ai_messages, trajectories, student_club_interests. Только этот модуль. */
 @Injectable()
 export class AiRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -55,6 +80,13 @@ export class AiRepository {
 
   async deleteConversation(id: string): Promise<void> {
     await this.prisma.aiConversation.delete({ where: { id } });
+  }
+
+  async updateConversation(
+    id: string,
+    data: { kind?: ConversationKind; title?: string | null },
+  ): Promise<void> {
+    await this.prisma.aiConversation.update({ where: { id }, data });
   }
 
   async setConversationSnapshot(id: string, snapshot: Prisma.InputJsonValue): Promise<void> {
@@ -133,6 +165,70 @@ export class AiRepository {
     return this.prisma.aiMessage.count({
       where: { role: 'USER', createdAt: { gte: since }, conversation: { userId, kind: 'TUTOR' } },
     });
+  }
+
+  // ---------- спрос на кружки (онбординг) ----------
+
+  /** Один ряд на пару ученик–кружок: повторный онбординг перезаписывает статус и причину. */
+  async replaceClubInterests(studentId: string, rows: ClubInterestInput[]): Promise<void> {
+    await this.prisma.$transaction(
+      rows.map((row) =>
+        this.prisma.studentClubInterest.upsert({
+          where: { studentId_clubId: { studentId, clubId: row.clubId } },
+          create: { studentId, ...row },
+          update: { status: row.status, score: row.score, reason: row.reason },
+        }),
+      ),
+    );
+  }
+
+  async listClubInterests(
+    studentId: string,
+    status?: ClubInterestStatus,
+  ): Promise<Array<StudentClubInterest & { club: { title: string } }>> {
+    return this.prisma.studentClubInterest.findMany({
+      where: { studentId, ...(status ? { status } : {}) },
+      include: { club: { select: { title: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  /** Счётчики и средняя оценка по кружкам школы в разрезе статуса. */
+  async clubDemandRows(schoolId: string): Promise<ClubDemandRow[]> {
+    const grouped = await this.prisma.studentClubInterest.groupBy({
+      by: ['clubId', 'status'],
+      where: { club: { schoolId } },
+      _count: { _all: true },
+      _avg: { score: true },
+    });
+    return grouped.map((g) => ({
+      clubId: g.clubId,
+      status: g.status,
+      count: g._count._all,
+      avgScore: g._avg.score,
+    }));
+  }
+
+  /** Причины интереса (CHOSEN/LATER) по кружкам школы — для «типичных причин». */
+  async clubInterestReasons(schoolId: string): Promise<Array<{ clubId: string; reason: string }>> {
+    const rows = await this.prisma.studentClubInterest.findMany({
+      where: { club: { schoolId }, status: { in: ['CHOSEN', 'LATER'] }, reason: { not: null } },
+      select: { clubId: true, reason: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+    });
+    return rows.flatMap((r) => (r.reason ? [{ clubId: r.clubId, reason: r.reason }] : []));
+  }
+
+  /** Ученики, у которых есть хоть один ряд спроса по кружкам школы: их «на будущее» из профиля. */
+  async futureInterestsOfSchool(
+    schoolId: string,
+  ): Promise<Array<{ studentId: string; futureInterests: string[] }>> {
+    const rows = await this.prisma.studentProfile.findMany({
+      where: { clubInterests: { some: { club: { schoolId } } } },
+      select: { id: true, futureInterests: true },
+    });
+    return rows.map((r) => ({ studentId: r.id, futureInterests: r.futureInterests }));
   }
 
   // ---------- траектория ----------

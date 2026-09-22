@@ -132,12 +132,21 @@ export async function mapLimit<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
+  let failed = false;
+  // После первой ошибки новые элементы не стартуют: Promise.all уже отклонён, а лишние
+  // запросы к модели только жгут лимиты и могут перезаписать состояние задачи позже.
   const worker = async () => {
     for (;;) {
+      if (failed) return;
       const index = next;
       next += 1;
       if (index >= items.length) return;
-      results[index] = await fn(items[index]!, index);
+      try {
+        results[index] = await fn(items[index]!, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));

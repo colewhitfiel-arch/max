@@ -12,7 +12,15 @@ export interface StudentContextStudent {
   goals: string[];
   weeklyHours?: number;
   preferredFormats: string[];
+  /** Направления «на будущее» из онбординга: что хочет попробовать позже. */
+  futureInterests?: string[];
   aiProfileSummary?: string;
+}
+
+/** Кружок, который ученик в онбординге отметил «попробовать позже». */
+export interface StudentContextLaterClub {
+  title: string;
+  reason?: string;
 }
 
 export interface StudentContextClub {
@@ -77,6 +85,8 @@ export interface StudentContextTrajectory {
 export interface StudentContext {
   student: StudentContextStudent;
   clubs: StudentContextClub[];
+  /** Кружки «хочу попробовать позже» (спрос на будущее, записи нет). */
+  laterClubs?: StudentContextLaterClub[];
   /** Ближайшие 7 дней. */
   upcomingLessons: StudentContextLesson[];
   /** ≤ 10 */
@@ -140,6 +150,14 @@ export function serializeStudentContext(
           `посещаемость: ${percent(club.attendanceRate)}`,
       ),
       4,
+      maxItems,
+    ),
+    section(
+      'Хочет попробовать позже (записи нет)',
+      (ctx.laterClubs ?? []).map(
+        (club) => `- ${clean(club.title)}` + (club.reason ? ` — ${clean(club.reason)}` : ''),
+      ),
+      2,
       maxItems,
     ),
     section(
@@ -242,6 +260,9 @@ function renderStudent(student: StudentContextStudent): string[] {
   if (student.weeklyHours !== undefined) lines.push(`Нагрузка: ${student.weeklyHours} ч/нед.`);
   if (student.preferredFormats.length > 0) {
     lines.push(`Предпочитаемые форматы: ${joinList(student.preferredFormats)}.`);
+  }
+  if (student.futureInterests && student.futureInterests.length > 0) {
+    lines.push(`Хочет попробовать позже: ${joinList(student.futureInterests)}.`);
   }
   if (student.aiProfileSummary) lines.push(`Профиль: ${clean(student.aiProfileSummary)}`);
   return lines;

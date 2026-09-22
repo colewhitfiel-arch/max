@@ -80,6 +80,7 @@ export async function seedIdentity(prisma: PrismaClient): Promise<void> {
       goals: student.goals,
       weeklyHours: student.weeklyHours,
       preferredFormats: student.preferredFormats,
+      futureInterests: student.futureInterests,
       aiProfileSummary: student.aiProfileSummary,
       onboardingCompletedAt: student.onboardingCompletedAt,
       linkCode: student.linkCode,

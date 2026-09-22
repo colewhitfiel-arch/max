@@ -37,7 +37,7 @@ export interface TrajectoryVars {
 
 export const trajectoryPrompt = definePrompt({
   id: 'trajectory.build',
-  version: 1,
+  version: 2,
   description: 'Построить персональную образовательную траекторию ученика по его данным',
   system: [
     'Ты — наставник по дополнительному образованию. По данным ученика (профиль, кружки, посещаемость,',
@@ -46,6 +46,8 @@ export const trajectoryPrompt = definePrompt({
     'опирайся на факты из данных (проценты, сроки, темы). recommendations — 2–4 конкретных шага: следующий курс, кружок,',
     'проект или тема; если шаг связан с кружком или курсом из списков — укажи его clubId/courseId (только из списков).',
     'nextSteps — 2–4 действия на ближайшую неделю. Не выдумывай данных, которых нет.',
+    'Если ученик отметил направления или кружки «хочу попробовать позже» — включи в recommendations шаг про них:',
+    'когда и с чего к ним подступиться (после текущего курса, через N недель, с какого проекта).',
     'Отвечай строго JSON: {"summary","strengths":[],"growthAreas":[],"recommendations":[{"title","why","clubId?","courseId?"}],"nextSteps":[]}.',
   ].join(' '),
   user: (vars: TrajectoryVars) =>

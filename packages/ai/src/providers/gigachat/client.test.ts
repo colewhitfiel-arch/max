@@ -348,6 +348,65 @@ describe('GigaChatProvider: chat', () => {
 
 // ---------- Stream ----------
 
+describe('GigaChatProvider: параллельность', () => {
+  it('maxConcurrency=1: второй запрос уходит только после ответа на первый', async () => {
+    let resolveFirst: ((r: Response) => void) | undefined;
+    let chats = 0;
+    const { fetchImpl } = mockFetch((req) => {
+      if (isOauth(req)) return oauthOk();
+      chats += 1;
+      if (chats === 1) return new Promise<Response>((resolve) => (resolveFirst = resolve));
+      return chatOk('второй');
+    });
+    const { provider } = makeProvider(fetchImpl);
+    const first = provider.chat(userMessage('a'));
+    const second = provider.chat(userMessage('b'));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(chats).toBe(1);
+    expect(provider.queued).toBe(1);
+    resolveFirst!(chatOk('первый'));
+    expect((await first).content).toBe('первый');
+    expect((await second).content).toBe('второй');
+    expect(chats).toBe(2);
+  });
+
+  it('maxConcurrency=2: два запроса в полёте одновременно', async () => {
+    let chats = 0;
+    const pending: Array<(r: Response) => void> = [];
+    const { fetchImpl } = mockFetch((req) => {
+      if (isOauth(req)) return oauthOk();
+      chats += 1;
+      return new Promise<Response>((resolve) => pending.push(resolve));
+    });
+    const { provider } = makeProvider(fetchImpl, { maxConcurrency: 2 });
+    const a = provider.chat(userMessage('a'));
+    const b = provider.chat(userMessage('b'));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(chats).toBe(2);
+    pending.forEach((resolve) => resolve(chatOk('ok')));
+    await Promise.all([a, b]);
+  });
+
+  it('стрим держит слот до конца итерации, отмена в очереди завершает стрим без чанков', async () => {
+    let resolveFirst: ((r: Response) => void) | undefined;
+    const { fetchImpl } = mockFetch((req) => {
+      if (isOauth(req)) return oauthOk();
+      return new Promise<Response>((resolve) => (resolveFirst = resolve));
+    });
+    const { provider } = makeProvider(fetchImpl);
+    const first = provider.chat(userMessage('a'));
+    const ctrl = new AbortController();
+    const chunksPromise = collect(provider.stream({ ...userMessage('b'), signal: ctrl.signal }));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(provider.queued).toBe(1);
+    ctrl.abort();
+    expect(await chunksPromise).toEqual([]);
+    resolveFirst!(chatOk('первый'));
+    await first;
+    expect(provider.queued).toBe(0);
+  });
+});
+
 describe('GigaChatProvider: stream', () => {
   const sseText =
     'data: {"choices":[{"delta":{"role":"assistant","content":"При"},"index":0}],"model":"GigaChat"}\n\n' +

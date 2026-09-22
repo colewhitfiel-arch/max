@@ -78,6 +78,7 @@ describe('apiContract', () => {
         "POST /student/onboarding/start",
         "GET /student/onboarding/recommendations",
         "POST /student/onboarding/complete",
+        "GET /teacher/clubs/demand",
         "GET /ai/conversations",
         "POST /ai/conversations",
         "GET /ai/conversations/:conversationId/messages",

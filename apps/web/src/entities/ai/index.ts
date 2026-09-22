@@ -9,5 +9,6 @@ export {
   useCompleteOnboarding,
   useStartOnboarding,
   useOnboardingRecommendations,
+  useClubDemand,
 } from './api';
 export { ChatMessage, TutorAvatar, type ChatMessageProps } from './ui/ChatMessage';

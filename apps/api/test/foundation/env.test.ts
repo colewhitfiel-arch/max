@@ -25,7 +25,9 @@ describe('env', () => {
   });
 
   it('gigachat без ключа отклоняется', () => {
-    expect(() => testEnv({ AI_PROVIDER: 'gigachat' })).toThrow(/GIGACHAT_AUTH_KEY/);
+    expect(() => testEnv({ AI_PROVIDER: 'gigachat', GIGACHAT_AUTH_KEY: '' })).toThrow(
+      /GIGACHAT_AUTH_KEY/,
+    );
   });
 
   it('в production запрещён dev-вход и dev-секрет', () => {

@@ -62,6 +62,10 @@ export const AiEnvSchema = z.object({
     z.coerce.number().int().positive().optional(),
   ),
   GIGACHAT_MAX_RETRIES: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  GIGACHAT_MAX_CONCURRENCY: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).optional(),
+  ),
   GIGACHAT_CA_CERT_PATH: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 export type AiEnv = z.infer<typeof AiEnvSchema>;
@@ -81,6 +85,9 @@ export function aiConfigFromEnv(env: Record<string, string | undefined>): AiConf
   if (parsed.GIGACHAT_API_URL) gigachat.apiUrl = parsed.GIGACHAT_API_URL;
   if (parsed.GIGACHAT_TIMEOUT_MS !== undefined) gigachat.timeoutMs = parsed.GIGACHAT_TIMEOUT_MS;
   if (parsed.GIGACHAT_MAX_RETRIES !== undefined) gigachat.maxRetries = parsed.GIGACHAT_MAX_RETRIES;
+  if (parsed.GIGACHAT_MAX_CONCURRENCY !== undefined) {
+    gigachat.maxConcurrency = parsed.GIGACHAT_MAX_CONCURRENCY;
+  }
   if (parsed.GIGACHAT_CA_CERT_PATH) gigachat.caCertPath = parsed.GIGACHAT_CA_CERT_PATH;
   return { provider: 'gigachat', gigachat };
 }

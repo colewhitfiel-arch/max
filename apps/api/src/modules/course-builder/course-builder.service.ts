@@ -157,7 +157,8 @@ export class CourseBuilderService {
           targetTitle: row.targetTitle,
         },
         async (progress) => {
-          if ((await this.repo.stageOf(row.id)) === 'CANCELLED') return;
+          // Поздний отчёт параллельного воркера не должен воскрешать FAILED/CANCELLED
+          if (TERMINAL.has((await this.repo.stageOf(row.id)) ?? '')) return;
           await this.repo.update(row.id, {
             stage: progress.stage,
             progress: progress.progress,
@@ -166,7 +167,7 @@ export class CourseBuilderService {
         },
         async () => (await this.repo.stageOf(row.id)) === 'CANCELLED',
       );
-      if ((await this.repo.stageOf(row.id)) === 'CANCELLED') return;
+      if (TERMINAL.has((await this.repo.stageOf(row.id)) ?? '')) return;
       await this.repo.update(row.id, {
         stage: 'READY',
         progress: 100,

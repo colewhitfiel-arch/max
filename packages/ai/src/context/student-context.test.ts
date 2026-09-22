@@ -80,6 +80,18 @@ describe('serializeStudentContext', () => {
     expect(text).toContain('- Пройти блок про датчики');
   });
 
+  it('«на будущее» и кружки «попробовать позже» попадают в текст', () => {
+    const text = serializeStudentContext(
+      makeContext({
+        student: { ...makeContext().student, futureInterests: ['шахматы', '3D-моделирование'] },
+        laterClubs: [{ title: 'Шахматы', reason: 'Хочет, но пока нет времени' }],
+      }),
+    );
+    expect(text).toContain('Хочет попробовать позже: шахматы, 3D-моделирование.');
+    expect(text).toContain('Хочет попробовать позже (записи нет)');
+    expect(text).toContain('- Шахматы — Хочет, но пока нет времени');
+  });
+
   it('пустые списки и null-рейты', () => {
     const text = serializeStudentContext(
       makeContext({

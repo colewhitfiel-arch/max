@@ -6,6 +6,7 @@ export * from './provider';
 export * from './logger';
 export { abortReason, linkAbortSignal, sleep, throwIfAborted } from './abort';
 export * from './retry';
+export { Semaphore } from './semaphore';
 export * from './timeout';
 export * from './json';
 

@@ -187,7 +187,10 @@ HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открыты
 POST /student/onboarding/start           → { conversationId, message: AiMessageDto }
 POST /student/onboarding/messages        { conversationId, text } → SSE; done { messageId, isComplete: boolean, profileDraft?: OnboardingProfileDraft }
 GET  /student/onboarding/recommendations → { items: [{ club: ClubCard, reason: string, score: number }] }   // после isComplete
-POST /student/onboarding/complete        { selectedClubIds: Id[], profileDraft: OnboardingProfileDraft } → MeDto
+POST /student/onboarding/complete        { selectedClubIds: Id[], laterClubIds?: Id[], profileDraft: OnboardingProfileDraft } → MeDto
+                                          // selected — запись сейчас; later — «попробовать позже» (спрос, без записи);
+                                          // показанные, но не выбранные → SKIPPED. Диалог знакомства становится чатом тьютора (kind TUTOR)
+GET  /teacher/clubs/demand               → { students, futureInterests: [{ label, count }], items: [{ club: ClubCard, chosen, later, skipped, avgScore?, reasons[] }] }
                                           // Enrollment в первую активную группу каждого кружка (MVP)
 
 GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>

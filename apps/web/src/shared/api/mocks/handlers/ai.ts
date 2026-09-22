@@ -5,6 +5,7 @@
 import {
   AiMessageDtoSchema,
   type AiStreamEvent,
+  ClubDemandReportSchema,
   CompleteOnboardingBodySchema,
   ConversationDtoSchema,
   CreateConversationBodySchema,
@@ -21,7 +22,7 @@ import {
 import { http, HttpResponse } from 'msw';
 import { buildMe, clubCard } from '../demo';
 import { apiError, apiUrl, authed, json, noContent, readBody } from '../lib';
-import { db, studentOfUser } from '../state';
+import { db, studentOfUser, teacherOfUser } from '../state';
 
 const conversationDto = (id: string) => {
   const c = db.conversations.find((x) => x.id === id)!;
@@ -119,10 +120,12 @@ export const aiHandlers = [
         const userMessages = db.messages.filter(
           (m) => m.conversationId === body.data.conversationId && m.role === 'USER',
         );
-        const isComplete = userMessages.length >= 3;
+        const isComplete = userMessages.length >= 4;
         const reply = isComplete
           ? 'Спасибо! Я понял твои интересы. Сейчас подберу кружки, которые тебе подойдут.'
-          : 'Здорово! А какие цели ты бы хотел достичь за этот год?';
+          : userMessages.length === 3
+            ? 'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?'
+            : 'Здорово! А какие цели ты бы хотел достичь за этот год?';
         const message = addMessage(body.data.conversationId, 'ASSISTANT', reply);
         return sseResponse(reply, {
           type: 'done',
@@ -135,6 +138,7 @@ export const aiHandlers = [
                   goals: ['научиться программировать'],
                   weeklyHours: 4,
                   preferredFormats: ['практика'],
+                  futureInterests: [userMessages[3]?.content.slice(0, 60) ?? 'шахматы'],
                   summary: 'Интересуется робототехникой и программированием.',
                 },
               }
@@ -177,6 +181,21 @@ export const aiHandlers = [
         student.weeklyHours = body.data.profileDraft.weeklyHours;
         student.preferredFormats = body.data.profileDraft.preferredFormats;
         student.aiProfileSummary = body.data.profileDraft.summary || null;
+        student.futureInterests = body.data.profileDraft.futureInterests;
+        // Спрос: показанные кружки → SKIPPED, отмеченные «позже» → LATER, выбранные → CHOSEN
+        const chosen = new Set(body.data.selectedClubIds);
+        const later = new Set(body.data.laterClubIds.filter((id) => !chosen.has(id)));
+        db.clubInterests = db.clubInterests.filter((i) => i.studentId !== student.id);
+        db.clubs.forEach((club, index) => {
+          const status = chosen.has(club.id) ? 'CHOSEN' : later.has(club.id) ? 'LATER' : 'SKIPPED';
+          db.clubInterests.push({
+            studentId: student.id,
+            clubId: club.id,
+            status,
+            score: index === 0 ? 0.92 : 0.81,
+            reason: index === 0 ? 'Совпадает с интересом к роботам' : 'Поможет достичь цели',
+          });
+        });
         for (const clubId of body.data.selectedClubIds) {
           const group = db.groups.find((g) => g.clubId === clubId && g.isActive);
           if (
@@ -196,6 +215,54 @@ export const aiHandlers = [
         return json(MeDtoSchema, buildMe(auth.user, auth.role));
       },
       ['STUDENT'],
+    ),
+  ),
+
+  http.get(
+    apiUrl('/teacher/clubs/demand'),
+    authed(
+      ({ auth }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const rows = db.clubInterests;
+        const studentIds = new Set(rows.map((r) => r.studentId));
+        const futureCounts = new Map<string, { label: string; count: number }>();
+        for (const student of db.students.filter((s) => studentIds.has(s.id))) {
+          for (const label of new Set(student.futureInterests)) {
+            const entry = futureCounts.get(label.toLowerCase()) ?? { label, count: 0 };
+            entry.count += 1;
+            futureCounts.set(label.toLowerCase(), entry);
+          }
+        }
+        return json(ClubDemandReportSchema, {
+          students: studentIds.size,
+          futureInterests: [...futureCounts.values()].sort((a, b) => b.count - a.count),
+          items: db.clubs
+            .filter((c) => c.schoolId === teacher.schoolId && c.isActive)
+            .map((club) => {
+              const mine = rows.filter((r) => r.clubId === club.id);
+              const scored = mine.filter((r) => r.score !== null);
+              return {
+                club: clubCard(club.id),
+                chosen: mine.filter((r) => r.status === 'CHOSEN').length,
+                later: mine.filter((r) => r.status === 'LATER').length,
+                skipped: mine.filter((r) => r.status === 'SKIPPED').length,
+                avgScore: scored.length
+                  ? scored.reduce((sum, r) => sum + (r.score ?? 0), 0) / scored.length
+                  : null,
+                reasons: [
+                  ...new Set(
+                    mine
+                      .filter((r) => r.status !== 'SKIPPED' && r.reason)
+                      .map((r) => r.reason as string),
+                  ),
+                ].slice(0, 3),
+              };
+            })
+            .sort((a, b) => b.chosen + b.later - (a.chosen + a.later)),
+        });
+      },
+      ['TEACHER'],
     ),
   ),
 
