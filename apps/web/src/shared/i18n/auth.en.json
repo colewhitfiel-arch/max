@@ -33,7 +33,7 @@
     "switched": "Role switched"
   },
   "onboarding": {
-    "title": "Meet your AI tutor",
+    "title": "Getting to know you",
     "description": "Sayd will ask a few questions about your interests and goals, then suggest clubs.",
     "placeholder": "Type your answer…",
     "send": "Send",
@@ -42,11 +42,24 @@
     "recommendationsHint": "Choose what to join now and what to keep for later.",
     "noClubs": "No active clubs at the school yet",
     "choose": "Enrol",
-    "finishWithClubs": "Enrol in clubs ({{count}}) and continue",
+    "finishWithClubs": "Enrol ({{count}}) and continue",
     "finishWithout": "Continue without enrolling",
     "choiceHint": "“Enrol” signs you up right away. “Maybe later” — your tutor will remind you when there is time.",
     "futureInterests": "For the future you mentioned: {{list}}",
     "later": "Maybe later",
-    "finishWithLater": "Remember for later ({{count}}) and continue"
+    "finishWithLater": "Keep for later ({{count}}) and continue",
+    "hero": "Hi, {{name}}!",
+    "heroAnon": "Hi!",
+    "heroHint": "I am Sayd, your tutor. A few questions and I will pick clubs for you.",
+    "stepChat": "question {{n}}",
+    "stepClubs": "choosing clubs",
+    "typing": "typing…",
+    "stop": "Stop",
+    "profileTitle": "Here is what I got",
+    "interests": "Interests",
+    "goals": "Goals",
+    "formats": "Preferred formats",
+    "hours": "{{count}} h per week",
+    "futureLabel": "Want to try later"
   }
 }
