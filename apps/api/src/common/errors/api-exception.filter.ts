@@ -4,6 +4,7 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { type ApiError, type ErrorCode } from '@edu/contracts';
 import { Prisma } from '@edu/db';
@@ -13,6 +14,7 @@ import { ZodError } from 'zod';
 import { AppLogger } from '../logger/logger.service';
 import { getRequestId } from '../logger/request-context';
 import { AppError } from './app-error';
+import { isContractRoute } from './contract-routes';
 
 interface Normalized {
   status: number;
@@ -40,7 +42,28 @@ function zodIssues(error: ZodError): unknown {
   return error.issues.map((i) => ({ path: i.path.join('.'), message: i.message, code: i.code }));
 }
 
-export function normalizeException(exception: unknown): Normalized {
+/** Запрос, на который ответил сам роутер Nest («Cannot GET /x») — у пути нет обработчика. */
+function isUnhandledRoute(exception: unknown): exception is NotFoundException {
+  return exception instanceof NotFoundException && /^Cannot [A-Z]+ /.test(exception.message);
+}
+
+export interface RequestInfo {
+  method: string;
+  /** Путь с префиксом API; query отбрасывается. */
+  path: string;
+}
+
+export function normalizeException(exception: unknown, request?: RequestInfo): Normalized {
+  // Ручка есть в контракте, но модуль её ещё не реализовал: 501, а не 404 (docs/12, фронт
+  // показывает «раздел в разработке»). Неизвестный путь остаётся 404.
+  if (request && isUnhandledRoute(exception) && isContractRoute(request.method, request.path)) {
+    return {
+      status: 501,
+      code: 'NOT_IMPLEMENTED',
+      message: 'Раздел ещё не реализован',
+      logLevel: 'debug',
+    };
+  }
   if (exception instanceof AppError) {
     return {
       status: exception.status,
@@ -136,7 +159,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
     const requestId = getRequestId();
-    const n = normalizeException(exception);
+    const n = normalizeException(exception, {
+      method: req.method,
+      path: req.originalUrl ?? req.url,
+    });
 
     const entry = {
       method: req.method,
