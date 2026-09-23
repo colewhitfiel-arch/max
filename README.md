@@ -70,14 +70,14 @@ pnpm dev
 |---|---|---|
 | `DATABASE_URL`, `DATABASE_URL_TEST` | строка подключения | локальный embedded PostgreSQL, базы `edu` / `edu_test` |
 | `AUTH_PROVIDER` | `dev` / `max` | `dev` — вход по `POST /auth/dev` |
-| `AI_PROVIDER` | `mock` / `gigachat` | `mock` (mock отвечает детерминированно по каждому промпту) |
+| `AI_PROVIDER` | `mock` / `gigachat` | `mock` (детерминированные ответы; в production запрещён) |
 | `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` |
 | `STORAGE_DRIVER` | `local` / `s3` | `local` (`.data/storage`) |
-| `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` |
+| `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` (платёж закрывается сразу; в production запрещён) |
 | `VITE_MAX_MODE` | `mock` / `real` | `mock` |
 | `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
 
-Api не стартует при невалидном окружении и печатает список проблемных переменных.
+Api не стартует при невалидном окружении и печатает список проблемных переменных. При `APP_ENV=production` дополнительно запрещены dev-секрет JWT, dev-вход, пустой `CORS_ORIGINS` и заглушки `AI_PROVIDER=mock` / `PAYMENT_PROVIDER=fake`.
 
 ## ИИ-функции (GigaChat через `@edu/ai`)
 
@@ -109,4 +109,4 @@ Seed создаёт школу, 4 демо-пользователей (`max-stud
 
 ## Production
 
-`APP_ENV=production` требует (проверяется при старте api): `AUTH_PROVIDER=max` (+ `MAX_APP_SECRET`), нестандартный `JWT_SECRET`, явный `CORS_ORIGINS`. Рекомендуется (валидацией env не проверяется): `QUEUE_DRIVER=bullmq` с Redis (ADR-012); `STORAGE_DRIVER=s3` — после реализации `S3Storage` (сейчас заглушка). Процессы: `apps/api` (`node dist/main.js`), worker (`node dist/worker.js`), статика `apps/web/dist`. Миграции — `pnpm db:deploy` до раскатки api.
+`APP_ENV=production` требует (проверяется при старте api): `AUTH_PROVIDER=max` (+ `MAX_APP_SECRET`), нестандартный `JWT_SECRET`, явный `CORS_ORIGINS`, `AI_PROVIDER=gigachat` (+ `GIGACHAT_AUTH_KEY`) и `PAYMENT_PROVIDER=yookassa` (+ ключи магазина) — заглушки `mock`/`fake` в production не запускаются. Рекомендуется (валидацией env не проверяется): `QUEUE_DRIVER=bullmq` с Redis (ADR-012); `STORAGE_DRIVER=s3` — после реализации `S3Storage` (сейчас заглушка). Процессы: `apps/api` (`node dist/main.js`), worker (`node dist/worker.js`), статика `apps/web/dist`. Миграции — `pnpm db:deploy` до раскатки api.

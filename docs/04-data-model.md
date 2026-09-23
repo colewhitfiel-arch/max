@@ -25,6 +25,7 @@ ConversationKind     ONBOARDING | TUTOR
 MessageRole          USER | ASSISTANT | SYSTEM
 InsightKind          STUDENT_HOME_COMMENT | PARENT_SUMMARY | TEACHER_STUDENT_SUMMARY
 PaymentStatus        PENDING | SUCCEEDED | FAILED | CANCELLED | REFUNDED
+WalletTransactionKind INCOME | WITHDRAWAL
 BillingPeriod        MONTH
 FilePurpose          MATERIAL | SUBMISSION | BLOCK_MEDIA | AVATAR
 NotificationType     LESSON_SOON | LESSON_CANCELLED | ASSIGNMENT_NEW | ASSIGNMENT_DUE | ASSIGNMENT_GRADED |
@@ -167,9 +168,10 @@ CourseGenerationJob id PK, teacherId FK, groupId FK, materialIds string[] (File.
 ```
 ParentStudentLink parentId FK, studentId FK, status LinkStatus=ACTIVE, requestedAt, confirmedAt?
                                                                         PK(parentId, studentId)
+ParentInvite      token PK, parentId FK, expiresAt, acceptedAt?, acceptedBy?
 ```
 Привязка: ребёнок показывает `linkCode` → родитель вводит → link сразу `ACTIVE` (MVP; подтверждение школой — позже).
-Второй способ — ссылка-приглашение (docs/07 F14): родитель создаёт токен (≥16 символов, живёт 7 дней), ребёнок открывает ссылку и подтверждает → link `ACTIVE`. Пока реализовано только в контракте и MSW-моках; модель (`ParentInvite`: token unique, parentId FK, expiresAt, acceptedById?, acceptedAt?) заводится в `family.prisma` вместе с backend-ручками.
+Второй способ — ссылка-приглашение (docs/07 F14): родитель создаёт токен (24 случайных байта, живёт 7 дней), ребёнок открывает ссылку и подтверждает → link `ACTIVE`. Ссылка одноразовая: повтор тем же учеником возвращает прежний результат, другим — `CONFLICT`.
 
 ### payments (`payments.prisma`)
 ```
@@ -177,21 +179,25 @@ Payment         id PK, parentId FK, studentId FK, enrollmentId FK, amountKopecks
                 status PaymentStatus=PENDING, provider string, providerPaymentId? (unique),
                 confirmationUrl?, periodsCount int=1, idempotencyKey (unique), paidAt?, failReason?, raw json?
 PaidPeriod      id PK, enrollmentId FK, periodStart date, periodEnd date, paymentId FK
+ParentWallet    parentId PK, balanceKopecks int=0, currency "RUB"
+TeacherWalletTransaction id PK, teacherId FK, kind WalletTransactionKind, amountKopecks int,
+                currency "RUB", groupId? FK, studentId? FK, paymentId? , at
 ```
 «Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment; если периодов нет — сегодня.
-Кошелёк родителя (`GET /parent/wallet`, `POST /parent/wallet/top-up`) — **заглушка**: баланс живёт только в MSW-моках, пополнение зачисляется сразу (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`), реального провайдера и таблиц нет. Модель (`Wallet`, `WalletTransaction`) появится вместе с `PaymentProvider` (docs/07 F13).
+Платёж создаётся через порт `PaymentProvider` (`fake` в dev, `yookassa` в бою): наш `Payment.id` — ключ идемпотентности у провайдера, статус закрывается вебхуком `POST /webhooks/payments/:provider` или опросом при `GET /parent/payments/:id`; закрытие идемпотентно (обновление статуса и запись `PaidPeriod` — в одной транзакции). Оплаченные периоды продолжают уже оплаченные, а если те истекли — начинаются с сегодняшнего дня.
 
-Кошелёк преподавателя (`GET /teacher/wallet`, `POST /teacher/wallet/withdraw`, docs/07 F17) — тоже **заглушка** в MSW-моках, отдельно от кошелька родителя (у одного пользователя бывают обе роли). Смысл полей:
+Кошелёк родителя (`ParentWallet`, `GET /parent/wallet`, `POST /parent/wallet/top-up`) — баланс настоящий, а **пополнение — заглушка**: сумма зачисляется сразу, без оплаты (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`). Поэтому ручка работает только при `PAYMENT_PROVIDER=fake`; с настоящим провайдером она отвечает 501 (docs/07 F13).
+
+Кошелёк преподавателя (`TeacherWalletTransaction`, `GET /teacher/wallet`, `POST /teacher/wallet/withdraw`, docs/07 F17) — журнал операций, отдельный от кошелька родителя (у одного пользователя бывают обе роли). Смысл полей:
 - `balance` — заработано и не выведено; никогда не отрицательный.
 - Операции `TeacherWalletTransaction`, `amount > 0`:
-  - `INCOME` — поступление от оплаты кружка учеником группы преподавателя (группа + ученик). Доли школы и комиссии в модели пока нет: в заглушке поступление равно сумме оплаты;
-  - `WITHDRAWAL` — вывод: от 100 ₽ до баланса, идемпотентно по `Idempotency-Key`; `group = student = null`; реального перевода нет.
+  - `INCOME` — поступление от оплаты кружка учеником группы преподавателя (группа + ученик); создаётся при закрытии платежа. Доли школы и комиссии в модели пока нет: поступление равно сумме оплаты;
+  - `WITHDRAWAL` — вывод: от 100 ₽ до баланса, идемпотентно по `Idempotency-Key`; `group = student = null`. Реального перевода нет, поэтому ручка работает только при `PAYMENT_PROVIDER=fake`, иначе 501.
 - Период `day | week | month` (по умолчанию `day`) — скользящее окно до «сейчас» (в отличие от календарных окон успеваемости групп в §4.6): `day` — последние 24 часа (в «1 день» попадают и вчерашние вечерние операции, как в макете), `week` — 7 × 24 часа, `month` — 30 × 24 часа. Транзакции — с `at` в `(from, to]`.
 - `history` — баланс в равноотстоящих точках окна: `day` — 7 точек через 4 часа, `week` — 8 точек через сутки, `month` — 31 точка через сутки. Первая точка — баланс на `from`, последняя — текущий. Подписи оси X экран строит сам по периоду.
 - «Вам должны» (`debts`) — активные `Enrollment` групп преподавателя, у которых следующий платёж уже просрочен или наступит в ближайшие 45 дней. Следующий платёж (`dueAt`) — `max(PaidPeriod.periodEnd) + 1 день`; если оплаченных периодов нет — дата зачисления (долг с начала занятий, то есть просрочено; у родителя в этом случае «следующая дата оплаты» — сегодня, см. выше). Сумма — `Club.priceKopecks`, порядок — по `dueAt`.
 
-Модель (журнал операций преподавателя, выводы со статусом, доля преподавателя от оплаты) появится вместе с `PaymentProvider` и выплатами (workstream I). Тогда поступления будут создаваться по событию `payment.succeeded`.
-В MSW-моке история кошелька демонстрационная: поступления сгенерированы (не раньше зачисления ученика, сумма — цена кружка) и не связаны с `Payment` один к одному; чтобы «Вам должны» и платежи родителя не спорили с кошельком, зачисление с недавним поступлением оплачено (`Payment` + `PaidPeriod` на 30 дней с дня последнего поступления). Оплата родителя в моке поступления не создаёт — до workstream I.
+Осталось до полноценных выплат (workstream I): доля школы в поступлении и вывод со статусом через провайдера — сейчас `WITHDRAWAL` списывает баланс сразу и никуда не переводит.
 
 ### notifications + support + audit (`notifications.prisma`, `support.prisma`, `base.prisma`)
 ```

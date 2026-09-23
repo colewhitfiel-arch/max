@@ -119,6 +119,17 @@ export const envSchema = z
       );
       need(env.AUTH_PROVIDER === 'dev', 'AUTH_PROVIDER', 'в production dev-вход запрещён');
       need(env.CORS_ORIGINS.length === 0, 'CORS_ORIGINS', 'в production нужен явный список origin');
+      // Заглушка платежей отмечает оплату прошедшей, не получив денег, — в production это дыра.
+      need(
+        env.PAYMENT_PROVIDER === 'fake',
+        'PAYMENT_PROVIDER',
+        'в production нужен настоящий провайдер оплаты (fake отмечает платёж оплаченным сразу)',
+      );
+      need(
+        env.AI_PROVIDER === 'mock',
+        'AI_PROVIDER',
+        'в production нужен настоящий провайдер ИИ (mock отвечает заготовками)',
+      );
     }
   });
 

@@ -69,17 +69,49 @@ Foundation завершён (`docs/FOUNDATION.md`). Ниже — независ�
 - Архитектура (api-shell, C): `identity → family` (`countChildren` для `/me`, docs/08 §8.1); `StudentContextBuilder` и `AiRepository.futureInterestsOfSchool` читают чужие таблицы до публикации read-методов identity/groups/courses/assignments/attendance; второй парсер env в `@edu/ai` (`AiEnvSchema`) рядом с `apps/api/src/config/env.ts`; дубли `byPrompt`/`lastUser` в 5 файлах промптов.
 - Auth (api-shell, db): `PUT /me/avatar` = 501 — нужен `User.avatarFileId` (docs/04), вход перезаписывает `avatarUrl` из MAX; при `switchRole`/`addRole` прежний refresh-токен не отзывается (нужно поле в контракте или отзыв всех токенов — решение продукта); в MSW logout не отзывает refresh.
 - Тьютор (C): дневной лимит считается в фиксированном поясе Europe/Moscow, а не в поясе школы (нужен `schoolId` в `TutorTurn`); проверка (`kv.get`) и учёт (`kv.incr`) лимита неатомарны — параллельные запросы могут чуть превысить лимит (нужен `decr` в порте `KeyValueStore`); ручной refresh траектории ставит job без `force` — на неизменённых данных `generatedAt` не меняется и UI через 60 с просто снимает «Пересчитываем»; частичный ответ после «Стоп» пропадает до перезапроса ленты; `TutorChat` и `ParentTutorChat` почти дублируют друг друга (кандидат на общий `useTutorChat`).
-- Генерация (G, ai): `chatJson` отклоняет обрезанный по `max_tokens` ответ — при `maxTokens` 4000 у урока/конспекта генерация может падать с `INVALID_RESPONSE`, стоит пересмотреть лимит; `scripts/smoke-gigachat.mjs` ещё не написан (K).
+- Генерация (G, ai): `chatJson` отклоняет обрезанный по `max_tokens` ответ — при `maxTokens` 4000 у урока/конспекта генерация может падать с `INVALID_RESPONSE`, стоит пересмотреть лимит.
 - Контракты и DTO (contracts, A, B): `schedulePreview` (`ClubCard`) и `needsAttention` (`GroupDetail`, ученик) приходят готовыми русскими строками — нужна структурная форма (правила расписания, enum причин) с текстами через i18n; `WEEK_DAY_STATUSES` без нейтрального статуса для прошедшего дня с неотмеченными занятиями (сейчас `NO_LESSONS`); ответы INTERACTIVE (FILL_GAPS, MATCHING, FLASHCARDS) уходят ученику — решить, проверять ли их на сервере; `*_LABELS` и `BLOCK_TYPE_META[].label` веб больше не использует — удалить или пометить; `DELETE /teacher/assignments/:id` в контракте мягкое, а MSW удаляет жёстко вместе со сдачами.
-- Курсы и задания (B): QUIZ-блок не закрывает связанное задание (экраны «Курс» и «Задания» не синхронизированы; после решения — инвалидация `assignments` в `useCompleteBlock`); правила `COMPLETED` при балле ниже `passScore` нет; HOMEWORK с `submissionType: 'NONE'` — как ученику отметить выполнение, если пустую сдачу контракт не принимает; ученическая ручка блока в apps/api должна отдавать `toStudentBlock(block)`; доступ преподавателя к файлам сдачи через `GET /files/:id` — когда появится UI; `/student/courses` достижим только через «Открыть в курсе» — точка входа в навигации — решение продукта.
+- Курсы и задания (B): QUIZ-блок не закрывает связанное задание (экраны «Курс» и «Задания» не синхронизированы; после решения — инвалидация `assignments` в `useCompleteBlock`); правила `COMPLETED` при балле ниже `passScore` нет; HOMEWORK с `submissionType: 'NONE'` — как ученику отметить выполнение, если пустую сдачу контракт не принимает; доступ преподавателя к файлам сдачи через `GET /files/:id` — когда появится UI; `/student/courses` достижим только через «Открыть в курсе» — точка входа в навигации — решение продукта.
 - БД (db): без индекса FK `Attendance.markedById`, `Submission.gradedById`, `CourseGenerationJob.groupId`, `AiInsight.studentId` (docs/04 §4.2.1) — добавить с первой выборкой по ним.
 - Дизайн (дизайнер, ui): микротекст 7–8.4px в графиках, `CardColumns` и `CodeBlock` (кандидат — токен `--ui-font-size-2xs` 10px); белая иконка на тёмном зелёном акценте ≈2.1:1 (< 3:1); рамка danger у `Input`/`Checkbox` ≈3:1; светлой зелёной темы в макете нет; «Программирование» у родителя на 375px переносится по слогам (нужно уменьшить заголовки/время или разрешить перенос времени); ширины в `CardColumns` считались без кернинга — проверить в реальном WebView; container queries — Chrome 105+/Safari 16+, на старых WebView поля остаются 8px.
 - a11y (ui): строки `CardColumns` связаны через `aria-owns` — в VoiceOver/Safari поддержка частичная (полноценно — через DOM/subgrid); `ListRow` с `role=button` содержит интерактивные элементы — нужен отдельный API (`rowProps`/`actionLabel`).
-- MSW (web-shell): lookbehind-regex в `mocks/handlers/course-builder.ts` роняет mock-режим на iOS < 16.4; query каталога и статуса заданий не валидируются, `limit` не применяется; остальные списки мока отдают всё одной страницей; непрочитанные уведомления с курсором: если элемент под курсором прочитали между страницами, следующая страница пустая.
+- Фейковый сервер тестов (web-shell): живёт в `apps/web/src/test/fake-api`, в приложение не попадает. Query каталога и статуса заданий не валидируются, `limit` не применяется, списки отдают всё одной страницей — расходится с настоящим api; выдуманные данные (`homework.ts`, `world-extras.ts`, `teacher-wallet.ts`) стоит заменить фикстурами, раз все ручки есть в api.
 - Фронт (web-shell, владельцы фич): неиспользуемые публичные экспорты — `useDeleteConversation`, `useStudentAssignments`, `useCreateAssignment`, `useAssignmentSubmissions`, `useCatalogClubs`, `useCatalogClub`, `useHealth`, `useUploadFile`, `useUpdateGenerationDraft`, `useUpdateLesson`, `useRotateLinkCode`, `useUnlinkChild`, `useHasPermission`, `useCapabilities`, `SWITCH_ROLE_PATH`, `useMaxTheme`, `authHeaders`, типы `ApiClient`, `QueryKeyPrefix`, `AppConfig` (`useSubmitAssignment`, `RequirePermission`, `Can` — только в тестах); плюрализация без `count`: student.ru `courses.blocks` («из 1 блоков»), teacher.en `counts` («1 modules»); `/auth/switch` без «Добавить роль» — решение продукта; лишний `stopPropagation` у «Выбрать» в `ChildrenPage`.
 - API-тексты (api): серверные сообщения для родителя и преподавателя проверить на обращение «вы».
 - Инфра (core): `pnpm format:check` не в CI; `@edu/config` в корневых devDependencies; `scripts/**` в ignores eslint пакета db; по правилу «при равной конкретности — зона ниже» `apps/web/src/shared/max/**` принадлежит ws-J, а не web-shell.
 - Вручную (разработчик, один раз): убрать `NODE_ENV=development` из локального `.env` (иначе `vite build` собирает dev-бандл), удалить старый `.data/pg.pw`, выполнить `pnpm db:deploy` (в dev-базе должны быть применены все миграции, включая `20260923081801_fk_indexes`).
+
+### Весь контракт на настоящем api (2026-09-23)
+
+Все 102 ручки `apiContract` реализованы — 501 в ответах больше нет, и режим моков в приложении убран
+(`VITE_API_MODE` удалён, MSW остался только в тестах `apps/web/src/test/fake-api`).
+
+Что добавлено сверх прежнего состояния:
+
+- **B (courses):** `/student/courses`, `/student/courses/:id`, `/student/blocks/:id`, `open`/`complete`
+  с автопроверкой QUIZ и пересчётом `CourseProgress`; `PATCH /teacher/blocks/:id`, прогресс учеников по курсу.
+- **A (analytics):** главная и профиль ученика, главная/аналитика/прогресс заданий/сетки заданий у родителя,
+  главная, карточка ученика, задания ученика и «Общая успеваемость» у преподавателя. Расчёт вынесен
+  в `StudentFactsService` — один источник цифр для всех ролей; статусы клеток и итоги — `homework.ts`,
+  условия и ответы для отчётов — `homework-details.ts`.
+- **H:** `/student/calendar` и `/parent/children/:id/calendar` (в модуле attendance — он владеет отметками).
+- **D:** каталог кружков, карточка кружка, публичный профиль преподавателя; дети родителя, привязка по коду
+  и по одноразовой ссылке (`ParentInvite`, 7 дней), кружки ребёнка. Экраны родителя собирает модуль `parent`:
+  своих таблиц у него нет, всё через публичные сервисы (иначе получался бы цикл `identity ↔ family`).
+- **I (payments):** порт `PaymentProvider` (fake для dev, ЮKassa — `Idempotence-Key` при создании,
+  подлинность вебхука подтверждается повторным запросом платежа), оплаченные периоды, кошелёк родителя,
+  кошелёк преподавателя с графиком, операциями и «Вам должны» (`ParentWallet`, `TeacherWalletTransaction`).
+- **L:** центр уведомлений, настройки и создание уведомлений по доменным событиям; обращения в поддержку.
+- **Ученик может делать ДЗ:** экран задания показывает условие из блока курса и форму ответа
+  (тест — варианты, открытый вопрос и практика — текст и файлы), пустую работу отправить нельзя,
+  после проверки видны балл и комментарий. Планета без открытых заданий ведёт в курс кружка.
+- **Production-гарды env:** при `APP_ENV=production` запрещены `AI_PROVIDER=mock` и `PAYMENT_PROVIDER=fake`;
+  пополнение кошелька родителя и вывод у преподавателя (обе — заглушки без денег) работают только
+  при `PAYMENT_PROVIDER=fake`, иначе 501.
+
+Осталось незакрытым: инсайты ИИ (`aiComment`, `aiSummary` отдаются как `null`), `appOpens` в «активности»
+(события `ActivityEvent` никто не пишет), доля школы в поступлениях преподавателя (в кошелёк идёт вся сумма),
+`StudentStatsDaily` не заполняется — «динамика» считается на лету по тем же формулам.
 
 ## Порядок запуска
 

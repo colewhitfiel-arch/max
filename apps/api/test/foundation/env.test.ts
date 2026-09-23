@@ -40,6 +40,13 @@ describe('env', () => {
     ).toThrow(/AUTH_PROVIDER|JWT_SECRET/);
   });
 
+  it('в production запрещены заглушки оплаты и ИИ', () => {
+    expect(() => testEnv({ APP_ENV: 'production', PAYMENT_PROVIDER: 'fake' })).toThrow(
+      /PAYMENT_PROVIDER/,
+    );
+    expect(() => testEnv({ APP_ENV: 'production', AI_PROVIDER: 'mock' })).toThrow(/AI_PROVIDER/);
+  });
+
   it('пустые строки считаются незаданными', () => {
     const env = testEnv({ REDIS_URL: '' as string });
     expect(env.REDIS_URL).toBeUndefined();

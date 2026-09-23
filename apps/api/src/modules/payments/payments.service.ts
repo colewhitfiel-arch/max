@@ -193,7 +193,8 @@ export class PaymentsService {
   }
 
   /**
-   * Пополнение кошелька — заглушка до провайдера (docs/07 F13): сумма зачисляется сразу.
+   * Пополнение кошелька — заглушка до провайдера (docs/07 F13): сумма зачисляется сразу,
+   * без оплаты. Поэтому с настоящим провайдером ручка выключена: иначе она печатала бы деньги.
    * `Idempotency-Key` защищает от повтора: тот же ключ отдаёт прежний баланс, не зачисляя дважды.
    */
   async topUpWallet(
@@ -202,6 +203,8 @@ export class PaymentsService {
     idempotencyKey: string,
   ): Promise<Wallet> {
     const parentId = requireParent(user);
+    if (this.provider.name !== 'fake')
+      throw Errors.notImplemented('Пополнение кошелька через провайдера');
     const key = `wallet:topup:${parentId}:${idempotencyKey}`;
     const replay = await this.kv.get<Wallet>(key);
     if (replay) return replay;

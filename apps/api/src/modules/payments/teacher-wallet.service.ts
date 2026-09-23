@@ -17,6 +17,7 @@ import { GroupsService } from '../groups/groups.service';
 import { IdentityService } from '../identity/identity.service';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentsService } from './payments.service';
+import { PAYMENT_PROVIDER, type PaymentProvider } from './provider/payment-provider';
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -47,6 +48,7 @@ export class TeacherWalletService {
     private readonly payments: PaymentsService,
     private readonly groups: GroupsService,
     private readonly identity: IdentityService,
+    @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProvider,
     @Inject(KV_STORE) private readonly kv: KeyValueStore,
     logger: AppLogger,
   ) {
@@ -77,7 +79,9 @@ export class TeacherWalletService {
 
   /**
    * Вывод средств — заглушка до выплат через провайдера (docs/07 F17): сумма списывается
-   * сразу. `Idempotency-Key` защищает от двойного списания при повторе запроса.
+   * сразу, но никуда не уходит. С настоящим провайдером ручка выключена: иначе преподаватель
+   * увидел бы «выведено» там, где денег не переводили.
+   * `Idempotency-Key` защищает от двойного списания при повторе запроса.
    */
   async withdraw(
     user: AuthUser,
@@ -85,6 +89,8 @@ export class TeacherWalletService {
     idempotencyKey: string,
   ): Promise<TeacherWithdrawal> {
     const teacherId = requireTeacher(user);
+    if (this.provider.name !== 'fake')
+      throw Errors.notImplemented('Вывод средств через провайдера');
     const key = `wallet:withdraw:${teacherId}:${idempotencyKey}`;
     const replay = await this.kv.get<TeacherWithdrawal>(key);
     if (replay) return replay;
