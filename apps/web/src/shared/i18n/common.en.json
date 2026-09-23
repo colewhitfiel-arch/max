@@ -64,7 +64,6 @@
     "emptyStream": "Empty stream",
     "noLaunchParams": "No MAX launch parameters: open the app from the messenger",
     "sdkUnavailable": "MAX SDK not found: the app is opened outside MAX or the SDK is not connected. For browser development use VITE_MAX_MODE=mock.",
-    "mswFailed": "MSW failed to start: check that public/mockServiceWorker.js exists (`pnpm exec msw init public`) and that the browser allows Service Workers. Or switch to VITE_API_MODE=real.",
     "codes": {
       "VALIDATION": "Check the entered data",
       "UNAUTHORIZED": "Please sign in again",

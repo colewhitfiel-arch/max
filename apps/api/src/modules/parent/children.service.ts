@@ -158,11 +158,13 @@ export class ChildrenService {
 }
 
 function requireParent(user: AuthUser): string {
-  if (user.activeRole !== 'PARENT' || !user.profileId) throw Errors.forbidden('Только для родителя');
+  if (user.activeRole !== 'PARENT' || !user.profileId)
+    throw Errors.forbidden('Только для родителя');
   return user.profileId;
 }
 
 function requireStudent(user: AuthUser): string {
-  if (user.activeRole !== 'STUDENT' || !user.profileId) throw Errors.forbidden('Только для ученика');
+  if (user.activeRole !== 'STUDENT' || !user.profileId)
+    throw Errors.forbidden('Только для ученика');
   return user.profileId;
 }

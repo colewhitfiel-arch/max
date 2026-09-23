@@ -22,9 +22,7 @@ export function QuizAnswer({ content, value, onChange, disabled }: QuizAnswerPro
       onChange({ ...value, [questionId]: checked ? [optionId] : [] });
       return;
     }
-    const next = checked
-      ? [...current, optionId]
-      : current.filter((id: string) => id !== optionId);
+    const next = checked ? [...current, optionId] : current.filter((id: string) => id !== optionId);
     onChange({ ...value, [questionId]: next });
   };
 

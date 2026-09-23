@@ -23,7 +23,7 @@ import type {
   HomeworkTaskStatus,
 } from '@edu/contracts';
 import { DEMO_IDS } from '@edu/contracts/fixtures';
-import { addDays, startOfDay } from '../../lib/dates';
+import { addDays, startOfDay } from '@/shared/lib/dates';
 import { dueAtOf, groupBrief, groupIdsOfStudent } from './demo';
 import { hash, roll } from './seed';
 import { db } from './state';

@@ -161,8 +161,8 @@ export class TeacherWalletService {
       kind: row.kind,
       amount: { amountKopecks: row.amountKopecks, currency: 'RUB' as const },
       at: row.at.toISOString(),
-      group: (row.groupId ? (groups.get(row.groupId) ?? null) : null),
-      student: (row.studentId ? (students.get(row.studentId) ?? null) : null),
+      group: row.groupId ? (groups.get(row.groupId) ?? null) : null,
+      student: row.studentId ? (students.get(row.studentId) ?? null) : null,
     }));
   }
 

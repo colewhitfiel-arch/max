@@ -12,9 +12,9 @@ import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { api, call } from '@/shared/api/client';
-import { handlers } from '@/shared/api/mocks/handlers';
-import { apiError, apiUrl } from '@/shared/api/mocks/lib';
-import { db, resetMockDb } from '@/shared/api/mocks/state';
+import { handlers } from '@/test/fake-api/handlers';
+import { apiError, apiUrl } from '@/test/fake-api/lib';
+import { db, resetMockDb } from '@/test/fake-api/state';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import { i18n } from '@/shared/i18n';
@@ -95,10 +95,7 @@ describe('ParentTutorPage', () => {
 
       expect(await screen.findByText('Здравствуйте, Мария!', {}, WAIT)).toBeVisible();
       expect(screen.getByText('про ребёнка: Даша Иванова')).toBeVisible();
-      await user.type(
-        screen.getByRole('textbox'),
-        'Как Даша занимается в последнее время?',
-      );
+      await user.type(screen.getByRole('textbox'), 'Как Даша занимается в последнее время?');
       await user.click(screen.getByRole('button', { name: 'Отправить' }));
 
       expect(await screen.findByLabelText('Вы', {}, WAIT)).toHaveTextContent(

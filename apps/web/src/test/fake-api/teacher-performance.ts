@@ -18,7 +18,7 @@ import type {
   TeacherPerformancePeriod,
 } from '@edu/contracts';
 import { DEMO_IDS } from '@edu/contracts/fixtures';
-import { addDays, startOfDay, toDateOnly } from '../../lib/dates';
+import { addDays, startOfDay, toDateOnly } from '@/shared/lib/dates';
 import { groupBrief, groupsOfTeacher } from './demo';
 import { homeworkOf } from './homework';
 import { roll } from './seed';

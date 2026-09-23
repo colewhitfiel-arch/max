@@ -45,7 +45,7 @@ import {
   userBrief,
   weeklyPoints,
 } from '../demo';
-import { addDays, isSameDay, startOfDay, toDateOnly } from '../../../lib/dates';
+import { addDays, isSameDay, startOfDay, toDateOnly } from '@/shared/lib/dates';
 import {
   clubHomeworkOf,
   homeworkProgress,

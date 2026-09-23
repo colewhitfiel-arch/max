@@ -12,7 +12,7 @@ import type {
   TeacherWalletPeriod,
   TeacherWalletTransaction,
 } from '@edu/contracts';
-import { addDays, startOfDay, toDateOnly } from '../../lib/dates';
+import { addDays, startOfDay, toDateOnly } from '@/shared/lib/dates';
 import { groupBrief, groupsOfTeacher, studentBrief } from './demo';
 import { db } from './state';
 import type { MockTeacherTransaction, MockTeacherWallet } from './world-extras';

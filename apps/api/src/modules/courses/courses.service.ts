@@ -284,9 +284,7 @@ export class CoursesService {
       where: { id: blockId },
       data: {
         ...(body.title !== undefined ? { title: body.title.trim() } : {}),
-        ...(body.content !== undefined
-          ? { content: body.content as Prisma.InputJsonValue }
-          : {}),
+        ...(body.content !== undefined ? { content: body.content as Prisma.InputJsonValue } : {}),
       },
     });
     return updated as unknown as CourseBlock;
@@ -355,7 +353,11 @@ export class CoursesService {
     if (groupIds.length === 0) return result;
     const courses = await this.prisma.course.findMany({
       where: { groupId: { in: groupIds }, status: 'PUBLISHED', deletedAt: null },
-      select: { id: true, groupId: true, modules: { select: { blocks: { select: { id: true } } } } },
+      select: {
+        id: true,
+        groupId: true,
+        modules: { select: { blocks: { select: { id: true } } } },
+      },
     });
     const blockIds = courses.flatMap((course) =>
       course.modules.flatMap((module) => module.blocks.map((block) => block.id)),

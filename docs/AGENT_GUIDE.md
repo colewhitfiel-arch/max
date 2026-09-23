@@ -153,7 +153,7 @@ apps/api/src
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
-Плюс: `pnpm format` (prettier), `pnpm ownership:check` (нет чужих зон), приложение стартует (`pnpm dev`), для FE — экран работает в `VITE_API_MODE=mock` и `real`, для BE — интеграционный тест на контракт. В описании PR: какие контракты изменены и какие FE-задачи затронуты.
+Плюс: `pnpm format` (prettier), `pnpm ownership:check` (нет чужих зон), приложение стартует (`pnpm dev`), для FE — экран работает на настоящем api (`pnpm dev`), для BE — интеграционный тест на контракт. В описании PR: какие контракты изменены и какие FE-задачи затронуты.
 
 ## 18. Файлы с одним владельцем (conflict-sensitive)
 

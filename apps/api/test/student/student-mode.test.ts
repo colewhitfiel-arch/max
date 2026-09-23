@@ -88,9 +88,9 @@ describe.skipIf(!hasTestDatabase)('режим ученика (integration)', () 
       .flatMap((m: { blocks: Array<{ id: string; type: string; content: unknown }> }) => m.blocks)
       .find((b: { id: string }) => b.id === blockId);
     const answers = Object.fromEntries(
-      (quiz.content as { questions: Array<{ id: string; correctOptionIds: string[] }> }).questions.map(
-        (question) => [question.id, question.correctOptionIds],
-      ),
+      (
+        quiz.content as { questions: Array<{ id: string; correctOptionIds: string[] }> }
+      ).questions.map((question) => [question.id, question.correctOptionIds]),
     );
 
     const completed = await http()
@@ -148,7 +148,9 @@ describe.skipIf(!hasTestDatabase)('режим ученика (integration)', () 
       .set('Authorization', `Bearer ${alexey}`)
       .expect(200);
     expect(res.body.lessons.length).toBeGreaterThan(0);
-    expect(res.body.lessons.some((lesson: { attendance: unknown }) => lesson.attendance)).toBe(true);
+    expect(res.body.lessons.some((lesson: { attendance: unknown }) => lesson.attendance)).toBe(
+      true,
+    );
   });
 
   it('каталог фильтрует по категории, карточка кружка содержит группы', async () => {
@@ -157,9 +159,9 @@ describe.skipIf(!hasTestDatabase)('режим ученика (integration)', () 
       .set('Authorization', `Bearer ${alexey}`)
       .expect(200);
     expect(list.body.items.length).toBeGreaterThan(0);
-    expect(list.body.items.every((club: { category: string }) => club.category === 'ROBOTICS')).toBe(
-      true,
-    );
+    expect(
+      list.body.items.every((club: { category: string }) => club.category === 'ROBOTICS'),
+    ).toBe(true);
 
     const detail = await http()
       .get(`${base}/catalog/clubs/${DEMO_IDS.clubs.robotics}`)

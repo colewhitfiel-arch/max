@@ -44,7 +44,6 @@ const toTeacherBrief = (teacher: TeacherBriefRow) => ({
   photoUrl: teacher.photoUrl,
 });
 
-
 /**
  * Каталог кружков (docs/07 F4): список с фильтром по категории, карточка кружка с группами
  * и расписанием, публичный профиль преподавателя. Он же публичный сервис для рекомендаций
@@ -109,10 +108,7 @@ export class CatalogService {
   }
 
   /** Контакты отдаются, только если их открыл и преподаватель, и политика школы. */
-  async getTeacherPublicProfile(
-    user: AuthUser,
-    teacherId: string,
-  ): Promise<TeacherPublicProfile> {
+  async getTeacherPublicProfile(user: AuthUser, teacherId: string): Promise<TeacherPublicProfile> {
     const schoolId = await this.identity.schoolIdOfUser(user);
     const teacher = await this.prisma.teacherProfile.findFirst({
       where: { id: teacherId, ...(schoolId ? { schoolId } : {}) },

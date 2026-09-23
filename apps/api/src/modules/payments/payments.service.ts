@@ -112,8 +112,7 @@ export class PaymentsService {
     }
 
     const enrollment = await this.groups.getEnrollmentForBilling(body.enrollmentId);
-    if (!enrollment || enrollment.studentId !== studentId)
-      throw Errors.notFound('Зачисление');
+    if (!enrollment || enrollment.studentId !== studentId) throw Errors.notFound('Зачисление');
     const amountKopecks = enrollment.priceKopecks * body.periodsCount;
 
     const payment = await this.repo.create({
@@ -225,9 +224,7 @@ export class PaymentsService {
         club: enrollment.group.club,
         paidUntil: paid ? toDateOnly(paid) : null,
         // Следующий платёж — день после оплаченного периода; без оплат — с даты зачисления.
-        nextPaymentAt: toDateOnly(
-          paid ? new Date(paid.getTime() + DAY_MS) : enrollment.enrolledAt,
-        ),
+        nextPaymentAt: toDateOnly(paid ? new Date(paid.getTime() + DAY_MS) : enrollment.enrolledAt),
         price: { amountKopecks: enrollment.priceKopecks, currency: 'RUB' as const },
       };
     });
@@ -343,6 +340,7 @@ export class PaymentsService {
 }
 
 function requireParent(user: AuthUser): string {
-  if (user.activeRole !== 'PARENT' || !user.profileId) throw Errors.forbidden('Только для родителя');
+  if (user.activeRole !== 'PARENT' || !user.profileId)
+    throw Errors.forbidden('Только для родителя');
   return user.profileId;
 }

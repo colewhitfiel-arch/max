@@ -96,6 +96,7 @@ export class StudentDashboardService {
 }
 
 function requireStudent(user: AuthUser): string {
-  if (user.activeRole !== 'STUDENT' || !user.profileId) throw Errors.forbidden('Только для ученика');
+  if (user.activeRole !== 'STUDENT' || !user.profileId)
+    throw Errors.forbidden('Только для ученика');
   return user.profileId;
 }

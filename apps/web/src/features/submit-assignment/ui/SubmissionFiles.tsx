@@ -54,11 +54,7 @@ export function SubmissionFiles({ value, onChange, disabled }: SubmissionFilesPr
         disabled={disabled}
         onChange={(event) => void onPick(event.target.files)}
       />
-      <Button
-        variant="secondary"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-      >
+      <Button variant="secondary" disabled={disabled} onClick={() => inputRef.current?.click()}>
         {t('assignments.files.add')}
       </Button>
       {(value.length > 0 || uploading.length > 0) && (

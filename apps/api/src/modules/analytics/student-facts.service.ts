@@ -290,9 +290,7 @@ export class StudentFactsService {
       return status && ATTENDED.includes(status);
     });
     const activeDays = [
-      ...attendedLessons.map((lesson) =>
-        toDateOnly(facts.timezone, new Date(lesson.startsAt)),
-      ),
+      ...attendedLessons.map((lesson) => toDateOnly(facts.timezone, new Date(lesson.startsAt))),
       ...facts.assignments.flatMap((fact) =>
         fact.submission?.submittedAt
           ? [toDateOnly(facts.timezone, fact.submission.submittedAt)]

@@ -22,7 +22,7 @@ import type {
   WeeklyPoint,
 } from '@edu/contracts';
 import { demoAssignmentDueOffsets, demoSchool, demoTeacherContacts } from '@edu/contracts/fixtures';
-import { addDays, isSameDay, startOfDay, toDateOnly } from '../../lib/dates';
+import { addDays, isSameDay, startOfDay, toDateOnly } from '@/shared/lib/dates';
 import { db, type MockUser, parentOfUser, studentOfUser, teacherOfUser } from './state';
 
 const DAY_MS = 86_400_000;

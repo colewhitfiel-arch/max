@@ -21,7 +21,7 @@ import {
 } from '@edu/contracts';
 import { demoClubs } from '@edu/contracts/fixtures';
 import { http, HttpResponse } from 'msw';
-import { formatRelativeDay } from '../../../lib/dates';
+import { formatRelativeDay } from '@/shared/lib/dates';
 import { buildMe, clubCard, gamification, statsBrief, studentBrief } from '../demo';
 import { childHomework, homeworkCounts, type HomeworkEntry, sumCounts } from '../homework';
 import {

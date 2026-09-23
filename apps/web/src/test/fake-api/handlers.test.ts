@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * Сквозная проверка демо-мира: реальный ts-rest клиент + MSW в Node. Гарантирует, что в
- * `VITE_API_MODE=mock` все хуки страниц получают данные, прошедшие схемы контракта.
+ * фейковом сервере все хуки страниц получают данные, прошедшие схемы контракта.
  */
 import {
   STREAMING_ROUTES,
@@ -17,10 +17,10 @@ import {
 import { DEMO_IDS, demoUsers } from '@edu/contracts/fixtures';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addDays, startOfDay, toDateOnly } from '../../lib/dates';
-import { api, call, setApiAuthAdapter } from '../client';
-import { ApiClientError } from '../errors';
-import { streamSse } from '../sse';
+import { addDays, startOfDay, toDateOnly } from '@/shared/lib/dates';
+import { api, call, setApiAuthAdapter } from '@/shared/api/client';
+import { ApiClientError } from '@/shared/api/errors';
+import { streamSse } from '@/shared/api/sse';
 import { handlers } from './handlers';
 import { db, enableMockPersistence, MOCK_ADHOC_USERS_KEY, resetMockDb } from './state';
 import { MOCK_IDS, MOCK_INVITE_TOKENS, DEMO_TEACHER_WITHDRAWAL_KOPECKS } from './world-extras';

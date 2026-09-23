@@ -169,7 +169,9 @@ export class ParentDashboardService {
         facts.studentId,
         ofGroup.map((fact) => fact.id),
       ),
-      this.courses.blockContentsByIds(ofGroup.flatMap((fact) => (fact.blockId ? [fact.blockId] : []))),
+      this.courses.blockContentsByIds(
+        ofGroup.flatMap((fact) => (fact.blockId ? [fact.blockId] : [])),
+      ),
     ]);
     return {
       group,
@@ -262,6 +264,7 @@ export class ParentDashboardService {
 }
 
 function requireParent(user: AuthUser): string {
-  if (user.activeRole !== 'PARENT' || !user.profileId) throw Errors.forbidden('Только для родителя');
+  if (user.activeRole !== 'PARENT' || !user.profileId)
+    throw Errors.forbidden('Только для родителя');
   return user.profileId;
 }

@@ -41,7 +41,7 @@ pnpm dev
 
 Поднимает пакеты в watch-режиме, api на http://localhost:3000/api/v1 и web на http://localhost:5173. Открой web, выбери демо-пользователя (ученик / родитель / преподаватель) на экране входа. Песочница UI-компонентов — http://localhost:5173/dev/ui. Проверка api: http://localhost:3000/api/v1/health.
 
-Только фронт без бэка: в `.env` поставь `VITE_API_MODE=mock` (MSW-моки на фикстурах).
+Моков в приложении нет: web всегда ходит в api по `VITE_API_URL`, данные — из базы (`pnpm db:seed`). Контрактный фейковый сервер на MSW остался только в тестах (`apps/web/src/test/fake-api`).
 
 ## Команды (из корня)
 
@@ -74,7 +74,6 @@ pnpm dev
 | `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` |
 | `STORAGE_DRIVER` | `local` / `s3` | `local` (`.data/storage`) |
 | `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` |
-| `VITE_API_MODE` | `real` / `mock` | `real` |
 | `VITE_MAX_MODE` | `mock` / `real` | `mock` |
 | `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
 

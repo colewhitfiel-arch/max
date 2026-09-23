@@ -450,7 +450,9 @@ export class AssignmentsService {
    * Публичный сервис: задания преподавателя, где есть неоценённые сдачи («Проверить»
    * на главной). Отсортированы по сроку: сначала то, что горит.
    */
-  async toGradeOfTeacher(teacherId: string): Promise<Array<{ assignment: AssignmentBrief; pendingCount: number }>> {
+  async toGradeOfTeacher(
+    teacherId: string,
+  ): Promise<Array<{ assignment: AssignmentBrief; pendingCount: number }>> {
     const rows = await this.repo.listByTeacher(teacherId, {}, 200, null);
     if (rows.length === 0) return [];
     const submissions = await this.repo.listSubmissionsOfAssignments(rows.map((row) => row.id));
@@ -558,10 +560,7 @@ export class AssignmentsService {
     const row = await this.repo.findForStudentByBlock(studentId, blockId);
     if (!row) return null;
     const submission = await this.repo.findSubmission(row.id, studentId);
-    const [brief] = await this.toBriefs(
-      [row],
-      new Map(submission ? [[row.id, submission]] : []),
-    );
+    const [brief] = await this.toBriefs([row], new Map(submission ? [[row.id, submission]] : []));
     return brief ?? null;
   }
 

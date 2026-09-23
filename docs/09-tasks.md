@@ -18,7 +18,7 @@
 | F3 | `packages/db`: Prisma multi-file schema — **вся модель из 04**, init-миграция, клиент, каркас seed | `packages/db` | `prisma migrate dev` чист; `pnpm db:seed` создаёт демо-мир |
 | F4 | `packages/contracts`: common, enums, errors, events, blocks, **все контракты из 05** (DTO полные, реализация не нужна), фикстуры демо-мира | `packages/contracts` | typecheck; экспорт `apiContract`; снапшот-тест путей и схем |
 | F5 | `apps/api` каркас: Nest, Prisma-модуль, auth (Dev + Max-заглушка), JWT, RolesGuard, фильтр ошибок, zod-pipe, DomainEvents, BullMQ, идемпотентность, health, `worker.ts`, пустые модули по списку | `apps/api/src/{main,worker,app.module}.ts`, `common/`, пустые `modules/*` | `POST /auth/dev` → JWT; `GET /me`; worker стартует и обрабатывает тестовый job |
-| F6 | `apps/web` каркас: Vite, роутер + 3 shell'а + BottomNav, providers, ts-rest клиент, MSW-режим, i18n, тема, max-bridge адаптер + mock, экраны auth/выбора роли, `useAiStream` | `apps/web/src/app`, `apps/web/src/shared`, `pages/auth` | В браузере открываются 3 роли с меню; `VITE_API_MODE=mock` работает |
+| F6 | `apps/web` каркас: Vite, роутер + 3 shell'а + BottomNav, providers, ts-rest клиент, MSW-сервер для тестов, i18n, тема, max-bridge адаптер + mock, экраны auth/выбора роли, `useAiStream` | `apps/web/src/app`, `apps/web/src/shared`, `pages/auth` | В браузере открываются 3 роли с меню |
 | F7 | `packages/ui`: токены, тема, компоненты из 6.4, демо-страница | `packages/ui` | Все компоненты в демо в обеих темах |
 | F8 | `packages/ai`: GigaChat-клиент (OAuth, chat, stream, embeddings), `LlmProvider`, `FakeLlmProvider`, `PromptRegistry`, `parseJsonResponse`, сериализация `StudentContext` | `packages/ai` | Unit на fake; smoke-скрипт на реальном API за флагом |
 

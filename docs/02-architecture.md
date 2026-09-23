@@ -151,7 +151,7 @@ apps/web/src
 - MAX Bridge: `shared/max/` — адаптер `{ getLaunchParams, getTheme, haptic, openLink, storage }`; вне MAX — mock.
 - Тема: CSS-переменные, `data-theme` на `<html>`; по умолчанию из MAX, переопределяется в настройках.
 - i18n: `ru` по умолчанию, `en` — заготовка; словари по namespace на фичу.
-- Моки: MSW-хендлеры по домену + фикстуры из `packages/contracts/src/fixtures`. FE-агент работает с `VITE_API_MODE=mock`.
+- Тесты фронта: контрактный фейковый сервер на MSW в `apps/web/src/test/fake-api` на тех же фикстурах `packages/contracts/src/fixtures`, что и seed базы. В самом приложении моков нет — web всегда ходит в api.
 - Стриминг ИИ: `fetch` + `ReadableStream` (SSE), хук `useAiStream`.
 - WebView: code-splitting по ролям, skeleton'ы на списках, оптимистичные апдейты для посещаемости и прочтения уведомлений.
 

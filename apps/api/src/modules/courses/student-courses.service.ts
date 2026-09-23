@@ -97,7 +97,9 @@ export class StudentCoursesService {
       include: {
         modules: {
           orderBy: { order: 'asc' },
-          include: { blocks: { orderBy: { order: 'asc' }, select: { id: true, title: true, type: true } } },
+          include: {
+            blocks: { orderBy: { order: 'asc' }, select: { id: true, title: true, type: true } },
+          },
         },
       },
       orderBy: { publishedAt: 'desc' },
@@ -264,7 +266,9 @@ export class StudentCoursesService {
   private async requireVisibleCourse(studentId: string, courseId: string) {
     const course = await this.prisma.course.findFirst({
       where: { id: courseId, deletedAt: null },
-      include: { modules: { orderBy: { order: 'asc' }, include: { blocks: { orderBy: { order: 'asc' } } } } },
+      include: {
+        modules: { orderBy: { order: 'asc' }, include: { blocks: { orderBy: { order: 'asc' } } } },
+      },
     });
     // Черновик и архив для ученика не существуют: иначе 403 выдал бы факт наличия курса.
     if (!course || course.status !== 'PUBLISHED') throw Errors.notFound('Курс');
@@ -320,6 +324,7 @@ export class StudentCoursesService {
 }
 
 function requireStudent(user: AuthUser): string {
-  if (user.activeRole !== 'STUDENT' || !user.profileId) throw Errors.forbidden('Только для ученика');
+  if (user.activeRole !== 'STUDENT' || !user.profileId)
+    throw Errors.forbidden('Только для ученика');
   return user.profileId;
 }

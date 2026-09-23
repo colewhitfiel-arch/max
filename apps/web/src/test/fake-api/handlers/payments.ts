@@ -17,7 +17,7 @@ import {
   WithdrawTeacherWalletBodySchema,
 } from '@edu/contracts';
 import { http } from 'msw';
-import { addDays, toDateOnly } from '../../../lib/dates';
+import { addDays, toDateOnly } from '@/shared/lib/dates';
 import { childrenIdsOfParent, clubBrief, enrollmentsOfStudent, studentBrief } from '../demo';
 import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
 import { db, parentOfUser, teacherOfUser } from '../state';

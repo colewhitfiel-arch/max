@@ -17,7 +17,7 @@ max/
 ├── apps/
 │   ├── web/                      # React мини-приложение (@edu/web)
 │   │   ├── index.html · vite.config.ts · vitest.config.ts · eslint.config.js · tsconfig.json
-│   │   ├── public/mockServiceWorker.js   # MSW (VITE_API_MODE=mock)
+│   │   ├── src/test/fake-api/            # MSW-сервер на фикстурах — только для тестов
 │   │   └── src/
 │   │       ├── app/              # main.tsx, App.tsx, providers.tsx, router.tsx, route-error.tsx (errorElement),
 │   │       │                     # bottom-nav.config.ts, shells/{Role,Student,Parent,Teacher}Shell.tsx,

@@ -39,7 +39,10 @@ export interface PaymentProvider {
    * Разбор вебхука провайдера. Возвращает null, если событие не про платёж или не наше.
    * Реализация обязана подтвердить подлинность (подпись или повторный запрос к провайдеру).
    */
-  parseWebhook(headers: Record<string, string | undefined>, body: unknown): Promise<ProviderPaymentState | null>;
+  parseWebhook(
+    headers: Record<string, string | undefined>,
+    body: unknown,
+  ): Promise<ProviderPaymentState | null>;
   /** Актуальный статус платежа — опрос, если вебхук не дошёл. */
   getState(providerPaymentId: string): Promise<ProviderPaymentState>;
 }

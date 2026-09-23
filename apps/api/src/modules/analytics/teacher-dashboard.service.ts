@@ -154,8 +154,7 @@ export class TeacherDashboardService {
           this.assignments.factsOfGroupInPeriod(group.id, from, to),
         ]);
         const countable = lessons.filter(
-          (lesson) =>
-            lesson.status !== 'CANCELLED' && Date.parse(lesson.startsAt) <= to.getTime(),
+          (lesson) => lesson.status !== 'CANCELLED' && Date.parse(lesson.startsAt) <= to.getTime(),
         );
         const marks = await Promise.all(
           roster.map((student) =>
@@ -204,7 +203,8 @@ export class TeacherDashboardService {
     if (period === 'week') return new Date(start.getTime() - 6 * DAY_MS);
     if (period === 'month') return new Date(start.getTime() - 29 * DAY_MS);
     // Учебный год: с 1 сентября текущего года, а до сентября — с прошлого.
-    const year = now.getUTCMonth() >= COURSE_START_MONTH ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+    const year =
+      now.getUTCMonth() >= COURSE_START_MONTH ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
     return new Date(Date.UTC(year, COURSE_START_MONTH, 1));
   }
 

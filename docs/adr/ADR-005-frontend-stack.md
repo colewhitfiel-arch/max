@@ -8,7 +8,7 @@
 ## Решение
 - React 19 + Vite + TypeScript, React Router 7 (library mode), TanStack Query 5, Zustand (только UI-состояние), Tailwind 4 + CSS-переменные для тем, i18next.
 - Структура FSD-lite: `app → pages → widgets → features → entities → shared`, страницы разделены по ролям; каждая фича экспортирует свои `routes.tsx`.
-- MSW в режиме `VITE_API_MODE=mock` с фикстурами из `packages/contracts` — FE-задачи не ждут бэк.
+- MSW с фикстурами из `packages/contracts` — фейковый сервер для тестов фронта (`src/test/fake-api`). Режим моков в приложении убран, когда api реализовал весь контракт.
 - SSE-стрим через `fetch` + `ReadableStream`.
 - Собственная лёгкая дизайн-система в `packages/ui`; без тяжёлых UI-библиотек (WebView, размер бандла).
 

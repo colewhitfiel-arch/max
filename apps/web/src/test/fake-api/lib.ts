@@ -18,7 +18,7 @@ import {
   type PathParams,
 } from 'msw';
 import type { z } from 'zod';
-import { config } from '../../config';
+import { config } from '@/shared/config';
 import { db, type MockUser, parentOfUser } from './state';
 
 export const apiUrl = (path: string) => `${config.apiUrl}${path}`;

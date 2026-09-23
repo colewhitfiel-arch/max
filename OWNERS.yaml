@@ -237,8 +237,8 @@ owners:
     - apps/web/src/features/upload-file/**
     - apps/web/src/entities/generation/**
     - apps/web/src/entities/file/**
-    - apps/web/src/shared/api/mocks/handlers/course-builder.ts
-    - apps/web/src/shared/api/mocks/handlers/files.ts
+    - apps/web/src/test/fake-api/handlers/course-builder.ts
+    - apps/web/src/test/fake-api/handlers/files.ts
     - apps/api/test/course-builder/**
   ws-H-schedule-attendance:
     - apps/api/src/modules/schedule/**
@@ -269,7 +269,7 @@ owners:
   ws-K-gigachat:
     - packages/ai/src/providers/gigachat/**
     - packages/ai/README.md
-    - scripts/smoke-gigachat.mjs # файла ещё нет — зарезервировано
+    - scripts/smoke-gigachat.mjs
   ws-L-notifications-support:
     - apps/api/src/modules/notifications/**
     - apps/api/src/modules/support/**

@@ -30,7 +30,7 @@ import {
   materializeDemoLessons,
   materializeLessons,
 } from '@edu/contracts/fixtures';
-import { addDays, toDateOnly } from '../../lib/dates';
+import { addDays, toDateOnly } from '@/shared/lib/dates';
 import { roll } from './seed';
 
 const DAY_MS = 86_400_000;

@@ -8,14 +8,6 @@ import { createMaxBridge, type MaxBridge } from '@/shared/max';
 import { App } from './App';
 import { Providers } from './providers';
 
-async function startMocks(): Promise<void> {
-  const { worker } = await import('@/shared/api/mocks/browser');
-  await worker.start({
-    onUnhandledRequest: 'bypass',
-    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
-  });
-}
-
 function renderFatal(root: ReturnType<typeof createRoot>, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   root.render(
@@ -33,17 +25,6 @@ async function bootstrap(): Promise<void> {
   const container = document.getElementById('root');
   if (!container) throw new Error('Нет элемента #root');
   const root = createRoot(container);
-
-  if (config.apiMode === 'mock') {
-    try {
-      await startMocks();
-    } catch (error) {
-      // Без Service Worker mock-режим не работает (нет public/mockServiceWorker.js или SW запрещён).
-      console.error('[msw] не удалось запустить мок-воркер', error);
-      renderFatal(root, new Error(i18n.t('common:errors.mswFailed')));
-      return;
-    }
-  }
 
   let bridge: MaxBridge;
   try {

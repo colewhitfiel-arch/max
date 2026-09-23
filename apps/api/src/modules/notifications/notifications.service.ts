@@ -110,14 +110,13 @@ export class NotificationsService {
    * Публичный сервис: разослать уведомление адресатам, у которых этот тип включён.
    * Дубли (`userIds` с повторами) схлопываются; пустой список — no-op.
    */
-  async notify(
-    userIds: string[],
-    data: Omit<CreateNotificationData, 'userId'>,
-  ): Promise<number> {
+  async notify(userIds: string[], data: Omit<CreateNotificationData, 'userId'>): Promise<number> {
     const unique = [...new Set(userIds)].filter(Boolean);
     if (unique.length === 0) return 0;
     const settings = await this.repo.settingsOf(unique);
-    const allowed = unique.filter((userId) => settings.get(userId)?.[SETTING_OF[data.type]] ?? true);
+    const allowed = unique.filter(
+      (userId) => settings.get(userId)?.[SETTING_OF[data.type]] ?? true,
+    );
     const created = await this.repo.createMany(allowed.map((userId) => ({ userId, ...data })));
     if (created > 0) this.log.info({ type: data.type, count: created }, 'уведомления созданы');
     return created;

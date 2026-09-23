@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { BillingPeriod, GroupBrief, LessonDto, ScheduleRuleDto, StudentBrief } from '@edu/contracts';
+import type {
+  BillingPeriod,
+  GroupBrief,
+  LessonDto,
+  ScheduleRuleDto,
+  StudentBrief,
+} from '@edu/contracts';
 import { Errors } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -60,7 +66,6 @@ function toGroupBrief(group: GroupWithBrief): GroupBrief {
     teacher: { id: group.teacher.id, user: group.teacher.user, photoUrl: group.teacher.photoUrl },
   };
 }
-
 
 /** Зачисление с ценой и расписанием: то, что нужно оплатам и кружкам ребёнка. */
 export interface EnrollmentForBilling {
