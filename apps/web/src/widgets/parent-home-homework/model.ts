@@ -4,7 +4,6 @@ import chess from './assets/club-chess.png';
 import chinese from './assets/club-chinese.png';
 import english from './assets/club-english.png';
 import programming from './assets/club-programming.png';
-import projectAlt from './assets/club-project-alt.png';
 import project from './assets/club-project.png';
 import robotics from './assets/club-robotics.png';
 import speaking from './assets/club-speaking.png';
@@ -25,9 +24,10 @@ export function bubbleSize(done: number, recommended: number): number {
 }
 
 /**
- * Картинка кружка в круге: шахматы и робототехника — зелёные из макета родителя, остальные —
- * ближайшие из набора предметов ученика. Как и у ученика, языки и «прочее» уточняются по
- * названию (китайский, ораторское искусство, проектная деятельность).
+ * Картинка кружка (зелёный набор режима родителя; круги «Выполненные задания» и карточки
+ * «Кружки для ваших детей»). Как и у ученика, языки и «прочее» уточняются по названию
+ * (китайский, ораторское искусство, проектная деятельность); категории без своей картинки
+ * (математика, музыка, спорт, прочее) получают «проектную».
  */
 export function clubArt({ title, category }: Pick<ClubBrief, 'title' | 'category'>): string {
   const name = title.toLowerCase();
@@ -45,9 +45,7 @@ export function clubArt({ title, category }: Pick<ClubBrief, 'title' | 'category
       return english;
     case 'ART':
       return art;
-    case 'SCIENCE':
-      return project;
     default:
-      return projectAlt;
+      return project;
   }
 }
