@@ -140,7 +140,7 @@ export const dashboardsHandlers = [
           stats,
           interests: student.interests,
           goals: student.goals,
-          // Те же заглушки геймификации, что на главной (формулы — в modules/analytics).
+          // Серия и кристаллы — как на главной, по правилам analytics (docs/04 §4.6).
           ...gamification(student.id),
           // «Успеваемость»: неделя посещений и задания по кружкам (docs/04 §4.6).
           week: weekOfStudent(student.id, lessonsOfGroups(groupIds)),

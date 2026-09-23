@@ -1,73 +1,37 @@
+import type { HomeworkCounts, StudentProfileDto } from '@edu/contracts';
 import {
   Button,
   Card,
   CopyIcon,
-  HeartIcon,
+  EmptyState,
   IconTile,
   Inline,
   LinkIcon,
   Screen,
+  Skeleton,
   Stack,
-  Tag,
-  TargetIcon,
   Text,
   useToast,
 } from '@edu/ui';
-import type { ReactNode } from 'react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useStudentProfile } from '@/entities/dashboard';
 import { useMe } from '@/shared/auth/hooks';
 import { useMaxBridge } from '@/shared/max';
-import { AsyncState, DashboardSkeleton, ScreenHeader } from '@/shared/ui';
-import { ClubProgressList } from '@/widgets/club-progress-list';
+import { AsyncState, ScreenHeader } from '@/shared/ui';
+import { ClubHomeworkBand, HomeworkPieCard } from '@/widgets/homework-performance';
+import { AttendanceWeekCard } from '@/widgets/student-home-attendance';
 import { StudentProfileHero } from '@/widgets/student-profile-hero';
-import { StudentProfileStats } from '@/widgets/student-profile-stats';
 import { TrajectoryCard } from '@/widgets/trajectory';
 
-/** Секция экрана: заголовок как у карточек главной + содержимое. */
-function Section({ title, children }: { title: ReactNode; children: ReactNode }) {
-  return (
-    <Stack gap={2}>
-      <Text as="h2" variant="body" weight="bold">
-        {title}
-      </Text>
-      {children}
-    </Stack>
-  );
-}
+/** Параметр URL с раскрытым кружком: после возврата из задания сетка остаётся открытой. */
+const EXPANDED_PARAM = 'club';
 
-/** Интересы / цели одной карточкой: иконка-маркер + теги. */
-function TagsCard({
-  icon,
-  title,
-  items,
-  tone,
-}: {
-  icon: ReactNode;
-  title: string;
-  items: string[];
-  tone: 'info' | 'success';
-}) {
-  return (
-    <Card>
-      <Stack gap={3}>
-        <Inline gap={2} wrap={false}>
-          <IconTile tone={tone} size="sm">
-            {icon}
-          </IconTile>
-          <Text as="h2" variant="body" weight="bold">
-            {title}
-          </Text>
-        </Inline>
-        <Inline gap={2}>
-          {items.map((item) => (
-            <Tag key={item}>{item}</Tag>
-          ))}
-        </Inline>
-      </Stack>
-    </Card>
-  );
-}
+const NO_HOMEWORK: HomeworkCounts = { correct: 0, wrong: 0, upcoming: 0 };
+
+/** У ученика «правильно» — больше 75%, как для кристаллов (у родителя — 30%), docs/04 §4.6. */
+const STUDENT_FAIL_PERCENT = 75;
 
 /** Код для привязки родителя: крупно, с копированием в буфер. */
 function LinkCodeCard({ code }: { code: string }) {
@@ -118,9 +82,79 @@ function LinkCodeCard({ code }: { code: string }) {
   );
 }
 
+function ProfileSkeleton() {
+  return (
+    <Stack gap={6} aria-busy="true">
+      <Stack gap={3} align="center">
+        <Skeleton width={96} height={96} round />
+        <Skeleton width="50%" height={24} />
+      </Stack>
+      <Skeleton height={159} />
+      <Skeleton height={150} />
+      <Skeleton height={102} />
+    </Stack>
+  );
+}
+
 /**
- * `/student/profile` — герой с аватаром и серией/баллами, статистика за 30 дней,
- * интересы и цели, кружки, «Моя траектория» (F5), код для родителя.
+ * «Успеваемость» по макету (как у родителя, но «правильно» — больше 75%): дуга посещений недели,
+ * круговая диаграмма домашних задач и полосы кружков. «Подробнее» раскрывает сетку заданий
+ * кружка (одна за раз, в `?club=`); клетка открывает само задание — доделать или посмотреть
+ * оценку и комментарий преподавателя.
+ */
+function Performance({ profile }: { profile: StudentProfileDto }) {
+  const { t } = useTranslation('student');
+  const navigate = useNavigate();
+  const titleId = useId();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const expandedGroupId = searchParams.get(EXPANDED_PARAM);
+  const clubs = profile.clubHomework ?? [];
+
+  const toggle = (groupId: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (next.get(EXPANDED_PARAM) === groupId) next.delete(EXPANDED_PARAM);
+        else next.set(EXPANDED_PARAM, groupId);
+        return next;
+      },
+      { replace: true },
+    );
+
+  return (
+    <Stack as="section" gap={6} aria-labelledby={titleId}>
+      <Text as="h2" id={titleId} variant="title" weight="regular" align="center">
+        {t('profile.performance')}
+      </Text>
+      {profile.week && profile.week.length > 0 && <AttendanceWeekCard week={profile.week} />}
+      <HomeworkPieCard counts={profile.homework ?? NO_HOMEWORK} />
+      {clubs.length === 0 ? (
+        <EmptyState
+          title={t('profile.homeworkEmpty')}
+          description={t('profile.homeworkEmptyHint')}
+        />
+      ) : (
+        <Stack gap={4} role="group" aria-label={t('profile.homeworkByClub')}>
+          {clubs.map((item) => (
+            <ClubHomeworkBand
+              key={item.group.id}
+              item={item}
+              failPercent={STUDENT_FAIL_PERCENT}
+              expanded={expandedGroupId === item.group.id}
+              onToggle={() => toggle(item.group.id)}
+              onSelectTask={(assignmentId) => navigate(`/student/assignments/${assignmentId}`)}
+            />
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * `/student/profile` — кто я (аватар, имя, школа · класс, серия и кристаллы) и как у меня дела:
+ * «Успеваемость» по макету, затем «Моя траектория» (F5) и код для привязки родителя.
+ * Данные — `GET /student/profile` (`week`, `homework`, `clubHomework` — как в аналитике родителя).
  */
 export function ProfilePage() {
   const { t } = useTranslation('student');
@@ -130,35 +164,12 @@ export function ProfilePage() {
   return (
     <>
       <ScreenHeader title={t('profile.title')} bell />
-      <Screen gap={5}>
-        <AsyncState query={query} skeleton={<DashboardSkeleton />}>
+      <Screen gap={6}>
+        <AsyncState query={query} skeleton={<ProfileSkeleton />}>
           {(profile) => (
             <>
               <StudentProfileHero profile={profile} />
-              <StudentProfileStats stats={profile.stats} />
-
-              {profile.interests.length > 0 && (
-                <TagsCard
-                  icon={<HeartIcon />}
-                  title={t('profile.interests')}
-                  items={profile.interests}
-                  tone="info"
-                />
-              )}
-              {profile.goals.length > 0 && (
-                <TagsCard
-                  icon={<TargetIcon />}
-                  title={t('profile.goals')}
-                  items={profile.goals}
-                  tone="success"
-                />
-              )}
-
-              {profile.clubs.length > 0 && (
-                <Section title={t('profile.clubs')}>
-                  <ClubProgressList clubs={profile.clubs} />
-                </Section>
-              )}
+              <Performance profile={profile} />
             </>
           )}
         </AsyncState>
