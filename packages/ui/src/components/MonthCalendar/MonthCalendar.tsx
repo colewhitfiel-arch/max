@@ -200,7 +200,12 @@ export function MonthCalendar({
               const isSelected = !!selected && sameDay(date, selected);
               const extra = describeDay?.(date);
               return (
-                <span key={col} className="ui-month-calendar__cell" role="gridcell">
+                <span
+                  key={col}
+                  className="ui-month-calendar__cell"
+                  role="gridcell"
+                  aria-selected={isSelected}
+                >
                   <button
                     type="button"
                     className="ui-month-calendar__day"

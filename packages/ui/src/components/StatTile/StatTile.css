@@ -11,19 +11,19 @@
 }
 
 .ui-stat-tile[data-tone='info'] {
-  --ui-stat-color: var(--ui-color-primary);
+  --ui-stat-color: var(--ui-color-primary-text);
 }
 
 .ui-stat-tile[data-tone='success'] {
-  --ui-stat-color: var(--ui-color-success);
+  --ui-stat-color: var(--ui-color-success-text);
 }
 
 .ui-stat-tile[data-tone='warning'] {
-  --ui-stat-color: var(--ui-color-warning);
+  --ui-stat-color: var(--ui-color-warning-text);
 }
 
 .ui-stat-tile[data-tone='danger'] {
-  --ui-stat-color: var(--ui-color-danger);
+  --ui-stat-color: var(--ui-color-danger-text);
 }
 
 .ui-stat-tile__head {

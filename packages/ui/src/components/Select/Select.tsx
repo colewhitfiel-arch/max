@@ -12,7 +12,10 @@ export interface SelectOption {
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children'> {
   /** Список опций. */
   options: SelectOption[];
-  /** Плейсхолдер: недоступная опция с пустым значением в начале списка. */
+  /**
+   * Плейсхолдер: недоступная опция с пустым значением в начале списка. Без `value`/`defaultValue`
+   * (неконтролируемый режим) выбран изначально он, а не первая реальная опция.
+   */
   placeholder?: string;
   /** Состояние ошибки (`aria-invalid`). Внутри `Field` с `error` ставится автоматически. */
   invalid?: boolean;
@@ -30,8 +33,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     'aria-invalid': invalid,
     'aria-describedby': rest['aria-describedby'],
   });
+  // Без явного значения браузер пропускает disabled-плейсхолдер и выбирает первую опцию.
+  const placeholderDefault =
+    placeholder != null && rest.value === undefined && rest.defaultValue === undefined
+      ? ''
+      : undefined;
   return (
-    <select ref={ref} className={cx('ui-select', className)} {...rest} {...control}>
+    <select
+      ref={ref}
+      className={cx('ui-select', className)}
+      defaultValue={placeholderDefault}
+      {...rest}
+      {...control}
+    >
       {placeholder != null && (
         <option value="" disabled>
           {placeholder}

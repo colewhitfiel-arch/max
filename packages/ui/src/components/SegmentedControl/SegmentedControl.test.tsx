@@ -42,4 +42,11 @@ describe('SegmentedControl', () => {
     expect(onChange).toHaveBeenLastCalledWith('7');
     expect(screen.getByRole('radio', { name: '7 дней' })).toHaveFocus();
   });
+
+  it('value вне options: первая доступная опция остаётся в tab-order', () => {
+    render(<SegmentedControl aria-label="Период" options={periods} value="90" />);
+    const radios = screen.getAllByRole('radio');
+    expect(radios.map((radio) => radio.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
+    expect(radios.every((radio) => radio.getAttribute('aria-checked') === 'false')).toBe(true);
+  });
 });

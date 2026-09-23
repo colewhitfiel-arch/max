@@ -43,4 +43,11 @@ describe('ChatComposer', () => {
     await user.click(screen.getByRole('button', { name: 'Остановить' }));
     expect(onStop).toHaveBeenCalledTimes(1);
   });
+
+  it('имя поля: inputLabel → placeholder → «Сообщение»', () => {
+    const { rerender } = render(<Harness inputLabel="Вопрос репетитору" />);
+    expect(screen.getByRole('textbox', { name: 'Вопрос репетитору' })).toBeInTheDocument();
+    rerender(<Harness placeholder={undefined} />);
+    expect(screen.getByRole('textbox', { name: 'Сообщение' })).toBeInTheDocument();
+  });
 });

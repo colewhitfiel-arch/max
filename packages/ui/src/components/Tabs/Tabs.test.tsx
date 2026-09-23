@@ -44,4 +44,11 @@ describe('Tabs', () => {
     expect(onChange).toHaveBeenCalledWith('b');
     expect(screen.getByRole('tab', { name: 'Первая' })).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('value вне items: первая доступная вкладка остаётся в tab-order', () => {
+    render(<Tabs items={items} value="нет-такой" onChange={() => {}} />);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
+    expect(tabs.every((tab) => tab.getAttribute('aria-selected') === 'false')).toBe(true);
+  });
 });

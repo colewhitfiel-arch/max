@@ -52,12 +52,21 @@
   fill: var(--ui-week-arc-tone, var(--ui-color-text-muted));
 }
 
-/* Подписи на цветных плашках — тёмные (как в макете), на приглушённых — muted. */
+/* Подписи на цветных плашках — тёмные (как в макете), на синей и красной — белые (тёмные там
+ * не проходят AA), на приглушённых — muted. */
 .ui-week-arc__chip-label {
-  fill: #000000;
+  fill: var(--ui-color-on-bright);
   font-family: var(--ui-font-family);
   font-size: 12px;
   font-weight: var(--ui-font-weight-regular);
+}
+
+.ui-week-arc__chip[data-tone='info'] .ui-week-arc__chip-label {
+  fill: var(--ui-color-on-info);
+}
+
+.ui-week-arc__chip[data-tone='danger'] .ui-week-arc__chip-label {
+  fill: var(--ui-color-on-danger);
 }
 
 .ui-week-arc__chip[data-tone='muted'] .ui-week-arc__chip-label {

@@ -31,6 +31,8 @@ export interface DialogBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 't
   closeOnEscape?: boolean;
   /** Показывать кнопку «Закрыть» в шапке. По умолчанию `true`. */
   showClose?: boolean;
+  /** Доступное имя кнопки закрытия (для i18n). По умолчанию «Закрыть». */
+  closeLabel?: string;
   /** Элемент, который получит фокус при открытии. По умолчанию — первый фокусируемый. */
   initialFocusRef?: RefObject<HTMLElement | null>;
 }
@@ -57,6 +59,7 @@ export function DialogBase({
   closeOnBackdrop = true,
   closeOnEscape = true,
   showClose = true,
+  closeLabel = 'Закрыть',
   initialFocusRef,
   className,
   onKeyDown,
@@ -108,7 +111,7 @@ export function DialogBase({
             {showClose && (
               <IconButton
                 className={`${prefix}__close`}
-                aria-label="Закрыть"
+                aria-label={closeLabel}
                 size="sm"
                 onClick={onClose}
               >

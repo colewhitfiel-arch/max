@@ -31,8 +31,12 @@
   border-radius: var(--ui-radius-lg);
 }
 
-.ui-icon-tile:not([data-tone='neutral']) {
-  background: color-mix(in srgb, var(--ui-icon-tile-color) 16%, transparent);
+/* color-mix с var() нельзя «подстраховать» второй строкой (невалидность видна только при
+ * вычислении), поэтому — через @supports; без него (Safari < 16.2) — запасной вариант выше. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-icon-tile:not([data-tone='neutral']) {
+    background: color-mix(in srgb, var(--ui-icon-tile-color) 16%, transparent);
+  }
 }
 
 .ui-icon-tile[data-tone='info'] {

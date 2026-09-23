@@ -1,4 +1,4 @@
-import { forwardRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import type { Tone } from '../../types';
 import './CardColumns.css';
@@ -93,6 +93,10 @@ function isStriped(striped: CardColumnsProps['striped'], index: number): boolean
 /**
  * Таблица из отдельных карточек-колонок: каждая колонка — своя карточка, но строки
  * выровнены между колонками (CSS subgrid), даже если текст переносится.
+ *
+ * Доступность: DOM идёт по колонкам (так требует subgrid), а таблица читается по строкам —
+ * обёртки колонок без роли (`role="none"`), строки `role="row"` — пустые узлы вне сетки,
+ * собирающие свои ячейки через `aria-owns`.
  */
 export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function CardColumns(
   {
@@ -117,10 +121,15 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
   } as CSSProperties;
   const hasAction = columns.some((column) => column.action);
   const lastRow = rows.length - 1;
+  const baseId = useId();
+  const headerId = (col: number) => `${baseId}-h${col}`;
+  const cellId = (row: number, col: number) => `${baseId}-r${row}c${col}`;
+  const actionId = (col: number) => `${baseId}-a${col}`;
 
-  const header = (column: CardColumn) => (
+  const header = (column: CardColumn, col: number) => (
     <div
       key={column.key}
+      id={headerId(col)}
       className={
         showHeader ? 'ui-card-columns__cell ui-card-columns__header' : 'ui-visually-hidden'
       }
@@ -148,29 +157,27 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
       )}
       {compact && (
         // Заголовки над карточками — отдельная строка той же сетки (subgrid по колонкам).
-        <div
-          className={showHeader ? 'ui-card-columns__head' : 'ui-visually-hidden'}
-          role="rowgroup"
-        >
+        <div className={showHeader ? 'ui-card-columns__head' : 'ui-visually-hidden'} role="none">
           {columns.map(header)}
         </div>
       )}
-      {columns.map((column) => (
+      {columns.map((column, col) => (
         <div
           key={column.key}
           className="ui-card-columns__column"
-          role="rowgroup"
+          role="none"
           data-align={column.align ?? 'start'}
           data-nowrap={column.nowrap || undefined}
           data-action={column.action ? '' : undefined}
         >
-          {!compact && header(column)}
+          {!compact && header(column, col)}
           {rows.map((row, index) => {
             const stripe = isStriped(striped, index);
             const filled = stripe || row.tone !== undefined;
             return (
               <div
                 key={row.key}
+                id={cellId(index, col)}
                 className="ui-card-columns__cell"
                 role="cell"
                 data-stripe={stripe || undefined}
@@ -184,7 +191,7 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
           })}
           {column.action && (
             // Вне сетки строк (subgrid не растягивается): полоса висит под карточкой.
-            <div className="ui-card-columns__action-cell" role="cell">
+            <div className="ui-card-columns__action-cell" id={actionId(col)} role="cell">
               <button
                 type="button"
                 className="ui-card-columns__action"
@@ -206,6 +213,29 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
           )}
         </div>
       ))}
+      {/* Строки для скринридера: вне потока сетки, ячейки — через aria-owns. */}
+      <div
+        className="ui-card-columns__row"
+        role="row"
+        aria-owns={columns.map((_, col) => headerId(col)).join(' ')}
+      />
+      {rows.map((row, index) => (
+        <div
+          key={row.key}
+          className="ui-card-columns__row"
+          role="row"
+          aria-owns={columns.map((_, col) => cellId(index, col)).join(' ')}
+        />
+      ))}
+      {hasAction && (
+        <div
+          className="ui-card-columns__row"
+          role="row"
+          aria-owns={columns
+            .flatMap((column, col) => (column.action ? [actionId(col)] : []))
+            .join(' ')}
+        />
+      )}
     </div>
   );
 });

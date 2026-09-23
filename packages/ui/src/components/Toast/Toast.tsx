@@ -22,11 +22,22 @@ export interface ToastProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'
   action?: ToastAction;
   /** Закрытие крестиком. Без обработчика крестик не показывается. */
   onDismiss?: () => void;
+  /** Доступное имя крестика (для i18n). По умолчанию «Закрыть». */
+  closeLabel?: string;
 }
 
 /** Презентационный тост. Обычно показывается через `useToast()`, но можно рендерить и вручную. */
 export const Toast = forwardRef<HTMLDivElement, ToastProps>(function Toast(
-  { tone = 'neutral', title, description, action, onDismiss, className, ...rest },
+  {
+    tone = 'neutral',
+    title,
+    description,
+    action,
+    onDismiss,
+    closeLabel = 'Закрыть',
+    className,
+    ...rest
+  },
   ref,
 ) {
   return (
@@ -41,7 +52,12 @@ export const Toast = forwardRef<HTMLDivElement, ToastProps>(function Toast(
         </Button>
       )}
       {onDismiss && (
-        <IconButton className="ui-toast__close" aria-label="Закрыть" size="sm" onClick={onDismiss}>
+        <IconButton
+          className="ui-toast__close"
+          aria-label={closeLabel}
+          size="sm"
+          onClick={onDismiss}
+        >
           <CloseIcon size={18} />
         </IconButton>
       )}

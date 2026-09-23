@@ -45,6 +45,18 @@
   /* Совсем второстепенный текст: подписи дней над таблицей («вчера», «сегодня»). Светлее
    * основного, но с контрастом AA: 4.9:1 на фоне, 5.4:1 на белой поверхности. */
   --ui-color-text-subtle: #636b77;
+  /* Брендовые цвета как ЦВЕТ ТЕКСТА (AA ≥ 4.5:1 на поверхностях и подложках тона 14%).
+   * Заливки (кнопки, чипы, графики) остаются на --ui-color-primary/-success/-warning/-danger —
+   * это цвета макета; в тёмной теме они как текст темнее нормы, поэтому текст — отдельно. */
+  --ui-color-primary-text: var(--ui-color-primary);
+  --ui-color-success-text: #12702f;
+  --ui-color-warning-text: #8a5300;
+  --ui-color-danger-text: var(--ui-color-danger);
+  /* Текст на заливках danger и info (числа в секторах графиков): белый — 6:1 и 5.5:1. */
+  --ui-color-on-danger: #ffffff;
+  --ui-color-on-info: #ffffff;
+  /* Шеврон Select: токены внутри url() не подставляются, поэтому SVG целиком — по теме. */
+  --ui-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7380' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
   /* Типографика */
   --ui-font-family:
@@ -120,6 +132,11 @@
     --ui-color-danger: #c90000;
     --ui-color-border: #2a2a2a;
     --ui-color-focus: #5b8def;
+    --ui-color-primary-text: #6f9cf2;
+    --ui-color-success-text: var(--ui-color-success);
+    --ui-color-warning-text: var(--ui-color-warning);
+    --ui-color-danger-text: #ff6b6b;
+    --ui-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9b9b9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     --ui-color-bg-glow: rgba(13, 63, 208, 0.45);
     --ui-shadow-sm: none;
     --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -145,6 +162,11 @@
   --ui-color-danger: #c90000;
   --ui-color-border: #2a2a2a;
   --ui-color-focus: #5b8def;
+  --ui-color-primary-text: #6f9cf2;
+  --ui-color-success-text: var(--ui-color-success);
+  --ui-color-warning-text: var(--ui-color-warning);
+  --ui-color-danger-text: #ff6b6b;
+  --ui-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9b9b9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --ui-color-bg-glow: rgba(13, 63, 208, 0.45);
   --ui-shadow-sm: none;
   --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -154,11 +176,15 @@
  * Акцент палитры (applyAccent из src/theme.ts): data-accent="green" на <html> — режим
  * родителя из макета (primary #0cce02, сердце #2cda00, бирюзовый #00da91, зелёное свечение).
  * Без атрибута — синий акцент ученика (значения выше).
- * Светлая тема — более тёмные зелёные для контраста на белом (в макете её нет).
+ * Текст на зелёной заливке тёмный (`--ui-color-on-bright`: 5.3:1 на #1a9a12, 9.1:1 на #0cce02;
+ * белый дал бы 3.7:1 и 2.1:1), белая — только иконка на акцентном круге меню, как в макете.
+ * Светлая тема (в макете её нет): зелёный как цвет текста — тёмный #11690d (5.5:1 на белом).
  */
 :root[data-accent='green'] {
   --ui-color-primary: #1a9a12;
-  --ui-color-primary-contrast: #ffffff;
+  --ui-color-primary-contrast: var(--ui-color-on-bright);
+  --ui-color-prominent-fg: #ffffff;
+  --ui-color-primary-text: #11690d;
   --ui-color-focus: #1a9a12;
   --ui-color-accent-1: #21a800;
   --ui-color-accent-2: #00a870;
@@ -168,7 +194,8 @@
 @media (prefers-color-scheme: dark) {
   :root[data-accent='green']:not([data-theme='light']) {
     --ui-color-primary: #0cce02;
-    --ui-color-primary-contrast: #ffffff;
+    --ui-color-primary-contrast: var(--ui-color-on-bright);
+    --ui-color-primary-text: var(--ui-color-primary);
     --ui-color-focus: #2cda00;
     --ui-color-accent-1: #2cda00;
     --ui-color-accent-2: #00da91;
@@ -179,7 +206,8 @@
 /* Тёмная тема: принудительная (значения продублированы, как и у базовых токенов). */
 :root[data-accent='green'][data-theme='dark'] {
   --ui-color-primary: #0cce02;
-  --ui-color-primary-contrast: #ffffff;
+  --ui-color-primary-contrast: var(--ui-color-on-bright);
+  --ui-color-primary-text: var(--ui-color-primary);
   --ui-color-focus: #2cda00;
   --ui-color-accent-1: #2cda00;
   --ui-color-accent-2: #00da91;
@@ -198,6 +226,7 @@
   --ui-color-primary: #a05f00;
   --ui-color-primary-contrast: #ffffff;
   --ui-color-prominent-fg: #ffffff;
+  --ui-color-primary-text: var(--ui-color-primary);
   --ui-color-focus: #a05f00;
   --ui-color-accent-1: #d98a00;
   --ui-color-accent-2: #ffa600;
@@ -208,6 +237,7 @@
   :root[data-accent='orange']:not([data-theme='light']) {
     --ui-color-primary: #ffa600;
     --ui-color-primary-contrast: var(--ui-color-on-bright);
+    --ui-color-primary-text: var(--ui-color-primary);
     --ui-color-focus: #ffa600;
     --ui-color-accent-1: #ffa600;
     --ui-color-accent-2: #ffa600;
@@ -219,6 +249,7 @@
 :root[data-accent='orange'][data-theme='dark'] {
   --ui-color-primary: #ffa600;
   --ui-color-primary-contrast: var(--ui-color-on-bright);
+  --ui-color-primary-text: var(--ui-color-primary);
   --ui-color-focus: #ffa600;
   --ui-color-accent-1: #ffa600;
   --ui-color-accent-2: #ffa600;

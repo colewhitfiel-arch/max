@@ -18,7 +18,7 @@
   min-width: max-content;
   padding: 0 var(--ui-space-2);
   background: var(--ui-segment-bar-color);
-  color: #0d0d0d;
+  color: var(--ui-color-on-bright);
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -29,7 +29,7 @@
 
 .ui-segment-bar__segment[data-tone='info'] {
   --ui-segment-bar-color: var(--ui-color-info);
-  color: #ffffff;
+  color: var(--ui-color-on-info);
 }
 
 .ui-segment-bar__segment[data-tone='success'] {
@@ -42,4 +42,5 @@
 
 .ui-segment-bar__segment[data-tone='danger'] {
   --ui-segment-bar-color: var(--ui-color-danger);
+  color: var(--ui-color-on-danger);
 }

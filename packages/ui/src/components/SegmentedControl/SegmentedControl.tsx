@@ -53,10 +53,16 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
     const firstEnabled = options.find((o) => !o.disabled)?.value ?? options[0]?.value ?? '';
     const [current, setCurrent] = useControllable(value, defaultValue ?? firstEnabled, onChange);
     const refs = useRef(new Map<string, HTMLButtonElement>());
-    const currentIndex = Math.max(
-      0,
-      options.findIndex((o) => o.value === current),
-    );
+    const matchedIndex = options.findIndex((o) => o.value === current);
+    // Roving tabindex: если value не совпал ни с одной опцией, в tab-order — первая доступная,
+    // иначе группа недостижима с клавиатуры.
+    const currentIndex =
+      matchedIndex >= 0
+        ? matchedIndex
+        : Math.max(
+            0,
+            options.findIndex((o) => !o.disabled),
+          );
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
       if (disabled) return;
@@ -83,7 +89,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         onKeyDown={handleKeyDown}
         {...rest}
       >
-        {options.map((option) => {
+        {options.map((option, index) => {
           const checked = option.value === current;
           return (
             <button
@@ -96,7 +102,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
               role="radio"
               className="ui-segmented__item"
               aria-checked={checked}
-              tabIndex={checked ? 0 : -1}
+              tabIndex={index === currentIndex ? 0 : -1}
               disabled={disabled || option.disabled}
               data-state={checked ? 'checked' : 'unchecked'}
               onClick={() => setCurrent(option.value)}

@@ -79,16 +79,16 @@
   color: var(--ui-color-text-muted);
 }
 .ui-data-table__cell[data-tone='primary'] {
-  color: var(--ui-color-primary);
+  color: var(--ui-color-primary-text);
 }
 .ui-data-table__cell[data-tone='success'] {
-  color: var(--ui-color-success);
+  color: var(--ui-color-success-text);
 }
 .ui-data-table__cell[data-tone='warning'] {
-  color: var(--ui-color-warning);
+  color: var(--ui-color-warning-text);
 }
 .ui-data-table__cell[data-tone='danger'] {
-  color: var(--ui-color-danger);
+  color: var(--ui-color-danger-text);
 }
 
 /* Кликабельная строка: нажатие подсвечивает всю строку. */

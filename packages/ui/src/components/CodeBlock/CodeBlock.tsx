@@ -38,10 +38,12 @@ async function copyText(text: string): Promise<boolean> {
     field.style.position = 'fixed';
     field.style.opacity = '0';
     document.body.appendChild(field);
-    field.select();
-    const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
-    field.remove();
-    return ok;
+    try {
+      field.select();
+      return typeof document.execCommand === 'function' && document.execCommand('copy');
+    } finally {
+      field.remove();
+    }
   } catch {
     return false;
   }

@@ -35,6 +35,8 @@ export interface ChatComposerProps extends Omit<
   onStop?: () => void;
   /** Максимум строк, до которого поле растёт. По умолчанию 5. */
   maxRows?: number;
+  /** Доступное имя поля. По умолчанию — `placeholder`, без него «Сообщение». */
+  inputLabel?: string;
   /** Доступные названия кнопок. */
   sendLabel?: string;
   stopLabel?: string;
@@ -62,6 +64,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     busy = false,
     onStop,
     maxRows = 5,
+    inputLabel,
     sendLabel = 'Отправить',
     stopLabel = 'Остановить',
     sticky = false,
@@ -74,13 +77,21 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
 
-  // Авторост: сбрасываем высоту и берём scrollHeight, ограничивая maxRows.
+  // Авторост: сбрасываем высоту и берём scrollHeight, ограничивая maxRows. При border-box
+  // высота включает вертикальные padding и border — прибавляем их к maxRows строк.
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 22;
-    const max = lineHeight * maxRows;
+    const style = getComputedStyle(el);
+    const px = (raw: string) => parseFloat(raw) || 0;
+    const lineHeight = px(style.lineHeight) || 22;
+    const max =
+      lineHeight * maxRows +
+      px(style.paddingTop) +
+      px(style.paddingBottom) +
+      px(style.borderTopWidth) +
+      px(style.borderBottomWidth);
     el.style.height = `${Math.min(el.scrollHeight, max)}px`;
     el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
   }, [value, maxRows]);
@@ -126,7 +137,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           autoFocus={autoFocus}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          aria-label={placeholder}
+          aria-label={inputLabel ?? placeholder ?? 'Сообщение'}
         />
       </div>
       {busy && onStop ? (

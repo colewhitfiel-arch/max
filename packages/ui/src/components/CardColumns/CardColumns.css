@@ -27,6 +27,17 @@
   box-shadow: var(--ui-shadow-sm);
 }
 
+/* Строки таблицы для скринридера (ячейки собираются через aria-owns): пустые и вне сетки —
+ * абсолютное позиционирование не занимает её дорожек. */
+.ui-card-columns__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 .ui-card-columns__cell {
   min-width: 0;
   overflow-wrap: break-word;

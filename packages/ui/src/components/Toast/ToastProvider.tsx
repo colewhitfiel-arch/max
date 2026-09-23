@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,18 +47,41 @@ export interface ToastProviderProps {
   max?: number;
   /** Время показа по умолчанию, мс. По умолчанию 4000. */
   defaultDuration?: number;
+  /** Доступное имя региона тостов (для i18n). По умолчанию «Уведомления». */
+  regionLabel?: string;
+  /** Доступное имя крестика у каждого тоста (для i18n). По умолчанию «Закрыть». */
+  closeLabel?: string;
 }
 
-/** Провайдер очереди тостов. Регион `aria-live="polite"` рендерится порталом в body. */
-export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: ToastProviderProps) {
+/** Таймер автозакрытия одного тоста; стоит на паузе, пока тост под курсором или в фокусе. */
+interface ToastTimer {
+  timer?: ReturnType<typeof setTimeout>;
+  remaining: number;
+  startedAt: number;
+  hovered: boolean;
+  focused: boolean;
+}
+
+/**
+ * Провайдер очереди тостов. Регион `aria-live="polite"` рендерится порталом в body.
+ * Автозакрытие приостанавливается, пока тост под курсором или фокус внутри него
+ * (успеть нажать действие — WCAG 2.2.1).
+ */
+export function ToastProvider({
+  children,
+  max = 3,
+  defaultDuration = 4000,
+  regionLabel = 'Уведомления',
+  closeLabel = 'Закрыть',
+}: ToastProviderProps) {
   const [items, setItems] = useState<ToastItem[]>([]);
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const timers = useRef(new Map<string, ToastTimer>());
   const counter = useRef(0);
 
   const clearTimer = useCallback((id: string) => {
-    const timer = timers.current.get(id);
-    if (timer !== undefined) {
-      clearTimeout(timer);
+    const entry = timers.current.get(id);
+    if (entry !== undefined) {
+      if (entry.timer !== undefined) clearTimeout(entry.timer);
       timers.current.delete(id);
     }
   }, []);
@@ -68,6 +92,28 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
       setItems((prev) => prev.filter((item) => item.id !== id));
     },
     [clearTimer],
+  );
+
+  const pause = useCallback((id: string, reason: 'hovered' | 'focused') => {
+    const entry = timers.current.get(id);
+    if (!entry) return;
+    entry[reason] = true;
+    if (entry.timer === undefined) return;
+    clearTimeout(entry.timer);
+    entry.timer = undefined;
+    entry.remaining = Math.max(0, entry.remaining - (Date.now() - entry.startedAt));
+  }, []);
+
+  const resume = useCallback(
+    (id: string, reason: 'hovered' | 'focused') => {
+      const entry = timers.current.get(id);
+      if (!entry) return;
+      entry[reason] = false;
+      if (entry.timer !== undefined || entry.hovered || entry.focused) return;
+      entry.startedAt = Date.now();
+      entry.timer = setTimeout(() => dismiss(id), entry.remaining);
+    },
+    [dismiss],
   );
 
   const show = useCallback(
@@ -83,10 +129,13 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
       });
       const duration = options.duration ?? defaultDuration;
       if (duration > 0) {
-        timers.current.set(
-          id,
-          setTimeout(() => dismiss(id), duration),
-        );
+        timers.current.set(id, {
+          timer: setTimeout(() => dismiss(id), duration),
+          remaining: duration,
+          startedAt: Date.now(),
+          hovered: false,
+          focused: false,
+        });
       }
       return id;
     },
@@ -94,7 +143,9 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
   );
 
   const clear = useCallback(() => {
-    timers.current.forEach((timer) => clearTimeout(timer));
+    timers.current.forEach((entry) => {
+      if (entry.timer !== undefined) clearTimeout(entry.timer);
+    });
     timers.current.clear();
     setItems([]);
   }, []);
@@ -102,7 +153,9 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
   useEffect(() => {
     const map = timers.current;
     return () => {
-      map.forEach((timer) => clearTimeout(timer));
+      map.forEach((entry) => {
+        if (entry.timer !== undefined) clearTimeout(entry.timer);
+      });
       map.clear();
     };
   }, []);
@@ -113,7 +166,7 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
     <ToastContext.Provider value={api}>
       {children}
       {createPortal(
-        <div className="ui-toast-region" role="region" aria-live="polite" aria-label="Уведомления">
+        <div className="ui-toast-region" role="region" aria-live="polite" aria-label={regionLabel}>
           {items.map((item) => (
             <Toast
               key={item.id}
@@ -121,7 +174,16 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
               title={item.title}
               description={item.description}
               action={item.action}
+              closeLabel={closeLabel}
               onDismiss={() => dismiss(item.id)}
+              onMouseEnter={() => pause(item.id, 'hovered')}
+              onMouseLeave={() => resume(item.id, 'hovered')}
+              onFocus={() => pause(item.id, 'focused')}
+              onBlur={(event: FocusEvent<HTMLDivElement>) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  resume(item.id, 'focused');
+                }
+              }}
             />
           ))}
         </div>,

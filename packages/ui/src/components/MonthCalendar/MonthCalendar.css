@@ -15,14 +15,15 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 2px;
+  /* Без зазора и с узкими стрелками: «Сентябрь 2026» помещается в карточку шторки (179px). */
+  gap: 0;
 }
 
 .ui-month-calendar__title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: var(--ui-font-weight-bold);
   text-align: center;
   text-overflow: ellipsis;
@@ -30,11 +31,12 @@
 }
 
 .ui-month-calendar__nav {
+  position: relative;
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  width: 20px;
   height: 24px;
   padding: 0;
   border: 0;
@@ -42,6 +44,13 @@
   background: none;
   color: inherit;
   cursor: pointer;
+}
+
+/* Зона нажатия стрелки шире видимой (40×44): заходит только на некликабельный заголовок. */
+.ui-month-calendar__nav::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
 }
 
 .ui-month-calendar__grid {

@@ -13,6 +13,8 @@ export interface PageHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
   subtitle?: ReactNode;
   /** Обработчик кнопки «Назад». Без него кнопка не показывается. */
   onBack?: () => void;
+  /** Доступное имя кнопки «Назад» (для i18n). По умолчанию «Назад». */
+  backLabel?: string;
   /** Действия справа (IconButton, Button). */
   actions?: ReactNode;
   /**
@@ -26,7 +28,17 @@ export interface PageHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
 
 /** Шапка экрана: назад | заголовок/подзаголовок | действия. */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { title, subtitle, onBack, actions, variant = 'solid', sticky = false, className, ...rest },
+  {
+    title,
+    subtitle,
+    onBack,
+    backLabel = 'Назад',
+    actions,
+    variant = 'solid',
+    sticky = false,
+    className,
+    ...rest
+  },
   ref,
 ) {
   const plain = variant === 'plain';
@@ -41,7 +53,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
       {(onBack || plain) && (
         <div className="ui-page-header__lead">
           {onBack && (
-            <IconButton className="ui-page-header__back" aria-label="Назад" onClick={onBack}>
+            <IconButton className="ui-page-header__back" aria-label={backLabel} onClick={onBack}>
               <ChevronLeftIcon />
             </IconButton>
           )}

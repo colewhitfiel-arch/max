@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
@@ -25,7 +26,10 @@ export interface PlanetMapItem {
   label: ReactNode;
   /** Пометка над планетой: текст + стрелка вниз (например, «сделать до завтра»). */
   marker?: ReactNode;
-  /** Доступное название планеты (alt / имя кнопки). По умолчанию — текст `label`. */
+  /**
+   * Доступное название планеты (alt / имя кнопки). По умолчанию — текст `label`; если `label`
+   * не строка, имя берётся из видимой подписи через `aria-labelledby`.
+   */
   title?: string;
   /** Планета становится кнопкой. */
   onClick?: () => void;
@@ -257,6 +261,7 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
   const [dragging, setDragging] = useState(false);
   const [moving, setMoving] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const baseId = useId();
   const drag = useRef<{ x: number; y: number; started: boolean } | null>(null);
   const suppressClickUntil = useRef(0);
 
@@ -402,6 +407,9 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
             const slot = slotForRel(rel);
             const planet = slot ? slot.planet : rel < 0 ? EDGE_PREV : EDGE_NEXT;
             const title = item.title ?? (typeof item.label === 'string' ? item.label : undefined);
+            // Без строкового имени планету называет видимая подпись (label — ReactNode).
+            const nameId = `${baseId}-name-${encodeURIComponent(item.key)}`;
+            const labelledBy = title ? undefined : nameId;
             const clickable = !!item.onClick && !!slot && !item.locked;
             const image = (
               <>
@@ -421,6 +429,7 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
                     className="ui-planet-map__planet"
                     style={planetStyle(planet)}
                     aria-label={title}
+                    aria-labelledby={labelledBy}
                     onClick={item.onClick}
                   >
                     {image}
@@ -430,8 +439,9 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
                     className="ui-planet-map__planet"
                     style={planetStyle(planet)}
                     data-locked={item.locked || undefined}
-                    role={title && slot ? 'img' : undefined}
+                    role={slot && (title || item.label != null) ? 'img' : undefined}
                     aria-label={slot ? title : undefined}
+                    aria-labelledby={slot ? labelledBy : undefined}
                     aria-hidden={slot ? undefined : true}
                   >
                     {image}
@@ -456,7 +466,9 @@ export const PlanetMap = forwardRef<HTMLDivElement, PlanetMapProps>(function Pla
                     }
                   >
                     <span className="ui-planet-map__value">{item.value}</span>
-                    <span className="ui-planet-map__name">{item.label}</span>
+                    <span className="ui-planet-map__name" id={nameId}>
+                      {item.label}
+                    </span>
                   </div>
                 )}
                 {slot && item.marker && (

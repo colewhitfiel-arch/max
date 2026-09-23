@@ -45,7 +45,7 @@
 }
 
 .ui-tabs__tab[data-state='active'] {
-  color: var(--ui-color-primary);
+  color: var(--ui-color-primary-text);
   border-bottom-color: var(--ui-color-primary);
 }
 

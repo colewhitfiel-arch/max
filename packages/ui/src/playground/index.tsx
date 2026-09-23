@@ -223,6 +223,7 @@ function ChatDemo() {
         busy={busy}
         onStop={() => setBusy(false)}
         placeholder="Напиши вопрос…"
+        inputLabel="Вопрос ИИ-тьютору"
       />
     </Stack>
   );
@@ -254,6 +255,7 @@ function OverlaysDemo() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        closeLabel="Закрыть окно"
         title="Подтверждение"
         footer={
           <>
@@ -442,6 +444,7 @@ function LayoutDemo() {
             title="Главная"
             subtitle="Понедельник, 21 сентября"
             onBack={() => {}}
+            backLabel="Назад к списку"
             actions={
               <IconButton aria-label="Уведомления">
                 <BellIcon />
@@ -1600,7 +1603,7 @@ function PlaygroundContent() {
 /** Демо-страница всех компонентов. Монтируется web-приложением на dev-роуте. */
 export function UiPlayground() {
   return (
-    <ToastProvider>
+    <ToastProvider regionLabel="Уведомления" closeLabel="Закрыть уведомление">
       <PlaygroundContent />
     </ToastProvider>
   );

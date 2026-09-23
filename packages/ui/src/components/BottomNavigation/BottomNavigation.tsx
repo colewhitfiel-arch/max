@@ -33,13 +33,13 @@ export interface BottomNavigationProps extends Omit<HTMLAttributes<HTMLElement>,
 
 /** Нижнее меню-«пилюля»: `<nav>` с пунктами-иконками, активный помечен `aria-current`. */
 export const BottomNavigation = forwardRef<HTMLElement, BottomNavigationProps>(
-  function BottomNavigation({ items, onSelect, className, ...rest }, ref) {
+  function BottomNavigation({ items, onSelect, className, 'aria-label': ariaLabel, ...rest }, ref) {
     return (
       <nav
         ref={ref}
         className={cx('ui-bottom-nav', className)}
-        aria-label={rest['aria-label'] ?? 'Основная навигация'}
         {...rest}
+        aria-label={ariaLabel ?? 'Основная навигация'}
       >
         <ul className="ui-bottom-nav__list">
           {items.map((item) => {
@@ -52,8 +52,13 @@ export const BottomNavigation = forwardRef<HTMLElement, BottomNavigationProps>(
                 <span className="ui-bottom-nav__label ui-visually-hidden">{item.label}</span>
               </>
             );
+            // Строковая подпись — ещё и явное имя с тултипом; при бейдже имя остаётся из
+            // содержимого, чтобы число («3») не потерялось.
+            const text = typeof item.label === 'string' ? item.label : undefined;
             const shared = {
               className: 'ui-bottom-nav__item',
+              'aria-label': item.badge == null ? text : undefined,
+              title: text,
               'aria-current': item.active ? ('page' as const) : undefined,
               'data-active': item.active || undefined,
               'data-prominent': item.prominent || undefined,

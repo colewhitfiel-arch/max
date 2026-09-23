@@ -45,7 +45,7 @@ svg {
 }
 
 a {
-  color: var(--ui-color-primary);
+  color: var(--ui-color-primary-text);
 }
 
 /* Скрыть визуально, оставив для скринридеров (VisuallyHidden, подписи нижнего меню). */
@@ -60,4 +60,14 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Общая анимация фона диалогов (Modal, Sheet, Drawer): не зависит от того, чей CSS подключён. */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

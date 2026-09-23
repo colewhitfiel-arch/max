@@ -77,8 +77,8 @@
 }
 
 .ui-bottom-nav__item[data-prominent][data-active] {
-  color: #0d0d0d;
-  box-shadow: 0 0 0 3px #0d0d0d inset;
+  color: var(--ui-color-on-bright);
+  box-shadow: 0 0 0 3px var(--ui-color-on-bright) inset;
 }
 
 .ui-bottom-nav__icon {
@@ -110,7 +110,7 @@
   padding: 0 4px;
   border-radius: var(--ui-radius-full);
   background: var(--ui-color-danger);
-  color: #ffffff;
+  color: var(--ui-color-on-danger);
   font-size: 10px;
   font-weight: var(--ui-font-weight-bold);
   line-height: 16px;

@@ -25,7 +25,7 @@
   border: 0;
   border-radius: 3px;
   background: var(--ui-status-grid-color);
-  color: #0d0d0d;
+  color: var(--ui-color-on-bright);
   font: inherit;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-regular);
@@ -58,7 +58,7 @@ button.ui-status-grid__cell:active {
 
 .ui-status-grid__cell[data-tone='info'] {
   --ui-status-grid-color: var(--ui-color-info);
-  color: #ffffff;
+  color: var(--ui-color-on-info);
 }
 
 .ui-status-grid__cell[data-tone='success'] {
@@ -71,4 +71,5 @@ button.ui-status-grid__cell:active {
 
 .ui-status-grid__cell[data-tone='danger'] {
   --ui-status-grid-color: var(--ui-color-danger);
+  color: var(--ui-color-on-danger);
 }

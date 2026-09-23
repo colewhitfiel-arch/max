@@ -41,7 +41,7 @@
 
 .ui-icon-button[data-variant='danger'] {
   background: var(--ui-color-danger);
-  color: #ffffff;
+  color: var(--ui-color-on-danger);
 }
 
 .ui-icon-button:disabled {

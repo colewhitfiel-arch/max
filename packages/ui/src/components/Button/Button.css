@@ -43,12 +43,12 @@
 
 .ui-button[data-variant='ghost'] {
   background: transparent;
-  color: var(--ui-color-primary);
+  color: var(--ui-color-primary-text);
 }
 
 .ui-button[data-variant='danger'] {
   background: var(--ui-color-danger);
-  color: #ffffff;
+  color: var(--ui-color-on-danger);
 }
 
 /* Текстовая кнопка из макета («Подробнее» / «Скрыть»): белый текст 14px без подложки,

@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CardColumns } from './CardColumns';
 
+/** Карточки-колонки (обёртки без роли: DOM идёт по колонкам, строки — через aria-owns). */
+const columnsOf = (table: HTMLElement) =>
+  Array.from(table.querySelectorAll<HTMLElement>('.ui-card-columns__column'));
+
 const rows = [
   { key: 'r1', cells: { name: 'Робототехника', time: '17:00-18:30' } },
   { key: 'r2', cells: { name: 'Шахматы', time: '19:00-20:30' } },
@@ -27,6 +31,34 @@ describe('CardColumns', () => {
     expect(within(table).queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('ARIA: строки row собирают ячейки по строкам через aria-owns', () => {
+    render(
+      <CardColumns
+        aria-label="Расписание"
+        columns={[
+          { key: 'name', header: 'Название', action: { label: 'Добавить', onClick: () => {} } },
+          { key: 'time', header: 'Время' },
+        ]}
+        rows={rows}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Расписание' });
+    expect(within(table).queryByRole('rowgroup')).not.toBeInTheDocument();
+    const owned = within(table)
+      .getAllByRole('row')
+      .map((row) =>
+        (row.getAttribute('aria-owns') ?? '')
+          .split(' ')
+          .map((id) => document.getElementById(id)?.textContent),
+      );
+    expect(owned).toEqual([
+      ['Название', 'Время'],
+      ['Робототехника', '17:00-18:30'],
+      ['Шахматы', '19:00-20:30'],
+      ['Добавить'],
+    ]);
+  });
+
   it('action колонки — кнопка под её карточкой', async () => {
     const onClick = vi.fn();
     render(
@@ -41,7 +73,7 @@ describe('CardColumns', () => {
     );
     const table = screen.getByRole('table', { name: 'Расписание' });
     expect(table).toHaveAttribute('data-has-action');
-    const [nameColumn, timeColumn] = within(table).getAllByRole('rowgroup');
+    const [nameColumn, timeColumn] = columnsOf(table);
     const button = within(nameColumn!).getByRole('button', { name: 'Добавить кружок' });
     expect(within(timeColumn!).queryByRole('button')).not.toBeInTheDocument();
 
@@ -62,7 +94,7 @@ describe('CardColumns', () => {
       <CardColumns aria-label="Транзакции" columns={columns} rows={three} striped />,
     );
     const table = screen.getByRole('table', { name: 'Транзакции' });
-    const nameCells = within(within(table).getAllByRole('rowgroup')[0]!).getAllByRole('cell');
+    const nameCells = within(columnsOf(table)[0]!).getAllByRole('cell');
     expect(nameCells.map((cell) => cell.hasAttribute('data-stripe'))).toEqual([true, false, true]);
     // Первая и последняя подложенные строки помечены — у краёв карточки полоса скругляется.
     expect(nameCells[0]).toHaveAttribute('data-first');
@@ -71,7 +103,7 @@ describe('CardColumns', () => {
     expect(nameCells[1]).not.toHaveAttribute('data-first');
 
     rerender(<CardColumns aria-label="Транзакции" columns={columns} rows={three} striped="even" />);
-    const evenCells = within(within(table).getAllByRole('rowgroup')[1]!).getAllByRole('cell');
+    const evenCells = within(columnsOf(table)[1]!).getAllByRole('cell');
     expect(evenCells.map((cell) => cell.hasAttribute('data-stripe'))).toEqual([false, true, false]);
 
     rerender(<CardColumns aria-label="Транзакции" columns={columns} rows={rows} />);
@@ -95,7 +127,8 @@ describe('CardColumns', () => {
     expect(table.style.getPropertyValue('--ui-card-columns-template')).toBe(
       'minmax(0, 125fr) minmax(0, 76fr)',
     );
-    const [head, nameColumn, timeColumn] = within(table).getAllByRole('rowgroup');
+    const head = table.querySelector<HTMLElement>('.ui-card-columns__head');
+    const [nameColumn, timeColumn] = columnsOf(table);
     expect(
       within(head!)
         .getAllByRole('columnheader')
@@ -134,7 +167,9 @@ describe('CardColumns', () => {
       />,
     );
     expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
-    expect(within(table).getAllByRole('rowgroup')[0]).toHaveClass('ui-visually-hidden');
+    // Обёртка заголовков compact — первая после (отсутствующей) подписи.
+    expect(table.firstElementChild).toHaveClass('ui-visually-hidden');
+    expect(table.firstElementChild).toHaveAttribute('role', 'none');
   });
 
   it('caption — подпись блока (role="caption") первой в таблице', () => {

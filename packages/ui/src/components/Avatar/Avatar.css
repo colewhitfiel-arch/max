@@ -32,8 +32,18 @@
 .ui-avatar[data-ring] {
   box-shadow:
     0 0 0 3px var(--ui-color-bg),
-    0 0 0 6px var(--ui-color-primary),
-    0 0 28px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
+    0 0 0 6px var(--ui-color-primary);
+}
+
+/* color-mix с var() нельзя «подстраховать» второй строкой (невалидность видна только при
+ * вычислении), поэтому — через @supports; без него (Safari < 16.2) — запасной вариант выше. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-avatar[data-ring] {
+    box-shadow:
+      0 0 0 3px var(--ui-color-bg),
+      0 0 0 6px var(--ui-color-primary),
+      0 0 28px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
+  }
 }
 
 .ui-avatar__image {

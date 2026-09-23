@@ -32,19 +32,19 @@
 }
 
 .ui-text[data-tone='primary'] {
-  color: var(--ui-color-primary);
+  color: var(--ui-color-primary-text);
 }
 
 .ui-text[data-tone='success'] {
-  color: var(--ui-color-success);
+  color: var(--ui-color-success-text);
 }
 
 .ui-text[data-tone='warning'] {
-  color: var(--ui-color-warning);
+  color: var(--ui-color-warning-text);
 }
 
 .ui-text[data-tone='danger'] {
-  color: var(--ui-color-danger);
+  color: var(--ui-color-danger-text);
 }
 
 .ui-text[data-weight='regular'] {
