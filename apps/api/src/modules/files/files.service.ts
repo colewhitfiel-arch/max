@@ -5,6 +5,7 @@ import {
   type CreateUploadUrlBody,
   FILE_SIZE_LIMITS,
   type FileDto,
+  type FilePurpose,
   MATERIAL_MIME_TYPES,
   type UploadUrlResult,
 } from '@edu/contracts';
@@ -154,6 +155,28 @@ export class FilesService {
         throw Errors.businessRule(
           `Из файла «${row.fileName}» нельзя извлечь текст для генерации курса`,
         );
+    }
+    return fileIds.map((id) => byId.get(id)!);
+  }
+
+  /**
+   * Файлы по id с проверкой владельца, назначения и того, что загрузка подтверждена.
+   * Для вложений к сдаче задания (`SUBMISSION`) — требований к формату нет, в отличие от
+   * материалов курса, из которых нужно извлекать текст.
+   */
+  async listOwnedByPurpose(
+    ownerUserId: string,
+    fileIds: string[],
+    purpose: FilePurpose,
+  ): Promise<FileRow[]> {
+    const rows = await this.repo.findManyByIds(fileIds);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const id of fileIds) {
+      const row = byId.get(id);
+      if (!row || row.ownerUserId !== ownerUserId) throw Errors.notFound('Файл', { fileId: id });
+      if (row.purpose !== purpose)
+        throw Errors.validation('Файл загружен с другим назначением', { fileId: id });
+      if (!row.confirmedAt) throw Errors.businessRule(`Файл «${row.fileName}» ещё не загружен`);
     }
     return fileIds.map((id) => byId.get(id)!);
   }

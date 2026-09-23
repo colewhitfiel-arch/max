@@ -26,6 +26,7 @@ import { studentProfileRoutes } from '@/pages/student/profile/routes';
 import { studentSettingsRoutes } from '@/pages/student/settings/routes';
 import { studentTutorRoutes } from '@/pages/student/tutor/routes';
 import { teacherAssignmentsRoutes } from '@/pages/teacher/assignments/routes';
+import { teacherAttendanceRoutes } from '@/pages/teacher/attendance/routes';
 import { teacherClubDemandRoutes } from '@/pages/teacher/club-demand/routes';
 import { teacherCourseBuilderRoutes } from '@/pages/teacher/course-builder/routes';
 import { teacherCoursesRoutes } from '@/pages/teacher/courses/routes';
@@ -96,6 +97,7 @@ export const routes: RouteObject[] = [
       ...teacherCourseBuilderRoutes,
       ...teacherClubDemandRoutes,
       ...teacherAssignmentsRoutes,
+      ...teacherAttendanceRoutes,
       ...teacherSettingsRoutes,
       ...teacherProfileRoutes,
       // `/teacher/more` — старый адрес «Ещё»: редирект на настройки.

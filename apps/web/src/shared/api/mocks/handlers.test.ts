@@ -1281,7 +1281,8 @@ describe('mock world: правила и персист', () => {
     );
     expect(closed.items.map((a) => a.id)).toContain(card.id);
 
-    // Даша не в группе программирования — сдать нельзя.
+    // Даша не в группе программирования — сдать нельзя. Недоступное задание отвечает 404,
+    // а не 403: существование чужого задания не подтверждается (как в API).
     await loginAs('student2');
     await expect(
       call(
@@ -1291,7 +1292,7 @@ describe('mock world: правила и персист', () => {
           headers: { 'idempotency-key': 'd-1' },
         }),
       ),
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
     await loginAs('student1');
     // Без Idempotency-Key и пустая сдача — 400 (контракт), попытка не тратится.

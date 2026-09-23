@@ -6,5 +6,6 @@ export {
   useTeacherLessons,
   useUpdateLesson,
 } from './api';
-export { lessonsOfDay } from './model';
+export { useAttendanceSheet, useMarkAttendance } from './attendance-api';
+export { attendanceTone, lessonsOfDay, lessonsToMark } from './model';
 export { LessonCard, type LessonCardProps } from './ui/LessonCard';

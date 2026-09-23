@@ -15,6 +15,21 @@
 Если заданы и файлы, и `topic` — режим `MATERIALS`, текст темы добавляется атомами преподавателя.
 Хотя бы одно из двух обязательно (`refine` в контракте).
 
+## Две цели: курс и одно ДЗ
+
+`target` задаёт, что собирается, и не влияет на стадии — только на планировщик и на то, что происходит при `accept`.
+
+| `target` | Планировщик | `accept` |
+|---|---|---|
+| `COURSE` (по умолчанию) | `planModules` как обычно: 3–5 узлов на модуль, ≤ 8 модулей | новый `Course(DRAFT)`; если задан `targetCourseId` — модули дописываются в конец курса |
+| `HOMEWORK` | `planModules(..., { maxModules: 1, minPerModule: 1 })` — ровно один модуль: для ученика это одно занятие в курсе, а не новый курс | то же + модуль публикуется сразу: блоки-задания становятся `Assignment` с `dueAt` и `studentIds` задачи |
+
+`targetCourseId` — курс той же группы и того же преподавателя, не архивный (`CoursesService.assertAppendable`).
+Дополнение уже опубликованного курса публикуется сразу и при `target=COURSE`: иначе новых модулей не увидит ни один ученик.
+Публикация (`CoursesService.publishCourse`) идемпотентна по `blockId`, поэтому курс можно дополнять сколько угодно раз —
+задания создаются только для новых блоков. `accept` тоже идемпотентен: итоговый курс запоминается в `targetCourseId`
+(для дополняющих задач `Course.generationJobId` занят автором курса и связи с результатом иначе не было бы).
+
 ## Стадии (`apps/api/src/modules/course-builder/pipeline`)
 
 ```
@@ -39,7 +54,8 @@ GENERATING   на каждый модуль ПАРАЛЛЕЛЬНО: lessonPrompt
   ▼
 ASSEMBLING   CourseDraftSchema.parse — draft, title = targetTitle ?? заголовок материала ?? первый модуль
   ▼
-READY        событие generation.finished; PUT draft → правки; POST accept → CoursesService.createFromDraft → Course(DRAFT)
+READY        событие generation.finished; PUT draft → правки; POST accept → createFromDraft (новый курс)
+             или appendFromDraft (targetCourseId) → при HOMEWORK сразу publishCourse → Assignment на блоки
 ```
 
 Отмена (`POST .../cancel`) проверяется между стадиями. Ошибка любой стадии → `FAILED` с текстом
@@ -57,13 +73,17 @@ READY        событие generation.finished; PUT draft → правки; POS
 
 ## Данные
 
-`CourseGenerationJob` (`course-builder.prisma`, миграция `20260921180000_course_builder_topic_knowledge`):
-`sourceKind` (`MATERIALS|TOPIC`, строка), `topic`, `knowledge` (json `KnowledgeBase`). DTO задачи
-(`GenerationJobDto`) отдаёт их клиенту; в списке задач `draft` и `knowledge` опущены.
+`CourseGenerationJob` (`course-builder.prisma`, миграции `20260921180000_course_builder_topic_knowledge`
+и `20260923120000_homework_targets_and_generation_target`): `sourceKind` (`MATERIALS|TOPIC`, строка),
+`topic`, `knowledge` (json `KnowledgeBase`), `target` (`COURSE|HOMEWORK`, строка), `targetCourseId`,
+`studentIds`, `dueAt`. DTO задачи (`GenerationJobDto`) отдаёт их клиенту; в списке задач `draft`
+и `knowledge` опущены.
 
 ## Что дальше (не сделано)
 
 - Редакторы блоков черновика на клиенте (9 типов) — сейчас ревью read-only + `PUT draft` доступен в API.
+- Промпт урока один и тот же для курса и для ДЗ (`course-builder.block@2`): для ДЗ он получает
+  `position = { index: 0, total: 1 }`, но отдельной «домашней» формулировки у него нет.
 - pptx и изображения (OCR) — `NOT_IMPLEMENTED`.
 - S3-адаптер хранилища (`S3Storage`) остаётся заглушкой; локальный драйвер работает end-to-end.
 - Пропуски `FILL_GAPS` и карточки ученику пока не рендерятся (нет блока INTERACTIVE в плеере курса — workstream B).

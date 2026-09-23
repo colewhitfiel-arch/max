@@ -45,6 +45,11 @@ export const TeacherAssignmentCardSchema = AssignmentBriefSchema.omit({ submissi
   description: z.string().nullable(),
   allowedAttempts: z.number().int().positive().nullable(),
   publishedAt: DateTimeSchema.nullable(),
+  /** Пустой массив — задание для всей группы; иначе адресаты внутри группы. */
+  studentIds: z.array(IdSchema),
+  /** Курс, к которому относится задание (блок курса); null — «простое» задание. */
+  courseId: IdSchema.nullable(),
+  /** Сколько учеников получили задание: вся группа или только адресаты. */
   studentsCount: z.number().int().nonnegative(),
   submittedCount: z.number().int().nonnegative(),
   gradedCount: z.number().int().nonnegative(),
@@ -156,6 +161,11 @@ export const CreateAssignmentBodySchema = z.object({
   dueAt: DateTimeSchema.optional(),
   maxScore: z.number().int().positive().optional(),
   allowedAttempts: z.number().int().positive().optional(),
+  /**
+   * Кому задание: не задан или пустой — всей группе. Иначе только этим ученикам группы
+   * (чужой ученик — 422). Список фиксируется в момент создания.
+   */
+  studentIds: z.array(IdSchema).optional(),
   /** true — опубликовать сразу, иначе черновик (publishedAt = null). */
   publish: z.boolean(),
 });

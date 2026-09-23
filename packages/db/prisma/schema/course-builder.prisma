@@ -9,6 +9,14 @@ model CourseGenerationJob {
   targetTitle  String?         @map("target_title")
   /// MATERIALS | TOPIC (GenerationSourceKind из contracts)
   sourceKind   String          @default("MATERIALS") @map("source_kind")
+  /// COURSE | HOMEWORK (GenerationTarget из contracts): целый курс или одно ДЗ одним модулем
+  target       String          @default("COURSE")
+  /// Курс, который задача дополняет; null — курс создаётся при accept
+  targetCourseId String?       @map("target_course_id") @db.Uuid
+  /// Адресаты заданий модуля внутри группы: пусто — вся группа
+  studentIds   String[]        @default([]) @map("student_ids") @db.Uuid
+  /// Дедлайн заданий модуля
+  dueAt        DateTime?       @map("due_at") @db.Timestamptz
   /// Тема / практика для режима TOPIC (ИИ пишет конспект сам)
   topic        String?
   /// KnowledgeBase из contracts: атомы, узлы с цитатами, план
@@ -28,5 +36,8 @@ model CourseGenerationJob {
   course  Course?
 
   @@index([teacherId, createdAt])
+  // Курс, который дополняют: связь проверяется сервисом (у Course уже есть обратная связь
+  // generationJob на курс-первоисточник), индекс нужен для выборки задач курса.
+  @@index([targetCourseId])
   @@map("course_generation_jobs")
 }

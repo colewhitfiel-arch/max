@@ -132,7 +132,15 @@
       "closed": "Closed"
     },
     "submitted": "{{submitted}} of {{students}} submitted",
-    "draft": "Draft"
+    "draft": "Draft",
+    "emptyHint": "Assign homework — AI will build it from your materials or description",
+    "forGroup": "whole group",
+    "forStudents_one": "{{count}} student",
+    "forStudents_other": "{{count}} students",
+    "actions": {
+      "assign": "Assign homework",
+      "attendance": "Mark attendance"
+    }
   },
   "clubDemand": {
     "title": "Club demand",
@@ -146,5 +154,79 @@
     "reasons": "Why they choose it",
     "futureTitle": "Directions “for the future”",
     "futureHint": "What students want to try later — ideas for new clubs"
+  },
+  "assign": {
+    "title": "Assign homework",
+    "step": "Step {{current}} of {{total}}",
+    "steps": {
+      "group": "Who",
+      "what": "What",
+      "source": "Source"
+    },
+    "group": "Group",
+    "groupPlaceholder": "Choose a group",
+    "whoTitle": "Who gets it",
+    "wholeGroup": "Whole group",
+    "someStudents": "Pick students",
+    "selected_one": "{{count}} student selected",
+    "selected_other": "{{count}} students selected",
+    "selectAll": "Select all",
+    "clearAll": "Clear all",
+    "whatTitle": "What to create",
+    "targetHomework": "One homework",
+    "targetHomeworkHint": "A single lesson: theory, a check and practice. Lands in the group course right after you accept the draft.",
+    "targetCourse": "Full course",
+    "targetCourseHint": "Several modules from large materials. You can edit the draft and publish it yourself.",
+    "course": "Course",
+    "courseHint": "Homework can go into the same course — the student keeps going through it",
+    "newCourse": "New course",
+    "courseStatus": {
+      "DRAFT": "draft",
+      "PUBLISHED": "published",
+      "ARCHIVED": "archived"
+    },
+    "dueAt": "Due date",
+    "dueAtHint": "Optional. Without a due date the assignment stays open",
+    "name": "Title",
+    "nameHint": "Optional — AI will come up with one",
+    "sourceTitle": "What to build from",
+    "sourceTopic": "Describe it",
+    "sourceTopicHint": "Describe the topic — AI writes the notes and builds the lesson from them",
+    "sourceMaterials": "Upload materials",
+    "sourceMaterialsHint": "pdf, docx, txt or md — AI reads the text and builds the lesson from it",
+    "topic": "Topic or assignment",
+    "topicHint": "At least {{chars}}",
+    "topicPlaceholder": "For example: revise multiplying fractions, 8 problems with common mistakes, year 6",
+    "submit": "Generate",
+    "started": "Generation started"
+  },
+  "attendance": {
+    "title": "Attendance",
+    "pickLesson": "Pick the lesson you are marking",
+    "marked": "Marked",
+    "toMark": "Not marked",
+    "sections": {
+      "today": "Today",
+      "unmarked": "Waiting to be marked",
+      "upcoming": "Upcoming"
+    },
+    "emptyLessons": "No lessons",
+    "emptyLessonsHint": "Attendance is marked per lesson from the group schedule",
+    "allPresent": "All present",
+    "allAbsent": "Nobody came",
+    "save": "Save",
+    "saved": "Attendance saved",
+    "status": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "LATE": "Late",
+      "EXCUSED": "Excused"
+    },
+    "statusShort": {
+      "PRESENT": "In",
+      "ABSENT": "Out",
+      "LATE": "Late",
+      "EXCUSED": "Exc."
+    }
   }
 }

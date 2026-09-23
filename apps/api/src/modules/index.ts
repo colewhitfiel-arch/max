@@ -4,6 +4,9 @@
  */
 import type { Type } from '@nestjs/common';
 import { AiModule } from './ai/ai.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AssignmentsModule } from './assignments/assignments.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CourseBuilderModule } from './course-builder/course-builder.module';
 import { CoursesModule } from './courses/courses.module';
@@ -25,4 +28,7 @@ export const DOMAIN_MODULES: Type<unknown>[] = [
   CoursesModule,
   FilesModule,
   CourseBuilderModule,
+  AttendanceModule,
+  AssignmentsModule,
+  AnalyticsModule,
 ];

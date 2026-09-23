@@ -5,6 +5,7 @@ import {
   CourseDraftSchema,
   type GenerationSourceKind,
   type GenerationStage,
+  type GenerationTarget,
   type KnowledgeAtom,
   type KnowledgeBase,
   type KnowledgeNode,
@@ -25,6 +26,8 @@ export interface PipelineJob {
   /** User.id преподавателя — для меты запросов к модели. */
   userId: string;
   sourceKind: GenerationSourceKind;
+  /** COURSE — несколько модулей; HOMEWORK — ровно один (одно занятие/одно ДЗ). */
+  target: GenerationTarget;
   topic: string | null;
   materialIds: string[];
   instructions: string | null;
@@ -142,7 +145,11 @@ export class CoursePipelineRunner {
         'Модель не нашла в материале достаточно узлов знаний с подтверждёнными цитатами',
       );
     }
-    const plan = planModules(verified.nodes);
+    // Одно ДЗ — ровно один модуль: ученику это одно занятие в курсе, а не новый курс.
+    const plan = planModules(
+      verified.nodes,
+      job.target === 'HOMEWORK' ? { maxModules: 1, minPerModule: 1 } : {},
+    );
     const knowledge: KnowledgeBase = {
       atoms,
       nodes: verified.nodes,

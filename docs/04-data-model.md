@@ -112,13 +112,15 @@ CourseProgress  studentId FK, courseId FK, completedBlocks int, totalBlocks int,
 ```
 Assignment      id PK, groupId FK, teacherId FK, courseId FK?, blockId FK? (unique), title,
                 description? (markdown), type AssignmentType, dueAt?, maxScore int=100,
-                allowedAttempts int?, publishedAt?, deletedAt?
+                allowedAttempts int?, studentIds uuid[]=[] (адресаты), publishedAt?, deletedAt?
 Submission      id PK, assignmentId FK, studentId FK, status SubmissionStatus, attemptsCount int=0,
                 score int?, answers json?, fileIds string[], text?, submittedAt?, gradedAt?,
                 gradedById FK?, feedback?, isLate bool=false             unique(assignmentId, studentId)
 SubmissionAttempt id PK, submissionId FK, n int, answers json, score int?, submittedAt
 ```
 Простое задание преподавателя («до пятницы решить 1–10») — `Assignment(type=HOMEWORK, courseId=null, blockId=null)`. Задание из блока курса — `blockId != null`, создаётся при публикации курса.
+
+`studentIds` — адресаты внутри группы: пустой массив (по умолчанию) означает «всей группе», непустой — задание видят, сдают и считаются в `studentsCount` только перечисленные ученики. Список фиксируется в момент создания и не меняется при изменении состава группы.
 
 ### analytics (`analytics.prisma`)
 ```
@@ -154,9 +156,12 @@ File            id PK, ownerUserId FK, purpose FilePurpose, fileName, mime, size
                 extractMeta json? { pages, headings[] }, error?
 CourseGenerationJob id PK, teacherId FK, groupId FK, materialIds string[] (File.id),
                 instructions text?, targetTitle?, sourceKind string='MATERIALS' (MATERIALS|TOPIC), topic text?,
+                target string='COURSE' (COURSE|HOMEWORK), targetCourseId uuid? (Course.id, дополняемый курс),
+                studentIds uuid[]=[] (адресаты заданий модуля), dueAt?,
                 knowledge json? (KnowledgeBase: atoms, nodes, plan, stats), stage GenerationStage=QUEUED,
                 progress int=0, draft json? (CourseDraft), error?, startedAt?, finishedAt?
 ```
+`target` — что собирает задача: `COURSE` (несколько модулей) или `HOMEWORK` (ровно один модуль — одно ДЗ). `targetCourseId` — курс, который задача дополняет; пусто — курс создаётся при `accept`. После `accept` в нём лежит итоговый курс, поэтому повторный `accept` идемпотентен и для задач, дополняющих чужой курс (у них `Course.generationJobId` занят автором курса). Связь не через FK: у `Course` уже есть обратная связь на курс-первоисточник, проверяет её сервис.
 
 ### family (`family.prisma`)
 ```

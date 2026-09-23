@@ -234,6 +234,8 @@ export const PublishBlockAssignmentSchema = z.object({
   dueAt: DateTimeSchema.optional(),
   maxScore: z.number().int().positive().optional(),
   allowedAttempts: z.number().int().positive().optional(),
+  /** Кому задание внутри группы: не задан или пустой — всей группе. */
+  studentIds: z.array(IdSchema).optional(),
 });
 export type PublishBlockAssignment = z.infer<typeof PublishBlockAssignmentSchema>;
 

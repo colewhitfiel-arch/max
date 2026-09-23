@@ -4,7 +4,6 @@ import {
   IconTile,
   ListRow,
   Screen,
-  SparkIcon,
   TargetIcon,
   UsersIcon,
   WalletIcon,
@@ -65,17 +64,6 @@ function WorkSettings() {
           subtitle={t('settings.coursesHint')}
           chevron
           onClick={() => navigate('/teacher/courses')}
-        />
-        <ListRow
-          left={
-            <IconTile tone="danger">
-              <SparkIcon />
-            </IconTile>
-          }
-          title={t('settings.courseBuilder')}
-          subtitle={t('settings.courseBuilderHint')}
-          chevron
-          onClick={() => navigate('/teacher/course-builder')}
         />
         <ListRow
           left={

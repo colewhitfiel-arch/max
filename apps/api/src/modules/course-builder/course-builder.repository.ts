@@ -59,6 +59,10 @@ export class CourseBuilderRepository {
     groupId: string;
     materialIds: string[];
     sourceKind: 'MATERIALS' | 'TOPIC';
+    target: 'COURSE' | 'HOMEWORK';
+    targetCourseId: string | null;
+    studentIds: string[];
+    dueAt: Date | null;
     topic: string | null;
     instructions: string | null;
     targetTitle: string | null;
@@ -94,11 +98,15 @@ export class CourseBuilderRepository {
     });
   }
 
-  async update(id: string, patch: JobPatch & { courseId?: string | null }): Promise<JobRow> {
-    const { courseId, ...scalar } = patch;
+  async update(
+    id: string,
+    patch: JobPatch & { courseId?: string | null; targetCourseId?: string | null },
+  ): Promise<JobRow> {
+    const { courseId, targetCourseId, ...scalar } = patch;
     const data: Prisma.CourseGenerationJobUpdateInput = toScalarData(scalar);
     if (courseId !== undefined)
       data.course = courseId ? { connect: { id: courseId } } : { disconnect: true };
+    if (targetCourseId !== undefined) data.targetCourseId = targetCourseId;
     return this.prisma.courseGenerationJob.update({ where: { id }, data, include: withCourse });
   }
 

@@ -172,11 +172,11 @@ beforeEach(() => {
 });
 
 describe('CourseBuilderPage', () => {
-  it('«назад» ведёт в настройки — единственную точку входа', async () => {
+  it('«назад» ведёт на экран заданий — единственную точку входа', async () => {
     const user = userEvent.setup();
     renderAt('/teacher/course-builder');
     await user.click(screen.getByRole('button', { name: 'Назад' }));
-    expect(screen.getByTestId('location').textContent).toBe('/teacher/settings');
+    expect(screen.getByTestId('location').textContent).toBe('/teacher/assignments');
   });
 
   it('переключатель режима подписан', () => {

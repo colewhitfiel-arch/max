@@ -27,6 +27,7 @@ import {
   isDone,
   studentBrief,
   studentIdsOfGroup,
+  targetIdsOfAssignment,
 } from '../demo';
 import { apiError, apiUrl, authed, json, noContent, query, readBody } from '../lib';
 import { db, studentOfUser, teacherOfUser } from '../state';
@@ -46,7 +47,7 @@ function ownSubmission(userId: string, submissionId: string): Submission | Respo
 }
 
 function teacherCard(assignment: Assignment) {
-  const studentIds = studentIdsOfGroup(assignment.groupId);
+  const studentIds = targetIdsOfAssignment(assignment.id);
   const submissions = db.submissions.filter((s) => s.assignmentId === assignment.id);
   const { submission: _s, ...brief } = assignmentBrief(assignment.id);
   return {
@@ -54,6 +55,8 @@ function teacherCard(assignment: Assignment) {
     description: assignment.description,
     allowedAttempts: assignment.allowedAttempts,
     publishedAt: assignment.publishedAt,
+    studentIds: assignment.studentIds,
+    courseId: assignment.courseId,
     studentsCount: studentIds.length,
     submittedCount: submissions.filter((s) => s.status === 'SUBMITTED' || s.status === 'GRADED')
       .length,
@@ -135,7 +138,7 @@ export const assignmentsHandlers = [
         const assignment = db.assignments.find((a) => a.id === params.assignmentId);
         if (!assignment) return apiError('NOT_FOUND', 'Задание не найдено');
         if (!student || !assignmentsOfStudent(student.id).some((a) => a.id === assignment.id)) {
-          return apiError('FORBIDDEN', 'Задание не твоей группы');
+          return apiError('NOT_FOUND', 'Задание не найдено');
         }
         const submission = db.submissions.find(
           (s) => s.assignmentId === assignment.id && s.studentId === student.id,
@@ -167,7 +170,7 @@ export const assignmentsHandlers = [
         if (!assignment) return apiError('NOT_FOUND', 'Задание не найдено');
         // Как в GET детали: только опубликованные задания групп ученика.
         if (!student || !assignmentsOfStudent(student.id).some((a) => a.id === assignment.id)) {
-          return apiError('FORBIDDEN', 'Задание не твоей группы');
+          return apiError('NOT_FOUND', 'Задание не найдено');
         }
         const body = await readBody(request, SubmitAssignmentBodySchema);
         if (!body.ok) return body.response;
@@ -272,12 +275,19 @@ export const assignmentsHandlers = [
         if (!groupsOfTeacher(teacher.id).some((g) => g.id === body.data.groupId)) {
           return apiError('FORBIDDEN', 'Чужая группа');
         }
+        // Адресаты должны быть в составе группы — как на сервере (422 на чужого ученика).
+        const roster = studentIdsOfGroup(body.data.groupId);
+        const targets = [...new Set(body.data.studentIds ?? [])];
+        if (targets.some((id) => !roster.includes(id))) {
+          return apiError('BUSINESS_RULE', 'Среди выбранных есть ученики не из этой группы');
+        }
         const assignment: Assignment = {
           id: crypto.randomUUID(),
           groupId: body.data.groupId,
           teacherId: teacher.id,
           courseId: null,
           blockId: null,
+          studentIds: targets,
           title: body.data.title,
           description: body.data.description ?? null,
           type: body.data.type,
@@ -345,7 +355,7 @@ export const assignmentsHandlers = [
           return apiError('FORBIDDEN', 'Чужое задание');
         return json(AssignmentSubmissionsSchema, {
           assignment: teacherCard(assignment),
-          rows: studentIdsOfGroup(assignment.groupId).map((studentId) => {
+          rows: targetIdsOfAssignment(assignment.id).map((studentId) => {
             const submission = db.submissions.find(
               (s) => s.assignmentId === assignment.id && s.studentId === studentId,
             );

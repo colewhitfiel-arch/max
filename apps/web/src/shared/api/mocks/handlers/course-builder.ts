@@ -4,6 +4,7 @@
  */
 import {
   AcceptGenerationJobResultSchema,
+  type Assignment,
   type CourseDraft,
   type CourseGenerationJob,
   CreateGenerationJobBodySchema,
@@ -14,12 +15,15 @@ import {
   paginated,
 } from '@edu/contracts';
 import { http } from 'msw';
-import { groupsOfTeacher } from '../demo';
+import { groupsOfTeacher, studentIdsOfGroup } from '../demo';
 import { apiError, apiUrl, authed, json, readBody } from '../lib';
 import { db, teacherOfUser } from '../state';
 import { fileDto } from './files';
 
 const STAGE_DELAY_MS = 700;
+
+/** Блоки, которые при публикации становятся заданиями (как `ASSIGNABLE_BLOCK_TYPES` в API). */
+const ASSIGNABLE_BLOCK_TYPES: readonly string[] = ['QUIZ', 'QUESTION', 'PRACTICE', 'HOMEWORK'];
 
 type Job = CourseGenerationJob;
 
@@ -69,6 +73,8 @@ function knowledgeFor(job: Job): KnowledgeBase {
     const group = nodes.slice(i, i + 3);
     plan.push({ title: group[0]!.title, nodeIds: group.map((n) => n.id) });
   }
+  // Одно ДЗ — ровно один модуль (как `planModules(..., { maxModules: 1 })` на сервере).
+  if (job.target === 'HOMEWORK' && plan.length > 1) plan.splice(1);
   return {
     atoms,
     nodes,
@@ -201,6 +207,20 @@ export const courseBuilderHandlers = [
             return apiError('BUSINESS_RULE', `Файл «${file.fileName}» ещё не загружен`);
           materials.push(fileDto(file));
         }
+        // Курс дополняем только свой и только в той же группе (как `assertAppendable`).
+        if (body.data.targetCourseId) {
+          const course = db.courses.find((c) => c.id === body.data.targetCourseId);
+          if (!course || course.teacherId !== teacher.id)
+            return apiError('NOT_FOUND', 'Курс не найден');
+          if (course.groupId !== body.data.groupId)
+            return apiError('BUSINESS_RULE', 'Курс относится к другой группе');
+          if (course.status === 'ARCHIVED')
+            return apiError('BUSINESS_RULE', 'Курс в архиве — его не дополнить');
+        }
+        const roster = studentIdsOfGroup(body.data.groupId);
+        const targets = [...new Set(body.data.studentIds ?? [])];
+        if (targets.some((id) => !roster.includes(id)))
+          return apiError('BUSINESS_RULE', 'Среди выбранных есть ученики не из этой группы');
         const job: Job = {
           id: crypto.randomUUID(),
           teacherId: teacher.id,
@@ -210,6 +230,10 @@ export const courseBuilderHandlers = [
           instructions: body.data.instructions ?? null,
           targetTitle: body.data.targetTitle ?? null,
           sourceKind: materials.length > 0 ? 'MATERIALS' : 'TOPIC',
+          target: body.data.target ?? 'COURSE',
+          targetCourseId: body.data.targetCourseId ?? null,
+          studentIds: targets,
+          dueAt: body.data.dueAt ?? null,
           topic: body.data.topic ?? null,
           knowledge: null,
           stage: 'QUEUED',
@@ -282,47 +306,93 @@ export const courseBuilderHandlers = [
         const teacher = teacherOfUser(auth.user.id);
         const job = teacher && jobOf(teacher.id, params.jobId);
         if (!job) return apiError('NOT_FOUND', 'Задача не найдена');
-        if (job.stage === 'ACCEPTED' && job.courseId) {
-          return json(AcceptGenerationJobResultSchema, { courseId: job.courseId });
+        const settled = job.courseId ?? (job.stage === 'ACCEPTED' ? job.targetCourseId : null);
+        if (settled) {
+          return json(AcceptGenerationJobResultSchema, {
+            courseId: settled,
+            assignmentsCreated: 0,
+          });
         }
         if (job.stage !== 'READY' || !job.draft)
           return apiError('BUSINESS_RULE', 'Черновик ещё не готов');
-        const courseId = crypto.randomUUID();
-        db.courses.push({
-          id: courseId,
-          groupId: job.groupId,
-          teacherId: teacher.id,
-          title: job.draft.title,
-          description: job.draft.description ?? null,
-          status: 'DRAFT',
-          version: 1,
-          publishedAt: null,
-          generationJobId: job.id,
-        });
-        job.draft.modules.forEach((module, order) => {
+
+        // Дополняем существующий курс или создаём новый — как `appendFromDraft`/`createFromDraft`.
+        const appendTo = job.targetCourseId
+          ? db.courses.find((c) => c.id === job.targetCourseId)
+          : undefined;
+        const courseId = appendTo?.id ?? crypto.randomUUID();
+        if (!appendTo) {
+          db.courses.push({
+            id: courseId,
+            groupId: job.groupId,
+            teacherId: teacher.id,
+            title: job.draft.title,
+            description: job.draft.description ?? null,
+            status: 'DRAFT',
+            version: 1,
+            publishedAt: null,
+            generationJobId: job.id,
+          });
+        }
+        const startOrder = db.modules.filter((m) => m.courseId === courseId).length;
+        const newBlocks: Array<{ id: string; type: string; title: string }> = [];
+        job.draft.modules.forEach((module, index) => {
           const moduleId = crypto.randomUUID();
           db.modules.push({
             id: moduleId,
             courseId,
-            order,
+            order: startOrder + index,
             title: module.title,
             summary: module.summary ?? null,
           });
           module.blocks.forEach((block, blockOrder) => {
+            const blockId = crypto.randomUUID();
             db.blocks.push({
               ...block,
-              id: crypto.randomUUID(),
+              id: blockId,
               moduleId,
               order: blockOrder,
               estimatedMinutes: block.estimatedMinutes ?? null,
               isRequired: block.isRequired ?? true,
             });
+            newBlocks.push({ id: blockId, type: block.type, title: block.title });
           });
         });
+
+        // ДЗ и дополнение живого курса публикуются сразу: блоки-задания становятся Assignment.
+        const course = db.courses.find((c) => c.id === courseId)!;
+        const publishNow =
+          job.target === 'HOMEWORK' || (!!appendTo && course.status === 'PUBLISHED');
+        let assignmentsCreated = 0;
+        if (publishNow) {
+          for (const block of newBlocks) {
+            if (!ASSIGNABLE_BLOCK_TYPES.includes(block.type)) continue;
+            db.assignments.push({
+              id: crypto.randomUUID(),
+              groupId: job.groupId,
+              teacherId: teacher.id,
+              courseId,
+              blockId: block.id,
+              studentIds: job.studentIds ?? [],
+              title: block.title,
+              description: null,
+              type: block.type as Assignment['type'],
+              dueAt: job.dueAt ?? null,
+              maxScore: 100,
+              allowedAttempts: null,
+              publishedAt: new Date().toISOString(),
+            });
+            assignmentsCreated += 1;
+          }
+          course.status = 'PUBLISHED';
+          course.publishedAt ??= new Date().toISOString();
+        }
+
         job.stage = 'ACCEPTED';
-        job.courseId = courseId;
+        job.targetCourseId = courseId;
+        if (!appendTo) job.courseId = courseId;
         job.finishedAt = new Date().toISOString();
-        return json(AcceptGenerationJobResultSchema, { courseId });
+        return json(AcceptGenerationJobResultSchema, { courseId, assignmentsCreated });
       },
       ['TEACHER'],
     ),

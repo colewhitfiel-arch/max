@@ -214,9 +214,28 @@ export function assignmentBrief(assignmentId: string, studentId?: string): Assig
   };
 }
 
+/**
+ * Задания, доступные ученику: опубликованные задания его групп, адресованные всей группе
+ * (пустой `studentIds`) или лично ему.
+ */
 export const assignmentsOfStudent = (studentId: string) => {
   const groupIds = groupIdsOfStudent(studentId);
-  return db.assignments.filter((a) => groupIds.includes(a.groupId) && a.publishedAt);
+  return db.assignments.filter(
+    (a) =>
+      groupIds.includes(a.groupId) &&
+      a.publishedAt &&
+      (a.studentIds.length === 0 || a.studentIds.includes(studentId)),
+  );
+};
+
+/** Кому адресовано задание: перечисленные ученики или весь состав группы. */
+export const targetIdsOfAssignment = (assignmentId: string): string[] => {
+  const assignment = db.assignments.find((a) => a.id === assignmentId);
+  if (!assignment) return [];
+  const roster = studentIdsOfGroup(assignment.groupId);
+  return assignment.studentIds.length === 0
+    ? roster
+    : roster.filter((id) => assignment.studentIds.includes(id));
 };
 
 export const isDone = (assignmentId: string, studentId: string) => {

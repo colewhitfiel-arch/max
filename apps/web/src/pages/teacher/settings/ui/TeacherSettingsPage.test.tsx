@@ -91,7 +91,8 @@ describe('TeacherSettingsPage', () => {
     ['Кошелёк', '/teacher/wallet', { fromApp: true }],
     ['Группы', '/teacher/groups', null],
     ['Курсы', '/teacher/courses', null],
-    ['Конструктор курса', '/teacher/course-builder', null],
+    // Конструктор курса больше не отдельный пункт настроек: он открывается кнопкой
+    // «Задать ДЗ» на экране заданий — единственной точкой входа.
     ['Спрос на кружки', '/teacher/clubs/demand', null],
   ])('«Работа» → %s ведёт на %s', async (title, path, state) => {
     const user = userEvent.setup();

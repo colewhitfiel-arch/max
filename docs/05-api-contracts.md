@@ -190,7 +190,9 @@ POST /teacher/courses                    { groupId, title, description? } → Te
 GET  /teacher/courses/:courseId          → TeacherCourseDetail
 PUT  /teacher/courses/:courseId/structure CourseDraft → TeacherCourseDetail     // полная замена, только DRAFT
 PATCH /teacher/blocks/:blockId           { type, title?, content? } → CourseBlockDto  // type — дискриминатор схемы content  // разрешено и после публикации (текстовые правки)
-POST /teacher/courses/:courseId/publish  { assignments: [{ blockId, dueAt?, maxScore?, allowedAttempts? }] } → TeacherCourseDetail
+POST /teacher/courses/:courseId/publish  { assignments: [{ blockId, dueAt?, maxScore?, allowedAttempts?, studentIds?: Id[] }] } → TeacherCourseDetail
+                                          // идемпотентна и инкрементальна: блок, у которого Assignment уже есть, пропускается,
+                                          // поэтому повторный вызов после дополнения курса публикует только новые модули
 POST /teacher/courses/:courseId/archive  → TeacherCourseDetail
 GET  /teacher/courses/:courseId/progress → { students: [{ student: StudentBrief, percent, completedBlocks, lastActivityAt? }] }
 
@@ -216,7 +218,8 @@ GET  /student/homework                   → { clubs: HomeworkClub[] /* по б�
                                              streakDays?: number, points?: number /* как на главной */ }   // экран «Задания» (карта кружков)
 
 GET  /teacher/assignments?groupId&status=open|closed&cursor → Paginated<TeacherAssignmentCard>
-POST /teacher/assignments                { groupId, title, description?, type?: AssignmentType='HOMEWORK', dueAt?, maxScore?, allowedAttempts?, publish: boolean } → TeacherAssignmentCard
+POST /teacher/assignments                { groupId, title, description?, type?: AssignmentType='HOMEWORK', dueAt?, maxScore?, allowedAttempts?,
+                                           studentIds?: Id[] /* пусто — всей группе; чужой ученик → 422 */, publish: boolean } → TeacherAssignmentCard
 PATCH /teacher/assignments/:id           { title?, description?, dueAt?, publish?: boolean } → TeacherAssignmentCard
 DELETE /teacher/assignments/:id          → 204 (soft)
 GET  /teacher/assignments/:id/submissions → { assignment: TeacherAssignmentCard, rows: [{ student: StudentBrief, submission: SubmissionDto|null }] }
@@ -224,7 +227,8 @@ GET  /teacher/submissions/:id            → SubmissionDto & { answers?, files: 
 POST /teacher/submissions/:id/grade      { score: number, feedback?: string, status: 'GRADED'|'RETURNED' } → SubmissionDto
 
 SubmissionDto = { id, assignmentId, status, score?, isLate, attemptsCount, submittedAt?, gradedAt?, feedback?, text?, fileIds: Id[] }
-TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentsCount, submittedCount, gradedCount }
+TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentIds: Id[] /* пусто — всей группе */, courseId?,
+                                            studentsCount /* адресаты или весь состав */, submittedCount, gradedCount }
 HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открытые задания */, points /* баллы по кружку, формула — analytics */,
                  nextAssignment?: AssignmentBrief /* ближайшее открытое по дедлайну */ }
 ```
@@ -313,15 +317,22 @@ GET  /files/:fileId         → FileDto        // доступ по policies в�
 
 ### `course-builder.ts` — владелец A5 (скелет в F4)
 ```
-POST /teacher/course-builder/jobs        { groupId, materialIds?: Id[], topic?: string, instructions?, targetTitle? } → GenerationJobDto   // materialIds или topic (тема/практика без конспекта)
+POST /teacher/course-builder/jobs        { groupId, materialIds?: Id[], topic?: string, instructions?, targetTitle?,
+                                           target?: 'COURSE'|'HOMEWORK'='COURSE', targetCourseId?: Id /* курс той же группы, который дополняем */,
+                                           studentIds?: Id[] /* адресаты заданий; пусто — всей группе */, dueAt? } → GenerationJobDto
+                                          // materialIds или topic (тема/практика без конспекта)
 GET  /teacher/course-builder/jobs?cursor → Paginated<Omit<GenerationJobDto,'draft'>>
 GET  /teacher/course-builder/jobs/:id    → GenerationJobDto
 PUT  /teacher/course-builder/jobs/:id/draft { draft: CourseDraft } → GenerationJobDto     // правки до accept
-POST /teacher/course-builder/jobs/:id/accept → { courseId }                                // Course(DRAFT); stage=ACCEPTED
+POST /teacher/course-builder/jobs/:id/accept → { courseId, assignmentsCreated }             // stage=ACCEPTED; идемпотентно
+                                          // targetCourseId задан — курс дополняется модулями, иначе создаётся Course(DRAFT);
+                                          // target=HOMEWORK (и дополнение уже опубликованного курса) публикуется сразу:
+                                          // блоки-задания модуля становятся Assignment с dueAt и studentIds задачи
 POST /teacher/course-builder/jobs/:id/cancel → GenerationJobDto
 
 GenerationJobDto = { id, groupId, stage: GenerationStage, progress: number, materials: FileDto[], instructions?,
-                     sourceKind: 'MATERIALS'|'TOPIC', topic?, knowledge?: KnowledgeBase (атомы, узлы с цитатами, план),
+                     sourceKind: 'MATERIALS'|'TOPIC', target: 'COURSE'|'HOMEWORK', targetCourseId?, studentIds: Id[], dueAt?,
+                     topic?, knowledge?: KnowledgeBase (атомы, узлы с цитатами, план),
                      draft?: CourseDraft, courseId?, error?, createdAt, finishedAt? }     // в списке — без draft и knowledge
 Пайплайн стадий и формат KnowledgeBase — docs/13-course-pipeline.md.
 ```

@@ -14,7 +14,7 @@ export function CourseBuilderPage() {
 
   return (
     <>
-      <ScreenHeader title={t('courseBuilder.title')} back="/teacher/settings" />
+      <ScreenHeader title={t('courseBuilder.title')} back="/teacher/assignments" />
       <Screen>
         <Card>
           <Stack gap={3}>

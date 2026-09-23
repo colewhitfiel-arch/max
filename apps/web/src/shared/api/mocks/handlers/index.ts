@@ -6,6 +6,7 @@ import { http } from 'msw';
 import { apiError, apiUrl } from '../lib';
 import { aiHandlers } from './ai';
 import { assignmentsHandlers } from './assignments';
+import { attendanceHandlers } from './attendance';
 import { authHandlers } from './auth';
 import { catalogHandlers } from './catalog';
 import { courseBuilderHandlers } from './course-builder';
@@ -28,6 +29,7 @@ export const handlers = [
   ...courseBuilderHandlers,
   ...filesHandlers,
   ...assignmentsHandlers,
+  ...attendanceHandlers,
   ...familyHandlers,
   ...paymentsHandlers,
   ...notificationsHandlers,

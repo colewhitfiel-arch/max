@@ -95,6 +95,9 @@ export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
       labelKey: 'nav.assignments',
       icon: ClipboardListIcon,
       iconSize: 'lg',
+      // «Задать ДЗ» и «Отметить посещаемость» открываются отсюда: конструктор курса
+      // (включая экран задачи генерации) и отметка посещаемости — продолжение этого пункта.
+      activeFor: ['/teacher/course-builder', '/teacher/attendance'],
     },
     {
       key: 'performance',
@@ -109,12 +112,7 @@ export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
       path: '/teacher/settings',
       labelKey: 'nav.settings',
       icon: SettingsIcon,
-      activeFor: [
-        '/teacher/groups',
-        '/teacher/courses',
-        '/teacher/course-builder',
-        '/teacher/clubs',
-      ],
+      activeFor: ['/teacher/groups', '/teacher/courses', '/teacher/clubs'],
     },
     { key: 'profile', path: '/teacher/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],

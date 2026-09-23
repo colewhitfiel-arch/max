@@ -10,6 +10,11 @@ export const AssignmentSchema = z.object({
   teacherId: IdSchema,
   courseId: IdSchema.nullable(),
   blockId: IdSchema.nullable(),
+  /**
+   * Адресаты задания внутри группы: пустой массив — всей группе (поведение по умолчанию).
+   * Непустой — задание видят и сдают только эти ученики, остальные его не получают.
+   */
+  studentIds: z.array(IdSchema),
   title: z.string(),
   description: z.string().nullable(),
   type: AssignmentTypeSchema,

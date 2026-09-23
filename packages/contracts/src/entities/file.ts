@@ -24,6 +24,14 @@ export const GENERATION_SOURCE_KINDS = ['MATERIALS', 'TOPIC'] as const;
 export const GenerationSourceKindSchema = z.enum(GENERATION_SOURCE_KINDS);
 export type GenerationSourceKind = z.infer<typeof GenerationSourceKindSchema>;
 
+/**
+ * Что собирает задача: целый курс (несколько модулей) или одно ДЗ — ровно один модуль, который
+ * дополняет курс группы. Для ученика и то и другое остаётся курсом, просто курс растёт.
+ */
+export const GENERATION_TARGETS = ['COURSE', 'HOMEWORK'] as const;
+export const GenerationTargetSchema = z.enum(GENERATION_TARGETS);
+export type GenerationTarget = z.infer<typeof GenerationTargetSchema>;
+
 /** Задача пайплайна «материалы → курс» (course-builder). */
 export const CourseGenerationJobSchema = z.object({
   id: IdSchema,
@@ -35,6 +43,17 @@ export const CourseGenerationJobSchema = z.object({
   targetTitle: z.string().nullable(),
   /** По умолчанию MATERIALS (для задач, созданных до появления поля). */
   sourceKind: GenerationSourceKindSchema.optional(),
+  /** По умолчанию COURSE (для задач, созданных до появления поля). */
+  target: GenerationTargetSchema.optional(),
+  /**
+   * Курс, который задача дополняет новыми модулями; null — курс будет создан при `accept`.
+   * После `accept` совпадает с `courseId`.
+   */
+  targetCourseId: IdSchema.nullable().optional(),
+  /** Кому адресовать задания модуля: пустой массив — всей группе. */
+  studentIds: z.array(IdSchema).optional(),
+  /** Дедлайн заданий, заданный при создании; null — без срока. */
+  dueAt: DateTimeSchema.nullable().optional(),
   /** Тема/описание практики для режима TOPIC (без конспекта). */
   topic: z.string().nullable().optional(),
   /** База знаний (атомы, узлы, план) — появляется после стадии OUTLINING. */

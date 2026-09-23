@@ -8,4 +8,6 @@ export const lessonKeys = {
   teacherCalendar: (period: PeriodQuery) => [...queryKeys.teacher, 'calendar', period] as const,
   groupLessons: (groupId: string, period: PeriodQuery) =>
     [...queryKeys.teacher, 'groups', groupId, 'lessons', period] as const,
+  attendance: (lessonId: string) =>
+    [...queryKeys.teacher, 'lessons', lessonId, 'attendance'] as const,
 };

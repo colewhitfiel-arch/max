@@ -37,8 +37,6 @@
     "groupsHint": "Students, schedule and lessons",
     "courses": "Courses",
     "coursesHint": "Modules and materials for groups",
-    "courseBuilder": "Course builder",
-    "courseBuilderHint": "AI builds a course from a topic or your materials",
     "clubDemand": "Club demand",
     "clubDemandHint": "What students pick during onboarding and want to try later"
   }

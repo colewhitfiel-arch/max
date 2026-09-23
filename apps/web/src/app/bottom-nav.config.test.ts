@@ -23,10 +23,13 @@ describe('activeNavKey', () => {
     expect(activeNavKey(teacher, '/teacher/performance/groups/g1')).toBe('performance');
     // Ученик и его задания открываются из успеваемости.
     expect(activeNavKey(teacher, '/teacher/students/s1/groups/g1/tasks')).toBe('performance');
-    // Группы, курсы, конструктор и спрос на кружки — из настроек («Работа»).
+    // Группы, курсы и спрос на кружки — из настроек («Работа»).
     expect(activeNavKey(teacher, '/teacher/groups/g1')).toBe('settings');
-    expect(activeNavKey(teacher, '/teacher/course-builder/j1')).toBe('settings');
     expect(activeNavKey(teacher, '/teacher/clubs/demand')).toBe('settings');
+    // Конструктор курса и посещаемость открываются с экрана заданий («Задать ДЗ» / «Отметить»).
+    expect(activeNavKey(teacher, '/teacher/course-builder/j1')).toBe('assignments');
+    expect(activeNavKey(teacher, '/teacher/assignments/new')).toBe('assignments');
+    expect(activeNavKey(teacher, '/teacher/attendance/l1')).toBe('assignments');
     // Неизвестный раздел: «Главная» — только точный корень, ничего не подсвечено.
     expect(activeNavKey(teacher, '/teacher/groupsx')).toBeNull();
     expect(activeNavKey(teacher, '/parent')).toBeNull();

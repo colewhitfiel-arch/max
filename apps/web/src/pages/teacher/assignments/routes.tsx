@@ -6,4 +6,8 @@ export const teacherAssignmentsRoutes: RouteObject[] = [
     path: 'assignments',
     lazy: lazyRoute(() => import('./ui/TeacherAssignmentsPage'), 'TeacherAssignmentsPage'),
   },
+  {
+    path: 'assignments/new',
+    lazy: lazyRoute(() => import('./ui/AssignHomeworkPage'), 'AssignHomeworkPage'),
+  },
 ];
