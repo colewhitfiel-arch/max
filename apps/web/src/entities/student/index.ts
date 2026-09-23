@@ -19,4 +19,3 @@ export {
 } from './analytics-api';
 export { shortName } from './model';
 export { StudentRow, type StudentRowProps } from './ui/StudentRow';
-export { ChildSwitcher, type ChildSwitcherProps } from './ui/ChildSwitcher';

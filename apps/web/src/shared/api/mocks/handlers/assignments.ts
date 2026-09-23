@@ -172,8 +172,10 @@ export const assignmentsHandlers = [
         const body = await readBody(request, SubmitAssignmentBodySchema);
         if (!body.ok) return body.response;
         const key = request.headers.get('idempotency-key');
-        const replayKey = key ? `${student.id}:${key}` : null;
-        const previous = replayKey ? db.submissionReplays.get(replayKey) : undefined;
+        // Контракт требует Idempotency-Key: без него — 400, как у ts-rest на сервере.
+        if (!key) return apiError('VALIDATION', 'Нужен заголовок Idempotency-Key');
+        const replayKey = `${student.id}:${key}`;
+        const previous = db.submissionReplays.get(replayKey);
         if (previous) {
           if (previous.assignmentId !== assignment.id) {
             return apiError('CONFLICT', 'Ключ идемпотентности уже использован для другого задания');
@@ -223,12 +225,10 @@ export const assignmentsHandlers = [
         submission.submittedAt = new Date().toISOString();
         submission.isLate = !!dueAt && new Date(dueAt).getTime() < Date.now();
         const result = submissionDto(submission);
-        if (replayKey) {
-          db.submissionReplays.set(replayKey, {
-            assignmentId: assignment.id,
-            result: { ...result },
-          });
-        }
+        db.submissionReplays.set(replayKey, {
+          assignmentId: assignment.id,
+          result: { ...result },
+        });
         return json(SubmissionDtoSchema, result);
       },
       ['STUDENT'],

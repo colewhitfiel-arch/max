@@ -81,7 +81,7 @@ describe('WithdrawSheet', () => {
 
     // Пустое поле: ошибка только после попытки отправить.
     await user.click(screen.getByRole('button', { name: 'Вывести' }));
-    expect(screen.getByText('Введи сумму в рублях, без копеек')).toBeInTheDocument();
+    expect(screen.getByText('Введите сумму в рублях, без копеек')).toBeInTheDocument();
 
     await user.type(amountInput(), '5a0');
     expect(amountInput()).toHaveValue('50');
@@ -157,6 +157,9 @@ describe('WithdrawSheet', () => {
     await user.keyboard('{Escape}');
     await user.click(document.querySelector('.ui-sheet__backdrop')!);
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Вывести/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Вывести/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { BLOCK_TYPE_META, type StudentCourseCard, type TeacherCourseCard } from '@edu/contracts';
+import type { StudentCourseCard, TeacherCourseCard } from '@edu/contracts';
 import { Badge, Card, ProgressBar, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { formatPercent } from '@/shared/lib/format';
@@ -36,7 +36,7 @@ export function CourseCard({ course, onClick }: CourseCardProps) {
         {course.nextBlock && (
           <Text variant="caption">
             {t('courses.nextBlock')}: {course.nextBlock.title} (
-            {BLOCK_TYPE_META[course.nextBlock.type].label})
+            {t(`common:blockType.${course.nextBlock.type}`)})
           </Text>
         )}
       </Stack>

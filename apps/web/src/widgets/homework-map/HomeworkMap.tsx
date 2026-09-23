@@ -1,9 +1,4 @@
-import {
-  CLUB_CATEGORIES,
-  CLUB_CATEGORY_LABELS,
-  type ClubCategory,
-  type HomeworkClub,
-} from '@edu/contracts';
+import { CLUB_CATEGORIES, type ClubCategory, type HomeworkClub } from '@edu/contracts';
 import { AppLayout, PlanetMap, type PlanetMapItem } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { diffCalendarDays, formatDate } from '@/shared/lib/dates';
@@ -101,8 +96,8 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
   ).map((category) => ({
     key: `locked:${category}`,
     image: PLANETS[category]!,
-    label: CLUB_CATEGORY_LABELS[category],
-    title: t('homework.locked', { subject: CLUB_CATEGORY_LABELS[category] }),
+    label: t(`common:clubCategory.${category}`),
+    title: t('homework.locked', { subject: t(`common:clubCategory.${category}`) }),
     locked: true,
   }));
 

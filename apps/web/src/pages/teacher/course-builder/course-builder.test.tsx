@@ -188,7 +188,7 @@ describe('CourseBuilderPage', () => {
     const user = userEvent.setup();
     renderAt('/teacher/course-builder');
     await user.click(screen.getByRole('radio', { name: 'Из файлов' }));
-    expect(screen.getByText('Если заполняешь — минимум 10 символов')).toBeInTheDocument();
+    expect(screen.getByText('Если заполняете — минимум 10 символов')).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Дополнение к материалам (необязательно)'), 'коротко');
     expect(screen.getByText(/Слишком коротко/)).toBeInTheDocument();

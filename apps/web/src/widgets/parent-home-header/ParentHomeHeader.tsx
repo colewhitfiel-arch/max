@@ -14,7 +14,8 @@ export interface ParentHomeHeaderProps {
 /**
  * Шапка главной родителя (макет): слева аватар и краткое имя («Фамилия И.»), справа —
  * кошелёк с балансом (`GET /parent/wallet`), который открывает пополнение. Пока баланс
- * грузится или не загрузился — вместо суммы многоточие, кнопка всё равно работает.
+ * грузится — вместо суммы многоточие; не загрузился — прочерк и подпись об ошибке. Кнопка
+ * работает всегда: экран пополнения перезапрашивает баланс (это и есть повтор).
  */
 export function ParentHomeHeader({ onOpenWallet }: ParentHomeHeaderProps) {
   const { t, i18n } = useTranslation('parent-home');
@@ -28,15 +29,19 @@ export function ParentHomeHeader({ onOpenWallet }: ParentHomeHeaderProps) {
       <Inline gap={2} align="center" wrap={false}>
         {user && <Avatar name={fullName(user)} src={user.avatarUrl} />}
         <Text as="span" truncate>
-          {user ? shortName(user) : ''}
+          {user ? shortName(user) || t('common:user.noName') : ''}
         </Text>
       </Inline>
       <WalletChip
-        amount={balance ? wholeRubles(balance.amountKopecks, i18n.language) : '…'}
+        amount={
+          balance ? wholeRubles(balance.amountKopecks, i18n.language) : wallet.isError ? '—' : '…'
+        }
         aria-label={
           balance
             ? t('header.wallet', { amount: formatMoney(balance, i18n.language) })
-            : t('header.walletUnknown')
+            : wallet.isError
+              ? t('header.walletError')
+              : t('header.walletUnknown')
         }
         onClick={onOpenWallet}
       />

@@ -1,9 +1,4 @@
-import {
-  BLOCK_TYPE_META,
-  type CourseDraftBlock,
-  type GenerationJobDto,
-  KNOWLEDGE_NODE_TYPE_LABELS,
-} from '@edu/contracts';
+import type { CourseDraftBlock, GenerationJobDto } from '@edu/contracts';
 import {
   Badge,
   Button,
@@ -178,7 +173,7 @@ export function GenerationJobPage() {
                       key={`${block.title}-${blockIndex}`}
                       title={block.title}
                       subtitle={blockPreview(block, t)}
-                      right={<Badge tone="neutral">{BLOCK_TYPE_META[block.type].label}</Badge>}
+                      right={<Badge tone="neutral">{t(`common:blockType.${block.type}`)}</Badge>}
                     />
                   ))}
                 </Card>
@@ -217,7 +212,7 @@ export function GenerationJobPage() {
                         title={node.title}
                         subtitle={`${node.statement} · [${node.atomIds.join(', ')}]`}
                         right={
-                          <Badge tone="neutral">{KNOWLEDGE_NODE_TYPE_LABELS[node.type]}</Badge>
+                          <Badge tone="neutral">{t(`common:knowledgeNodeType.${node.type}`)}</Badge>
                         }
                       />
                     ))}

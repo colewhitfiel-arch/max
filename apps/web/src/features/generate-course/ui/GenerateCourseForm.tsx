@@ -51,7 +51,7 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || create.isPending) return;
     create.mutate(
       {
         groupId,

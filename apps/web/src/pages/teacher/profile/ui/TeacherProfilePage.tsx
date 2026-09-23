@@ -45,7 +45,7 @@ function ProfileHero({ stats }: { stats?: TeacherStats }) {
         <Avatar name={name} src={me.user.avatarUrl} size="xl" ring />
         <Stack gap={1} align="center">
           <Text variant="title" align="center">
-            {name}
+            {name || t('common:user.noName')}
           </Text>
           <Text variant="small" tone="muted" align="center">
             {summary}

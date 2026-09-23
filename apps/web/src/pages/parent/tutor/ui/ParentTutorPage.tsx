@@ -58,7 +58,7 @@ function ChildSubtitle({
 }) {
   const { t } = useTranslation('parent-tutor');
   const [open, setOpen] = useState(false);
-  const label = t('about', { name: fullName(child.student.user) });
+  const label = t('about', { name: fullName(child.student.user) || t('common:user.noName') });
   if (items.length < 2) return <>{label}</>;
   return (
     <>
@@ -72,7 +72,12 @@ function ChildSubtitle({
       >
         {label}
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={t('childSheet')}>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t('childSheet')}
+        closeLabel={t('common:actions.close')}
+      >
         <Card padding="none">
           {items.map((item) => {
             const active = item.student.id === child.student.id;
@@ -81,7 +86,7 @@ function ChildSubtitle({
               <ListRow
                 key={item.student.id}
                 left={<Avatar name={name} src={item.student.user.avatarUrl} size="sm" />}
-                title={name}
+                title={name || t('common:user.noName')}
                 right={
                   active ? (
                     <Text as="span" tone="primary">
@@ -198,7 +203,7 @@ export function ParentTutorPage() {
     <ParentTutorChat
       key={conversationId}
       conversationId={conversationId}
-      childName={child.student.user.firstName}
+      childName={child.student.user.firstName.trim() || t('childFallback')}
       onStreamingChange={setStreaming}
     />
   ) : (

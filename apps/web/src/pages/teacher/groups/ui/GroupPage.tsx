@@ -25,8 +25,8 @@ export function GroupPage() {
   const query = useTeacherGroup(groupId);
   const period = useMemo(() => nextDaysPeriod(14), []);
   const lessons = useTeacherLessons(groupId, period);
-  // Чужая (или несуществующая — сервер отдаёт её так же, docs/05) группа — 403. NOT_FOUND —
-  // «раздел в разработке», его показывает AsyncState (AGENT_GUIDE §3).
+  // Чужая (или несуществующая — сервер отдаёт её так же, docs/05) группа — 403. Прочие ошибки
+  // («не найдено», «раздел в разработке» — нет ручки) показывает AsyncState (AGENT_GUIDE §3).
   const notFound = isApiClientError(query.error) && query.error.code === 'FORBIDDEN';
 
   return (

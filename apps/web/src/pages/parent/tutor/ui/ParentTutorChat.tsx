@@ -1,5 +1,5 @@
 import { STREAMING_ROUTES } from '@edu/contracts';
-import { ChatComposer, Chip, Inline, Screen, Stack, Text } from '@edu/ui';
+import { Button, ChatComposer, Chip, Inline, Screen, Stack, Text } from '@edu/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import {
   ChatMessage,
   ChatMessageList,
   TutorAvatar,
+  useChatFeedScroll,
   useParentMessages,
 } from '@/entities/ai';
 import { describeApiError } from '@/shared/api/errors';
@@ -17,20 +18,6 @@ import { AsyncState } from '@/shared/ui';
 
 /** Ключи подсказок-стартеров (`suggestions.*`). */
 const SUGGESTIONS = ['progress', 'overdue', 'help', 'motivation'] as const;
-
-/** Сколько пикселей до низа считать «пользователь у конца ленты» — тогда следим за стримом. */
-const FOLLOW_THRESHOLD = 160;
-
-/** Ближайший скроллируемый предок (скролл-область AppLayout). */
-function scrollParent(el: HTMLElement | null): HTMLElement | null {
-  let node = el?.parentElement ?? null;
-  while (node) {
-    const { overflowY } = getComputedStyle(node);
-    if (overflowY === 'auto' || overflowY === 'scroll') return node;
-    node = node.parentElement;
-  }
-  return null;
-}
 
 /** Пустой чат: маскот, приветствие родителя и подсказки про ребёнка, которые сразу отправляют вопрос. */
 function EmptyChat({
@@ -43,14 +30,14 @@ function EmptyChat({
   disabled: boolean;
 }) {
   const { t } = useTranslation('parent-tutor');
-  const me = useMe();
+  const name = useMe()?.user.firstName.trim();
   return (
     <Stack gap={5} align="center" grow justify="center">
       <Stack gap={3} align="center">
         <TutorAvatar size="xl" />
         <Stack gap={1} align="center">
           <Text variant="title" align="center">
-            {me ? t('greeting', { name: me.user.firstName }) : t('greetingAnon')}
+            {name ? t('greeting', { name }) : t('greetingAnon')}
           </Text>
           <Text variant="small" tone="muted" align="center">
             {t('intro', { name: childName })}
@@ -94,7 +81,13 @@ export function ParentTutorChat({
   const stream = useAiStream();
   const [draft, setDraft] = useState('');
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  // Номер отправки: ответ на старый вопрос, пришедший после нового, не трогает его состояние.
+  const sendIdRef = useRef(0);
+  const { bottomRef, loadOlder } = useChatFeedScroll({
+    items: query.data?.items,
+    pendingText: pendingUserText,
+    streamText: stream.text,
+  });
 
   useEffect(() => onStreamingChange?.(stream.isStreaming), [stream.isStreaming, onStreamingChange]);
   // Смена ребёнка размонтирует ленту посреди стрима — шапка не должна остаться в «печатает…».
@@ -102,32 +95,37 @@ export function ParentTutorChat({
 
   const send = useCallback(
     async (text: string) => {
+      const sendId = ++sendIdRef.current;
       setPendingUserText(text);
       const result = await stream.start(STREAMING_ROUTES.parentTutorMessage.path(conversationId), {
         text,
       });
       if (result.status === 'done') {
+        // «Стоп» (done без messageId): стрим сбрасываем сразу, до перезапроса ленты, — запоздалый
+        // reset() не оборвёт вопрос, отправленный, пока лента грузится. Пустой ответ не рисуем.
+        const stopped = result.messageId === null;
+        if (stopped) stream.reset();
         await queryClient.invalidateQueries({ queryKey: aiKeys.parentMessages(conversationId) });
+        if (sendIdRef.current !== sendId) return;
         setPendingUserText(null);
-        stream.reset();
+        if (!stopped) stream.reset();
+      } else if (result.status === 'error') {
+        // Ошибка (лимит, сеть, сбой потока): «отправленный» пузырь убираем, ленту перезапрашиваем —
+        // если сервер успел сохранить вопрос, он придёт с историей. Ответ не начался — вопрос
+        // возвращаем в поле (если пользователь ничего не набрал), чтобы отправить повторно.
+        // Ошибку не сбрасываем: alert живёт до следующей отправки.
+        setPendingUserText(null);
+        if (!result.text) setDraft((current) => current || text);
+        await queryClient.invalidateQueries({ queryKey: aiKeys.parentMessages(conversationId) });
       }
     },
     [conversationId, queryClient, stream],
   );
 
-  // Новое сообщение — прокручиваем к концу; во время стрима следим за текстом, только если
-  // пользователь и так у конца ленты (не дёргаем, когда он читает выше).
   const messageCount = query.data?.items.length ?? 0;
-  const scrollToEnd = useCallback((force: boolean) => {
-    const scroller = scrollParent(bottomRef.current);
-    if (!scroller) return;
-    const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-    if (force || distance < FOLLOW_THRESHOLD) scroller.scrollTo({ top: scroller.scrollHeight });
-  }, []);
-  useEffect(() => scrollToEnd(true), [messageCount, pendingUserText, scrollToEnd]);
-  useEffect(() => scrollToEnd(false), [stream.text, scrollToEnd]);
-
-  const isEmpty = messageCount === 0 && !pendingUserText && !stream.text;
+  // Ошибка первой отправки тоже не «пустой чат»: иначе alert с ошибкой пропадёт вместе с лентой.
+  const isEmpty =
+    messageCount === 0 && !pendingUserText && !stream.text && stream.status !== 'error';
 
   return (
     <Screen fill>
@@ -142,6 +140,16 @@ export function ParentTutorChat({
               />
             ) : (
               <>
+                {query.hasNextPage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={query.isFetchingNextPage}
+                    onClick={() => void loadOlder(query.fetchNextPage)}
+                  >
+                    {t('common:chat.loadOlder')}
+                  </Button>
+                )}
                 <ChatMessageList items={page.items} ownLabel={t('you')} />
                 {pendingUserText && (
                   <ChatMessage role="USER" content={pendingUserText} ownLabel={t('you')} />
@@ -176,6 +184,7 @@ export function ParentTutorChat({
         busy={stream.isStreaming}
         onStop={stream.abort}
         placeholder={t('placeholder')}
+        inputLabel={t('common:chat.inputLabel')}
         sendLabel={t('send')}
         stopLabel={t('stop')}
       />

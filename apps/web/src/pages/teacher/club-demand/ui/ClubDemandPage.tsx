@@ -1,4 +1,4 @@
-import { CLUB_CATEGORY_LABELS, type ClubDemand } from '@edu/contracts';
+import type { ClubDemand } from '@edu/contracts';
 import { Card, EmptyState, Inline, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useClubDemand } from '@/entities/ai';
@@ -24,7 +24,7 @@ function DemandCard({ item }: { item: ClubDemand }) {
         <Stack gap={0}>
           <Text weight="medium">{item.club.title}</Text>
           <Text variant="caption" tone="muted">
-            {CLUB_CATEGORY_LABELS[item.club.category]}
+            {t(`common:clubCategory.${item.club.category}`)}
           </Text>
         </Stack>
         <Inline gap={3} wrap>

@@ -40,13 +40,7 @@ async function bootstrap(): Promise<void> {
     } catch (error) {
       // Без Service Worker mock-режим не работает (нет public/mockServiceWorker.js или SW запрещён).
       console.error('[msw] не удалось запустить мок-воркер', error);
-      renderFatal(
-        root,
-        new Error(
-          'MSW не запустился: проверь, что есть public/mockServiceWorker.js (`pnpm exec msw init public`) ' +
-            'и что браузер разрешает Service Worker. Либо переключи VITE_API_MODE=real.',
-        ),
-      );
+      renderFatal(root, new Error(i18n.t('common:errors.mswFailed')));
       return;
     }
   }

@@ -24,7 +24,16 @@ import { http, HttpResponse } from 'msw';
 import { formatRelativeDay } from '../../../lib/dates';
 import { buildMe, clubCard, gamification, statsBrief, studentBrief } from '../demo';
 import { childHomework, homeworkCounts, type HomeworkEntry, sumCounts } from '../homework';
-import { apiError, apiUrl, authed, denyForeignChild, json, noContent, readBody } from '../lib';
+import {
+  apiError,
+  apiUrl,
+  authed,
+  denyForeignChild,
+  json,
+  noContent,
+  paginate,
+  readBody,
+} from '../lib';
 import { db, studentOfUser, teacherOfUser } from '../state';
 
 /**
@@ -67,6 +76,19 @@ function addMessage(conversationId: string, role: 'USER' | 'ASSISTANT', content:
     if (!conversation.title && role === 'USER') conversation.title = content.slice(0, 40);
   }
   return message;
+}
+
+/**
+ * История диалога с конца, как у API: первая страница — последние `limit` сообщений (по
+ * возрастанию времени), `nextCursor` ведёт к более старым.
+ */
+function messagesPage(request: Request, conversationId: string) {
+  const items = db.messages
+    .filter((m) => m.conversationId === conversationId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const result = paginate(request, items, { fromEnd: true });
+  if (!result.ok) return result.response;
+  return json(paginated(AiMessageDtoSchema), result.page);
 }
 
 /** SSE-ответ: токены по словам с задержкой, затем done. */
@@ -452,16 +474,13 @@ export const aiHandlers = [
   http.get<{ conversationId: string }>(
     apiUrl('/ai/conversations/:conversationId/messages'),
     authed(
-      ({ auth, params }) => {
+      ({ auth, params, request }) => {
         const conversation = db.conversations.find(
           (c) => c.id === params.conversationId && isStudentConversation(c.id),
         );
         if (!conversation || conversation.userId !== auth.user.id)
           return apiError('NOT_FOUND', 'Диалог не найден');
-        const items = db.messages
-          .filter((m) => m.conversationId === conversation.id)
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return json(paginated(AiMessageDtoSchema), { items });
+        return messagesPage(request, conversation.id);
       },
       ['STUDENT'],
     ),
@@ -556,13 +575,10 @@ export const aiHandlers = [
   http.get<{ conversationId: string }>(
     apiUrl('/parent/ai/conversations/:conversationId/messages'),
     authed(
-      ({ auth, params }) => {
+      ({ auth, params, request }) => {
         const found = parentConversation(auth.user.id, params.conversationId);
         if (found instanceof Response) return found;
-        const items = db.messages
-          .filter((m) => m.conversationId === found.id)
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return json(paginated(AiMessageDtoSchema), { items });
+        return messagesPage(request, found.id);
       },
       ['PARENT'],
     ),

@@ -71,6 +71,7 @@ export function WithdrawSheet({ open, onClose, balance }: WithdrawSheetProps) {
       open={open}
       onClose={onClose}
       title={t('withdrawSheet.title')}
+      closeLabel={t('common:actions.close')}
       closeOnBackdrop={closable}
       closeOnEscape={closable}
       showClose={closable}

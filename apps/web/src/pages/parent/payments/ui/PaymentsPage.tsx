@@ -17,9 +17,10 @@ import { useChildPayments, useCreatePayment, usePaymentResult } from '@/entities
 import { NoChildState } from '@/features/link-child';
 import { newRequestId } from '@/shared/api/client';
 import { describeApiError } from '@/shared/api/errors';
-import { formatDate, formatDateTime } from '@/shared/lib/dates';
+import { formatDateOnly, formatDateTime } from '@/shared/lib/dates';
 import { formatMoney } from '@/shared/lib/money';
 import { isFromApp } from '@/shared/lib/navigation';
+import { PARENT_HOME_PATH } from '@/shared/lib/parent-paths';
 import { useMaxBridge } from '@/shared/max';
 import { useSelectedChildId } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
@@ -78,7 +79,7 @@ export function PaymentsPage() {
     <>
       <ScreenHeader
         title={t('payments.title')}
-        back={isFromApp(location.state) ? true : '/parent'}
+        back={isFromApp(location.state) ? true : PARENT_HOME_PATH}
         bell
       />
       <Screen>
@@ -104,7 +105,7 @@ export function PaymentsPage() {
                           subtitle={`${
                             period.paidUntil
                               ? t('courses.paidUntil', {
-                                  date: formatDate(period.paidUntil, i18n.language),
+                                  date: formatDateOnly(period.paidUntil, i18n.language),
                                 })
                               : t('courses.notPaid')
                           } · ${formatMoney(period.price, i18n.language)}`}

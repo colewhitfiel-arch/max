@@ -1,4 +1,3 @@
-import { BLOCK_TYPE_META } from '@edu/contracts';
 import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
@@ -42,7 +41,7 @@ export function CoursePage() {
                           key={block.id}
                           title={block.title}
                           subtitle={[
-                            BLOCK_TYPE_META[block.type].label,
+                            t(`common:blockType.${block.type}`),
                             block.estimatedMinutes
                               ? t('courses.minutes', { count: block.estimatedMinutes })
                               : null,

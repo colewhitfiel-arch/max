@@ -27,8 +27,8 @@ import {
   demoEnrollments,
   demoGroups,
   demoId,
-  demoPaidPeriod,
   materializeDemoLessons,
+  materializeLessons,
 } from '@edu/contracts/fixtures';
 import { addDays, toDateOnly } from '../../lib/dates';
 import { roll } from './seed';
@@ -317,31 +317,7 @@ const tutorLessonSpecs: DemoLessonSpec[] = [
   },
 ];
 
-/** Как `materializeDemoLessons` из фикстур: смещение в днях + локальное время по поясу `tzOffsetMinutes`. */
-function materialize(specs: DemoLessonSpec[], now: Date, tzOffsetMinutes: number): Lesson[] {
-  return specs.map((spec) => {
-    const [h, m] = spec.startTime.split(':').map(Number) as [number, number];
-    // День берём по часам школы, а не по UTC (см. materializeDemoLessons).
-    const local = new Date(now.getTime() + tzOffsetMinutes * 60_000);
-    const base = new Date(
-      Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + spec.dayOffset),
-    );
-    const startsAt = new Date(base.getTime() + (h * 60 + m - tzOffsetMinutes) * 60_000);
-    const endsAt = new Date(startsAt.getTime() + spec.durationMin * 60_000);
-    return {
-      id: spec.id,
-      groupId: spec.groupId,
-      ruleId: spec.ruleId,
-      startsAt: startsAt.toISOString(),
-      endsAt: endsAt.toISOString(),
-      topic: spec.topic,
-      room: spec.room,
-      status: spec.status,
-      cancelReason: null,
-    };
-  });
-}
-
+/** Отметки прошедших занятий шахмат; `markedAt` — заглушка, в мире это начало занятия. */
 const mockAttendance: Attendance[] = [
   {
     id: MOCK_IDS.attendance.chessPast1Dasha,
@@ -582,7 +558,7 @@ const TUTOR_PAYMENT_IDS: Readonly<Record<string, { payment: string; paidPeriod: 
  * кошельком: зачисление, от которого недавно пришли деньги, оплачено на 30 дней с дня последнего
  * поступления (следующий платёж — примерно через месяц, а не просрочка с дня зачисления). Платит
  * Ольга — родитель обоих учеников. Зачисление, оплаченное в фикстурах (робототехника Алексея,
- * по 30.09), не трогаем. Каждое поступление с платежом один к одному мок не связывает (docs/04).
+ * 30 дней с оплаты, см. materializeDemoPaidPeriod), не трогаем. Каждое поступление с платежом один к одному мок не связывает (docs/04).
  */
 export function buildTutorPayments(wallet: MockTeacherWallet): {
   payments: Payment[];
@@ -592,7 +568,8 @@ export function buildTutorPayments(wallet: MockTeacherWallet): {
   const paidPeriods: PaidPeriod[] = [];
   for (const source of mariaSources()) {
     const ids = TUTOR_PAYMENT_IDS[source.id];
-    if (!ids || demoPaidPeriod.enrollmentId === source.id) continue;
+    // Робототехника Алексея оплачена в фикстурах (materializeDemoPaidPeriod).
+    if (!ids || source.id === DEMO_IDS.enrollments.alexeyRobotics) continue;
     const last = wallet.transactions
       .filter(
         (tx) =>
@@ -635,7 +612,8 @@ export function buildWorldExtras(now: Date) {
   const teacherWallets = buildTeacherWallets(now);
   // В моке «школа» живёт в поясе браузера: так «сегодня» совпадает с экраном в любом TZ (CI — UTC).
   const tzOffset = -now.getTimezoneOffset();
-  const lessons = materialize([...chessLessonSpecs, ...tutorLessonSpecs], now, tzOffset);
+  const lessons = materializeLessons([...chessLessonSpecs, ...tutorLessonSpecs], now, tzOffset);
+  const startsAt = new Map(lessons.map((lesson) => [lesson.id, lesson.startsAt]));
   const parentConversation: AiConversation = {
     id: MOCK_IDS.parentConversation,
     userId: DEMO_IDS.users.parent,
@@ -689,7 +667,11 @@ export function buildWorldExtras(now: Date) {
     scheduleRules: mockScheduleRules,
     lessons,
     attendance: [
-      ...mockAttendance,
+      // Отметка — в начале занятия, не раньше него.
+      ...mockAttendance.map((row) => ({
+        ...row,
+        markedAt: startsAt.get(row.lessonId) ?? row.markedAt,
+      })),
       ...tutorTodayAttendance([...lessons, ...materializeDemoLessons(now, tzOffset)], now),
     ],
     parentConversation,

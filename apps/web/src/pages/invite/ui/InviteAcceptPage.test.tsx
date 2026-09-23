@@ -89,7 +89,7 @@ describe('InviteAcceptPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Подтвердить' }, WAIT));
 
     expect(await screen.findByText('Ты уже привязан к этому родителю', {}, WAIT)).toBeVisible();
-    expect(screen.queryByText('Данные уже изменились, обнови экран')).toBeNull();
+    expect(screen.queryByText('Данные уже изменились, нужно обновить экран')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
     expect(screen.getByRole('button', { name: 'На главную' })).toBeEnabled();
   });

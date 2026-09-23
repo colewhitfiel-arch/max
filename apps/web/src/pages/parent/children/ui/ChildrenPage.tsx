@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { StudentRow, useChildren } from '@/entities/student';
 import { ChildInviteLink, LinkChildForm } from '@/features/link-child';
 import { isFromApp } from '@/shared/lib/navigation';
+import { PARENT_HOME_PATH } from '@/shared/lib/parent-paths';
 import { useUiStore } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
@@ -23,7 +24,7 @@ export function ChildrenPage() {
     <>
       <ScreenHeader
         title={t('children.title')}
-        back={isFromApp(location.state) ? true : '/parent'}
+        back={isFromApp(location.state) ? true : PARENT_HOME_PATH}
         bell
       />
       <Screen>
@@ -59,7 +60,7 @@ export function ChildrenPage() {
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedChildId(child.student.id);
-                            navigate('/parent');
+                            navigate(PARENT_HOME_PATH);
                           }}
                         >
                           {t('children.select')}
@@ -91,7 +92,7 @@ export function ChildrenPage() {
             <LinkChildForm
               onLinked={(studentId) => {
                 setSelectedChildId(studentId);
-                navigate('/parent');
+                navigate(PARENT_HOME_PATH);
               }}
             />
           </Card>

@@ -1,6 +1,7 @@
 import type { StudentBrief } from '@edu/contracts';
 import { Avatar, Inline, Skeleton, Text, VisuallyHidden } from '@edu/ui';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { shortName } from '@/entities/student';
 import { fullName } from '@/shared/lib/format';
 import { ScreenHeader } from '@/shared/ui';
@@ -30,12 +31,13 @@ export function TeacherStudentHeader({
   fallback,
   action,
 }: TeacherStudentHeaderProps) {
+  const { t } = useTranslation('common');
   const title = student ? (
     <Inline as="span" gap={2} wrap={false}>
       <Avatar name={fullName(student.user)} src={student.user.avatarUrl} aria-hidden />
       <VisuallyHidden>{screenLabel}: </VisuallyHidden>
       <Text as="span" variant="body" truncate>
-        {shortName(student.user)}
+        {shortName(student.user) || t('user.noName')}
       </Text>
     </Inline>
   ) : (

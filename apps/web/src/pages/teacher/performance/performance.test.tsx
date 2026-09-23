@@ -293,7 +293,7 @@ describe('Общая успеваемость преподавателя', () =>
 
   it('404 (ручки ещё нет) — «Раздел в разработке», а не «Группа не найдена»', () => {
     hooks.group = failed(
-      new ApiClientError({ code: 'NOT_FOUND', message: 'Not Found', status: 404 }),
+      new ApiClientError({ code: 'NOT_IMPLEMENTED', message: 'HTTP 404', status: 404 }),
     );
     renderAt(`/teacher/performance/groups/${ROBOTICS_A}`);
 

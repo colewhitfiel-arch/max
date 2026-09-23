@@ -20,8 +20,11 @@ export function NoChildState() {
   if (query.isError) {
     return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
   }
-  // Дети есть — ParentShell выберет первого на следующем кадре.
-  if (!query.data || query.data.items.length > 0) return <ListSkeleton />;
+  // Есть подтверждённые дети — ParentShell выберет первого на следующем кадре. Только PENDING
+  // или отвязанные выбрать нельзя — показываем «Добавить ребёнка», а не вечный скелет.
+  if (!query.data || query.data.items.some((child) => child.linkStatus === 'ACTIVE')) {
+    return <ListSkeleton />;
+  }
   return (
     <>
       <EmptyState

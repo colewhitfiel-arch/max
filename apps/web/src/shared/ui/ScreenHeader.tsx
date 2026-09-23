@@ -56,6 +56,7 @@ export function ScreenHeader({
   sticky,
 }: ScreenHeaderProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
   const onBack = back
     ? () => (typeof back === 'string' ? navigate(back, { replace: true }) : navigate(-1))
     : undefined;
@@ -66,6 +67,7 @@ export function ScreenHeader({
       title={title}
       subtitle={subtitle}
       onBack={onBack}
+      backLabel={t('actions.back')}
       actions={
         actions || bell ? (
           <>

@@ -15,7 +15,8 @@ export interface TeacherHomeHeaderProps {
  * Шапка главной репетитора (макет): слева аватар и краткое имя («Фамилия И.»), справа —
  * кошелёк с балансом без плюса (`GET /teacher/wallet`): чип открывает кошелёк. Период — по
  * умолчанию, как у экрана кошелька, чтобы переход не перезапрашивал данные. Пока баланс
- * грузится или не загрузился — вместо суммы многоточие, кнопка всё равно работает.
+ * грузится — вместо суммы многоточие; не загрузился — прочерк и подпись об ошибке. Кнопка
+ * работает всегда: экран кошелька перезапрашивает баланс (это и есть повтор).
  */
 export function TeacherHomeHeader({ onOpenWallet }: TeacherHomeHeaderProps) {
   const { t, i18n } = useTranslation('teacher-home');
@@ -29,16 +30,18 @@ export function TeacherHomeHeader({ onOpenWallet }: TeacherHomeHeaderProps) {
       <Inline gap={2} align="center" wrap={false}>
         {user && <Avatar name={fullName(user)} src={user.avatarUrl} />}
         <Text as="span" truncate>
-          {user ? shortName(user) : ''}
+          {user ? shortName(user) || t('common:user.noName') : ''}
         </Text>
       </Inline>
       <WalletChip
         plus={false}
-        amount={balance ? wholeRubles(balance, i18n.language) : '…'}
+        amount={balance ? wholeRubles(balance, i18n.language) : wallet.isError ? '—' : '…'}
         aria-label={
           balance
             ? t('header.wallet', { amount: formatMoney(balance, i18n.language) })
-            : t('header.walletUnknown')
+            : wallet.isError
+              ? t('header.walletError')
+              : t('header.walletUnknown')
         }
         onClick={onOpenWallet}
       />

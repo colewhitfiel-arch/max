@@ -23,7 +23,7 @@ export function StudentProfileHero({ profile }: StudentProfileHeroProps) {
       <Avatar name={name} src={profile.user.avatarUrl} size="xl" ring />
       <Stack gap={1} align="center">
         <Text variant="title" align="center">
-          {name}
+          {name || t('common:user.noName')}
         </Text>
         {meta && (
           <Text variant="small" tone="muted" align="center">

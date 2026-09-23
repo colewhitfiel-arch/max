@@ -54,6 +54,7 @@ void i18n.use(initReactI18next).init({
   defaultNS: 'common',
   interpolation: { escapeValue: false },
   returnNull: false,
+  showSupportNotice: false,
 });
 
 export function setLanguage(lng: string): Promise<unknown> {

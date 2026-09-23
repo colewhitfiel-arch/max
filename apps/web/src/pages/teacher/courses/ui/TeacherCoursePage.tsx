@@ -1,4 +1,3 @@
-import { BLOCK_TYPE_META } from '@edu/contracts';
 import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -50,7 +49,7 @@ export function TeacherCoursePage() {
                         <ListRow
                           key={block.id}
                           title={block.title}
-                          subtitle={BLOCK_TYPE_META[block.type].label}
+                          subtitle={t(`common:blockType.${block.type}`)}
                           right={block.isRequired ? <Badge tone="info">!</Badge> : undefined}
                         />
                       ))}

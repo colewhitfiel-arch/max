@@ -112,6 +112,7 @@ export function TeacherHomeSchedule() {
         onMonthChange={setMonth}
         lessons={calendar.data?.lessons}
         error={calendar.isError}
+        onRetry={() => void calendar.refetch()}
       />
       <NotificationsDrawer open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </>

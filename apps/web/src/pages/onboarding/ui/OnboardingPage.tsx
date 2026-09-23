@@ -53,13 +53,13 @@ type Choice = 'now' | 'later';
 /** Приветствие над лентой: аватар тьютора, имя ученика и что сейчас будет. */
 function Hero() {
   const { t } = useTranslation('auth');
-  const me = useMe();
+  const name = useMe()?.user.firstName.trim();
   return (
     <Stack gap={3} align="center">
       <TutorAvatar size="xl" />
       <Stack gap={1} align="center">
         <Text variant="title" align="center">
-          {me ? t('onboarding.hero', { name: me.user.firstName }) : t('onboarding.heroAnon')}
+          {name ? t('onboarding.hero', { name }) : t('onboarding.heroAnon')}
         </Text>
         <Text variant="small" tone="muted" align="center">
           {t('onboarding.heroHint')}
@@ -139,6 +139,7 @@ function ChatStage({
         busy={streaming}
         onStop={onStop}
         placeholder={t('onboarding.placeholder')}
+        inputLabel={t('common:chat.inputLabel')}
         sendLabel={t('onboarding.send')}
         stopLabel={t('onboarding.stop')}
       />

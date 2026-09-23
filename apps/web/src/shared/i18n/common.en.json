@@ -3,15 +3,17 @@
     "name": "Clubs",
     "loading": "Loading…"
   },
+  "notifications": "Notifications",
+  "chat": {
+    "inputLabel": "Message",
+    "loadOlder": "Show earlier"
+  },
   "nav": {
     "home": "Home",
     "tutor": "AI tutor",
     "settings": "Settings",
     "profile": "Profile",
-    "children": "Children",
     "analytics": "Analytics",
-    "clubs": "Clubs",
-    "payments": "Payments",
     "assignments": "Assignments",
     "performance": "Performance",
     "notifications": "Notifications",
@@ -21,21 +23,14 @@
   "actions": {
     "retry": "Retry",
     "back": "Back",
-    "save": "Save",
-    "cancel": "Cancel",
-    "open": "Open",
-    "logout": "Log out",
     "switchRole": "Switch role",
     "addRole": "Add role",
     "goHome": "Go home",
     "markRead": "Mark read",
     "markAllRead": "Mark all read",
     "refresh": "Refresh",
-    "send": "Send",
-    "create": "Create",
     "copy": "Copy",
-    "delete": "Delete",
-    "done": "Done"
+    "close": "Close"
   },
   "states": {
     "loading": "Loading…",
@@ -45,9 +40,18 @@
     "inDevelopmentHint": "This section is not ready on the server yet",
     "notFound": "Page not found",
     "notFoundHint": "The link may be outdated",
+    "notFoundItem": "Not found",
+    "notFoundItemHint": "It may have been deleted or the link is outdated",
     "forbidden": "Access denied",
-    "forbiddenHint": "Your role has no access to this section",
-    "aiPending": "AI comment is being prepared"
+    "forbiddenHint": "Your role has no access to this section"
+  },
+  "dates": {
+    "today": "today",
+    "yesterday": "yesterday",
+    "tomorrow": "tomorrow",
+    "todayAt": "today, {{time}}",
+    "inDays": "in {{days}} d",
+    "overdue": "overdue"
   },
   "errors": {
     "crashTitle": "Something went wrong",
@@ -58,11 +62,13 @@
     "aborted": "Request cancelled",
     "emptyStream": "Empty stream",
     "noLaunchParams": "No MAX launch parameters: open the app from the messenger",
+    "sdkUnavailable": "MAX SDK not found: the app is opened outside MAX or the SDK is not connected. For browser development use VITE_MAX_MODE=mock.",
+    "mswFailed": "MSW failed to start: check that public/mockServiceWorker.js exists (`pnpm exec msw init public`) and that the browser allows Service Workers. Or switch to VITE_API_MODE=real.",
     "codes": {
       "VALIDATION": "Check the entered data",
       "UNAUTHORIZED": "Please sign in again",
       "FORBIDDEN": "No access to this section",
-      "NOT_FOUND": "Section under development",
+      "NOT_FOUND": "Not found: it may have been deleted or the link is outdated",
       "CONFLICT": "Data has changed, refresh the screen",
       "BUSINESS_RULE": "This action is not available right now",
       "RATE_LIMITED": "Too many requests, try again later",
@@ -77,6 +83,41 @@
     "TEACHER": "Teacher",
     "SCHOOL_ADMIN": "School admin"
   },
+  "clubCategory": {
+    "ROBOTICS": "Robotics",
+    "PROGRAMMING": "Programming",
+    "LANGUAGES": "Foreign languages",
+    "CHESS": "Chess",
+    "MATH": "Mathematics",
+    "ART": "Art",
+    "MUSIC": "Music",
+    "SPORT": "Sport",
+    "SCIENCE": "Science",
+    "OTHER": "Other"
+  },
+  "blockType": {
+    "TEXT": "Text",
+    "VIDEO": "Video",
+    "IMAGE": "Image",
+    "FILE": "File",
+    "QUIZ": "Quiz",
+    "QUESTION": "Question",
+    "PRACTICE": "Practice",
+    "HOMEWORK": "Homework",
+    "INTERACTIVE": "Interactive"
+  },
+  "knowledgeNodeType": {
+    "CONCEPT": "Concept",
+    "FACT": "Fact",
+    "PROCEDURE": "Procedure",
+    "SKILL": "Skill",
+    "EXAMPLE": "Example"
+  },
+  "billing": {
+    "period": {
+      "MONTH": "{{price}} / month"
+    }
+  },
   "theme": {
     "label": "Theme",
     "SYSTEM": "As in MAX",
@@ -89,16 +130,11 @@
     "en": "English"
   },
   "account": {
-    "title": "Account",
-    "role": "Role",
-    "support": "Contact support",
-    "settingsSaved": "Settings saved",
     "settingsError": "Failed to save settings"
   },
   "lesson": {
     "cancelled": "Cancelled",
     "done": "Done",
-    "room": "room",
     "attendance": {
       "PRESENT": "Present",
       "ABSENT": "Absent",
@@ -125,15 +161,7 @@
   },
   "stats": {
     "attendance": "Attendance",
-    "completion": "Completion",
-    "activity": "Activity",
-    "absences": "Absences",
-    "late": "Late",
-    "period30": "last 30 days",
     "progress": "Progress"
-  },
-  "dev": {
-    "playground": "UI Playground"
   },
   "settings": {
     "appearance": "Appearance",
@@ -176,5 +204,8 @@
     "openProfile": "Open profile",
     "logout": "Log out",
     "about": "“Clubs” mini app for MAX"
+  },
+  "user": {
+    "noName": "No name"
   }
 }

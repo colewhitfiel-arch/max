@@ -1,6 +1,7 @@
 import { hasPermission, type Permission, type Role } from '@edu/contracts';
 import { Spinner } from '@edu/ui';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useActiveRole, useAuthStore } from './index';
 import { AUTH_PATH, FORBIDDEN_PATH, roleHomePath } from './role-routes';
@@ -16,9 +17,10 @@ function Content({ children }: GuardProps) {
 
 /** Анонима отправляет на `/auth`, запоминая, откуда пришёл (путь с query и hash). */
 export function RequireAuth({ children }: GuardProps) {
+  const { t } = useTranslation('common');
   const status = useAuthStore((s) => s.status);
   const location = useLocation();
-  if (status === 'idle' || status === 'loading') return <Spinner label="Загрузка" />;
+  if (status === 'idle' || status === 'loading') return <Spinner label={t('states.loading')} />;
   if (status === 'anonymous') {
     return (
       <Navigate

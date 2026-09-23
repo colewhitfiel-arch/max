@@ -100,7 +100,8 @@ export const familyHandlers = [
         const student = db.students.find(
           (s) => s.linkCode.toUpperCase() === body.data.code.toUpperCase(),
         );
-        if (!student) return apiError('NOT_FOUND', 'Код не найден. Проверь код в профиле ребёнка');
+        if (!student)
+          return apiError('NOT_FOUND', 'Код не найден. Проверьте код в профиле ребёнка');
         const existing = db.links.find(
           (l) => l.parentId === parent.id && l.studentId === student.id,
         );

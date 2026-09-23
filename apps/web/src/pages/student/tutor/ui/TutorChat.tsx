@@ -1,9 +1,16 @@
 import { STREAMING_ROUTES } from '@edu/contracts';
-import { ChatComposer, Chip, Inline, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
+import { Button, ChatComposer, Chip, Inline, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { aiKeys, ChatMessage, ChatMessageList, TutorAvatar, useMessages } from '@/entities/ai';
+import {
+  aiKeys,
+  ChatMessage,
+  ChatMessageList,
+  TutorAvatar,
+  useChatFeedScroll,
+  useMessages,
+} from '@/entities/ai';
 import { describeApiError } from '@/shared/api/errors';
 import { useAiStream } from '@/shared/api/sse';
 import { useMe } from '@/shared/auth/hooks';
@@ -12,31 +19,17 @@ import { AsyncState } from '@/shared/ui';
 /** Ключи подсказок-стартеров (`tutor.suggestions.*`). */
 const SUGGESTIONS = ['today', 'explain', 'help', 'plan'] as const;
 
-/** Сколько пикселей до низа считать «пользователь у конца ленты» — тогда следим за стримом. */
-const FOLLOW_THRESHOLD = 160;
-
-/** Ближайший скроллируемый предок (скролл-область AppLayout). */
-function scrollParent(el: HTMLElement | null): HTMLElement | null {
-  let node = el?.parentElement ?? null;
-  while (node) {
-    const { overflowY } = getComputedStyle(node);
-    if (overflowY === 'auto' || overflowY === 'scroll') return node;
-    node = node.parentElement;
-  }
-  return null;
-}
-
 /** Пустой чат: маскот, приветствие и подсказки-стартеры, которые сразу отправляют вопрос. */
 function EmptyChat({ onPick, disabled }: { onPick: (text: string) => void; disabled: boolean }) {
   const { t } = useTranslation('student');
-  const me = useMe();
+  const name = useMe()?.user.firstName.trim();
   return (
     <Stack gap={5} align="center" grow justify="center">
       <Stack gap={3} align="center">
         <TutorAvatar size="xl" />
         <Stack gap={1} align="center">
           <Text variant="title" align="center">
-            {me ? t('tutor.greeting', { name: me.user.firstName }) : t('tutor.greetingAnon')}
+            {name ? t('tutor.greeting', { name }) : t('tutor.greetingAnon')}
           </Text>
           <Text variant="small" tone="muted" align="center">
             {t('tutor.intro')}
@@ -74,22 +67,36 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
   // Готовый ответ озвучивается один раз (лента не live-регион: иначе скринридер зачитывает
   // каждый токен стрима и смену скелета на историю).
   const [announcement, setAnnouncement] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
+  // Номер отправки: ответ на старый вопрос, пришедший после нового, не трогает его состояние.
+  const sendIdRef = useRef(0);
+  const { bottomRef, loadOlder } = useChatFeedScroll({
+    items: query.data?.items,
+    pendingText: pendingUserText,
+    streamText: stream.text,
+  });
 
   useEffect(() => onStreamingChange?.(stream.isStreaming), [stream.isStreaming, onStreamingChange]);
 
   const send = useCallback(
     async (text: string) => {
+      const sendId = ++sendIdRef.current;
       setPendingUserText(text);
       setAnnouncement('');
       const result = await stream.start(STREAMING_ROUTES.tutorMessage.path(conversationId), {
         text,
       });
       if (result.status === 'done') {
+        // «Стоп» (done без messageId): стрим сбрасываем сразу, до перезапроса ленты, — запоздалый
+        // reset() не оборвёт вопрос, отправленный, пока лента грузится. Пустой ответ не рисуем.
+        const stopped = result.messageId === null;
+        if (stopped) stream.reset();
         await queryClient.invalidateQueries({ queryKey: aiKeys.messages(conversationId) });
+        if (sendIdRef.current !== sendId) return;
         setPendingUserText(null);
-        setAnnouncement(result.text);
-        stream.reset();
+        if (!stopped) {
+          setAnnouncement(result.text);
+          stream.reset();
+        }
       } else if (result.status === 'error') {
         // Ошибка (лимит, сеть, сбой потока): «отправленный» пузырь убираем, ленту перезапрашиваем —
         // если сервер успел сохранить вопрос, он придёт с историей. Ответ не начался — вопрос
@@ -103,17 +110,7 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
     [conversationId, queryClient, stream],
   );
 
-  // Новое сообщение — прокручиваем к концу; во время стрима следим за текстом, только если
-  // пользователь и так у конца ленты (не дёргаем, когда он читает выше).
   const messageCount = query.data?.items.length ?? 0;
-  const scrollToEnd = useCallback((force: boolean) => {
-    const scroller = scrollParent(bottomRef.current);
-    if (!scroller) return;
-    const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-    if (force || distance < FOLLOW_THRESHOLD) scroller.scrollTo({ top: scroller.scrollHeight });
-  }, []);
-  useEffect(() => scrollToEnd(true), [messageCount, pendingUserText, scrollToEnd]);
-  useEffect(() => scrollToEnd(false), [stream.text, scrollToEnd]);
 
   // Ошибка первой отправки тоже не «пустой чат»: иначе alert с ошибкой пропадёт вместе с лентой.
   const isEmpty =
@@ -128,6 +125,16 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
               <EmptyChat onPick={(text) => void send(text)} disabled={stream.isStreaming} />
             ) : (
               <>
+                {query.hasNextPage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={query.isFetchingNextPage}
+                    onClick={() => void loadOlder(query.fetchNextPage)}
+                  >
+                    {t('common:chat.loadOlder')}
+                  </Button>
+                )}
                 <ChatMessageList items={page.items} />
                 {pendingUserText && <ChatMessage role="USER" content={pendingUserText} />}
                 {(stream.isStreaming || stream.text) && (
@@ -161,6 +168,7 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
         busy={stream.isStreaming}
         onStop={stream.abort}
         placeholder={t('tutor.placeholder')}
+        inputLabel={t('common:chat.inputLabel')}
         sendLabel={t('tutor.send')}
         stopLabel={t('tutor.stop')}
       />

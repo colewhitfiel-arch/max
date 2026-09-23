@@ -21,6 +21,7 @@ import { newRequestId } from '@/shared/api/client';
 import { describeApiError } from '@/shared/api/errors';
 import { formatMoney, rublesToKopecks } from '@/shared/lib/money';
 import { isFromApp } from '@/shared/lib/navigation';
+import { PARENT_HOME_PATH } from '@/shared/lib/parent-paths';
 import { useMaxBridge } from '@/shared/max';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 
@@ -80,7 +81,7 @@ export function WalletTopUpPage() {
   const goBack = () => {
     // Пришли с главной или из настроек — назад по истории; иначе (прямая ссылка, вход) — на главную.
     if (isFromApp(location.state)) void navigate(-1);
-    else void navigate('/parent', { replace: true });
+    else void navigate(PARENT_HOME_PATH, { replace: true });
   };
 
   const onSubmit = (event: FormEvent) => {
@@ -105,7 +106,10 @@ export function WalletTopUpPage() {
   return (
     <>
       {/* Как и после пополнения: открыт из приложения — назад по истории, иначе — на главную. */}
-      <ScreenHeader title={t('wallet.title')} back={isFromApp(location.state) ? true : '/parent'} />
+      <ScreenHeader
+        title={t('wallet.title')}
+        back={isFromApp(location.state) ? true : PARENT_HOME_PATH}
+      />
       <Screen gap={5}>
         <Card>
           <Stack gap={1}>

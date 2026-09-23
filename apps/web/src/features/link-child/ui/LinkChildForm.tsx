@@ -25,7 +25,7 @@ export function LinkChildForm({ onLinked }: LinkChildFormProps) {
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = code.trim().toUpperCase();
-    if (!trimmed) return;
+    if (!trimmed || link.isPending) return;
     link.mutate(trimmed, {
       onSuccess: (result) => {
         toast.show({ tone: 'success', title: t('children.linked') });

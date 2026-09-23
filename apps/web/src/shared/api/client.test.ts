@@ -84,15 +84,32 @@ describe('api client', () => {
     }
   });
 
-  it('404 без тела → NOT_FOUND (раздел в разработке)', async () => {
+  it('404 без тела (ручки нет за прокси) → NOT_IMPLEMENTED (раздел в разработке)', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
     const result = await api.dashboards.getStudentHome();
     try {
       unwrap(result);
       expect.unreachable();
     } catch (error) {
-      expect((error as ApiClientError).code).toBe('NOT_FOUND');
+      expect((error as ApiClientError).code).toBe('NOT_IMPLEMENTED');
+      expect((error as ApiClientError).status).toBe(404);
       expect((error as ApiClientError).isNotImplemented).toBe(true);
+    }
+  });
+
+  it('404 с телом ApiError → NOT_FOUND («не найдено», не «раздел в разработке»)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(404, {
+        error: { code: 'NOT_FOUND', message: 'Задание не найдено', requestId: 'req-2' },
+      }),
+    );
+    const result = await api.dashboards.getStudentHome();
+    try {
+      unwrap(result);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as ApiClientError).code).toBe('NOT_FOUND');
+      expect((error as ApiClientError).isNotImplemented).toBe(false);
     }
   });
 

@@ -26,9 +26,13 @@ export class ApiClientError extends Error {
     this.requestId = init.requestId;
   }
 
-  /** Раздел ещё не реализован на сервере (404 без тела / 501). */
+  /**
+   * Раздел ещё не реализован на сервере: 501 NOT_IMPLEMENTED (API, MSW-заглушка незамоканных
+   * ручек) или голый 404 без тела ApiError (ручки нет за прокси). NOT_FOUND с телом ApiError —
+   * это «объект не найден» (удалённое задание, неизвестный преподаватель), а не «в разработке».
+   */
   get isNotImplemented(): boolean {
-    return this.code === 'NOT_FOUND' || this.code === 'NOT_IMPLEMENTED';
+    return this.code === 'NOT_IMPLEMENTED';
   }
 }
 
@@ -68,7 +72,11 @@ export function apiErrorFromResponse(
       requestId: error.requestId ?? requestId,
     });
   }
-  const code = STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION');
+  // 404 без тела ApiError — ответил не наш API (ручки нет за прокси): «раздел в разработке».
+  const code =
+    status === 404
+      ? 'NOT_IMPLEMENTED'
+      : (STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION'));
   return new ApiClientError({
     code,
     message: typeof body === 'string' && body ? body : `HTTP ${status}`,

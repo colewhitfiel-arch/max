@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import type { ChildBrief } from '@edu/contracts';
+import { useEffect } from 'react';
 import { useChildren } from '@/entities/student';
 import { RequireAuth, RequireRole } from '@/shared/auth/guards';
 import { useUiStore } from '@/shared/store/ui-store';
@@ -20,18 +21,28 @@ export function ParentShell() {
   );
 }
 
+/**
+ * Кто должен быть выбран: текущий, если он среди ACTIVE, иначе первый ACTIVE (или никто).
+ * PENDING/отвязанный ребёнок — не «текущий»: его данные сервер не отдаёт.
+ */
+export function resolveSelectedChild(
+  items: readonly ChildBrief[],
+  selectedChildId: string | null,
+): string | null {
+  const active = items.filter((child) => child.linkStatus === 'ACTIVE');
+  if (active.some((child) => child.student.id === selectedChildId)) return selectedChildId;
+  return active[0]?.student.id ?? null;
+}
+
 function ParentShellInner() {
   const childrenQuery = useChildren();
   const selectedChildId = useUiStore((s) => s.selectedChildId);
   const setSelectedChildId = useUiStore((s) => s.setSelectedChildId);
-  const items = useMemo(() => childrenQuery.data?.items ?? [], [childrenQuery.data]);
-
-  // Выбранный ребёнок должен быть в списке; иначе — первый (или никто, если детей нет).
   useEffect(() => {
     if (!childrenQuery.data) return;
-    const exists = items.some((child) => child.student.id === selectedChildId);
-    if (!exists) setSelectedChildId(items[0]?.student.id ?? null);
-  }, [childrenQuery.data, items, selectedChildId, setSelectedChildId]);
+    const next = resolveSelectedChild(childrenQuery.data.items, selectedChildId);
+    if (next !== selectedChildId) setSelectedChildId(next);
+  }, [childrenQuery.data, selectedChildId, setSelectedChildId]);
 
   return <RoleShell role="PARENT" />;
 }

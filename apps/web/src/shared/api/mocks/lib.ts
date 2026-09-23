@@ -6,6 +6,8 @@ import {
   type ApiError,
   type ErrorCode,
   ERROR_HTTP_STATUS,
+  PAGINATION_DEFAULT_LIMIT,
+  PaginationQuerySchema,
   PeriodQuerySchema,
   type Role,
 } from '@edu/contracts';
@@ -144,6 +146,45 @@ export function periodQuery(
     };
   }
   return { ok: true, data: parsed.data };
+}
+
+/**
+ * Страница списка по `?limit&cursor` (`PaginationQuerySchema`, по умолчанию
+ * `PAGINATION_DEFAULT_LIMIT`). Курсор — id последнего отданного элемента (keyset: новые элементы
+ * между запросами не сдвигают следующие страницы). `items` — уже в порядке выдачи:
+ * - `fromEnd: false` — страница с начала списка, `nextCursor` ведёт дальше по списку;
+ * - `fromEnd: true` — лента с конца (чат): первая страница — последние `limit` элементов в том же
+ *   порядке, `nextCursor` (id самого раннего из них) ведёт к более ранним.
+ * Неизвестный курсор — пустая страница без `nextCursor`.
+ */
+export function paginate<T extends { id: string }>(
+  request: Request,
+  items: readonly T[],
+  { fromEnd = false }: { fromEnd?: boolean } = {},
+): { ok: true; page: { items: T[]; nextCursor?: string } } | { ok: false; response: Response } {
+  const parsed = PaginationQuerySchema.safeParse(Object.fromEntries(query(request)));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: apiError('VALIDATION', 'Неверные параметры запроса', parsed.error.flatten()),
+    };
+  }
+  const { cursor, limit = PAGINATION_DEFAULT_LIMIT } = parsed.data;
+  const at = cursor === undefined ? null : items.findIndex((item) => item.id === cursor);
+  if (at === -1) return { ok: true, page: { items: [] } };
+  if (fromEnd) {
+    const end = at ?? items.length;
+    const start = Math.max(0, end - limit);
+    const page = items.slice(start, end);
+    return {
+      ok: true,
+      page: start > 0 ? { items: page, nextCursor: page[0]!.id } : { items: page },
+    };
+  }
+  const start = at === null ? 0 : at + 1;
+  const page = items.slice(start, start + limit);
+  const more = start + limit < items.length;
+  return { ok: true, page: more ? { items: page, nextCursor: page.at(-1)!.id } : { items: page } };
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

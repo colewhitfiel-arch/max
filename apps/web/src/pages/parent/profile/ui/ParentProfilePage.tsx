@@ -1,4 +1,3 @@
-import { ROLE_LABELS } from '@edu/contracts';
 import { Avatar, Card, EmptyState, Screen, Stack, Text, useToast } from '@edu/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +24,7 @@ function ProfileHero({ activeChildren }: { activeChildren?: number }) {
   const me = useMe();
   if (!me) return null;
   const name = fullName(me.user);
+  const title = name || t('common:user.noName');
   const childrenCount = activeChildren ?? me.parent?.childrenCount ?? 0;
   return (
     <Card>
@@ -32,10 +32,10 @@ function ProfileHero({ activeChildren }: { activeChildren?: number }) {
         <Avatar name={name} src={me.user.avatarUrl} size="xl" ring />
         <Stack gap={1} align="center">
           <Text variant="title" align="center">
-            {name}
+            {title}
           </Text>
           <Text variant="small" tone="muted" align="center">
-            {me.activeRole ? ROLE_LABELS[me.activeRole] : ROLE_LABELS.PARENT}
+            {t(`common:roles.${me.activeRole ?? 'PARENT'}`)}
             {' · '}
             {childrenCount > 0 ? t('children', { count: childrenCount }) : t('noChildren')}
           </Text>
@@ -86,8 +86,8 @@ export function ParentProfilePage() {
               {t('offers.title')}
             </Text>
             <Text variant="small" tone="muted">
-              {child
-                ? t('offers.hintChild', { name: child.student.user.firstName })
+              {child?.student.user.firstName.trim()
+                ? t('offers.hintChild', { name: child.student.user.firstName.trim() })
                 : t('offers.hint')}
             </Text>
           </Stack>

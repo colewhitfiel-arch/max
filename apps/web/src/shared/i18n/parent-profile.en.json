@@ -22,9 +22,6 @@
     "enroll": "Enrol",
     "enrollSoon": "Soon you will be able to enrol right here",
     "enrolled": "Already attends",
-    "period": {
-      "MONTH": "{{price}} / month"
-    },
     "empty": "No clubs in the catalog yet",
     "emptyHint": "Clubs will appear here as soon as the school adds them"
   },

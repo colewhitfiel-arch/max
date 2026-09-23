@@ -216,7 +216,7 @@ export type Unwrapped<R extends ClientResult> = Extract<R, { status: SuccessStat
 
 /**
  * Возвращает body при 2xx, иначе бросает `ApiClientError` (тело ошибки — `ApiErrorSchema`;
- * 404 без тела → NOT_FOUND и т.д.).
+ * 404 без тела ApiError → NOT_IMPLEMENTED, «раздел в разработке», и т.д.).
  */
 export function unwrap<R extends ClientResult>(result: R): Unwrapped<R> {
   if (result.status >= 200 && result.status < 300) return result.body as Unwrapped<R>;

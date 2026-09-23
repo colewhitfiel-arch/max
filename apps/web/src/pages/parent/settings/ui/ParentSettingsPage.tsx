@@ -10,7 +10,7 @@ import {
 } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { WALLET_PATH } from '@/pages/parent/wallet/paths';
+import { PARENT_WALLET_PATH } from '@/shared/lib/parent-paths';
 import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { ScreenHeader } from '@/shared/ui';
 import {
@@ -52,7 +52,7 @@ function FamilySettings() {
           title={t('settings.wallet')}
           subtitle={t('settings.walletHint')}
           chevron
-          onClick={() => navigate(WALLET_PATH, { state: FROM_APP_STATE })}
+          onClick={() => navigate(PARENT_WALLET_PATH, { state: FROM_APP_STATE })}
         />
         <ListRow
           left={

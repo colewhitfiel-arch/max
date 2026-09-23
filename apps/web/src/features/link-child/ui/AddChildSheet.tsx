@@ -21,7 +21,12 @@ export function AddChildSheet({ open, onClose, onLinked }: AddChildSheetProps) {
   const codeId = useId();
 
   return (
-    <Sheet open={open} onClose={onClose} title={t('addChild.title')}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={t('addChild.title')}
+      closeLabel={t('common:actions.close')}
+    >
       <Stack gap={5}>
         <Stack gap={3} as="section" aria-labelledby={inviteId}>
           <Stack gap={1}>

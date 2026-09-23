@@ -58,7 +58,7 @@ export function TaskDetailsPage() {
   };
 
   const title = query.data?.group.club.title;
-  // Чужая группа или ребёнок — это не «раздел в разработке» (как NOT_FOUND в AsyncState).
+  // Чужая группа или ребёнок (NOT_FOUND/FORBIDDEN) — своё пустое состояние экрана.
   const notFound =
     isApiClientError(query.error) &&
     (query.error.code === 'NOT_FOUND' || query.error.code === 'FORBIDDEN');

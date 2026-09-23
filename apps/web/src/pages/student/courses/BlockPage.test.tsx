@@ -101,6 +101,43 @@ describe('BlockPage', () => {
     expect(screen.queryByRole('button', { name: 'Открыть видео' })).not.toBeInTheDocument();
   });
 
+  it('VIDEO со ссылкой не http(s) — «Видео недоступно», openLink не вызывается', () => {
+    hooks.block = ready({
+      ...base,
+      type: 'VIDEO',
+      content: { url: 'javascript:alert(1)', provider: 'youtube' },
+    } as unknown as StudentBlockDetail);
+    const bridge = new MockMaxBridge();
+    const openLink = vi.spyOn(bridge, 'openLink').mockImplementation(() => undefined);
+    renderBlock(bridge);
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть видео' })).not.toBeInTheDocument();
+    expect(openLink).not.toHaveBeenCalled();
+  });
+
+  it('QUIZ без правильных ответов (вариант для ученика) — вопросы показаны', () => {
+    hooks.block = ready({
+      ...base,
+      type: 'QUIZ',
+      content: {
+        passScore: 60,
+        questions: [
+          {
+            id: 'q1',
+            text: 'Какой датчик измеряет расстояние?',
+            options: [
+              { id: 'a', text: 'Ультразвуковой' },
+              { id: 'b', text: 'Температурный' },
+            ],
+            multiple: false,
+          },
+        ],
+      },
+    } as unknown as StudentBlockDetail);
+    renderBlock();
+    expect(screen.getByText('1. Какой датчик измеряет расстояние?')).toBeInTheDocument();
+  });
+
   it('HOMEWORK: задание — строкой с полным названием и типом, открывает экран задания', async () => {
     const user = userEvent.setup();
     hooks.block = ready({

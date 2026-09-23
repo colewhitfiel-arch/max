@@ -1,4 +1,4 @@
-import { BLOCK_TYPE_META, type StudentBlockDetail, type VideoContent } from '@edu/contracts';
+import { isHttpUrl, type StudentBlockDetail, type VideoContent } from '@edu/contracts';
 import { Badge, Button, Card, LinkIcon, ListRow, Screen, Stack, Text, useToast } from '@edu/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,13 +19,14 @@ function hostOf(url: string): string | null {
 
 /**
  * Видео-блок: ссылка на внешний плеер открывается через MaxBridge (в MAX — `openLink` SDK).
- * Без ссылки (provider `file` до модуля файлов) — «видео недоступно».
+ * Без ссылки (provider `file` до модуля файлов) или со ссылкой не http(s) — «видео недоступно»:
+ * контракт такие ссылки не пропускает, проверка здесь — защита в глубину перед openLink.
  */
 function VideoBlock({ content }: { content: VideoContent }) {
   const { t } = useTranslation('student');
   const bridge = useMaxBridge();
   const { url } = content;
-  if (!url) return <Text tone="muted">{t('courses.videoUnavailable')}</Text>;
+  if (!url || !isHttpUrl(url)) return <Text tone="muted">{t('courses.videoUnavailable')}</Text>;
   const host = hostOf(url);
   return (
     <Stack gap={1} align="start">
@@ -46,7 +47,7 @@ function BlockContent({ block }: { block: StudentBlockDetail }) {
   const { t } = useTranslation('student');
   switch (block.type) {
     case 'TEXT':
-      return <Text style={{ whiteSpace: 'pre-wrap' }}>{block.content.markdown}</Text>;
+      return <Text preserveLines>{block.content.markdown}</Text>;
     case 'VIDEO':
       return <VideoBlock content={block.content} />;
     case 'QUIZ':
@@ -107,7 +108,7 @@ export function BlockPage() {
         <AsyncState query={query}>
           {(block) => (
             <>
-              <Badge tone="info">{BLOCK_TYPE_META[block.type].label}</Badge>
+              <Badge tone="info">{tc(`blockType.${block.type}`)}</Badge>
               <Card>
                 <BlockContent block={block} />
               </Card>

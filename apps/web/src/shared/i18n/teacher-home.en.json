@@ -2,6 +2,7 @@
   "title": "Home",
   "header": {
     "wallet": "Balance {{amount}}, open wallet",
-    "walletUnknown": "Open wallet"
+    "walletUnknown": "Open wallet",
+    "walletError": "Balance failed to load, open wallet"
   }
 }

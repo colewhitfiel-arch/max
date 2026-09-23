@@ -1,6 +1,7 @@
 /**
- * Оплата и кружки родителя без детей: запросы по ребёнку выключены, поэтому вместо вечного
- * скелета — пустое состояние с «Добавить ребёнка» (редиректа на /parent/children больше нет).
+ * Оплата родителя. Без детей запросы по ребёнку выключены, поэтому вместо вечного скелета —
+ * пустое состояние с «Добавить ребёнка» (редиректа на /parent/children больше нет); то же для
+ * «Кружков ребёнка» — в `pages/parent/courses/ChildClubsPage.test.tsx`.
  */
 import { DEMO_IDS } from '@edu/contracts/fixtures';
 import { ToastProvider } from '@edu/ui';
@@ -8,11 +9,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
-import type { ComponentType } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ChildClubsPage } from '@/pages/parent/courses/ui/ChildClubsPage';
 import { handlers } from '@/shared/api/mocks/handlers';
 import { resetMockDb } from '@/shared/api/mocks/state';
 import { queryClient } from '@/shared/api/query-client';
@@ -34,15 +33,15 @@ afterEach(() => {
   useUiStore.getState().setSelectedChildId(null);
 });
 
-describe.each<[string, ComponentType]>([
-  ['/parent/payments', PaymentsPage],
-  ['/parent/courses', ChildClubsPage],
-])('%s без детей', (path, Page) => {
+describe('/parent/payments без детей', () => {
   it('пустое состояние с «Добавить ребёнка», а не вечный скелет', async () => {
     // Новый родитель: детей нет, выбранного ребёнка нет.
     await useAuthStore.getState().loginDev('max-parent-without-children', ['PARENT']);
     const user = userEvent.setup();
-    const router = createMemoryRouter([{ path, element: <Page /> }], { initialEntries: [path] });
+    const path = '/parent/payments';
+    const router = createMemoryRouter([{ path, element: <PaymentsPage /> }], {
+      initialEntries: [path],
+    });
     render(
       <MaxBridgeProvider bridge={new MockMaxBridge({ launchParams: null })}>
         <QueryClientProvider client={queryClient}>

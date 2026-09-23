@@ -2,7 +2,8 @@
   "title": "Home",
   "header": {
     "wallet": "Balance {{amount}}, top up",
-    "walletUnknown": "Top up balance"
+    "walletUnknown": "Top up balance",
+    "walletError": "Balance failed to load, top up"
   },
   "children": {
     "label": "Children",

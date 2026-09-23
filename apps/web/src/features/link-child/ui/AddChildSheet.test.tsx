@@ -77,7 +77,7 @@ describe('AddChildSheet', () => {
     expect(screen.getByRole('heading', { name: 'Пригласить по ссылке' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Ввести код' })).toBeInTheDocument();
     expect(
-      screen.getByText('Отправь ссылку ребёнку в MAX — он откроет её и подтвердит'),
+      screen.getByText('Отправьте ссылку ребёнку в MAX — он откроет её и подтвердит'),
     ).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Создать ссылку' }));

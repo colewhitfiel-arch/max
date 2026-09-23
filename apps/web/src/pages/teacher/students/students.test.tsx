@@ -183,10 +183,10 @@ const forbidden = () => ({
   refetch: vi.fn(),
 });
 
-/** Ручки нет на сервере (real-режим до backend F): 404 → «Раздел в разработке». */
+/** Ручки нет на сервере (real-режим до backend F): голый 404 → NOT_IMPLEMENTED, «Раздел в разработке». */
 const notFound = () => ({
   ...forbidden(),
-  error: new ApiClientError({ code: 'NOT_FOUND', message: 'Not Found', status: 404 }),
+  error: new ApiClientError({ code: 'NOT_IMPLEMENTED', message: 'HTTP 404', status: 404 }),
 });
 
 const hooks = vi.hoisted(() => ({

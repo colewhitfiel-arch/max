@@ -40,7 +40,6 @@ import {
   DEMO_IDS,
   type DemoUser,
   demoAssignments,
-  demoAttendance,
   demoBlocks,
   demoClubs,
   demoConversation,
@@ -51,16 +50,17 @@ import {
   demoModules,
   demoNotification,
   demoNotificationUserId,
-  demoPaidPeriod,
   demoParentLinks,
   demoParents,
-  demoPayment,
   demoScheduleRules,
   demoStudents,
   demoSubmissions,
   demoTeachers,
   demoUsers,
+  materializeDemoAttendance,
   materializeDemoLessons,
+  materializeDemoPaidPeriod,
+  materializeDemoPayment,
 } from '@edu/contracts/fixtures';
 import {
   buildWorldExtras,
@@ -81,6 +81,8 @@ function clone<T>(value: T): T {
 function buildState() {
   const now = new Date();
   const dayMs = 86_400_000;
+  // Пояс браузера вместо МСК: «сегодняшние» занятия остаются сегодняшними в любом TZ.
+  const tzOffset = -now.getTimezoneOffset();
   const extras = buildWorldExtras(now);
   const users = new Map<string, MockUser>();
   for (const user of [...Object.values(demoUsers), ...extras.users])
@@ -193,12 +195,11 @@ function buildState() {
     })),
     enrollments: clone([...demoEnrollments, ...extras.enrollments]) as Enrollment[],
     scheduleRules: clone([...demoScheduleRules, ...extras.scheduleRules]) as ScheduleRule[],
-    // Пояс браузера вместо МСК: «сегодняшние» занятия остаются сегодняшними в любом TZ.
-    lessons: [
-      ...materializeDemoLessons(now, -now.getTimezoneOffset()),
-      ...extras.lessons,
-    ] as Lesson[],
-    attendance: clone([...demoAttendance, ...extras.attendance]) as Attendance[],
+    lessons: [...materializeDemoLessons(now, tzOffset), ...extras.lessons] as Lesson[],
+    attendance: clone([
+      ...materializeDemoAttendance(now, tzOffset),
+      ...extras.attendance,
+    ]) as Attendance[],
     courses: [clone(demoCourse)] as Course[],
     modules: clone(demoModules) as CourseModule[],
     blocks: clone(demoBlocks) as CourseBlock[],
@@ -228,8 +229,8 @@ function buildState() {
     submissionReplays: new Map<string, { assignmentId: string; result: SubmissionDto }>(),
     // + оплаты за недавние поступления в кошелёк Марии (world-extras): «Вам должны» и платежи
     // родителя не спорят с кошельком преподавателя.
-    payments: [clone(demoPayment), ...extras.payments] as Payment[],
-    paidPeriods: [clone(demoPaidPeriod), ...extras.paidPeriods] as PaidPeriod[],
+    payments: [materializeDemoPayment(now, tzOffset), ...extras.payments] as Payment[],
+    paidPeriods: [materializeDemoPaidPeriod(now, tzOffset), ...extras.paidPeriods] as PaidPeriod[],
     /** Платежи родителя по Idempotency-Key: `${parentId}:${key}` → тело и ответ первого запроса. */
     parentPayments: new Map<
       string,
@@ -401,7 +402,8 @@ function newUser(maxUserId: string, id: string, createdAt: string): MockUser {
   return {
     id,
     maxUserId,
-    firstName: maxUserId,
+    // Как у пользователя MAX без имени: экраны показывают нейтральный текст, а не maxUserId.
+    firstName: '',
     lastName: null,
     nickname: null,
     avatarUrl: null,

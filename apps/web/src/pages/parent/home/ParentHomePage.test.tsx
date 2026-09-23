@@ -84,7 +84,7 @@ describe('ParentHomePage', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Главная' })).toBeInTheDocument();
     expect(screen.queryByRole('listbox', { name: 'Дети' })).not.toBeInTheDocument();
-    expect(screen.getByText('Добавь ребёнка')).toBeInTheDocument();
+    expect(screen.getByText('Добавьте ребёнка')).toBeInTheDocument();
     expect(screen.queryByText(/^расписание/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^задания/)).not.toBeInTheDocument();
 

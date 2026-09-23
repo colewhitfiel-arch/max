@@ -1,1 +1,0 @@
-export { StatsTiles } from './StatsTiles';

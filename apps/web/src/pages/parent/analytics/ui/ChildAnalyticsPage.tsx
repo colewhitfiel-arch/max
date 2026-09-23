@@ -88,10 +88,12 @@ export function ChildAnalyticsPage() {
   const query = useChildPerformance(notLinked ? null : studentId);
 
   // Открыли по ссылке — делаем ребёнка выбранным, чтобы главная и тьютор были про него же.
+  // Только ACTIVE: иначе ParentShell сбросит выбор, а эффект снова его выставит (цикл).
   const selectedChildId = useUiStore((s) => s.selectedChildId);
   const setSelectedChildId = useUiStore((s) => s.setSelectedChildId);
   useEffect(() => {
-    if (child && child.student.id !== selectedChildId) setSelectedChildId(child.student.id);
+    if (child?.linkStatus === 'ACTIVE' && child.student.id !== selectedChildId)
+      setSelectedChildId(child.student.id);
   }, [child, selectedChildId, setSelectedChildId]);
 
   const toggle = (groupId: string) =>

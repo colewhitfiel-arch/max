@@ -8,7 +8,7 @@ import {
   type NotificationSettings,
 } from '@edu/contracts';
 import { http } from 'msw';
-import { apiUrl, authed, json, query, readBody } from '../lib';
+import { apiUrl, authed, json, paginate, query, readBody } from '../lib';
 import { db } from '../state';
 
 const defaultSettings: NotificationSettings = {
@@ -31,11 +31,12 @@ export const notificationsHandlers = [
     authed(({ auth, request }) => {
       const unreadOnly = query(request).get('unreadOnly') === 'true';
       const all = mine(auth.user.id);
-      const items = (unreadOnly ? all.filter((n) => !n.readAt) : all).map(
-        ({ userId: _u, ...n }) => n,
-      );
+      // Страница по `?limit&cursor` (новые сверху), счётчик — по всей выборке пользователя.
+      const result = paginate(request, unreadOnly ? all.filter((n) => !n.readAt) : all);
+      if (!result.ok) return result.response;
       return json(NotificationsPageSchema, {
-        items,
+        ...result.page,
+        items: result.page.items.map(({ userId: _u, ...n }) => n),
         unreadCount: all.filter((n) => !n.readAt).length,
       });
     }),

@@ -21,7 +21,7 @@ export function TeacherCoursesPage() {
 
   const onCreate = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim() || !groupId) return;
+    if (!title.trim() || !groupId || create.isPending) return;
     create.mutate(
       { groupId, title: title.trim() },
       {

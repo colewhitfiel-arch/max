@@ -6,8 +6,8 @@ import { teacherPerformancePaths } from '@/shared/lib/teacher-paths';
 
 /**
  * Ученик не в группах преподавателя или группа чужая — `FORBIDDEN` (несуществующий id сервер
- * тоже отдаёт как 403, docs/05). `NOT_FOUND` сюда не относится: это «раздел в разработке»
- * (нет ручки на сервере) — его показывает `AsyncState` (AGENT_GUIDE §3).
+ * тоже отдаёт как 403, docs/05). Прочие ошибки (`NOT_FOUND` — «не найдено», `NOT_IMPLEMENTED` —
+ * «раздел в разработке») показывает `AsyncState` (AGENT_GUIDE §3).
  */
 export function isStudentUnavailable(error: unknown): boolean {
   return isApiClientError(error) && error.code === 'FORBIDDEN';

@@ -1,7 +1,10 @@
 /**
  * Даты: сервер отдаёт ISO UTC, показываем в поясе устройства (docs/02 §2.4).
- * Локаль берётся из аргумента (обычно i18n.language), по умолчанию ru.
+ * Локаль берётся из аргумента (обычно i18n.language), по умолчанию ru; словесные подписи
+ * («сегодня», «просрочено») — из common.<lng>.json на этом же языке.
  */
+import { i18n } from '@/shared/i18n';
+
 const DAY_MS = 86_400_000;
 
 export function toDate(value: string | Date): Date {
@@ -58,16 +61,21 @@ export function formatWeekday(value: string | Date, locale = 'ru'): string {
   return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(toDate(value));
 }
 
-const RELATIVE_DAY: Record<string, Record<number, string>> = {
-  ru: { [-1]: 'вчера', 0: 'сегодня', 1: 'завтра' },
-  en: { [-1]: 'yesterday', 0: 'today', 1: 'tomorrow' },
+const RELATIVE_DAY_KEYS: Record<number, string> = {
+  [-1]: 'dates.yesterday',
+  0: 'dates.today',
+  1: 'dates.tomorrow',
 };
+
+/** Словарь common на языке `locale` (а не текущем языке интерфейса). */
+function commonT(locale: string) {
+  return i18n.getFixedT(locale.slice(0, 2), 'common');
+}
 
 /** «сегодня» / «завтра» / «вчера» / «21 сент.». */
 export function formatRelativeDay(value: string | Date, locale = 'ru', now = new Date()): string {
-  const days = diffCalendarDays(now, value);
-  const dict = RELATIVE_DAY[locale.slice(0, 2)] ?? RELATIVE_DAY.ru!;
-  return dict[days] ?? formatDate(value, locale);
+  const key = RELATIVE_DAY_KEYS[diffCalendarDays(now, value)];
+  return key ? commonT(locale)(key) : formatDate(value, locale);
 }
 
 /** «сегодня, 15:30» / «завтра, 10:00» / «21 сент., 15:30». */
@@ -78,6 +86,21 @@ export function formatDateTime(value: string | Date, locale = 'ru', now = new Da
 /** «15:00–16:30». */
 export function formatTimeRange(start: string | Date, end: string | Date, locale = 'ru'): string {
   return `${formatTime(start, locale)}–${formatTime(end, locale)}`;
+}
+
+/**
+ * DateOnly «YYYY-MM-DD» → полночь этого дня в поясе устройства. `new Date('2026-10-01')` — полночь
+ * UTC, западнее Гринвича это ещё 30 сентября; DateOnly-поля (paidUntil, nextPaymentAt, dueAt долга)
+ * — календарные дни без пояса, их разбираем только так.
+ */
+export function parseDateOnly(value: string): Date {
+  const [year = 1970, month = 1, day = 1] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** DateOnly в формате `formatDate`: «1 окт.» или «1 окт. 2027». */
+export function formatDateOnly(value: string, locale = 'ru'): string {
+  return formatDate(parseDateOnly(value), locale);
 }
 
 /** YYYY-MM-DD в локальном поясе (для query-параметров периода). */
@@ -97,15 +120,14 @@ export function nextDaysPeriod(days: number, now = new Date()): { from: string; 
   return { from: toDateOnly(now), to: toDateOnly(addDays(now, days)) };
 }
 
-/** Дедлайн относительно сейчас: «через 2 дн.», «сегодня», «просрочено». */
+/** Дедлайн относительно сейчас: «через 2 дн.», «сегодня, 15:30», «просрочено». */
 export function formatDue(value: string | Date, locale = 'ru', now = new Date()): string {
+  const t = commonT(locale);
   const days = diffCalendarDays(now, value);
-  const isRu = locale.startsWith('ru');
-  if (toDate(value).getTime() < now.getTime()) return isRu ? 'просрочено' : 'overdue';
-  if (days === 0)
-    return isRu ? `сегодня, ${formatTime(value, locale)}` : `today, ${formatTime(value, locale)}`;
-  if (days === 1) return isRu ? 'завтра' : 'tomorrow';
-  return isRu ? `через ${days} дн.` : `in ${days} d`;
+  if (toDate(value).getTime() < now.getTime()) return t('dates.overdue');
+  if (days === 0) return t('dates.todayAt', { time: formatTime(value, locale) });
+  if (days === 1) return t('dates.tomorrow');
+  return t('dates.inDays', { days });
 }
 
 /** Локальное название дня недели по номеру 0..6 (как в ScheduleRuleDto.weekday). */

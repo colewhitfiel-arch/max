@@ -12,6 +12,7 @@ import {
   StudentCoursesListSchema,
   TeacherCourseDetailSchema,
   TeacherCoursesListSchema,
+  toStudentBlock,
 } from '@edu/contracts';
 import { http } from 'msw';
 import {
@@ -76,20 +77,6 @@ function quizScore(block: CourseBlock, answers: BlockAnswers | undefined): numbe
     return set.size === q.correctOptionIds.length && q.correctOptionIds.every((id) => set.has(id));
   }).length;
   return Math.round((correct / questions.length) * 100);
-}
-
-/** QUIZ без правильных ответов и пояснений. */
-function forStudent(block: CourseBlock) {
-  if (block.type !== 'QUIZ') return block;
-  return {
-    ...block,
-    content: {
-      passScore: block.content.passScore,
-      questions: block.content.questions.map(
-        ({ correctOptionIds: _c, explanation: _e, ...q }) => q,
-      ),
-    },
-  };
 }
 
 function teacherCourseDetail(courseId: string) {
@@ -191,7 +178,7 @@ export const coursesHandlers = [
         const assignment = db.assignments.find((a) => a.blockId === block.id);
         const progress = progressOf(student.id, block.id);
         return json(StudentBlockDetailSchema, {
-          ...forStudent(block),
+          ...toStudentBlock(block),
           courseId,
           assignment: assignment ? assignmentBrief(assignment.id, student.id) : null,
           progress: progress

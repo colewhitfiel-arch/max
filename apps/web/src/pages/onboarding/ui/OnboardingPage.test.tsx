@@ -105,7 +105,7 @@ describe('OnboardingPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const input = screen.getByRole('textbox', { name: 'Напиши ответ…' });
+    const input = screen.getByRole('textbox', { name: 'Сообщение' });
     await user.type(input, 'Роботы');
     await user.click(screen.getByRole('button', { name: 'Отправить' }));
 
@@ -118,7 +118,7 @@ describe('OnboardingPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const input = screen.getByRole('textbox', { name: 'Напиши ответ…' });
+    const input = screen.getByRole('textbox', { name: 'Сообщение' });
     await user.type(input, 'Роботы');
     await user.click(screen.getByRole('button', { name: 'Отправить' }));
 

@@ -11,8 +11,7 @@
     "rolesRequired": "Pick at least one role",
     "maxTitle": "Signing in via MAX…",
     "maxHint": "Verifying messenger launch params",
-    "maxFailed": "Failed to sign in via MAX",
-    "loginAs": "Sign in as {{name}}"
+    "maxFailed": "Failed to sign in via MAX"
   },
   "roleSetup": {
     "title": "Who are you?",
@@ -36,18 +35,15 @@
   },
   "onboarding": {
     "title": "Getting to know you",
-    "description": "Sayd will ask a few questions about your interests and goals, then suggest clubs.",
     "placeholder": "Type your answer…",
     "send": "Send",
     "skip": "Skip (dev)",
     "recommendationsTitle": "Clubs for you",
-    "recommendationsHint": "Choose what to join now and what to keep for later.",
     "noClubs": "No active clubs at the school yet",
     "choose": "Enrol",
     "finishWithClubs": "Enrol ({{count}}) and continue",
     "finishWithout": "Continue without enrolling",
     "choiceHint": "“Enrol” signs you up right away. “Maybe later” — your tutor will remind you when there is time.",
-    "futureInterests": "For the future you mentioned: {{list}}",
     "later": "Maybe later",
     "finishWithLater": "Keep for later ({{count}}) and continue",
     "hero": "Hi, {{name}}!",

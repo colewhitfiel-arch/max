@@ -123,7 +123,11 @@ describe('mock world (msw/node)', () => {
       api.courses.getStudentBlock({ params: { blockId: DEMO_IDS.blocks.sensorsQuiz } }),
     );
     expect(quiz.type).toBe('QUIZ');
-    if (quiz.type === 'QUIZ') expect('correctOptionIds' in quiz.content.questions[0]!).toBe(false);
+    if (quiz.type === 'QUIZ') {
+      expect('correctOptionIds' in quiz.content.questions[0]!).toBe(false);
+      expect('explanation' in quiz.content.questions[0]!).toBe(false);
+      expect(quiz.content.questions[0]?.options.length).toBeGreaterThan(1);
+    }
     expect(quiz.assignment?.id).toBe(DEMO_IDS.assignments.quiz);
     await call(api.courses.openBlock({ params: { blockId: DEMO_IDS.blocks.sensorsQuiz } }));
     const completed = await call(
@@ -230,7 +234,7 @@ describe('mock world (msw/node)', () => {
     expect(clubs.items).toHaveLength(2);
     expect(
       clubs.items.find((c) => c.enrollmentId === DEMO_IDS.enrollments.alexeyRobotics)?.paidUntil,
-    ).toBe('2026-09-30');
+    ).toBe(db.paidPeriods.find((p) => p.id === DEMO_IDS.paidPeriod)?.periodEnd);
 
     const payments = await call(
       api.payments.getChildPayments({ params: { studentId: DEMO_IDS.students.alexey }, query: {} }),
@@ -506,11 +510,13 @@ describe('mock world (msw/node)', () => {
     const kid = await call(
       api.auth.loginDev({ body: { maxUserId: 'max-unlinked-kid', roles: ['STUDENT'] } }),
     );
+    // Ad-hoc пользователь — без имени (как пользователь MAX без first_name), не maxUserId.
+    expect(kid.me.user.firstName).toBe('');
     session(kid);
     await call(api.family.acceptParentInvite({ params: { token: invite.token } }));
     await loginAs('parent');
     const linked = (await call(api.family.listChildren())).items.find(
-      (item) => item.student.user.firstName === 'max-unlinked-kid',
+      (item) => item.student.user.id === kid.me.user.id,
     );
     expect(linked?.linkStatus).toBe('ACTIVE');
     await call(api.family.unlinkChild({ params: { studentId: linked!.student.id } }));
@@ -904,13 +910,13 @@ describe('mock world (msw/node)', () => {
         ['001', 1, 1],
         ['012', 1, 0],
       ]);
-      // 7 дней (17–23.09): у робототехники настоящие 20.09 и сегодня + синтетический понедельник
-      // 21.09 по правилу (по 2 ученика). Четверг 17.09 не дополняется: занятие правила «чт» на
-      // этой неделе уже в журнале (20.09). У Python — синтетический вторник 22.09 и сегодня.
+      // 7 дней (17–23.09): у робототехники настоящие 20.09 (разовое, без правила) и сегодня +
+      // синтетические по правилам четверг 17.09 и понедельник 21.09 (по 2 ученика). У Python —
+      // синтетический вторник 22.09 и сегодня.
       const total = (rows: Awaited<ReturnType<typeof perf>>) =>
         rows.map(([code, attended, missed]) => [code, Number(attended) + Number(missed)]);
       expect(total(await perf('week'))).toEqual([
-        ['001', 6],
+        ['001', 8],
         ['012', 2],
       ]);
 
@@ -977,8 +983,9 @@ describe('mock world (msw/node)', () => {
     }
 
     // «Вам должны»: зачисления в группы Марии по возрастанию даты. Робототехника Алексея
-    // оплачена по 30.09 — следующий платёж 01.10, 3 500 ₽. Даша и Python Алексея заплатили с
-    // последним поступлением — оплачено 30 дней с его дня, следующий платёж не просрочен.
+    // оплачена в фикстурах (30 дней с оплаты 22 дня назад) — следующий платёж на следующий день
+    // после конца периода, 3 500 ₽. Даша и Python Алексея заплатили с последним поступлением —
+    // оплачено 30 дней с его дня, следующий платёж не просрочен.
     const dues = day.debts.map((d) => d.dueAt);
     expect(dues).toEqual([...dues].sort());
     expect(day.debts.map((d) => d.id).sort()).toEqual(
@@ -990,7 +997,9 @@ describe('mock world (msw/node)', () => {
     );
     expect(day.debts[0]).toMatchObject({
       id: DEMO_IDS.enrollments.alexeyRobotics,
-      dueAt: '2026-10-01',
+      dueAt: toDateOnly(
+        addDays(db.paidPeriods.find((p) => p.id === DEMO_IDS.paidPeriod)!.periodEnd, 1),
+      ),
       amount: { amountKopecks: 350_000 },
       group: { code: '001' },
       student: { id: DEMO_IDS.students.alexey },
@@ -1285,6 +1294,25 @@ describe('mock world: правила и персист', () => {
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
     await loginAs('student1');
+    // Без Idempotency-Key и пустая сдача — 400 (контракт), попытка не тратится.
+    await expect(
+      call(
+        api.assignments.submitAssignment({
+          params: { assignmentId: card.id },
+          body: { text: 'Готово' },
+          headers: {} as { 'idempotency-key': string },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+    await expect(
+      call(
+        api.assignments.submitAssignment({
+          params: { assignmentId: card.id },
+          body: { text: '  ' },
+          headers: { 'idempotency-key': 'empty-1' },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
     const submit = (key: string, assignmentId = card.id) =>
       call(
         api.assignments.submitAssignment({
@@ -1533,6 +1561,82 @@ describe('mock world: правила и персист', () => {
         }),
       ),
     ).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('история тьютора с конца: последняя страница по возрастанию, nextCursor — к более старым', async () => {
+    await loginAs('student1');
+    const base = Date.parse('2026-01-01T10:00:00.000Z');
+    db.messages = db.messages.filter((m) => m.conversationId !== DEMO_IDS.conversation);
+    for (let i = 0; i < 25; i += 1) {
+      db.messages.push({
+        id: `0190a000-0000-7000-8000-0000000100${String(i).padStart(2, '0')}`,
+        conversationId: DEMO_IDS.conversation,
+        role: i % 2 ? 'ASSISTANT' : 'USER',
+        content: `m${i}`,
+        createdAt: new Date(base + i * 60_000).toISOString(),
+      });
+    }
+    const list = (query: { limit?: number; cursor?: string }) =>
+      call(
+        api.ai.listConversationMessages({
+          params: { conversationId: DEMO_IDS.conversation },
+          query,
+        }),
+      );
+
+    const newest = await list({});
+    expect(newest.items.map((m) => m.content)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `m${i + 5}`),
+    );
+    expect(newest.nextCursor).toBeDefined();
+    const older = await list({ cursor: newest.nextCursor });
+    expect(older.items.map((m) => m.content)).toEqual(['m0', 'm1', 'm2', 'm3', 'm4']);
+    expect(older.nextCursor).toBeUndefined();
+
+    const small = await list({ limit: 10 });
+    expect(small.items.map((m) => m.content)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `m${i + 15}`),
+    );
+  });
+
+  it('GET /notifications постранично: limit и cursor, unreadCount — по всей выборке', async () => {
+    await loginAs('student1');
+    const base = Date.parse('2026-01-01T10:00:00.000Z');
+    for (let i = 0; i < 5; i += 1) {
+      db.notifications.push({
+        id: `0190a000-0000-7000-8000-0000000200${String(i).padStart(2, '0')}`,
+        userId: DEMO_IDS.users.student1,
+        type: 'LESSON_SOON',
+        title: `n${i}`,
+        body: null,
+        payload: null,
+        readAt: null,
+        createdAt: new Date(base + i * 60_000).toISOString(),
+      });
+    }
+    const all = await call(api.notifications.listNotifications({ query: {} }));
+    const first = await call(api.notifications.listNotifications({ query: { limit: 3 } }));
+    expect(first.items).toEqual(all.items.slice(0, 3));
+    expect(first.unreadCount).toBe(all.unreadCount);
+    expect(first.nextCursor).toBeDefined();
+
+    const seen = [...first.items];
+    let cursor = first.nextCursor;
+    while (cursor) {
+      const page = await call(api.notifications.listNotifications({ query: { limit: 3, cursor } }));
+      expect(page.unreadCount).toBe(all.unreadCount);
+      seen.push(...page.items);
+      cursor = page.nextCursor;
+    }
+    expect(seen).toEqual(all.items);
+  });
+
+  it('посещаемость мок-мира: отметка не раньше начала занятия', () => {
+    for (const row of db.attendance) {
+      const lesson = db.lessons.find((l) => l.id === row.lessonId);
+      expect(lesson, row.id).toBeDefined();
+      expect(Date.parse(row.markedAt), row.id).toBeGreaterThanOrEqual(Date.parse(lesson!.startsAt));
+    }
   });
 
   it('следующий платёж родителя без оплат — как долг у преподавателя (день зачисления)', async () => {

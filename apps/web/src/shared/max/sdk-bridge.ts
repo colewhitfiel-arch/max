@@ -9,6 +9,7 @@
  * Все места подключения помечены `TODO(max-sdk)`. При отсутствии SDK бросается понятная ошибка
  * с рекомендацией `VITE_MAX_MODE=mock`.
  */
+import { i18n } from '@/shared/i18n';
 import { createMockStorage } from './mock-bridge';
 import type {
   HapticKind,
@@ -51,10 +52,7 @@ const GLOBAL_CANDIDATES = ['WebApp', 'Max', 'MaxWebApp'] as const;
 
 export class MaxSdkUnavailableError extends Error {
   constructor() {
-    super(
-      'SDK MAX не найден: приложение открыто вне MAX или SDK не подключён. ' +
-        'Для разработки в браузере используй VITE_MAX_MODE=mock.',
-    );
+    super(i18n.t('common:errors.sdkUnavailable'));
     this.name = 'MaxSdkUnavailableError';
   }
 }

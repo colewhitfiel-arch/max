@@ -111,6 +111,7 @@ export function AppearanceSettings() {
         open={languageOpen}
         onClose={() => setLanguageOpen(false)}
         title={t('settings.languageSheet')}
+        closeLabel={t('actions.close')}
       >
         <Card padding="none">
           {LOCALES.map((value) => {

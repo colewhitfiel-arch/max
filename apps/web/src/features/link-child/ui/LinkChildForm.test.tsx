@@ -51,13 +51,13 @@ describe('LinkChildForm', () => {
     await user.click(screen.getByRole('button', { name: 'Привязать' }));
 
     expect(
-      await screen.findByText('Код не найден. Проверь код в профиле ребёнка', {}, WAIT),
+      await screen.findByText('Код не найден. Проверьте код в профиле ребёнка', {}, WAIT),
     ).toBeVisible();
     expect(screen.queryByText('Раздел в разработке')).toBeNull();
 
     await user.type(input, 'X');
     await waitFor(() =>
-      expect(screen.queryByText('Код не найден. Проверь код в профиле ребёнка')).toBeNull(),
+      expect(screen.queryByText('Код не найден. Проверьте код в профиле ребёнка')).toBeNull(),
     );
   });
 

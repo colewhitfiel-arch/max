@@ -80,8 +80,10 @@ export const paymentsHandlers = [
         const body = await readBody(request, TopUpWalletBodySchema);
         if (!body.ok) return body.response;
         const key = request.headers.get('idempotency-key');
-        const replayKey = key ? `${parent.id}:${key}` : null;
-        const previous = replayKey ? db.walletTopUps.get(replayKey) : undefined;
+        // Контракт требует Idempotency-Key: без него — 400, как у ts-rest на сервере.
+        if (!key) return apiError('VALIDATION', 'Нужен заголовок Idempotency-Key');
+        const replayKey = `${parent.id}:${key}`;
+        const previous = db.walletTopUps.get(replayKey);
         if (previous) {
           if (previous.amountKopecks !== body.data.amountKopecks) {
             return apiError('CONFLICT', 'Ключ идемпотентности уже использован с другой суммой');
@@ -91,9 +93,7 @@ export const paymentsHandlers = [
         // Заглушка провайдера: деньги «приходят» сразу.
         const balanceAfter = (db.wallets.get(parent.id) ?? 0) + body.data.amountKopecks;
         db.wallets.set(parent.id, balanceAfter);
-        if (replayKey) {
-          db.walletTopUps.set(replayKey, { amountKopecks: body.data.amountKopecks, balanceAfter });
-        }
+        db.walletTopUps.set(replayKey, { amountKopecks: body.data.amountKopecks, balanceAfter });
         return json(WalletSchema, { balance: rub(balanceAfter) });
       },
       ['PARENT'],
@@ -126,8 +126,10 @@ export const paymentsHandlers = [
         if (!body.ok) return body.response;
         const { amountKopecks } = body.data;
         const key = request.headers.get('idempotency-key');
-        const replayKey = key ? `${teacher.id}:${key}` : null;
-        const previous = replayKey ? db.teacherWithdrawals.get(replayKey) : undefined;
+        // Контракт требует Idempotency-Key: без него — 400, как у ts-rest на сервере.
+        if (!key) return apiError('VALIDATION', 'Нужен заголовок Idempotency-Key');
+        const replayKey = `${teacher.id}:${key}`;
+        const previous = db.teacherWithdrawals.get(replayKey);
         if (previous) {
           if (previous.amountKopecks !== amountKopecks) {
             return apiError('CONFLICT', 'Ключ идемпотентности уже использован с другой суммой');
@@ -152,7 +154,7 @@ export const paymentsHandlers = [
           balance: rub(balance - amountKopecks),
           transaction: transactionDto(transaction),
         };
-        if (replayKey) db.teacherWithdrawals.set(replayKey, { amountKopecks, result });
+        db.teacherWithdrawals.set(replayKey, { amountKopecks, result });
         return json(TeacherWithdrawalSchema, result);
       },
       ['TEACHER'],
@@ -198,8 +200,10 @@ export const paymentsHandlers = [
         const body = await readBody(request, CreatePaymentBodySchema);
         if (!body.ok) return body.response;
         const key = request.headers.get('idempotency-key');
-        const replayKey = key ? `${parent.id}:${key}` : null;
-        const previous = replayKey ? db.parentPayments.get(replayKey) : undefined;
+        // Контракт требует Idempotency-Key: без него — 400, как у ts-rest на сервере.
+        if (!key) return apiError('VALIDATION', 'Нужен заголовок Idempotency-Key');
+        const replayKey = `${parent.id}:${key}`;
+        const previous = db.parentPayments.get(replayKey);
         if (previous) {
           if (
             previous.enrollmentId !== body.data.enrollmentId ||
@@ -253,13 +257,11 @@ export const paymentsHandlers = [
           });
         }, 5000);
         const result = { paymentId: id, confirmationUrl, amount };
-        if (replayKey) {
-          db.parentPayments.set(replayKey, {
-            enrollmentId: enrollment.id,
-            periodsCount: body.data.periodsCount,
-            result,
-          });
-        }
+        db.parentPayments.set(replayKey, {
+          enrollmentId: enrollment.id,
+          periodsCount: body.data.periodsCount,
+          result,
+        });
         return json(CreatePaymentResultSchema, result);
       },
       ['PARENT'],

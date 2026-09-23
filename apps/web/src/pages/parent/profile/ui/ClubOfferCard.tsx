@@ -1,4 +1,3 @@
-import { CLUB_CATEGORY_LABELS } from '@edu/contracts';
 import { Avatar, Badge, Button, Card, Inline, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import type { ClubOffer } from '@/entities/club';
@@ -39,7 +38,7 @@ export function ClubOfferCard({ offer, onEnroll }: ClubOfferCardProps) {
               {club.title}
             </Text>
             <Inline gap={2}>
-              <Badge tone="info">{CLUB_CATEGORY_LABELS[club.category]}</Badge>
+              <Badge tone="info">{t(`common:clubCategory.${club.category}`)}</Badge>
               {enrolled && <Badge tone="success">{t('offers.enrolled')}</Badge>}
             </Inline>
           </Stack>
@@ -56,7 +55,7 @@ export function ClubOfferCard({ offer, onEnroll }: ClubOfferCardProps) {
         )}
         <Inline justify="between" wrap={false}>
           <Text weight="bold">
-            {t(`offers.period.${club.billingPeriod}`, {
+            {t(`common:billing.period.${club.billingPeriod}`, {
               price: formatMoney(club.price, i18n.language),
             })}
           </Text>

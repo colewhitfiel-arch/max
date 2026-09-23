@@ -35,9 +35,16 @@ describe('i18n: плюрализация ru (Intl.PluralRules, формат v4 _
     expect(en('nav.notificationsUnread', { count: 2 })).toBe('Notifications: 2 unread');
   });
 
+  it('student:home.streak в en склоняется по числу', () => {
+    const en = i18n.getFixedT('en', 'student');
+    expect(en('home.streak', { count: 1 })).toBe('Streak: 1 day');
+    expect(en('home.streak', { count: 3 })).toBe('Streak: 3 days');
+    expect(i18n.getFixedT('ru', 'student')('home.streak', { count: 5 })).toBe('Серия: 5 дн.');
+  });
+
   it('describeApiError берёт текст на текущем языке', async () => {
     const error = new ApiClientError({ code: 'EXTERNAL_INTEGRATION', message: 'x', status: 0 });
-    expect(describeApiError(error)).toBe('Сервис временно недоступен, проверь соединение');
+    expect(describeApiError(error)).toBe('Сервис временно недоступен, возможно, нет соединения');
     await setLanguage('en');
     expect(describeApiError(error)).toBe(
       'Service is temporarily unavailable, check your connection',

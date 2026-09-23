@@ -1,8 +1,10 @@
-import { Card, Drawer, EmptyState, Stack } from '@edu/ui';
+import type { NotificationDto } from '@edu/contracts';
+import { Card, Drawer, EmptyState, Stack, useToast } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { NotificationRow, useMarkRead, useNotifications } from '@/entities/notification';
 import { MarkReadButton } from '@/features/mark-notification-read';
+import { describeApiError } from '@/shared/api/errors';
 import { AsyncState, ListSkeleton } from '@/shared/ui';
 
 export interface NotificationsDrawerProps {
@@ -15,10 +17,17 @@ function NotificationsList({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('notifications');
   const navigate = useNavigate();
   const query = useNotifications();
+  const toast = useToast();
   const markRead = useMarkRead();
 
-  const open = (id: string, route?: string) => {
-    markRead.mutate([id]);
+  /** Тап по строке: непрочитанное — отметить; есть ссылка — закрыть панель и перейти. */
+  const open = (notification: NotificationDto) => {
+    if (!notification.readAt) {
+      markRead.mutate([notification.id], {
+        onError: (error) => toast.show({ tone: 'danger', title: describeApiError(error) }),
+      });
+    }
+    const route = notification.payload?.route;
     if (route) {
       onClose();
       navigate(route);
@@ -41,9 +50,16 @@ function NotificationsList({ onClose }: { onClose: () => void }) {
                 key={notification.id}
                 notification={notification}
                 right={
-                  !notification.readAt ? <MarkReadButton ids={[notification.id]} /> : undefined
+                  !notification.readAt ? (
+                    <MarkReadButton ids={[notification.id]} compact />
+                  ) : undefined
                 }
-                onClick={() => open(notification.id, notification.payload?.route)}
+                // Прочитанное без ссылки — не кнопка: тап ничего бы не сделал.
+                onClick={
+                  !notification.readAt || notification.payload?.route
+                    ? () => open(notification)
+                    : undefined
+                }
               />
             ))}
           </Card>
@@ -60,7 +76,7 @@ function NotificationsList({ onClose }: { onClose: () => void }) {
 export function NotificationsDrawer({ open, onClose }: NotificationsDrawerProps) {
   const { t } = useTranslation('notifications');
   return (
-    <Drawer open={open} onClose={onClose} title={t('title')}>
+    <Drawer open={open} onClose={onClose} title={t('title')} closeLabel={t('common:actions.close')}>
       <NotificationsList onClose={onClose} />
     </Drawer>
   );

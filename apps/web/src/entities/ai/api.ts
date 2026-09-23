@@ -1,5 +1,11 @@
-import type { CompleteOnboardingBody } from '@edu/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AiMessageDto, CompleteOnboardingBody, Paginated } from '@edu/contracts';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
 import { useAuthStore } from '@/shared/auth/store';
@@ -13,11 +19,35 @@ export function useConversations() {
   });
 }
 
-/** `GET /ai/conversations/:id/messages`. */
+/** Лента чата одним списком: страницы идут от новых к старым, внутри — по возрастанию времени. */
+export interface ChatFeed {
+  items: AiMessageDto[];
+}
+
+const chatFeed = (data: InfiniteData<Paginated<AiMessageDto>>): ChatFeed => ({
+  items: [...data.pages].reverse().flatMap((page) => page.items),
+});
+
+const cursorQuery = (cursor: string | undefined) => (cursor ? { cursor } : {});
+
+/**
+ * `GET /ai/conversations/:id/messages` — лента с конца: первая страница — последние сообщения,
+ * `fetchNextPage()` подгружает более старые (они встают в начало `data.items`). Инвалидация
+ * после ответа перезапрашивает загруженные страницы — новое сообщение появляется в конце.
+ */
 export function useMessages(conversationId: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: aiKeys.messages(conversationId),
-    queryFn: () => call(api.ai.listConversationMessages({ params: { conversationId }, query: {} })),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.ai.listConversationMessages({
+          params: { conversationId },
+          query: cursorQuery(pageParam),
+        }),
+      ),
+    getNextPageParam: (page) => page.nextCursor,
+    select: chatFeed,
   });
 }
 
@@ -61,12 +91,20 @@ export function useCreateParentConversation() {
   });
 }
 
-/** `GET /parent/ai/conversations/:id/messages`. */
+/** `GET /parent/ai/conversations/:id/messages` — лента с конца, как `useMessages`. */
 export function useParentMessages(conversationId: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: aiKeys.parentMessages(conversationId),
-    queryFn: () =>
-      call(api.ai.listParentConversationMessages({ params: { conversationId }, query: {} })),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.ai.listParentConversationMessages({
+          params: { conversationId },
+          query: cursorQuery(pageParam),
+        }),
+      ),
+    getNextPageParam: (page) => page.nextCursor,
+    select: chatFeed,
   });
 }
 

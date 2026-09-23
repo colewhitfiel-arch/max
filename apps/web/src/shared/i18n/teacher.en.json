@@ -18,11 +18,6 @@
     "toGroups": "To groups",
     "ok": "all good"
   },
-  "students": {
-    "groups": "Groups",
-    "needsAttention": "Needs attention",
-    "class": "Class"
-  },
   "courses": {
     "title": "Courses",
     "empty": "No courses yet",
@@ -34,7 +29,6 @@
     },
     "counts": "{{modules}} modules · {{blocks}} blocks",
     "avgProgress": "Average progress",
-    "modules": "Modules",
     "modulesEmpty": "No modules in this course yet",
     "modulesEmptyHint": "Modules and blocks will appear here once the course is filled",
     "blocksEmpty": "No blocks in this module yet",
@@ -133,7 +127,6 @@
       "closed": "Closed"
     },
     "submitted": "{{submitted}} of {{students}} submitted",
-    "graded": "{{count}} graded",
     "draft": "Draft"
   },
   "clubDemand": {

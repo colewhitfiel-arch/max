@@ -1,5 +1,5 @@
 import { Button, CheckIcon, IconButton, useToast } from '@edu/ui';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMarkRead } from '@/entities/notification';
 import { describeApiError } from '@/shared/api/errors';
@@ -23,14 +23,14 @@ export function MarkReadButton({ ids, size = 'sm', disabled, compact }: MarkRead
   const markRead = useMarkRead();
   const label = ids ? t('actions.markRead') : t('actions.markAllRead');
 
-  // Кнопка живёт внутри кликабельной строки: клик и Enter/Space не должны доходить до строки.
+  // Кнопка живёт внутри кликабельной строки: клик (в том числе от Enter/Space) не должен
+  // всплыть до строки. Клавиши во вложенных элементах `ListRow` сам не обрабатывает.
   const onClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     markRead.mutate(ids, {
       onError: (error) => toast.show({ tone: 'danger', title: describeApiError(error) }),
     });
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => event.stopPropagation();
 
   if (compact ?? ids !== undefined) {
     return (
@@ -41,7 +41,6 @@ export function MarkReadButton({ ids, size = 'sm', disabled, compact }: MarkRead
         loading={markRead.isPending}
         disabled={disabled}
         onClick={onClick}
-        onKeyDown={onKeyDown}
       >
         <CheckIcon />
       </IconButton>
@@ -55,7 +54,6 @@ export function MarkReadButton({ ids, size = 'sm', disabled, compact }: MarkRead
       loading={markRead.isPending}
       disabled={disabled}
       onClick={onClick}
-      onKeyDown={onKeyDown}
     >
       {label}
     </Button>

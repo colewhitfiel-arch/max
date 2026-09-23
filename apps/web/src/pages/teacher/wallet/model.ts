@@ -5,7 +5,7 @@ import type {
   TeacherWalletTransaction,
 } from '@edu/contracts';
 import type { CardColumnsStripes } from '@edu/ui';
-import { addDays, startOfDay, toDate, toDateOnly } from '@/shared/lib/dates';
+import { addDays, parseDateOnly, startOfDay, toDate, toDateOnly } from '@/shared/lib/dates';
 
 /** Окно «1 день» — последние 24 часа, как данные периода; точка графика — каждый час. */
 const DAY_WINDOW_HOURS = 24;
@@ -173,19 +173,13 @@ export function transactionsByDay(
   return days;
 }
 
-/** DateOnly «YYYY-MM-DD» → полночь этого дня в поясе браузера (без сдвига через UTC). */
-function fromDateOnly(value: string): Date {
-  const [year = 1970, month = 1, day = 1] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
 /** Дата платежа «Вам должны» в формате dd.MM.yy («24.10.26»; в en — по правилам локали). */
 export function formatDueDate(value: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
-  }).format(fromDateOnly(value));
+  }).format(parseDateOnly(value));
 }
 
 /** Платёж просрочен: дата раньше сегодняшней (в поясе браузера). */

@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { shortName, useChildren } from '@/entities/student';
 import { AddChildSheet } from '@/features/link-child';
-import { WALLET_PATH } from '@/pages/parent/wallet/paths';
+import { PARENT_WALLET_PATH } from '@/shared/lib/parent-paths';
 import { fullName } from '@/shared/lib/format';
 import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { useUiStore } from '@/shared/store/ui-store';
@@ -60,7 +60,7 @@ export function ParentHomePage() {
         items={children.map((child) => ({
           key: child.student.id,
           name: fullName(child.student.user),
-          label: shortName(child.student.user),
+          label: shortName(child.student.user) || t('common:user.noName'),
           src: child.student.user.avatarUrl,
         }))}
         value={selected?.student.id ?? null}
@@ -99,7 +99,9 @@ export function ParentHomePage() {
   return (
     <Screen gap={4} fill>
       <VisuallyHidden as="h1">{t('title')}</VisuallyHidden>
-      <ParentHomeHeader onOpenWallet={() => navigate(WALLET_PATH, { state: FROM_APP_STATE })} />
+      <ParentHomeHeader
+        onOpenWallet={() => navigate(PARENT_WALLET_PATH, { state: FROM_APP_STATE })}
+      />
       {hearts}
       <ScoopPanel grow>{panel}</ScoopPanel>
       <AddChildSheet

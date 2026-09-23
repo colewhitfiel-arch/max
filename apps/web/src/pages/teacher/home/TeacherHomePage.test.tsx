@@ -212,6 +212,17 @@ describe('TeacherHomePage', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/teacher/wallet');
   });
 
+  it('баланс не загрузился: прочерк и подпись об ошибке, чип открывает кошелёк (повтор)', async () => {
+    const user = userEvent.setup();
+    hooks.wallet = { ...pending(), isPending: false, isError: true, error: new Error('x') };
+    renderHome();
+
+    const chip = screen.getByRole('button', { name: 'Баланс не загрузился, открыть кошелёк' });
+    expect(chip).toHaveTextContent('—');
+    await user.click(chip);
+    expect(screen.getByTestId('location')).toHaveTextContent('/teacher/wallet');
+  });
+
   it('расписание сегодня: код группы (без кода — название), текущее занятие выделено, «зебра»', () => {
     hooks.home = ready(
       teacherHome([lesson(1, robotics, 0, 12), lesson(2, chinese, 0, 14), lesson(3, chess, 0, 16)]),
