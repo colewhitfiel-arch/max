@@ -1,7 +1,10 @@
 /**
- * Метаданные роутов ts-rest: кто имеет доступ. Читаются guard'ами на бэке
- * (auth + roles/permission) и фронтом для скрытия недоступных экранов.
- * Ресурсные проверки («своя ли группа») — в policies модулей, не здесь.
+ * Метаданные роутов ts-rest: кто имеет доступ — декларация для документации и тестов контракта.
+ * В рантайме их никто не читает: доступ на бэке проверяют guard'ы по декораторам контроллеров
+ * (`@Public`, `@Roles`, `@RequirePermission` в apps/api), фронт скрывает экраны по
+ * `hasPermission`. Держать метаданные и декораторы согласованными — задача модуля; согласованность
+ * meta с `permissions.ts` проверяет routes.test.ts. Ресурсные проверки («своя ли группа») — в
+ * policies модулей, не здесь.
  */
 import { z } from 'zod';
 import { type Role } from '../enums';
@@ -46,8 +49,12 @@ export function userRoute(permission?: Permission, roles?: Role[]): RouteMeta {
   return { auth: 'user', permission, roles: roles ?? rolesWithPermission(permission) };
 }
 
-/** Заголовок идемпотентности для POST из docs/05 §5.1. Ключи заголовков — в нижнем регистре. */
+/**
+ * Заголовок идемпотентности для POST из docs/05 §5.1 (сдача задания, платёж, пополнение, вывод):
+ * обязателен — повтор запроса с тем же ключом отдаёт первый результат. Ключи заголовков — в
+ * нижнем регистре.
+ */
 export const IdempotencyKeyHeadersSchema = z.object({
-  'idempotency-key': z.string().min(1).max(128).optional(),
+  'idempotency-key': z.string().min(1).max(128),
 });
 export type IdempotencyKeyHeaders = z.infer<typeof IdempotencyKeyHeadersSchema>;

@@ -5,7 +5,6 @@
  */
 import { z } from 'zod';
 import { IdSchema } from '../common';
-import { AiStreamEventSchema } from '../entities';
 import { OnboardingProfileDraftSchema } from './ai';
 import { type RouteMeta, userRoute } from './meta';
 
@@ -25,7 +24,7 @@ export const STREAMING_ROUTES = {
     metadata: userRoute('student:tutor.chat') as RouteMeta,
   },
   /**
-   * Сообщение тьютору родителя о ребёнке: тело `TutorMessageBody`, события `TutorStreamEvent`;
+   * Сообщение тьютору родителя о ребёнке: тело `TutorMessageBody`, события `AiStreamEvent`;
    * лимит тот же (AI_TUTOR_DAILY_LIMIT, 429).
    */
   parentTutorMessage: {
@@ -59,7 +58,3 @@ export const OnboardingStreamEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
 ]);
 export type OnboardingStreamEvent = z.infer<typeof OnboardingStreamEventSchema>;
-
-/** События стрима тьютора — общий формат `AiStreamEvent`. */
-export const TutorStreamEventSchema = AiStreamEventSchema;
-export type TutorStreamEvent = z.infer<typeof TutorStreamEventSchema>;

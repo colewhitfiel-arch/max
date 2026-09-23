@@ -124,11 +124,28 @@ export type ListTeacherAssignmentsQuery = z.infer<typeof ListTeacherAssignmentsQ
 
 // ---------- Тела запросов ----------
 
-export const SubmitAssignmentBodySchema = z.object({
-  answers: BlockAnswersSchema.optional(),
-  text: z.string().optional(),
-  fileIds: z.array(IdSchema).optional(),
-});
+/** Есть ли в ответе на блок хоть что-то: выбранный вариант QUIZ, текст или файл. */
+function hasBlockAnswers(answers: z.infer<typeof BlockAnswersSchema> | undefined): boolean {
+  if (!answers) return false;
+  return Object.values(answers).some((value) =>
+    Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '',
+  );
+}
+
+/** Сдача задания: пустую (без ответов, текста и файлов) принять нельзя. */
+export const SubmitAssignmentBodySchema = z
+  .object({
+    answers: BlockAnswersSchema.optional(),
+    text: z.string().optional(),
+    fileIds: z.array(IdSchema).optional(),
+  })
+  .refine(
+    (body) =>
+      (body.text?.trim() ?? '') !== '' ||
+      (body.fileIds?.length ?? 0) > 0 ||
+      hasBlockAnswers(body.answers),
+    { message: 'Пустую работу сдать нельзя: добавь ответ, текст или файл' },
+  );
 export type SubmitAssignmentBody = z.infer<typeof SubmitAssignmentBodySchema>;
 
 export const CreateAssignmentBodySchema = z.object({

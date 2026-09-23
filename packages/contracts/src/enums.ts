@@ -151,6 +151,11 @@ export const ACTIVITY_TYPES = [
 export const ActivityTypeSchema = z.enum(ACTIVITY_TYPES);
 export type ActivityType = z.infer<typeof ActivityTypeSchema>;
 
+/** Отношение ученика к кружку по итогам онбординга (StudentClubInterest.status). */
+export const CLUB_INTEREST_STATUSES = ['CHOSEN', 'LATER', 'SKIPPED'] as const;
+export const ClubInterestStatusSchema = z.enum(CLUB_INTEREST_STATUSES);
+export type ClubInterestStatus = z.infer<typeof ClubInterestStatusSchema>;
+
 export const TICKET_STATUSES = ['OPEN', 'ANSWERED', 'CLOSED'] as const;
 export const TicketStatusSchema = z.enum(TICKET_STATUSES);
 export type TicketStatus = z.infer<typeof TicketStatusSchema>;

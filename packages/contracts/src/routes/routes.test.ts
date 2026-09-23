@@ -197,6 +197,30 @@ describe('apiContract', () => {
     }
   });
 
+  it('meta согласована с permissions.ts: каждая роль из roles имеет permission роута', () => {
+    for (const { key, route } of routes) {
+      const meta = route.metadata as RouteMeta;
+      if (!meta.permission) continue;
+      for (const role of meta.roles ?? []) {
+        expect(hasPermission(role, meta.permission), `${key}: ${role}`).toBe(true);
+      }
+    }
+  });
+
+  it('Idempotency-Key обязателен у сдачи задания, платежа, пополнения и вывода', () => {
+    const idempotent = [
+      apiContract.assignments.submitAssignment,
+      apiContract.payments.createPayment,
+      apiContract.payments.topUpWallet,
+      apiContract.payments.withdrawTeacherWallet,
+    ];
+    for (const route of idempotent) {
+      const headers = route.headers as { safeParse: (v: unknown) => { success: boolean } };
+      expect(headers.safeParse({}).success, route.path).toBe(false);
+      expect(headers.safeParse({ 'idempotency-key': 'k1' }).success, route.path).toBe(true);
+    }
+  });
+
   it('commonResponses и strictStatusCodes применены к каждому роуту', () => {
     for (const { key, route } of routes) {
       expect(route.strictStatusCodes, key).toBe(true);

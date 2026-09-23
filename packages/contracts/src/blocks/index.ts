@@ -3,23 +3,32 @@
  * См. docs/04-data-model.md §4.4.
  */
 import { z } from 'zod';
-import { IdSchema } from '../common/primitives';
+import { HttpUrlSchema, IdSchema } from '../common/primitives';
 
 export const TextContentSchema = z.object({ markdown: z.string() });
 
-export const VideoContentSchema = z.object({
-  url: z.string().url().optional(),
-  provider: z.enum(['youtube', 'vk', 'rutube', 'file']),
-  fileId: IdSchema.optional(),
-  durationSec: z.number().int().nonnegative().optional(),
-});
+/**
+ * Видео: внешняя ссылка (только http/https — её открывает клиент) или загруженный файл;
+ * хотя бы одно из `url`/`fileId` обязательно.
+ */
+export const VideoContentSchema = z
+  .object({
+    url: HttpUrlSchema.optional(),
+    provider: z.enum(['youtube', 'vk', 'rutube', 'file']),
+    fileId: IdSchema.optional(),
+    durationSec: z.number().int().nonnegative().optional(),
+  })
+  .refine((video) => video.url !== undefined || video.fileId !== undefined, {
+    message: 'Нужна ссылка на видео или файл',
+    path: ['url'],
+  });
 
 export const ImageContentSchema = z.object({ fileId: IdSchema, caption: z.string().optional() });
 
 export const FileContentSchema = z.object({ fileId: IdSchema, description: z.string().optional() });
 
 export const QuizOptionSchema = z.object({ id: z.string(), text: z.string() });
-export const QuizQuestionSchema = z.object({
+const QuizQuestionBaseSchema = z.object({
   id: z.string(),
   text: z.string(),
   options: z.array(QuizOptionSchema).min(2),
@@ -27,21 +36,51 @@ export const QuizQuestionSchema = z.object({
   explanation: z.string().optional(),
   multiple: z.boolean(),
 });
+/** Вопрос QUIZ: правильные варианты — из `options`; без `multiple` — ровно один правильный. */
+export const QuizQuestionSchema = QuizQuestionBaseSchema.superRefine((question, ctx) => {
+  const optionIds = new Set(question.options.map((option) => option.id));
+  if (question.correctOptionIds.some((id) => !optionIds.has(id))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Правильный вариант не найден среди вариантов ответа',
+      path: ['correctOptionIds'],
+    });
+  }
+  if (!question.multiple && new Set(question.correctOptionIds).size !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'В вопросе с одним ответом должен быть ровно один правильный вариант',
+      path: ['correctOptionIds'],
+    });
+  }
+});
 export const QuizContentSchema = z.object({
   questions: z.array(QuizQuestionSchema).min(1),
   passScore: z.number().int().min(0).max(100),
 });
+/** Вопрос QUIZ для ученика: без правильных ответов и пояснения. */
+export const QuizQuestionForStudentSchema = QuizQuestionBaseSchema.omit({
+  correctOptionIds: true,
+  explanation: true,
+});
 /** Вариант QUIZ для ученика: без правильных ответов и пояснений. */
 export const QuizContentForStudentSchema = z.object({
-  questions: z.array(QuizQuestionSchema.omit({ correctOptionIds: true, explanation: true })),
+  questions: z.array(QuizQuestionForStudentSchema),
   passScore: z.number().int().min(0).max(100),
 });
 export const QuizAnswersSchema = z.record(z.string(), z.array(z.string()));
 
 export const QuestionContentSchema = z.object({
   prompt: z.string(),
+  /** Эталонный ответ — только преподавателю и ИИ-проверке, ученику не отдаётся. */
   expectedAnswer: z.string().optional(),
+  /** Критерии оценивания — только преподавателю и ИИ-проверке, ученику не отдаются. */
   rubric: z.string().optional(),
+});
+/** Вариант QUESTION для ученика: без эталонного ответа и критериев оценивания. */
+export const QuestionContentForStudentSchema = QuestionContentSchema.omit({
+  expectedAnswer: true,
+  rubric: true,
 });
 
 export const SubmissionTypeSchema = z.enum(['TEXT', 'FILE', 'BOTH']);
@@ -83,9 +122,12 @@ export type VideoContent = z.infer<typeof VideoContentSchema>;
 export type ImageContent = z.infer<typeof ImageContentSchema>;
 export type FileContent = z.infer<typeof FileContentSchema>;
 export type QuizContent = z.infer<typeof QuizContentSchema>;
+export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
+export type QuizQuestionForStudent = z.infer<typeof QuizQuestionForStudentSchema>;
 export type QuizContentForStudent = z.infer<typeof QuizContentForStudentSchema>;
 export type QuizAnswers = z.infer<typeof QuizAnswersSchema>;
 export type QuestionContent = z.infer<typeof QuestionContentSchema>;
+export type QuestionContentForStudent = z.infer<typeof QuestionContentForStudentSchema>;
 export type PracticeContent = z.infer<typeof PracticeContentSchema>;
 export type HomeworkContent = z.infer<typeof HomeworkContentSchema>;
 export type InteractiveContent = z.infer<typeof InteractiveContentSchema>;

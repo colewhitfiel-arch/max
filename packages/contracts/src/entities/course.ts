@@ -7,6 +7,7 @@ import {
   ImageContentSchema,
   InteractiveContentSchema,
   PracticeContentSchema,
+  QuestionContentForStudentSchema,
   QuestionContentSchema,
   QuizContentForStudentSchema,
   QuizContentSchema,
@@ -59,19 +60,53 @@ export const CourseBlockSchema = z.discriminatedUnion('type', [
 ]);
 export type CourseBlock = z.infer<typeof CourseBlockSchema>;
 
-/** Блок для ученика: QUIZ без правильных ответов. */
+/**
+ * Блок для ученика: без ответов — QUIZ без правильных вариантов и пояснений, QUESTION без
+ * эталонного ответа и критериев. Сервер отдаёт ученику результат `toStudentBlock`.
+ */
 export const CourseBlockForStudentSchema = z.discriminatedUnion('type', [
   z.object({ ...blockBase, type: z.literal('TEXT'), content: TextContentSchema }),
   z.object({ ...blockBase, type: z.literal('VIDEO'), content: VideoContentSchema }),
   z.object({ ...blockBase, type: z.literal('IMAGE'), content: ImageContentSchema }),
   z.object({ ...blockBase, type: z.literal('FILE'), content: FileContentSchema }),
   z.object({ ...blockBase, type: z.literal('QUIZ'), content: QuizContentForStudentSchema }),
-  z.object({ ...blockBase, type: z.literal('QUESTION'), content: QuestionContentSchema }),
+  z.object({
+    ...blockBase,
+    type: z.literal('QUESTION'),
+    content: QuestionContentForStudentSchema,
+  }),
   z.object({ ...blockBase, type: z.literal('PRACTICE'), content: PracticeContentSchema }),
   z.object({ ...blockBase, type: z.literal('HOMEWORK'), content: HomeworkContentSchema }),
   z.object({ ...blockBase, type: z.literal('INTERACTIVE'), content: InteractiveContentSchema }),
 ]);
 export type CourseBlockForStudent = z.infer<typeof CourseBlockForStudentSchema>;
+
+/**
+ * Блок в том виде, в котором его можно отдать ученику: вырезаны ответы (правильные варианты и
+ * пояснения QUIZ, эталон и критерии QUESTION). Явная очистка, а не парсинг схемой: в production
+ * ответы ts-rest не валидирует, и лишние поля ушли бы клиенту как есть.
+ */
+export function toStudentBlock(block: CourseBlock): CourseBlockForStudent {
+  switch (block.type) {
+    case 'QUIZ':
+      return {
+        ...block,
+        content: {
+          passScore: block.content.passScore,
+          questions: block.content.questions.map((question) => ({
+            id: question.id,
+            text: question.text,
+            options: question.options.map((option) => ({ id: option.id, text: option.text })),
+            multiple: question.multiple,
+          })),
+        },
+      };
+    case 'QUESTION':
+      return { ...block, content: { prompt: block.content.prompt } };
+    default:
+      return block;
+  }
+}
 
 export const BlockProgressSchema = z.object({
   studentId: IdSchema,
