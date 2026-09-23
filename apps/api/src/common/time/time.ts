@@ -45,3 +45,12 @@ export function toDateOnly(timezone: string, at: Date = new Date()): string {
 export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
+
+/** Начало календарной недели (понедельник) в зоне школы — UTC-момент. */
+export function weekStart(timezone: string, at: Date = new Date()): Date {
+  const { start } = dayBounds(timezone, at);
+  const offset = tzOffsetMinutes(timezone, start);
+  // День недели считается по локальной дате, иначе у отрицательных смещений неделя съезжает.
+  const localWeekday = new Date(start.getTime() + offset * 60_000).getUTCDay();
+  return addDays(start, -((localWeekday + 6) % 7));
+}

@@ -44,6 +44,19 @@ export class AttendanceRepository {
     return new Map(rows.map((row) => [row.studentId, row._count._all]));
   }
 
+  /** Отметки одного ученика на перечисленных занятиях (`lessonId → status`). */
+  async listStatusesOfStudent(
+    studentId: string,
+    lessonIds: string[],
+  ): Promise<Map<string, AttendanceStatus>> {
+    if (lessonIds.length === 0) return new Map();
+    const rows = await this.prisma.attendance.findMany({
+      where: { studentId, lessonId: { in: lessonIds } },
+      select: { lessonId: true, status: true },
+    });
+    return new Map(rows.map((row) => [row.lessonId, row.status]));
+  }
+
   /** Сколько отметок уже стоит на занятии (для «отмечено / не отмечено» в списке). */
   async countByLessons(lessonIds: string[]): Promise<Map<string, number>> {
     if (lessonIds.length === 0) return new Map();

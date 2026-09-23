@@ -118,6 +118,13 @@ export class AssignmentsRepository {
     });
   }
 
+  /** Задание блока курса, если оно адресовано ученику (доступ к самому курсу проверяет courses). */
+  findForStudentByBlock(studentId: string, blockId: string): Promise<AssignmentRow | null> {
+    return this.prisma.assignment.findFirst({
+      where: { blockId, ...visibleToStudent(studentId) },
+    });
+  }
+
   update(id: string, data: Prisma.AssignmentUpdateInput): Promise<AssignmentRow> {
     return this.prisma.assignment.update({ where: { id }, data });
   }

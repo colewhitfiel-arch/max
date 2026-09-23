@@ -193,9 +193,37 @@ export class IdentityService {
     return this.repo.findStudentProfile(studentProfileId);
   }
 
+  /**
+   * Для других модулей: пользователь по id профиля роли — адресат уведомления или события.
+   * null — профиля нет.
+   */
+  async userIdOfProfile(
+    role: 'STUDENT' | 'PARENT' | 'TEACHER',
+    profileId: string,
+  ): Promise<string | null> {
+    return this.repo.findUserIdOfProfile(role, profileId);
+  }
+
   /** Для других модулей: школа преподавателя по id профиля (null — профиля нет). */
   async getTeacherSchoolId(teacherProfileId: string): Promise<string | null> {
     return this.repo.findTeacherSchoolId(teacherProfileId);
+  }
+
+  /**
+   * Школа пользователя для экранов, общих для всех ролей (каталог, публичный профиль):
+   * у ученика и преподавателя — своя, у родителя — школа первого привязанного ребёнка.
+   * null — школы нет (роль ещё не оформлена); вызывающий показывает всё, что активно.
+   */
+  async schoolIdOfUser(user: AuthUser): Promise<string | null> {
+    const profile = await this.repo.findById(user.userId);
+    if (!profile) return null;
+    if (profile.student?.schoolId) return profile.student.schoolId;
+    if (profile.teacher?.schoolId) return profile.teacher.schoolId;
+    if (!profile.parent) return null;
+    const [childId] = await this.family.listChildStudentIds(profile.parent.id);
+    if (!childId) return null;
+    const child = await this.repo.findStudentProfile(childId);
+    return child?.schoolId ?? null;
   }
 
   /** Для других модулей: AuthUser по userId и роли (например, для тестов и фоновых задач). */

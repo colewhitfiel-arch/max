@@ -9,6 +9,7 @@ import { FamilyModule } from '../family/family.module';
 import { GroupsModule } from '../groups/groups.module';
 import { IdentityModule } from '../identity/identity.module';
 import { AiStreamController } from './ai-stream.controller';
+import { AiActivityService } from './ai-activity.service';
 import { AiController } from './ai.controller';
 import { AiEvents } from './ai.events';
 import { buildAiService } from './ai.factory';
@@ -38,6 +39,7 @@ import { TutorService } from './tutor.service';
         buildAiService(env, logger.child({ module: 'ai' })),
     },
     AiRepository,
+    AiActivityService,
     StudentContextBuilder,
     TutorService,
     ParentTutorService,
@@ -46,6 +48,6 @@ import { TutorService } from './tutor.service';
     AiJobs,
     AiEvents,
   ],
-  exports: [AiService, StudentContextBuilder],
+  exports: [AiService, AiActivityService, StudentContextBuilder],
 })
 export class AiModule {}

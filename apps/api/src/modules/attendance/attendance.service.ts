@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AttendanceSheet, MarkAttendanceBody } from '@edu/contracts';
+import type { AttendanceSheet, AttendanceStatus, MarkAttendanceBody } from '@edu/contracts';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
 import { DomainEventBus } from '../../common/events/domain-events';
@@ -113,6 +113,17 @@ export class AttendanceService {
       studentIds,
     );
     return { countable: countableLessons.length, attendedByStudent };
+  }
+
+  /**
+   * Публичный сервис: отметки ученика на конкретных занятиях (`lessonId → status`).
+   * Нужны analytics для дуги недели, пропусков и опозданий, и дашбордам — для `LessonDto.attendance`.
+   */
+  async statusesOfStudent(
+    studentId: string,
+    lessonIds: string[],
+  ): Promise<Map<string, AttendanceStatus>> {
+    return this.repo.listStatusesOfStudent(studentId, lessonIds);
   }
 
   /** Сколько отметок стоит на занятиях — чтобы показать «отмечено» в списке занятий. */

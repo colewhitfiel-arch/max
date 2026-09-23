@@ -47,6 +47,26 @@ export const ASSIGNABLE_BLOCK_TYPES: readonly AssignmentType[] = [
   'HOMEWORK',
 ];
 
+/**
+ * Задание глазами analytics: только факты (срок, максимум, лучшая сдача) без формул.
+ * Даты — `Date`, чтобы считающий модуль не разбирал строки.
+ */
+export interface StudentAssignmentFact {
+  id: string;
+  title: string;
+  type: AssignmentType;
+  groupId: string;
+  dueAt: Date | null;
+  publishedAt: Date | null;
+  maxScore: number;
+  submission: {
+    status: SubmissionDto['status'];
+    score: number | null;
+    isLate: boolean;
+    submittedAt: Date | null;
+  } | null;
+}
+
 export interface BlockAssignmentInput {
   blockId: string;
   type: AssignmentType;
@@ -373,7 +393,77 @@ export class AssignmentsService {
     return result;
   }
 
-  // ---------- публичный сервис (courses) ----------
+  // ---------- публичный сервис (courses, analytics, notifications) ----------
+
+  /** Публичный сервис: кому принадлежит задание и как оно называется (тексты уведомлений). */
+  async briefInfo(
+    assignmentId: string,
+  ): Promise<{ id: string; title: string; teacherId: string; groupId: string } | null> {
+    const row = await this.repo.findById(assignmentId);
+    if (!row) return null;
+    return { id: row.id, title: row.title, teacherId: row.teacherId, groupId: row.groupId };
+  }
+
+  /**
+   * Публичный сервис: все видимые ученику задания с его лучшей сдачей — источник цифр
+   * для analytics (кристаллы, выполнение заданий, сетки статусов). Формул здесь нет.
+   */
+  async factsOfStudent(studentId: string, groupIds: string[]): Promise<StudentAssignmentFact[]> {
+    const rows = await this.repo.listForStudent(studentId, groupIds);
+    const submissions = await this.repo.listSubmissionsOfStudent(
+      studentId,
+      rows.map((row) => row.id),
+    );
+    const byAssignment = new Map(submissions.map((s) => [s.assignmentId, s]));
+    return rows.map((row) => {
+      const submission = byAssignment.get(row.id);
+      return {
+        id: row.id,
+        title: row.title,
+        type: row.type,
+        groupId: row.groupId,
+        dueAt: row.dueAt,
+        publishedAt: row.publishedAt,
+        maxScore: row.maxScore,
+        submission: submission
+          ? {
+              status: submission.status,
+              score: submission.score,
+              isLate: submission.isLate,
+              submittedAt: submission.submittedAt,
+            }
+          : null,
+      };
+    });
+  }
+
+  /** Публичный сервис: задания ученика как `AssignmentBrief` (списки на дашбордах). */
+  async briefsOfStudent(studentId: string, groupIds: string[]): Promise<AssignmentBrief[]> {
+    const rows = await this.repo.listForStudent(studentId, groupIds);
+    const submissions = await this.repo.listSubmissionsOfStudent(
+      studentId,
+      rows.map((row) => row.id),
+    );
+    return this.toBriefs(rows, new Map(submissions.map((s) => [s.assignmentId, s])));
+  }
+
+  /**
+   * Задание блока курса глазами ученика; null — блок заданием не стал или адресован не ему.
+   * Доступ к самому блоку (курс опубликован, группа своя) проверяет вызывающий модуль courses.
+   */
+  async briefOfBlockForStudent(
+    studentId: string,
+    blockId: string,
+  ): Promise<AssignmentBrief | null> {
+    const row = await this.repo.findForStudentByBlock(studentId, blockId);
+    if (!row) return null;
+    const submission = await this.repo.findSubmission(row.id, studentId);
+    const [brief] = await this.toBriefs(
+      [row],
+      new Map(submission ? [[row.id, submission]] : []),
+    );
+    return brief ?? null;
+  }
 
   /**
    * Создать задания для блоков курса. Идемпотентно по `blockId`: блок, у которого задание уже

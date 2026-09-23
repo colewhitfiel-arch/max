@@ -128,6 +128,20 @@ export class GroupsService {
     return rows.map((row) => row.groupId);
   }
 
+  /**
+   * Зачисления ученика с датой начала: посещаемость считается только по занятиям,
+   * которые прошли после зачисления (docs/04 §4.6).
+   */
+  async listEnrollmentsOfStudent(
+    studentId: string,
+  ): Promise<Array<{ groupId: string; enrolledAt: Date }>> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: { studentId, status: 'ACTIVE' },
+      select: { groupId: true, enrolledAt: true },
+    });
+    return rows;
+  }
+
   /** Группы ученика как `GroupBrief` (карта кружков на экране заданий). */
   async listGroupBriefsOfStudent(studentId: string): Promise<GroupBrief[]> {
     const rows = await this.prisma.group.findMany({

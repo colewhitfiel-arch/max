@@ -1,34 +1,11 @@
 import { Controller } from '@nestjs/common';
-import { groupsContract, type PeriodQuery } from '@edu/contracts';
+import { groupsContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
 import { Errors } from '../../common/errors/app-error';
+import { periodBounds } from '../../common/time/period';
 import { GroupsService } from './groups.service';
-
-/** Сколько дней показывать, если период в запросе не задан. */
-const DEFAULT_DAYS_BACK = 30;
-const DEFAULT_DAYS_FORWARD = 30;
-
-const startOfDay = (date: Date) =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-
-/**
- * Период запроса в границы дат. `from`/`to` — `YYYY-MM-DD`, обе включительно:
- * `to` растягивается до конца своего дня, иначе занятия этого дня выпали бы из выборки.
- */
-function periodBounds(query: PeriodQuery): { from: Date; to: Date } {
-  const today = startOfDay(new Date());
-  const from = query.from
-    ? new Date(`${query.from}T00:00:00.000Z`)
-    : addDays(today, -DEFAULT_DAYS_BACK);
-  const to = query.to
-    ? new Date(`${query.to}T23:59:59.999Z`)
-    : addDays(today, DEFAULT_DAYS_FORWARD + 1);
-  if (to.getTime() < from.getTime()) throw Errors.validation('Конец периода раньше начала');
-  return { from, to };
-}
 
 /**
  * Занятия преподавателя (часть contracts/routes/groups.ts). Календари ученика и родителя —

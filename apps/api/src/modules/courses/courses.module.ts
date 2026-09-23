@@ -3,12 +3,14 @@ import { AssignmentsModule } from '../assignments/assignments.module';
 import { GroupsModule } from '../groups/groups.module';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
+import { StudentCoursesController } from './student-courses.controller';
+import { StudentCoursesService } from './student-courses.service';
 
-/** courses: структура курса, дополнение модулями и публикация. Экраны ученика — workstream B. */
+/** courses: структура курса, публикация (преподаватель) и прохождение курса учеником. */
 @Module({
   imports: [GroupsModule, AssignmentsModule],
-  controllers: [CoursesController],
-  providers: [CoursesService],
+  controllers: [CoursesController, StudentCoursesController],
+  providers: [CoursesService, StudentCoursesService],
   exports: [CoursesService],
 })
 export class CoursesModule {}

@@ -123,15 +123,40 @@ export class IdentityRepository {
       select: {
         id: true,
         schoolId: true,
+        classLabel: true,
         interests: true,
         goals: true,
         weeklyHours: true,
         preferredFormats: true,
         futureInterests: true,
         aiProfileSummary: true,
-        user: { select: { firstName: true, nickname: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            nickname: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
+  }
+
+  /** userId по id профиля роли — кому слать уведомление (`null`, если профиля нет). */
+  async findUserIdOfProfile(
+    role: 'STUDENT' | 'PARENT' | 'TEACHER',
+    profileId: string,
+  ): Promise<string | null> {
+    const where = { id: profileId };
+    const select = { userId: true };
+    const row =
+      role === 'STUDENT'
+        ? await this.prisma.studentProfile.findUnique({ where, select })
+        : role === 'PARENT'
+          ? await this.prisma.parentProfile.findUnique({ where, select })
+          : await this.prisma.teacherProfile.findUnique({ where, select });
+    return row?.userId ?? null;
   }
 
   async findTeacherSchoolId(teacherProfileId: string): Promise<string | null> {

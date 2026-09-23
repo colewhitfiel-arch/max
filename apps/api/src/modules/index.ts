@@ -15,6 +15,7 @@ import { StorageModule } from './files/storage/storage.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { IdentityModule } from './identity/identity.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 export const DOMAIN_MODULES: Type<unknown>[] = [
   // инфраструктурные (глобальные): хранилище файлов, ИИ-провайдер + онбординг/тьютор/траектория
@@ -31,4 +32,5 @@ export const DOMAIN_MODULES: Type<unknown>[] = [
   AttendanceModule,
   AssignmentsModule,
   AnalyticsModule,
+  NotificationsModule,
 ];

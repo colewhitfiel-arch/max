@@ -274,6 +274,49 @@ export class CoursesService {
     if (row.status === 'ARCHIVED') throw Errors.businessRule('Курс в архиве — его не дополнить');
   }
 
+  /**
+   * Публичный сервис (analytics): проценты прохождения опубликованных курсов ученика
+   * по группам — `groupId → [percent, …]`. Считается по блокам, а не по read-модели
+   * `CourseProgress`: та обновляется при завершении блока и устаревает, когда преподаватель
+   * дополняет курс новыми модулями.
+   */
+  async progressPercentsOfStudent(
+    studentId: string,
+    groupIds: string[],
+  ): Promise<Map<string, number[]>> {
+    const result = new Map<string, number[]>(groupIds.map((groupId) => [groupId, []]));
+    if (groupIds.length === 0) return result;
+    const courses = await this.prisma.course.findMany({
+      where: { groupId: { in: groupIds }, status: 'PUBLISHED', deletedAt: null },
+      select: { id: true, groupId: true, modules: { select: { blocks: { select: { id: true } } } } },
+    });
+    const blockIds = courses.flatMap((course) =>
+      course.modules.flatMap((module) => module.blocks.map((block) => block.id)),
+    );
+    const completed = new Set(
+      (
+        await this.prisma.blockProgress.findMany({
+          where: { studentId, status: 'COMPLETED', blockId: { in: blockIds } },
+          select: { blockId: true },
+        })
+      ).map((row) => row.blockId),
+    );
+    for (const course of courses) {
+      const ids = course.modules.flatMap((module) => module.blocks.map((block) => block.id));
+      if (ids.length === 0) continue;
+      const done = ids.filter((id) => completed.has(id)).length;
+      result.get(course.groupId)?.push(Math.round((done / ids.length) * 100));
+    }
+    return result;
+  }
+
+  /** Публичный сервис (analytics): сколько блоков ученик прошёл с указанного момента. */
+  async countBlocksCompletedSince(studentId: string, since: Date): Promise<number> {
+    return this.prisma.blockProgress.count({
+      where: { studentId, status: 'COMPLETED', completedAt: { gte: since } },
+    });
+  }
+
   // ---------- для контекста ИИ ----------
 
   /** Курсы ученика с прогрессом — для контекста ИИ. */
