@@ -1,7 +1,9 @@
 # 6. Shared-компоненты и типы
 
+> **Статус (2026-09-23):** §6.1, §6.3, §6.5, §6.6 сверены с кодом. §6.4 (состав `@edu/ui`) — исходный план: фактический набор компонентов — `packages/ui/src/index.ts` и песочница `/dev/ui`; что построено в foundation — `FOUNDATION.md`.
+
 ## 6.1. `packages/contracts` — типы API
-Экспортирует: enum'ы (4.1), общие DTO (5.2), zod-схемы всех DTO, ts-rest роутер `apiContract`, коды ошибок, события (5.4), схемы контента блоков (4.4), `CourseDraft`, тип `StudentContext`, фикстуры демо-мира. Никакой логики, только схемы/типы/константы. Зависимостей на Nest/React нет.
+Экспортирует: enum'ы (4.1), общие DTO (5.2), zod-схемы всех DTO, ts-rest роутер `apiContract`, коды ошибок, события (5.4), схемы контента блоков (4.4), `CourseDraft`, фикстуры демо-мира. Тип `StudentContext` живёт в `packages/ai` (`src/context/student-context.ts`): пакет ai не зависит от contracts, снимок собирает `apps/api/src/modules/ai/context-builder`. Никакой логики, только схемы/типы/константы. Зависимостей на Nest/React нет.
 
 Справочники: `CLUB_CATEGORIES` + словарь названий, `ATTENDANCE_LABELS`, `BLOCK_TYPE_META` (иконка, название, «является заданием»).
 
@@ -9,14 +11,15 @@
 Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Экспортирует типы Prisma для api. Фронт **не** зависит от `db`.
 
 ## 6.3. `packages/ai`
-`LlmProvider`, `GigaChatProvider`, `FakeLlmProvider`, `PromptRegistry`, сериализация `StudentContext`, `parseJsonResponse<T>(schema)`. Используется в `apps/api` (HTTP и worker). Не знает о Prisma.
+Порт `AiProvider` (алиас `LlmProvider`), `AiService` (retry/timeout/семафор параллельности), `GigaChatProvider` (`providers/gigachat/`), `MockAiProvider` (`providers/mock.ts`, алиас `FakeLlmProvider`), `PromptRegistry` (`prompts/registry.ts`), тип и сериализация `StudentContext` (`context/student-context.ts`), `parseJsonResponse<T>(schema)` (`json.ts`). Используется в `apps/api` (HTTP и worker). Не знает о Prisma.
 
 `StudentContext` (сериализуется в текст ≤ ~2500 токенов):
 ```
-{ student: { name, classLabel?, interests[], goals[], weeklyHours?, preferredFormats[], aiProfileSummary? },
+{ student: { name, classLabel?, interests[], goals[], weeklyHours?, preferredFormats[], futureInterests?[], aiProfileSummary? },
   clubs: [{ title, category, teacherName, scheduleText, progressPercent, attendanceRate }],
+  laterClubs?: [{ title, reason? }]                         // «попробовать позже» из онбординга
   upcomingLessons: [{ club, startsAt, topic? }]            // 7 дней
-  openAssignments: [{ title, club, dueAt?, type, status }]  // ≤10
+  openAssignments: [{ title, club, dueAt?, type, status }]  // все открытые; в текст — не больше maxItems (10)
   recentResults: [{ title, club, score, maxScore, isLate, at }]  // ≤10
   stats30d: { attendanceRate, completionRate, activityScore, absences, lateCount },
   courseProgress: [{ course, percent, nextBlockTitle? }],
@@ -24,7 +27,7 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
   now, timezone }
 ```
 
-Промпты (id@version): `onboarding.dialog@1`, `onboarding.profile-extract@1`, `onboarding.recommend@1`, `tutor.system@1`, `tutor.parent@1`, `insight.student-home@1`, `insight.parent-summary@1`, `insight.teacher-student@1`, `trajectory@1`, `course.outline@1`, `course.generate-module@1`, `course.summarize-chunk@1`.
+Промпты (id; актуальная версия — в `packages/ai/src/prompts/*.ts`): `onboarding.turn`, `onboarding.recommend-clubs`, `tutor.system`, `tutor.parent`, `trajectory.build`, `course-builder.material-from-topic`, `course-builder.survey`, `course-builder.block`. Ещё не реализованы: `insight.student-home`, `insight.parent-summary`, `insight.teacher-student`.
 
 ## 6.4. `packages/ui` — дизайн-система (mobile-first, WebView MAX)
 
@@ -45,14 +48,14 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 
 ## 6.5. `apps/web/src/shared`
 - `api/client.ts` — ts-rest клиент + react-query обёртки; `api/sse.ts` — стрим (`useAiStream`); `api/query-keys.ts` — префиксы (`['student']`, `['parent', studentId]`, `['teacher']`, `['ai']`, `['notifications']`).
-- `max-bridge/` — `MaxBridge` интерфейс + реальный адаптер + mock.
+- `max/` — `MaxBridge` интерфейс (`types.ts`) + реальный адаптер (`sdk-bridge.ts`) + mock (`mock-bridge.ts`), провайдер и хуки (`index.tsx`).
 - `i18n/` — i18next, namespaces по фичам.
-- `lib/dates.ts` («сегодня, 15:30», «через 2 дня», недели, tz), `lib/money.ts` (копейки → «1 500 ₽»), `lib/format.ts` (проценты, склонения), `lib/errors.ts` (ApiError → текст).
+- `lib/dates.ts` («сегодня, 15:30», «через 2 дня», недели, tz), `lib/money.ts` (копейки → «1 500 ₽»), `lib/format.ts` (проценты, склонения); `api/errors.ts` (`ApiClientError` → текст).
 - `config.ts` — `VITE_API_URL`, `VITE_API_MODE=mock|real`.
 
 ## 6.6. `apps/api/src/common`
-- `auth/` — `MaxAuthProvider`, `DevAuthProvider`, `JwtService`, `@CurrentUser()`, `RolesGuard`, `@Roles()`.
-- `events/` — типизированный `DomainEvents.emit/on` поверх EventEmitter2 (типы из `contracts/events`).
-- `queue/` — фабрика очередей BullMQ, `@Processor` регистрация только в worker.
-- `filters/ApiExceptionFilter`, `pipes/ZodValidationPipe`, `pagination/` (cursor helpers), `logger/`, `idempotency/` (декоратор + Redis), `time/` (`schoolNow`, границы дня/недели по tz).
-- `testing/` — фабрики тестовых данных из фикстур, `createTestApp()`.
+- `auth/` — порт `AuthProvider` (`providers/`: `MaxAuthProvider`, `DevAuthProvider`), `JwtService`, `AuthGuard`, `AccessGuard`, `@CurrentUser()`, `@Public()`, `@Roles()`, `@RequirePermission()`.
+- `events/` — типизированная шина `DomainEventBus` и декоратор `@OnDomainEvent` (типы из `contracts/events`).
+- `queue/` — порт `JobQueue`: `InlineJobQueue` (dev, `QUEUE_DRIVER=inline`) и `BullMqJobQueue` (Redis); обработчики регистрируются через `JobQueue.process(...)`.
+- `errors/` (`Errors.*`, `ApiExceptionFilter`), `validation/` (`ZodValidationPipe`), `pagination/` (cursor helpers), `logger/`, `kv/` (`KeyValueStore`), `prisma/`, `time/` (`schoolNow`, границы дня/недели по tz).
+- Тестовые помощники — не в `common`, а в `apps/api/test/helpers/` (`env.ts`, `mini-app.ts`, `test-app.ts`).

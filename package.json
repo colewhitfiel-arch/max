@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "setup": "node scripts/ensure-env.mjs && pnpm install && pnpm db:up && pnpm db:migrate && pnpm db:seed",
+    "setup": "node scripts/ensure-env.mjs && pnpm install && pnpm db:up && pnpm db:deploy && pnpm db:seed",
     "env:init": "node scripts/ensure-env.mjs",
     "dev": "turbo run dev",
     "dev:web": "pnpm --filter @edu/web dev",

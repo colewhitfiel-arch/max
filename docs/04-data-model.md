@@ -19,7 +19,7 @@ BlockType            TEXT | VIDEO | IMAGE | FILE | QUIZ | QUESTION | PRACTICE | 
 AssignmentType       HOMEWORK | QUIZ | QUESTION | PRACTICE
 SubmissionStatus     NOT_STARTED | IN_PROGRESS | SUBMITTED | GRADED | RETURNED
 BlockProgressStatus  OPENED | COMPLETED
-MaterialStatus       UPLOADED | EXTRACTING | EXTRACTED | FAILED
+FileStatus           UPLOADED | EXTRACTING | EXTRACTED | FAILED
 GenerationStage      QUEUED | EXTRACTING | OUTLINING | GENERATING | ASSEMBLING | READY | ACCEPTED | FAILED | CANCELLED
 ConversationKind     ONBOARDING | TUTOR
 MessageRole          USER | ASSISTANT | SYSTEM
@@ -33,6 +33,7 @@ NotificationType     LESSON_SOON | LESSON_CANCELLED | ASSIGNMENT_NEW | ASSIGNMEN
 ActivityType         APP_OPENED | BLOCK_OPENED | BLOCK_COMPLETED | SUBMISSION_SUBMITTED | LESSON_ATTENDED | TUTOR_MESSAGE
 TicketStatus         OPEN | ANSWERED | CLOSED
 ClubCategory         ROBOTICS | PROGRAMMING | LANGUAGES | CHESS | MATH | ART | MUSIC | SPORT | SCIENCE | OTHER
+ClubInterestStatus   CHOSEN | LATER | SKIPPED                         // в contracts — ClubInterestStatusSchema в routes/ai.ts (не в enums.ts)
 ```
 
 ## 4.2. Сущности
@@ -52,7 +53,8 @@ StudentProfile  id PK, userId FK unique, schoolId FK?, classLabel? ("7Б"), birt
 ParentProfile   id PK, userId FK unique
 TeacherProfile  id PK, userId FK unique, schoolId FK, qualification?, bio?, photoUrl?,
                 contactPhone?, contactEmail?, contactsVisible bool=false
-RefreshToken    id PK, userId FK, tokenHash (unique), expiresAt, revokedAt?
+RefreshToken    id PK, userId FK, tokenHash (unique), activeRole Role? (восстанавливается при refresh),
+                expiresAt, revokedAt?
 ```
 
 ### school (`school.prisma`)
@@ -75,7 +77,7 @@ Enrollment      id PK, studentId FK, groupId FK, status EnrollmentStatus, enroll
                                                                         unique(studentId, groupId)
 ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:mm", room?,
                 validFrom date, validTo date?
-Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, status LessonStatus=PLANNED,
+Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, room?, status LessonStatus=PLANNED,
                 cancelReason?                                           index(groupId, startsAt)
 ```
 Занятия материализуются worker'ом из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`.
@@ -90,7 +92,7 @@ Attendance      id PK, lessonId FK, studentId FK, status AttendanceStatus, comme
 ### courses (`courses.prisma`)
 ```
 Course          id PK, groupId FK, teacherId FK, title, description?, status CourseStatus=DRAFT,
-                version int=1, publishedAt?, generationJobId FK?, deletedAt?
+                version int=1, publishedAt?, generationJobId FK? (unique), deletedAt?
 CourseModule    id PK, courseId FK, order int, title, summary?
 CourseBlock     id PK, moduleId FK, order int, type BlockType, title,
                 content json (схема по типу, 4.4), estimatedMinutes int?, isRequired bool=true
@@ -141,10 +143,10 @@ StudentClubInterest id PK, studentId FK, clubId FK, status ClubInterestStatus (C
 
 ### files + course-builder (`files.prisma`, `course-builder.prisma`)
 ```
-File            id PK, ownerUserId FK, purpose FilePurpose, fileName, mime, sizeBytes, s3Key (unique),
-                confirmedAt?, status MaterialStatus=UPLOADED, extractedTextKey?,
+File            id PK, ownerUserId FK, purpose FilePurpose, fileName, mime, sizeBytes, storageKey (unique),
+                confirmedAt?, status FileStatus=UPLOADED, extractedTextKey?,
                 extractMeta json? { pages, headings[] }, error?
-CourseGenerationJob id PK, teacherId FK, groupId FK, courseId FK?, materialIds string[] (File.id),
+CourseGenerationJob id PK, teacherId FK, groupId FK, materialIds string[] (File.id),
                 instructions text?, targetTitle?, sourceKind string='MATERIALS' (MATERIALS|TOPIC), topic text?,
                 knowledge json? (KnowledgeBase: atoms, nodes, plan, stats), stage GenerationStage=QUEUED,
                 progress int=0, draft json? (CourseDraft), error?, startedAt?, finishedAt?

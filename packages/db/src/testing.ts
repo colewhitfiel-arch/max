@@ -27,27 +27,36 @@ export function resolveTestDatabaseUrl(): string {
   return url;
 }
 
+/** Запускает node-скрипт; при падении пробрасывает stderr в текст ошибки (иначе vitest его не покажет). */
+function runNode(label: string, scriptArgs: string[], url: string): void {
+  try {
+    execFileSync(process.execPath, scriptArgs, {
+      cwd: pkgRoot,
+      env: { ...process.env, DATABASE_URL: url },
+      stdio: 'pipe',
+    });
+  } catch (error) {
+    const stderr = (error as { stderr?: Buffer | string }).stderr?.toString().trim();
+    throw new Error(`${label} завершился с ошибкой${stderr ? `:\n${stderr}` : ''}`, {
+      cause: error,
+    });
+  }
+}
+
 function runPrisma(args: string[], url: string): void {
   const prismaCli = require.resolve('prisma/build/index.js', { paths: [pkgRoot] });
-  execFileSync(process.execPath, [prismaCli, ...args], {
-    cwd: pkgRoot,
-    env: { ...process.env, DATABASE_URL: url },
-    stdio: 'pipe',
-  });
+  runNode(`prisma ${args.join(' ')}`, [prismaCli, ...args], url);
 }
 
 /** Применяет миграции (и seed) к тестовой БД. Идемпотентно. */
 export function prepareTestDatabase(options: PrepareTestDatabaseOptions = {}): string {
   const url = options.url ?? resolveTestDatabaseUrl();
+  // migrate reset сам применяет все миграции — deploy нужен только без сброса.
   if (options.reset) runPrisma(['migrate', 'reset', '--force', '--skip-seed'], url);
-  runPrisma(['migrate', 'deploy'], url);
+  else runPrisma(['migrate', 'deploy'], url);
   if (options.seed) {
     const tsx = require.resolve('tsx/cli', { paths: [pkgRoot] });
-    execFileSync(process.execPath, [tsx, path.join(pkgRoot, 'src', 'seed', 'index.ts')], {
-      cwd: pkgRoot,
-      env: { ...process.env, DATABASE_URL: url },
-      stdio: 'pipe',
-    });
+    runNode('seed', [tsx, path.join(pkgRoot, 'src', 'seed', 'index.ts')], url);
   }
   return url;
 }

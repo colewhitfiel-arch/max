@@ -6,7 +6,7 @@
 
 Правило №2: конфликт `pnpm-lock.yaml` решается только `pnpm install`, никогда руками. Добавление зависимости в свой `package.json` разрешено; в корневой — только core.
 
-Правило №3: CI (`scripts/check-ownership.ts` по `OWNERS.yaml`) падает, если один PR трогает зоны двух владельцев без метки `cross-owner`.
+Правило №3: `pnpm ownership:check` (`scripts/check-ownership.mjs` по `OWNERS.yaml`, в CI — на каждый push и PR) падает, если коммит трогает зоны двух владельцев без метки `cross-owner` в своём сообщении. Коммиты идут прямо в `main`, поэтому проверяется каждый коммит диапазона отдельно (merge-коммиты пропускаются). У файла один владелец — зона с самым конкретным глобом: вложенные зоны (`packages/ai/**` ⊃ `packages/ai/src/prompts/**`) пересечением не считаются. Локально без аргументов скрипт проверяет незапушенные коммиты (`origin/main..HEAD`) и предупреждает о незакоммиченных правках; `--staged` — staged-файлы (метку подтверждает флаг `--cross-owner`).
 
 ## 10.1. Владелец «core» (архитектор)
 
@@ -49,12 +49,12 @@
 |---|---|
 | `packages/db/prisma/schema/base.prisma` (datasource, generator, общие enum'ы, `User`, `AuditLog`) | Только владелец db |
 | `packages/db/prisma/schema/<module>.prisma` | Владелец — BE-агент модуля, но **только добавление** полей/индексов. Переименования/удаления — через владельца db |
-| `packages/db/prisma/migrations/**` | Только владелец db. Миграции создаются **сериализованно**: агент меняет схему → владелец db генерирует и коммитит миграцию. Две миграции параллельно — никогда |
-| `packages/db/src/seed/index.ts` | Владелец db; модульные фрагменты `seed/<module>.ts` — агенты модулей (данные берут из `contracts/fixtures`) |
+| `packages/db/prisma/schema/migrations/**` | Только владелец db. Миграции создаются **сериализованно**: агент меняет схему → владелец db генерирует и коммитит миграцию. Две миграции параллельно — никогда |
+| `packages/db/src/seed/**`, `packages/db/src/testing.ts` | Владелец db. Нынешние фрагменты seed (`identity`, `catalog-groups`, `learning`, `ai-payments-notifications`) сквозные — у владельца db; модульный фрагмент `seed/<module>.ts`, объявленный в зоне модуля в `OWNERS.yaml`, — у агента модуля (данные берут из `contracts/fixtures`) |
 
 ## 10.4. Владелец «api-shell»
 
-`apps/api/src/{main,worker,app.module}.ts`, `apps/api/src/common/**`, `apps/api/src/config/**`, `apps/api/test/setup*`.
+`apps/api/src/{main,worker,app.module,bootstrap}.ts`, `apps/api/src/modules/index.ts`, `apps/api/src/modules/identity/**` (auth core, AGENT_GUIDE §18), `apps/api/src/common/**`, `apps/api/src/config/**`, `apps/api/test/**` (кроме подпапок workstream'ов, например `test/ai/**`, `test/course-builder/**`), `apps/api/package.json`.
 
 - Регистрация модуля в `app.module.ts` — единственная правка, которую владелец делает по запросу (одна строка).
 - Новое общее (guard, pipe, helper) — запрос владельцу; до этого агент держит helper в своём модуле.
@@ -63,7 +63,7 @@
 
 ## 10.5. Владелец «web-shell»
 
-`apps/web/src/app/**` (роутер, shells, bottom-nav config, providers), `apps/web/src/shared/api/{client,query-keys,sse}.ts`, `apps/web/src/shared/api/mocks/handlers/index.ts`, `apps/web/src/shared/max-bridge/**`, `apps/web/src/shared/i18n/index.ts`, `apps/web/src/shared/lib/**`, `apps/web/vite.config.ts`.
+`apps/web/src/app/**` (роутер, shells, bottom-nav config, providers), `apps/web/src/shared/{api,auth,max}/**`, `apps/web/src/shared/config.ts`, `apps/web/src/shared/i18n/index.ts`, `apps/web/src/shared/lib/**`, `apps/web/vite.config.ts`, `apps/web/package.json`. Внутри `shared/api/**` доменные MSW-хендлеры `mocks/handlers/<domain>.ts`, закреплённые в `OWNERS.yaml` за workstream'ом (например, `course-builder.ts`, `files.ts` — G), принадлежат ему; `shared/max/**` на время workstream J — у J (координация с web-shell).
 
 Механизмы, чтобы FE-агенты не трогали shell:
 - **Роуты**: фича экспортирует `pages/<role>/<feature>/routes.tsx` (`RouteObject[]`); владелец shell подключает одной строкой в `router.tsx`.
@@ -85,20 +85,21 @@
 ## 10.6. Владельцы «ui» и «ai»
 
 - `packages/ui/**` — владелец ui (F7). Новые компоненты — запрос; временно компонент живёт в `apps/web/src/shared/ui/` у автора запроса.
-- `packages/ai/src/{client,provider,fake-provider,json}.ts`, `prompts/registry.ts`, `context/**` — владелец ai (F8).
-- `packages/ai/src/prompts/<feature>.ts` — владелец соответствующей A-задачи.
+- `packages/ai/**` (`provider.ts`, `service.ts`, `json.ts`, `providers/mock.ts`, `context/**`, `prompts/registry.ts` и т.д.) — владелец ai (F8).
+- `packages/ai/src/prompts/**` — workstream C (`ws-C-ai`); `packages/ai/src/providers/gigachat/**` и `packages/ai/README.md` — workstream K.
 
 ## 10.7. `OWNERS.yaml` (формат)
 
+Единственный актуальный источник — корневой `OWNERS.yaml`; здесь только формат (минимальный парсер в `scripts/check-ownership.mjs` понимает ровно его, фигурные скобки `{a,b}` в глобах не раскрываются — каждый путь отдельной строкой):
+
 ```yaml
 owners:
-  core:      [docs/**, CLAUDE.md, README.md, OWNERS.yaml, package.json, pnpm-*.yaml, turbo.json, tsconfig.base.json, packages/config/**, .github/**, infra/**, scripts/**, .env.example]
-  contracts: [packages/contracts/src/index.ts, packages/contracts/src/common.ts, packages/contracts/src/enums.ts, packages/contracts/src/errors.ts, packages/contracts/src/events.ts, packages/contracts/src/fixtures/**]
-  db:        [packages/db/prisma/schema/base.prisma, packages/db/prisma/migrations/**, packages/db/src/seed/index.ts, packages/db/src/client.ts]
-  api-shell: [apps/api/src/main.ts, apps/api/src/worker.ts, apps/api/src/app.module.ts, apps/api/src/common/**, apps/api/src/config/**]
-  web-shell: [apps/web/src/app/**, apps/web/src/shared/api/client.ts, apps/web/src/shared/api/query-keys.ts, apps/web/src/shared/api/sse.ts, apps/web/src/shared/api/mocks/handlers/index.ts, apps/web/src/shared/max-bridge/**, apps/web/src/shared/i18n/index.ts, apps/web/src/shared/lib/**, apps/web/vite.config.ts]
-  ui:        [packages/ui/**]
-  ai:        [packages/ai/src/client/**, packages/ai/src/provider.ts, packages/ai/src/fake-provider.ts, packages/ai/src/json.ts, packages/ai/src/prompts/registry.ts, packages/ai/src/context/**]
-  B1: [apps/api/src/modules/identity/**, apps/api/src/modules/school/**, packages/contracts/src/auth.ts, packages/db/prisma/schema/identity.prisma, packages/db/prisma/schema/school.prisma]
-  # ... по одной записи на каждую задачу из 09-tasks.md
+  core:
+    - docs/**
+    - scripts/**
+  db:
+    - packages/db/prisma/schema/base.prisma
+    - packages/db/prisma/schema/migrations/**
+  ws-C-ai:
+    - packages/ai/src/prompts/** # вложена в зону ai (packages/ai/**) — побеждает более конкретный глоб
 ```

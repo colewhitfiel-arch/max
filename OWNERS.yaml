@@ -1,5 +1,7 @@
 # Карта владельцев. Проверяется `pnpm ownership:check` (scripts/check-ownership.mjs):
-# один коммит/PR не должен трогать зоны двух владельцев без метки cross-owner в сообщении.
+# коммит не должен трогать зоны двух владельцев без метки cross-owner в сообщении.
+# У файла один владелец — зона с самым конкретным совпавшим глобом (вложенные зоны,
+# например packages/ai/** и packages/ai/src/prompts/**, не пересекаются).
 # Подробности и правила — docs/10-ownership.md и docs/AGENT_GUIDE.md.
 
 owners:
@@ -33,10 +35,12 @@ owners:
 
   db:
     - packages/db/prisma/schema/base.prisma
-    - packages/db/prisma/migrations/**
+    - packages/db/prisma/schema/migrations/**
     - packages/db/src/client.ts
     - packages/db/src/index.ts
-    - packages/db/src/seed/index.ts
+    - packages/db/src/testing.ts
+    # Модульный фрагмент seed/<module>.ts, объявленный в зоне модуля, принадлежит ей.
+    - packages/db/src/seed/**
     - packages/db/scripts/**
     - packages/db/package.json
 
@@ -44,6 +48,9 @@ owners:
     - apps/api/src/main.ts
     - apps/api/src/worker.ts
     - apps/api/src/app.module.ts
+    - apps/api/src/bootstrap.ts
+    - apps/api/src/modules/index.ts
+    - apps/api/src/modules/identity/**
     - apps/api/src/common/**
     - apps/api/src/config/**
     - apps/api/test/**
@@ -72,11 +79,12 @@ owners:
     - apps/api/src/modules/analytics/**
     - packages/contracts/src/routes/dashboards.ts
     - packages/db/prisma/schema/analytics.prisma
-    - packages/db/src/seed/analytics.ts
+    - packages/db/src/seed/analytics.ts # файла ещё нет — зарезервировано
     - apps/web/src/pages/student/home/**
     - apps/web/src/pages/student/profile/**
     - apps/web/src/entities/dashboard/**
     - apps/web/src/widgets/student-home-*/**
+    - apps/web/src/widgets/student-profile-hero/**
   ws-B-courses-assignments:
     - apps/api/src/modules/courses/**
     - apps/api/src/modules/assignments/**
@@ -183,13 +191,15 @@ owners:
     - apps/web/src/entities/payment/**
     - apps/web/src/features/pay/**
     - apps/web/src/features/withdraw-wallet/**
+  # shared/max/** объявлен и у web-shell: на время workstream J владелец — J
+  # (при равной конкретности глоба побеждает зона, объявленная ниже).
   ws-J-max:
     - apps/web/src/shared/max/**
     - apps/api/src/common/auth/providers/max-auth.provider.ts
   ws-K-gigachat:
     - packages/ai/src/providers/gigachat/**
     - packages/ai/README.md
-    - scripts/smoke-gigachat.mjs
+    - scripts/smoke-gigachat.mjs # файла ещё нет — зарезервировано
   ws-L-notifications-support:
     - apps/api/src/modules/notifications/**
     - apps/api/src/modules/support/**

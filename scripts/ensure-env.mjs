@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Создаёт .env из .env.example, если его ещё нет. Используется в `pnpm setup`.
+// Создаёт .env из .env.example, если его ещё нет. Используется в `pnpm run setup` (`pnpm setup` — встроенная команда pnpm).
 import { copyFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

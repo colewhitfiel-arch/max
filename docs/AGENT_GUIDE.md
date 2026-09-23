@@ -143,7 +143,7 @@ apps/api/src
 
 1. Измени `packages/db/prisma/schema/<module>.prisma` (только добавление полей/индексов; переименования — через владельца db).
 2. Обнови `docs/04-data-model.md`.
-3. Миграцию создаёт владелец db: `pnpm --filter @edu/db migrate:dev --name <snake_case_name>` (нужен интерактивный терминал и запущенная БД). Без TTY: `prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema --script > prisma/migrations/<timestamp>_<name>/migration.sql`, затем `pnpm db:deploy`.
+3. Миграцию создаёт владелец db: `pnpm --filter @edu/db migrate:dev --name <snake_case_name>` (нужен интерактивный терминал и запущенная БД). Без TTY (из `packages/db`): создать папку `prisma/schema/migrations/<timestamp>_<name>/`, затем `pnpm exec prisma migrate diff --from-migrations prisma/schema/migrations --to-schema-datamodel prisma/schema --shadow-database-url <url пустой временной БД> --script > prisma/schema/migrations/<timestamp>_<name>/migration.sql` (`--from-migrations` требует shadow DB), затем `pnpm db:deploy`. Миграции лежат рядом со схемой — `packages/db/prisma/schema/migrations/` (Prisma при `prisma.schema = prisma/schema` берёт `<папка схемы>/migrations`).
 4. `pnpm db:generate` → `pnpm --filter @edu/db build` → typecheck потребителей.
 5. Никогда две миграции параллельно; не редактируй применённые миграции.
 
@@ -177,7 +177,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - Координация: `base.prisma` (enum'ы, `User`, `AuditLog`), переименования/удаления, связи в чужие модели, `seed/index.ts`.
 - Стабильно: имена таблиц/колонок уже применённых миграций; enum'ы (синхронны с contracts).
 
-### Migrations (`packages/db/prisma/migrations/**`) — владелец db
+### Migrations (`packages/db/prisma/schema/migrations/**`) — владелец db
 - Почему: линейная история; две миграции с одной базой ломают `migrate deploy`.
 - Сам: ничего.
 - Координация: любая миграция — сериализованно, через владельца db (п. 16).

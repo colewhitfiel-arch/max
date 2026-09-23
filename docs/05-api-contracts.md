@@ -8,14 +8,14 @@
 - Auth: `Authorization: Bearer <accessJwt>`. Роль берётся из JWT (`activeRole`), не из URL.
 - Префиксы путей по роли: `/student/*`, `/parent/*`, `/teacher/*`; общие — `/auth`, `/me`, `/ai`, `/catalog`, `/teachers/:id`, `/files`, `/notifications`, `/support`. Guard роли на каждом префиксе.
 - Родитель всегда указывает ребёнка в пути: `/parent/children/:studentId/...`.
-- Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`.
+- Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`, 501 `NOT_IMPLEMENTED`, 502 `EXTERNAL_INTEGRATION`.
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
 - Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`.
-- Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `ai.ts` и реализуются обычным Nest-контроллером.
+- Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `routes/streaming.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
-## 5.2. Общие DTO (`common.ts`, `enums.ts`)
+## 5.2. Общие DTO (`common/`, `enums.ts`)
 
 ```ts
 Id = string (uuid)
@@ -185,7 +185,7 @@ GET  /teacher/courses?groupId            → { items: [{ id, title, group: Group
 POST /teacher/courses                    { groupId, title, description? } → TeacherCourseDetail
 GET  /teacher/courses/:courseId          → TeacherCourseDetail
 PUT  /teacher/courses/:courseId/structure CourseDraft → TeacherCourseDetail     // полная замена, только DRAFT
-PATCH /teacher/blocks/:blockId           { title?, content? } → CourseBlockDto  // разрешено и после публикации (текстовые правки)
+PATCH /teacher/blocks/:blockId           { type, title?, content? } → CourseBlockDto  // type — дискриминатор схемы content  // разрешено и после публикации (текстовые правки)
 POST /teacher/courses/:courseId/publish  { assignments: [{ blockId, dueAt?, maxScore?, allowedAttempts? }] } → TeacherCourseDetail
 POST /teacher/courses/:courseId/archive  → TeacherCourseDetail
 GET  /teacher/courses/:courseId/progress → { students: [{ student: StudentBrief, percent, completedBlocks, lastActivityAt? }] }
@@ -245,7 +245,7 @@ POST /parent/ai/conversations/:id/messages { text } → SSE token/done/error    
 GET  /student/trajectory                 → TrajectoryDto | null
 POST /student/trajectory/refresh         → 202 { queued: true }               // rate limit 1/сутки
 
-OnboardingProfileDraft = { interests: string[], goals: string[], weeklyHours: number, preferredFormats: string[], summary: string }
+OnboardingProfileDraft = { interests: string[], goals: string[], weeklyHours: number, preferredFormats: string[], summary: string, futureInterests: string[] }
 ConversationDto = { id, kind, title?, lastMessageAt? }
 AiMessageDto = { id, role: MessageRole, content, createdAt }
 TrajectoryDto = { content: { summary, strengths[], growthAreas[], recommendations: [{ title, why, clubId?, courseId? }], nextSteps[] }, generatedAt }
@@ -353,4 +353,4 @@ NotificationSettingsDto = { lessons, assignments, grades, attendance, insights, 
 
 ## 5.5. Моки и фикстуры
 
-`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO: 1 школа, 3 кружка (робототехника, программирование, английский), 2 преподавателя, 6 учеников, 2 родителя (у одного — 2 ребёнка), занятия на ±2 недели с посещаемостью, курс с блоками всех 9 типов, задания в разных статусах, платежи. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
+`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO, намеренно маленький (фактический состав — шапка `fixtures/index.ts` и `FOUNDATION.md` §5): 1 школа, 2 кружка (робототехника, программирование), 2 группы, 1 преподаватель (он же родитель), 2 ученика, 1 родитель (у него 2 ребёнка), 3 зачисления, 5 занятий со смещением −7…+4 дня от «сегодня» с посещаемостью, курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, платёж, уведомление. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
