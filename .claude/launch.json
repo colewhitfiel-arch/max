@@ -14,6 +14,30 @@
       "url": "http://127.0.0.1:5173"
     },
     {
+      "name": "web-mock-2",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:VITE_API_MODE='mock'; if (-not $env:PORT) { $env:PORT = 5174 }; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port $env:PORT --strictPort"
+      ],
+      "port": 5174,
+      "autoPort": true,
+      "url": "http://127.0.0.1:5174"
+    },
+    {
+      "name": "web-mock-3",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:VITE_API_MODE='mock'; if (-not $env:PORT) { $env:PORT = 5176 }; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port $env:PORT --strictPort"
+      ],
+      "port": 5176,
+      "autoPort": true,
+      "url": "http://127.0.0.1:5176"
+    },
+    {
       "name": "api",
       "runtimeExecutable": "powershell",
       "runtimeArgs": [
