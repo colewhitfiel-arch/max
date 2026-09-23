@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import { Spinner } from '../Spinner';
 import type { ButtonSize, ButtonVariant } from '../Button';
@@ -16,7 +16,10 @@ export interface IconButtonProps extends Omit<
   variant?: ButtonVariant;
   /** Размер: sm 32px, md 44px, lg 52px. По умолчанию `md`. */
   size?: ButtonSize;
-  /** Состояние загрузки: спиннер вместо иконки, `aria-busy`, `disabled`. */
+  /**
+   * Состояние загрузки: спиннер вместо иконки, `aria-busy` и `aria-disabled` (кнопка остаётся
+   * в фокусе); нажатие гасится.
+   */
   loading?: boolean;
 }
 
@@ -30,10 +33,19 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     type = 'button',
     className,
     children,
+    onClick,
     ...rest
   },
   ref,
 ) {
+  const busy = loading && !disabled;
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (busy) {
+      event.preventDefault();
+      return;
+    }
+    onClick?.(event);
+  };
   return (
     <button
       ref={ref}
@@ -41,8 +53,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       className={cx('ui-icon-button', className)}
       data-variant={variant}
       data-size={size}
-      disabled={disabled || loading}
+      disabled={disabled}
+      aria-disabled={busy || undefined}
       aria-busy={loading || undefined}
+      onClick={handleClick}
       {...rest}
     >
       {loading ? <Spinner size="sm" aria-hidden="true" /> : children}

@@ -17,6 +17,8 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
   align?: 'start' | 'center' | 'end';
   /** Обрезать одной строкой с многоточием. */
   truncate?: boolean;
+  /** Сохранять переносы строк и пробелы из текста (`white-space: pre-wrap`) — многострочный пользовательский ввод. */
+  preserveLines?: boolean;
   /** HTML-тег. По умолчанию: heading → h1, title → h2, body/small → p, caption → span. */
   as?: ElementType;
 }
@@ -31,7 +33,17 @@ const DEFAULT_TAG: Record<TextVariant, ElementType> = {
 
 /** Текст с типографическими вариантами из токенов. */
 export const Text = forwardRef<HTMLElement, TextProps>(function Text(
-  { variant = 'body', tone = 'default', weight, align, truncate = false, as, className, ...rest },
+  {
+    variant = 'body',
+    tone = 'default',
+    weight,
+    align,
+    truncate = false,
+    preserveLines = false,
+    as,
+    className,
+    ...rest
+  },
   ref,
 ) {
   return createElement(as ?? DEFAULT_TAG[variant], {
@@ -42,6 +54,7 @@ export const Text = forwardRef<HTMLElement, TextProps>(function Text(
     'data-weight': weight,
     'data-align': align,
     'data-truncate': truncate || undefined,
+    'data-preserve-lines': preserveLines || undefined,
     ...rest,
   });
 });

@@ -1209,6 +1209,11 @@ function PlaygroundContent() {
         <Text truncate style={{ maxWidth: 240 }}>
           Очень длинный текст, который обрезается многоточием, если не помещается в одну строку.
         </Text>
+        <Row label="preserveLines">
+          <Text preserveLines>
+            {'Первая строка ответа\nвторая строка\n\n  после пустой — с отступом'}
+          </Text>
+        </Row>
       </Section>
 
       <Section title="Button">
@@ -1267,8 +1272,9 @@ function PlaygroundContent() {
 
       <Section title="Chip, Badge, Avatar">
         <Row label="Chip">
-          <Chip>Не выбран</Chip>
+          <Chip selected={false}>Не выбран</Chip>
           <Chip selected>Выбран</Chip>
+          <Chip>Подсказка (без aria-pressed)</Chip>
           <Chip leftIcon={<BookIcon />}>С иконкой</Chip>
           <Chip disabled>Недоступен</Chip>
         </Row>

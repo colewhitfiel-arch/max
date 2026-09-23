@@ -12,8 +12,10 @@ export interface CardColumn {
   /** Не переносить содержимое ячеек (время, числа); ширина — по содержимому. */
   nowrap?: boolean;
   /**
-   * Ширина по содержимому, но не более 45% таблицы (основная колонка, которую
-   * не хочется переносить). Без флага колонка делит остаток поровну с другими.
+   * Ширина по содержимому (основная колонка, которую не хочется переносить). Если в таблице
+   * есть «резиновая» колонка (без `nowrap`/`fit`/`weight`) — не более 45% таблицы, чтобы
+   * оставить ей место; рядом только с `nowrap`-колонками — всё, что они оставят. Без флага
+   * колонка делит остаток поровну с другими.
    */
   fit?: boolean;
   /**
@@ -78,11 +80,25 @@ export interface CardColumnsProps extends HTMLAttributes<HTMLDivElement> {
   caption?: ReactNode;
 }
 
-function columnTrack(column: CardColumn): string {
-  if (column.weight !== undefined && Number.isFinite(column.weight) && column.weight > 0) {
-    return `minmax(0, ${column.weight}fr)`;
+function isWeighted(column: CardColumn): boolean {
+  return column.weight !== undefined && Number.isFinite(column.weight) && column.weight > 0;
+}
+
+/** Колонка делит остаток ширины (`fr`): доля `weight` или колонка без `nowrap`/`fit`. */
+function isFlexible(column: CardColumn): boolean {
+  return isWeighted(column) || (!column.nowrap && !column.fit);
+}
+
+function columnTrack(column: CardColumn, capFit: boolean): string {
+  if (isWeighted(column)) return `minmax(0, ${column.weight}fr)`;
+  if (column.nowrap) return 'auto';
+  if (column.fit) {
+    // Потолок 45% нужен, только чтобы оставить место `fr`-колонкам: рядом с одними `auto`
+    // (nowrap) сетка и так делит место поровну и отдаёт им их ширину первыми, а потолок лишь
+    // зря рвёт название на узком экране («Программирование» на 375px).
+    return capFit ? 'fit-content(45%)' : 'auto';
   }
-  return column.nowrap ? 'auto' : column.fit ? 'fit-content(45%)' : 'minmax(0, 1fr)';
+  return 'minmax(0, 1fr)';
 }
 
 function isStriped(striped: CardColumnsProps['striped'], index: number): boolean {
@@ -113,7 +129,8 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
   ref,
 ) {
   const compact = variant === 'compact';
-  const template = columns.map(columnTrack).join(' ');
+  const capFit = columns.some(isFlexible);
+  const template = columns.map((column) => columnTrack(column, capFit)).join(' ');
   const vars = {
     '--ui-card-columns-template': template,
     // Строка заголовков занимает строку сетки, только когда видна.

@@ -71,6 +71,10 @@
   text-align: end;
 }
 
+.ui-text[data-preserve-lines] {
+  white-space: pre-wrap;
+}
+
 .ui-text[data-truncate] {
   display: block;
   overflow: hidden;

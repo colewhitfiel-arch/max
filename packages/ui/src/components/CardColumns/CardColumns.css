@@ -11,7 +11,23 @@
   grid-template-rows: repeat(var(--ui-card-columns-rows, 1), auto);
   justify-content: space-between;
   gap: var(--ui-space-4);
+  /* Узкая таблица (≤ 380px — экран 375/390): колонки через 8px, к 388px плавно возвращается 16px.
+   * Процент — от ширины самой таблицы. Вместе с полями карточек 6px (ниже) это ≈ 28px ширины
+   * названию: «Робототехника» у родителя и «Программирование» у ученика не рвутся на 375px. */
+  column-gap: clamp(var(--ui-space-2), calc(100% - 372px), var(--ui-space-4));
   min-width: 0;
+}
+
+/* Таблица — контейнер по ширине для полей карточек (ниже). Ширину таблице задаёт родитель,
+ * а не содержимое: блок в потоке или растянутый flex/grid-элемент (как везде в приложении). */
+.ui-card-columns[data-variant='default'] {
+  container: ui-card-columns / inline-size;
+}
+
+@container ui-card-columns (max-width: 379.98px) {
+  .ui-card-columns__column {
+    --ui-card-columns-pad: 6px;
+  }
 }
 
 .ui-card-columns__column {

@@ -14,7 +14,11 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   right?: ReactNode;
   /** Контент под строкой на всю ширину (переключатель, сегменты, прогресс). */
   below?: ReactNode;
-  /** Если задан — строка становится кнопкой (`role="button"`, Enter/Space). */
+  /**
+   * Если задан — строка становится кнопкой (`role="button"`, Enter/Space на самой строке).
+   * Клик по вложенной кнопке в `right` всплывает до строки — такой кнопке нужен
+   * `event.stopPropagation()` в `onClick`; клавиши во вложенных элементах строку не нажимают.
+   */
   onClick?: HTMLAttributes<HTMLDivElement>['onClick'];
   /** Показывать шеврон справа (по умолчанию — если есть `onClick` и нет `right`). */
   chevron?: boolean;
@@ -45,6 +49,9 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(event);
     if (!interactive || disabled || event.defaultPrevented) return;
+    // Enter/Space во вложенном элементе (кнопка, поле, переключатель в слоте `right`) — его
+    // собственное действие, строку не нажимаем и ввод не глушим.
+    if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       event.currentTarget.click();

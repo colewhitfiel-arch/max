@@ -187,4 +187,36 @@ describe('CardColumns', () => {
     expect(caption).toHaveAttribute('role', 'caption');
     expect(caption).toHaveTextContent('вчера');
   });
+
+  it('fit: потолок 45% — только рядом с «резиновой» колонкой, рядом с nowrap — по содержимому', () => {
+    const { rerender } = render(
+      <CardColumns
+        aria-label="Расписание"
+        columns={[
+          { key: 'name', header: 'Название', fit: true },
+          { key: 'group', header: 'Группа', nowrap: true },
+          { key: 'time', header: 'Время', nowrap: true },
+        ]}
+        rows={rows}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Расписание' });
+    expect(table).toHaveAttribute('data-variant', 'default');
+    expect(table.style.getPropertyValue('--ui-card-columns-template')).toBe('auto auto auto');
+
+    rerender(
+      <CardColumns
+        aria-label="Расписание"
+        columns={[
+          { key: 'name', header: 'Название', fit: true },
+          { key: 'group', header: 'Группа' },
+          { key: 'time', header: 'Время', nowrap: true },
+        ]}
+        rows={rows}
+      />,
+    );
+    expect(table.style.getPropertyValue('--ui-card-columns-template')).toBe(
+      'fit-content(45%) minmax(0, 1fr) auto',
+    );
+  });
 });

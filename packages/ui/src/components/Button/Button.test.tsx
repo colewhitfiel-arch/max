@@ -9,7 +9,7 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Ок' })).toHaveAttribute('type', 'button');
   });
 
-  it('loading → aria-busy и disabled, клик не срабатывает', async () => {
+  it('loading → aria-busy и aria-disabled, фокус остаётся, клик не срабатывает', async () => {
     const onClick = vi.fn();
     render(
       <Button loading onClick={onClick}>
@@ -18,9 +18,39 @@ describe('Button', () => {
     );
     const button = screen.getByRole('button', { name: 'Сохранить' });
     expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toBeEnabled();
+    button.focus();
+    expect(button).toHaveFocus();
     await userEvent.click(button);
+    await userEvent.keyboard('{Enter} ');
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('loading submit-кнопка не отправляет форму ни кликом, ни Enter в поле', async () => {
+    const onSubmit = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <input aria-label="Код" />
+        <Button type="submit" loading>
+          Отправить
+        </Button>
+      </form>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Код' }), 'abc{Enter}');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('disabled вместе с loading — нативно недоступна', () => {
+    render(
+      <Button loading disabled>
+        Сохранить
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Сохранить' });
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute('aria-disabled');
   });
 
   it('прокидывает data-атрибуты варианта и размера', () => {

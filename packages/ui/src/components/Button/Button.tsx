@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import { Spinner } from '../Spinner';
 import './Button.css';
@@ -12,7 +12,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   /** Размер: sm 32px, md 44px, lg 52px. По умолчанию `md`. */
   size?: ButtonSize;
-  /** Состояние загрузки: показывает спиннер, ставит `aria-busy` и `disabled`. */
+  /**
+   * Состояние загрузки: спиннер, `aria-busy` и `aria-disabled` (не `disabled` — кнопка остаётся
+   * в фокусе, скринридер не теряет её). Клик и отправка формы этой кнопкой гасятся.
+   */
   loading?: boolean;
   /** Растянуть на всю ширину контейнера. */
   fullWidth?: boolean;
@@ -38,10 +41,20 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     type = 'button',
     className,
     children,
+    onClick,
     ...rest
   },
   ref,
 ) {
+  const busy = loading && !disabled;
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    // Загрузка: кнопка фокусируема, но нажатие (и submit формы, в т.ч. Enter в поле) — нет.
+    if (busy) {
+      event.preventDefault();
+      return;
+    }
+    onClick?.(event);
+  };
   return (
     <button
       ref={ref}
@@ -52,8 +65,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-full-width={fullWidth || undefined}
       data-underline={underline || undefined}
       data-loading={loading || undefined}
-      disabled={disabled || loading}
+      disabled={disabled}
+      aria-disabled={busy || undefined}
       aria-busy={loading || undefined}
+      onClick={handleClick}
       {...rest}
     >
       {loading ? (

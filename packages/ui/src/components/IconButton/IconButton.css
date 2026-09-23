@@ -44,7 +44,8 @@
   color: var(--ui-color-on-danger);
 }
 
-.ui-icon-button:disabled {
+.ui-icon-button:disabled,
+.ui-icon-button[aria-disabled='true'] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -54,16 +55,16 @@
   outline-offset: 2px;
 }
 
-.ui-icon-button:not(:disabled):active {
+.ui-icon-button:not(:disabled):not([aria-disabled='true']):active {
   transform: scale(0.96);
 }
 
 @media (hover: hover) {
-  .ui-icon-button[data-variant='ghost']:not(:disabled):hover {
+  .ui-icon-button[data-variant='ghost']:not(:disabled):not([aria-disabled='true']):hover {
     background: var(--ui-color-surface-2);
   }
 
-  .ui-icon-button:not([data-variant='ghost']):not(:disabled):hover {
+  .ui-icon-button:not([data-variant='ghost']):not(:disabled):not([aria-disabled='true']):hover {
     filter: brightness(0.96);
   }
 }
