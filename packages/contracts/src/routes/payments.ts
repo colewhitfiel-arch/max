@@ -1,5 +1,5 @@
 /**
- * Платежи родителя за кружки и вебхук провайдера. Владелец — B8.
+ * Платежи родителя за кружки, кошелёк (заглушка) и вебхук провайдера. Владелец — B8.
  * docs/05-api-contracts.md §5.3 `payments.ts`.
  */
 import { initContract } from '@ts-rest/core';
@@ -39,6 +39,10 @@ export type CreatePaymentResult = z.infer<typeof CreatePaymentResultSchema>;
 export const WebhookAckSchema = z.object({ ok: z.literal(true) });
 export type WebhookAck = z.infer<typeof WebhookAckSchema>;
 
+/** Кошелёк родителя. Заглушка: реального провайдера пока нет (docs/07 F13). */
+export const WalletSchema = z.object({ balance: MoneySchema });
+export type Wallet = z.infer<typeof WalletSchema>;
+
 // ---------- Тела запросов ----------
 
 export const PAYMENT_MAX_PERIODS = 12;
@@ -48,6 +52,15 @@ export const CreatePaymentBodySchema = z.object({
   periodsCount: z.number().int().min(1).max(PAYMENT_MAX_PERIODS),
 });
 export type CreatePaymentBody = z.infer<typeof CreatePaymentBodySchema>;
+
+/** Пределы одного пополнения кошелька: 100 ₽ … 100 000 ₽. */
+export const WALLET_TOPUP_MIN_KOPECKS = 100_00;
+export const WALLET_TOPUP_MAX_KOPECKS = 100_000_00;
+
+export const TopUpWalletBodySchema = z.object({
+  amountKopecks: z.number().int().min(WALLET_TOPUP_MIN_KOPECKS).max(WALLET_TOPUP_MAX_KOPECKS),
+});
+export type TopUpWalletBody = z.infer<typeof TopUpWalletBodySchema>;
 
 // ---------- Роуты ----------
 
@@ -79,6 +92,22 @@ export const paymentsContract = c.router(
       responses: { 200: PaymentDtoSchema },
       summary: 'Статус платежа',
       metadata: userRoute('parent:payments.view'),
+    },
+    getWallet: {
+      method: 'GET',
+      path: '/parent/wallet',
+      responses: { 200: WalletSchema },
+      summary: 'Баланс кошелька родителя',
+      metadata: userRoute('parent:payments.view'),
+    },
+    topUpWallet: {
+      method: 'POST',
+      path: '/parent/wallet/top-up',
+      headers: IdempotencyKeyHeadersSchema,
+      body: TopUpWalletBodySchema,
+      responses: { 200: WalletSchema },
+      summary: 'Пополнить кошелёк (заглушка: зачисляется сразу, без провайдера; Idempotency-Key)',
+      metadata: userRoute('parent:payments.pay'),
     },
     paymentWebhook: {
       method: 'POST',

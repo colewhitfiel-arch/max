@@ -21,6 +21,12 @@ export interface SegmentedControlProps extends Omit<HTMLAttributes<HTMLDivElemen
   onChange?: (value: string) => void;
   /** Размер: sm 32px, md 40px. По умолчанию `md`. */
   size?: 'sm' | 'md';
+  /**
+   * Вид: `default` — сегменты на поверхности; `accent` — «таблетка» цвета
+   * `--ui-color-accent-2` с белым выбранным сегментом и объёмной тенью справа
+   * (переключатель периода на главной родителя; размер задан макетом, `size` не влияет).
+   */
+  variant?: 'default' | 'accent';
   /** Растянуть на всю ширину. */
   fullWidth?: boolean;
   /** Отключить все сегменты. */
@@ -36,6 +42,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
       defaultValue,
       onChange,
       size = 'md',
+      variant = 'default',
       fullWidth = false,
       disabled = false,
       className,
@@ -70,6 +77,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         className={cx('ui-segmented', className)}
         role="radiogroup"
         data-size={size}
+        data-variant={variant}
         data-full-width={fullWidth || undefined}
         data-disabled={disabled || undefined}
         onKeyDown={handleKeyDown}

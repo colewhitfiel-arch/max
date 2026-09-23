@@ -11,7 +11,7 @@ import {
 } from 'msw';
 import type { z } from 'zod';
 import { config } from '../../config';
-import { db, type MockUser } from './state';
+import { db, type MockUser, parentOfUser } from './state';
 
 export const apiUrl = (path: string) => `${config.apiUrl}${path}`;
 
@@ -88,6 +88,20 @@ export function authed<P extends PathParams = PathParams>(
     }
     return handler({ auth, request, params });
   };
+}
+
+/**
+ * Политика связи родитель ↔ ребёнок: 403, если пользователь не родитель этого ученика
+ * (нет `ParentStudentLink` в статусе ACTIVE); иначе null.
+ */
+export function denyForeignChild(userId: string, studentId: string): Response | null {
+  const parent = parentOfUser(userId);
+  const linked =
+    !!parent &&
+    db.links.some(
+      (l) => l.parentId === parent.id && l.studentId === studentId && l.status === 'ACTIVE',
+    );
+  return linked ? null : apiError('FORBIDDEN', 'Ребёнок не привязан');
 }
 
 export async function readBody<S extends z.ZodTypeAny>(

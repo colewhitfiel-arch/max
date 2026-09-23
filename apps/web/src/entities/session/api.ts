@@ -1,4 +1,4 @@
-import type { UpdateSettingsBody } from '@edu/contracts';
+import type { UpdateAvatarBody, UpdateSettingsBody } from '@edu/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
@@ -18,6 +18,15 @@ export function useUpdateSettings() {
   const updateMe = useAuthStore((s) => s.updateMe);
   return useMutation({
     mutationFn: (body: UpdateSettingsBody) => call(api.auth.updateSettings({ body })),
+    onSuccess: (me) => updateMe(me),
+  });
+}
+
+/** `PUT /me/avatar` — фото профиля (файл purpose AVATAR) или `fileId: null`, чтобы убрать; обновляет me. */
+export function useUpdateAvatar() {
+  const updateMe = useAuthStore((s) => s.updateMe);
+  return useMutation({
+    mutationFn: (body: UpdateAvatarBody) => call(api.auth.updateAvatar({ body })),
     onSuccess: (me) => updateMe(me),
   });
 }

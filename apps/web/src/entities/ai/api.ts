@@ -40,6 +40,36 @@ export function useDeleteConversation() {
   });
 }
 
+/** `GET /parent/children/:studentId/ai/conversations` — диалоги родителя с тьютором о ребёнке. */
+export function useParentConversations(studentId: string | null) {
+  return useQuery({
+    queryKey: aiKeys.parentConversations(studentId ?? ''),
+    queryFn: () =>
+      call(api.ai.listParentConversations({ params: { studentId: studentId! }, query: {} })),
+    enabled: !!studentId,
+  });
+}
+
+/** `POST /parent/children/:studentId/ai/conversations` — новый диалог о ребёнке (переменная — studentId). */
+export function useCreateParentConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (studentId: string) =>
+      call(api.ai.createParentConversation({ params: { studentId } })),
+    onSuccess: (_conversation, studentId) =>
+      queryClient.invalidateQueries({ queryKey: aiKeys.parentConversations(studentId) }),
+  });
+}
+
+/** `GET /parent/ai/conversations/:id/messages`. */
+export function useParentMessages(conversationId: string) {
+  return useQuery({
+    queryKey: aiKeys.parentMessages(conversationId),
+    queryFn: () =>
+      call(api.ai.listParentConversationMessages({ params: { conversationId }, query: {} })),
+  });
+}
+
 /** `GET /student/trajectory` (null — ещё не построена). */
 export function useTrajectory() {
   return useQuery({

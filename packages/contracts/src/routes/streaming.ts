@@ -24,6 +24,15 @@ export const STREAMING_ROUTES = {
     path: (conversationId: string) => `/ai/conversations/${conversationId}/messages`,
     metadata: userRoute('student:tutor.chat') as RouteMeta,
   },
+  /**
+   * Сообщение тьютору родителя о ребёнке: тело `TutorMessageBody`, события `TutorStreamEvent`;
+   * лимит тот же (AI_TUTOR_DAILY_LIMIT, 429).
+   */
+  parentTutorMessage: {
+    method: 'POST',
+    path: (conversationId: string) => `/parent/ai/conversations/${conversationId}/messages`,
+    metadata: userRoute('parent:tutor.chat') as RouteMeta,
+  },
 } as const;
 
 export const OnboardingMessageBodySchema = z.object({

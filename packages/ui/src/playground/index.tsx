@@ -68,6 +68,24 @@ import {
   UserIcon,
   WeekArc,
   PlanetMap,
+  PieChart,
+  SegmentBar,
+  StatusGrid,
+  CodeBlock,
+  Band,
+  CardColumns,
+  HeartAvatar,
+  HeartCarousel,
+  HeartShapeIcon,
+  PieChartIcon,
+  ProgressBubble,
+  ProgressBubbleGroup,
+  ScoopPanel,
+  WalletChip,
+  WalletIcon,
+  applyAccent,
+  getAccent,
+  type Accent,
   applyTheme,
   getTheme,
   useToast,
@@ -505,6 +523,318 @@ function LayoutDemo() {
   );
 }
 
+const DEMO_TASK_TONES: Tone[] = ['success', 'success', 'danger', 'warning', 'neutral'];
+const DEMO_TASK_STATUS: Record<Tone, string> = {
+  success: 'выполнено',
+  danger: 'неправильно',
+  warning: 'скоро дедлайн',
+  neutral: 'позже',
+  info: '',
+};
+
+const DEMO_CODE = `def control_robot(distance):
+    if distance <= 15:
+        __________()
+    else:
+        move_forward()
+
+
+def stop_robot():
+    print("Robot stopped")  # готово`;
+
+const DEMO_CPP = `#include <Servo.h>
+int front = readDistance(FRONT);
+
+if (front < 20) {
+    stopMotors();
+    delay(200);
+} else {
+    ____________________;
+}`;
+
+/** Аналитика родителя: круговая диаграмма, полосы кружков с раскрытием, сетка заданий, код. */
+function ParentAnalyticsDemo() {
+  const [expanded, setExpanded] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const tasks = Array.from({ length: 45 }, (_, index) => {
+    const tone = DEMO_TASK_TONES[(index * 7) % DEMO_TASK_TONES.length] ?? 'neutral';
+    return {
+      key: `task-${index + 1}`,
+      label: String(index + 1),
+      tone,
+      title: `Задание ${index + 1} — ${DEMO_TASK_STATUS[tone]}`,
+    };
+  });
+  return (
+    <Stack gap={4}>
+      <Card>
+        <PieChart
+          aria-label="Правильно 25, неправильно 30, предстоят 45"
+          slices={[
+            { key: 'correct', value: 25, tone: 'success', explode: true },
+            { key: 'wrong', value: 30, tone: 'danger' },
+            { key: 'upcoming', value: 45, tone: 'warning' },
+          ]}
+          legend={[
+            { tone: 'success', label: 'Правильно' },
+            { tone: 'danger', label: 'Неправильно' },
+            { tone: 'warning', label: 'Предстоят' },
+          ]}
+        />
+      </Card>
+      <Row label="PieChart: один сектор / все нули">
+        <PieChart
+          size={80}
+          aria-label="Правильно 12"
+          slices={[{ key: 'correct', value: 12, tone: 'success', explode: true }]}
+        />
+        <PieChart size={80} aria-label="Нет заданий" slices={[]} />
+      </Row>
+      <Band as="section" aria-label="Робототехника">
+        <Stack gap={2}>
+          <Text weight="bold">Робототехника</Text>
+          <SegmentBar
+            aria-label="Задания по робототехнике"
+            segments={[
+              { key: 'correct', value: 18, tone: 'success', label: 'Правильно' },
+              { key: 'upcoming', value: 20, tone: 'warning', label: 'Предстоят' },
+              { key: 'wrong', value: 7, tone: 'danger', label: 'Неправильно' },
+            ]}
+          />
+          <div>
+            <Button
+              variant="link"
+              underline={expanded}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? 'Скрыть' : 'Подробнее'}
+            </Button>
+          </div>
+          {expanded && (
+            <StatusGrid
+              aria-label="Задания по робототехнике"
+              items={tasks}
+              onSelect={setSelected}
+            />
+          )}
+          {selected && (
+            <Text variant="caption" tone="muted">
+              Выбрано: {selected}
+            </Text>
+          )}
+        </Stack>
+      </Band>
+      <Band as="section" aria-label="Шахматы">
+        <Stack gap={2}>
+          <Text weight="bold">Шахматы (одна категория, редкие нули)</Text>
+          <SegmentBar
+            aria-label="Задания по шахматам"
+            segments={[
+              { key: 'correct', value: 1, tone: 'success', label: 'Правильно' },
+              { key: 'upcoming', value: 0, tone: 'warning', label: 'Предстоят' },
+              { key: 'wrong', value: 40, tone: 'danger', label: 'Неправильно' },
+            ]}
+          />
+          <SegmentBar aria-label="Нет заданий" segments={[]} />
+        </Stack>
+      </Band>
+      <Band>
+        <Stack gap={3}>
+          <Text weight="medium">Задание 9</Text>
+          <CodeBlock code={DEMO_CODE} language="python" />
+          <CodeBlock code={DEMO_CPP} language="cpp" />
+          <CodeBlock
+            language="javascript"
+            code={`// очень длинная строка прокручивается по горизонтали, а не переносится
+const answer = await fetch(\`/api/tasks/\${id}\`).then((response) => response.json());`}
+          />
+        </Stack>
+      </Band>
+    </Stack>
+  );
+}
+
+const DEMO_CHILDREN = [
+  { key: 'a', name: 'Иванов Егор', label: 'Иванов Е. А', src: planet('#2cda00') },
+  { key: 'b', name: 'Петрова Анна', label: 'Петрова А. С' },
+  { key: 'c', name: 'Сидоров Олег', label: 'Сидоров О. И', src: planet('#00da91') },
+  { key: 'd', name: 'Кузнецова Мила', label: 'Кузнецова М. Д' },
+  { key: 'e', name: 'Орлов Тимур', label: 'Орлов Т. Р', src: planet('#f2b705') },
+];
+
+/** Правило главной родителя: чем больше сделано из рекомендованного, тем меньше круг. */
+const bubbleSize = (done: number, recommended: number) => {
+  const ratio = recommended > 0 ? Math.min(done / recommended, 1) : done > 0 ? 1 : 0;
+  return 170 - (170 - 112) * ratio;
+};
+
+/** Главная родителя: акцент, дети-сердца, кошелёк, панель с вогнутым краем, круги прогресса. */
+function ParentHomeDemo() {
+  const toast = useToast();
+  const [accent, setAccent] = useState<Accent>(() => getAccent());
+  const [count, setCount] = useState(3);
+  const [child, setChild] = useState<string | null>('a');
+  const [period, setPeriod] = useState('7');
+  const [chess, setChess] = useState(28);
+  useEffect(() => {
+    applyAccent(accent);
+  }, [accent]);
+  // Уход со страницы — вернуть синий акцент остальному приложению.
+  useEffect(() => () => applyAccent('blue'), []);
+  const kids = DEMO_CHILDREN.slice(0, count);
+  return (
+    <Stack gap={4}>
+      <Row label="Акцент (applyAccent)">
+        <SegmentedControl
+          aria-label="Акцент"
+          options={[
+            { value: 'blue', label: 'Синий — ученик' },
+            { value: 'green', label: 'Зелёный — родитель' },
+          ]}
+          value={accent}
+          onChange={(value) => setAccent(value as Accent)}
+        />
+      </Row>
+      <Inline justify="between">
+        <Inline gap={2}>
+          <Avatar name="Фамилия Анна" />
+          <Text>Фамилия А. В</Text>
+        </Inline>
+        <WalletChip
+          amount="6700"
+          aria-label="Баланс 6700 ₽, пополнить"
+          onClick={() => toast.show({ title: 'Пополнение баланса' })}
+        />
+      </Inline>
+      <HeartCarousel
+        aria-label="Дети"
+        items={kids}
+        value={child}
+        onChange={setChild}
+        onAdd={() => {
+          const next = DEMO_CHILDREN[count];
+          if (!next) return;
+          setCount(count + 1);
+          setChild(next.key);
+        }}
+        addLabel="Добавить"
+      />
+      <Row label="Детей в ленте">
+        {[0, 1, 3, 5].map((value) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={value === count ? 'primary' : 'secondary'}
+            onClick={() => {
+              setCount(value);
+              setChild(value > 0 ? 'a' : null);
+            }}
+          >
+            {`Детей: ${value}`}
+          </Button>
+        ))}
+      </Row>
+      <ScoopPanel>
+        <Stack gap={5}>
+          <CardColumns
+            aria-label="Расписание на сегодня"
+            columns={[
+              {
+                key: 'name',
+                header: 'Название',
+                fit: true,
+                action: {
+                  label: 'Добавить кружок',
+                  onClick: () => toast.show({ title: 'Добавить кружок' }),
+                },
+              },
+              { key: 'teacher', header: 'Репетитор', align: 'center' },
+              { key: 'time', header: 'Время', align: 'center', nowrap: true },
+            ]}
+            rows={[
+              {
+                key: 'robo',
+                cells: { name: 'Робототехника', teacher: 'Фамилия А. В', time: '17:00-18:30' },
+              },
+              {
+                key: 'chess',
+                cells: { name: 'Шахматы', teacher: 'Фамилия А. В', time: '19:00-20:30' },
+              },
+            ]}
+          />
+          <Inline justify="between">
+            <Text variant="caption" weight="bold">
+              Выполненные задания
+            </Text>
+            <SegmentedControl
+              aria-label="Период"
+              variant="accent"
+              options={[
+                { value: '1', label: '1 день' },
+                { value: '7', label: '7 дней' },
+                { value: '30', label: '30 дней' },
+              ]}
+              value={period}
+              onChange={setPeriod}
+            />
+          </Inline>
+          <ProgressBubbleGroup aria-label="Выполненные задания по кружкам">
+            <ProgressBubble
+              size={bubbleSize(chess, 45)}
+              title="Шахматы"
+              image={planet('#f2b705')}
+              value={chess}
+              suffix="/45*"
+              aria-label={`Шахматы: ${chess} из 45 рекомендованных`}
+            />
+            <ProgressBubble
+              size={bubbleSize(30, 30)}
+              title="Робототехника"
+              image={planet('#2cda00')}
+              value={30}
+              suffix="/30*"
+            />
+            <ProgressBubble
+              size={bubbleSize(0, 12)}
+              title="Программирование"
+              image={planet('#5b3fd6')}
+              value={0}
+              suffix="/12*"
+            />
+          </ProgressBubbleGroup>
+          <Row label="Круг сжимается, когда заданий сделано больше">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setChess((v) => Math.min(45, v + 5))}
+            >
+              +5 заданий
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setChess(0)}>
+              Ничего не сделано
+            </Button>
+          </Row>
+        </Stack>
+      </ScoopPanel>
+      <Row label="HeartAvatar: primary / accent / plain + add / инициалы">
+        <HeartAvatar name="Иванов Егор" src={planet('#2cda00')} />
+        <HeartAvatar name="Петрова Анна" tone="accent" size={100} />
+        <HeartAvatar name="Добавить ребёнка" tone="plain" add size={80} />
+      </Row>
+      <Row label="Иконки родителя">
+        <PieChartIcon size={32} />
+        <Text as="span" tone="primary">
+          <WalletIcon size={32} />
+        </Text>
+        <Text as="span" tone="success">
+          <HeartShapeIcon size={32} />
+        </Text>
+      </Row>
+    </Stack>
+  );
+}
+
 function PlaygroundContent() {
   return (
     <div className="ui-playground">
@@ -729,6 +1059,18 @@ function PlaygroundContent() {
             />
           </Stack>
         </Card>
+      </Section>
+
+      <Section title="PieChart, SegmentBar, StatusGrid, CodeBlock, Band, Button link">
+        <ParentAnalyticsDemo />
+      </Section>
+
+      <Section title="HeartCarousel, WalletChip, ScoopPanel, ProgressBubble, accent">
+        <ParentHomeDemo />
+        <Text variant="caption" tone="muted">
+          Свайп/перетаскивание мышью или ←/→ листают детей: сердце, вставшее в центр, выбирается;
+          «+» в конце ленты — добавить ребёнка (центрирование его не выбирает).
+        </Text>
       </Section>
 
       <Section title="MonthCalendar, DockSheet">

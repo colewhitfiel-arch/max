@@ -1,0 +1,45 @@
+/* Макет: полоса 24px, скругление 30px только по внешним краям, числа 14px тёмные по центру. */
+.ui-segment-bar {
+  display: flex;
+  min-width: 0;
+  height: 24px;
+  overflow: hidden;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-surface-2);
+}
+
+/* Ширина пропорциональна значению (flex-grow), но не меньше самого числа. */
+.ui-segment-bar__segment {
+  --ui-segment-bar-color: #a4a4a4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: var(--ui-segment-bar-grow, 1) 1 0;
+  min-width: max-content;
+  padding: 0 var(--ui-space-2);
+  background: var(--ui-segment-bar-color);
+  color: #0d0d0d;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  transition: flex-grow var(--ui-duration-normal) var(--ui-easing);
+}
+
+.ui-segment-bar__segment[data-tone='info'] {
+  --ui-segment-bar-color: var(--ui-color-info);
+  color: #ffffff;
+}
+
+.ui-segment-bar__segment[data-tone='success'] {
+  --ui-segment-bar-color: var(--ui-color-success);
+}
+
+.ui-segment-bar__segment[data-tone='warning'] {
+  --ui-segment-bar-color: var(--ui-color-warning);
+}
+
+.ui-segment-bar__segment[data-tone='danger'] {
+  --ui-segment-bar-color: var(--ui-color-danger);
+}

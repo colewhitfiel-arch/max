@@ -4,6 +4,7 @@ import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
 import { OnboardingService } from './onboarding.service';
+import { ParentTutorService } from './parent-tutor.service';
 import { TrajectoryService } from './trajectory.service';
 import { TutorService } from './tutor.service';
 
@@ -12,6 +13,7 @@ import { TutorService } from './tutor.service';
 export class AiController {
   constructor(
     private readonly tutor: TutorService,
+    private readonly parentTutor: ParentTutorService,
     private readonly onboarding: OnboardingService,
     private readonly trajectory: TrajectoryService,
   ) {}
@@ -86,6 +88,33 @@ export class AiController {
       await this.tutor.deleteConversation(user, params.conversationId);
       return { status: 204, body: undefined };
     });
+  }
+
+  @RequirePermission('parent:tutor.chat')
+  @TsRestHandler(aiContract.listParentConversations)
+  listParentConversations(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(aiContract.listParentConversations, async ({ params, query }) => ({
+      status: 200,
+      body: await this.parentTutor.listConversations(user, params.studentId, query),
+    }));
+  }
+
+  @RequirePermission('parent:tutor.chat')
+  @TsRestHandler(aiContract.createParentConversation)
+  createParentConversation(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(aiContract.createParentConversation, async ({ params }) => ({
+      status: 200,
+      body: await this.parentTutor.createConversation(user, params.studentId),
+    }));
+  }
+
+  @RequirePermission('parent:tutor.chat')
+  @TsRestHandler(aiContract.listParentConversationMessages)
+  listParentConversationMessages(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(aiContract.listParentConversationMessages, async ({ params, query }) => ({
+      status: 200,
+      body: await this.parentTutor.listMessages(user, params.conversationId, query),
+    }));
   }
 
   @RequirePermission('student:trajectory.view')

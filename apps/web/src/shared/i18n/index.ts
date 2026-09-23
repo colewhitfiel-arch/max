@@ -14,6 +14,12 @@ export const NAMESPACES = [
   'auth',
   'student',
   'parent',
+  'parent-home',
+  'parent-analytics',
+  'parent-tutor',
+  'parent-profile',
+  'invite',
+  'performance',
   'teacher',
   'notifications',
 ] as const;

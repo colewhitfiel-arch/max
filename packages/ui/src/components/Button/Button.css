@@ -51,6 +51,30 @@
   color: #ffffff;
 }
 
+/* Текстовая кнопка из макета («Подробнее» / «Скрыть»): белый текст 14px без подложки,
+ * компактная по высоте — стоит в потоке текста под полосой. */
+.ui-button[data-variant='link'] {
+  min-height: 0;
+  padding: var(--ui-space-1) 0;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-regular);
+}
+
+/* Подчёркивание — на подписи: её overflow иначе срезал бы линию, поэтому у link он видимый. */
+.ui-button[data-variant='link'] .ui-button__label {
+  overflow: visible;
+}
+
+.ui-button[data-underline] .ui-button__label {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 .ui-button[data-full-width] {
   width: 100%;
 }
@@ -81,6 +105,16 @@
   .ui-button[data-variant='ghost']:not(:disabled):hover {
     background: var(--ui-color-surface-2);
     filter: none;
+  }
+
+  .ui-button[data-variant='link']:not(:disabled):hover {
+    filter: none;
+  }
+
+  .ui-button[data-variant='link']:not(:disabled):hover .ui-button__label {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
   }
 }
 

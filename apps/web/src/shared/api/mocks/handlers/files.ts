@@ -1,4 +1,7 @@
-/** Файлы: upload-url → PUT по локальной ссылке → confirm → get. Байты не хранятся, только мета. */
+/**
+ * Файлы: upload-url → PUT по локальной ссылке → confirm → get. Хранится мета, текст для text/* и
+ * байты картинок (для аватара: локальная object URL + отдача по ссылке `url`).
+ */
 import { CreateUploadUrlBodySchema, FileDtoSchema, FILE_SIZE_LIMITS } from '@edu/contracts';
 import { http, HttpResponse } from 'msw';
 import { apiError, apiUrl, authed, json, readBody } from '../lib';
@@ -14,6 +17,15 @@ const fileDto = (file: (typeof db.files)[number]) => ({
   url: file.confirmed ? apiUrl(`/files/local/download-${file.id}`) : null,
   createdAt: file.createdAt,
 });
+
+/** Локальная ссылка на байты (браузер и Node ≥ 16); без поддержки — null, тогда берут `url`. */
+function objectUrlOf(blob: Blob): string | null {
+  try {
+    return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const filesHandlers = [
   http.post(
@@ -37,6 +49,8 @@ export const filesHandlers = [
         confirmed: false,
         uploaded: false,
         text: null,
+        blob: null,
+        objectUrl: null,
         createdAt: new Date().toISOString(),
       });
       return HttpResponse.json({
@@ -53,7 +67,19 @@ export const filesHandlers = [
     if (!file) return apiError('NOT_FOUND', 'Файл не найден');
     file.uploaded = true;
     file.text = file.mime.startsWith('text/') ? await request.text() : null;
+    if (file.mime.startsWith('image/')) {
+      file.blob = new Blob([await request.arrayBuffer()], { type: file.mime });
+      file.objectUrl = objectUrlOf(file.blob);
+    }
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // «Скачивание» по `url` из FileDto: отдаём сохранённые байты картинки.
+  http.get<{ token: string }>(apiUrl('/files/local/:token'), ({ params }) => {
+    const id = params.token.replace(/^download-/, '');
+    const file = db.files.find((f) => f.id === id && f.confirmed);
+    if (!file?.blob) return apiError('NOT_FOUND', 'Файл не найден');
+    return new HttpResponse(file.blob, { headers: { 'Content-Type': file.mime } });
   }),
 
   http.post<{ fileId: string }>(

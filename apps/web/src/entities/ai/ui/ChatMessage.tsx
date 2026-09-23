@@ -9,6 +9,8 @@ export interface ChatMessageProps {
   createdAt?: string;
   /** Ответ ещё стримится. */
   streaming?: boolean;
+  /** Доступное имя своего пузыря (по умолчанию «Ты»; родителю — «Вы»). */
+  ownLabel?: string;
 }
 
 /** Аватар тьютора у пузыря: робот на синей подложке (как пункт нижнего меню). */
@@ -21,7 +23,7 @@ export function TutorAvatar({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' | 'xl' 
 }
 
 /** Сообщение чата: роль → сторона пузыря, у тьютора — аватар, под пузырём — время. */
-export function ChatMessage({ role, content, createdAt, streaming }: ChatMessageProps) {
+export function ChatMessage({ role, content, createdAt, streaming, ownLabel }: ChatMessageProps) {
   const { t, i18n } = useTranslation('student');
   const own = role === 'USER';
   return (
@@ -31,7 +33,7 @@ export function ChatMessage({ role, content, createdAt, streaming }: ChatMessage
       meta={createdAt ? formatTime(createdAt, i18n.language) : undefined}
       streaming={streaming}
       typingLabel={t('tutor.thinking')}
-      aria-label={own ? t('tutor.you') : t('tutor.assistant')}
+      aria-label={own ? (ownLabel ?? t('tutor.you')) : t('tutor.assistant')}
       data-role={role.toLowerCase()}
     >
       {content}

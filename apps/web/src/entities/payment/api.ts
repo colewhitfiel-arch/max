@@ -1,4 +1,4 @@
-import type { CreatePaymentBody } from '@edu/contracts';
+import type { CreatePaymentBody, TopUpWalletBody } from '@edu/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, call, newRequestId } from '@/shared/api/client';
 import { paymentKeys } from './keys';
@@ -38,5 +38,34 @@ export function usePayment(paymentId: string | null, poll = false) {
     queryFn: () => call(api.payments.getPayment({ params: { paymentId: paymentId! } })),
     enabled: !!paymentId,
     refetchInterval: poll ? 3000 : false,
+  });
+}
+
+/** `GET /parent/wallet` — баланс кошелька родителя (чип в шапке главной). */
+export function useWallet() {
+  return useQuery({
+    queryKey: paymentKeys.wallet(),
+    queryFn: () => call(api.payments.getWallet()),
+  });
+}
+
+/**
+ * `POST /parent/wallet/top-up` с Idempotency-Key. Заглушка (docs/07 F13): провайдера пока нет,
+ * сервер (мок) зачисляет сразу и возвращает новый баланс — кладём его в кэш кошелька.
+ * Ключ идемпотентности даёт экран: один на попытку, чтобы повтор после сбоя сети не зачёл дважды.
+ */
+export function useTopUpWallet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ amountKopecks, idempotencyKey }: TopUpWalletBody & { idempotencyKey: string }) =>
+      call(
+        api.payments.topUpWallet({
+          body: { amountKopecks },
+          headers: { 'idempotency-key': idempotencyKey },
+        }),
+      ),
+    onSuccess: (wallet) => {
+      queryClient.setQueryData(paymentKeys.wallet(), wallet);
+    },
   });
 }

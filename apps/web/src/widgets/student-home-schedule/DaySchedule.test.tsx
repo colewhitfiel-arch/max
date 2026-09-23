@@ -92,4 +92,28 @@ describe('DaySchedule', () => {
       'true',
     );
   });
+
+  it('режим родителя: колонка «Репетитор» и «Добавить кружок» (в пустой день — кнопкой)', async () => {
+    const user = userEvent.setup();
+    const onAddClub = vi.fn();
+    render(
+      <Harness
+        lessons={[lesson('l1', 0, 23)]}
+        secondColumn={{ header: 'Репетитор', cell: (item) => item.group.teacher.user.lastName }}
+        nameAction={{ label: 'Добавить кружок', onClick: onAddClub }}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Сегодня' });
+    expect(table).toHaveTextContent('Репетитор');
+    expect(table).toHaveTextContent('Иванова');
+    expect(table).not.toHaveTextContent('Группа');
+    await user.click(screen.getByRole('button', { name: 'Добавить кружок' }));
+    expect(onAddClub).toHaveBeenCalledTimes(1);
+
+    // Завтра занятий нет — действие остаётся кнопкой в пустом состоянии.
+    await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    expect(screen.getByText('В этот день занятий нет')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Добавить кружок' }));
+    expect(onAddClub).toHaveBeenCalledTimes(2);
+  });
 });

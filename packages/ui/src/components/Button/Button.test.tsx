@@ -33,4 +33,22 @@ describe('Button', () => {
     expect(button).toHaveAttribute('data-variant', 'danger');
     expect(button).toHaveAttribute('data-size', 'sm');
   });
+
+  it('variant="link" с underline — текстовая кнопка с data-underline', async () => {
+    const onClick = vi.fn();
+    render(
+      <>
+        <Button variant="link" underline onClick={onClick}>
+          Скрыть
+        </Button>
+        <Button variant="link">Подробнее</Button>
+      </>,
+    );
+    const hide = screen.getByRole('button', { name: 'Скрыть' });
+    expect(hide).toHaveAttribute('data-variant', 'link');
+    expect(hide).toHaveAttribute('data-underline');
+    expect(screen.getByRole('button', { name: 'Подробнее' })).not.toHaveAttribute('data-underline');
+    await userEvent.click(hide);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
 });

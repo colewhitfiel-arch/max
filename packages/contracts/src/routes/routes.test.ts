@@ -2,7 +2,19 @@ import { type AppRoute, type AppRouter, initClient, isAppRoute } from '@ts-rest/
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { API_PREFIX, type ApiContract, apiContract } from '../index';
 import { AuthResultSchema, type MeDto } from './auth';
-import { StudentHomeDtoSchema } from './dashboards';
+import {
+  ChildAnalyticsDtoSchema,
+  HomeworkProgressQuerySchema,
+  HomeworkTaskDetailSchema,
+  StudentHomeDtoSchema,
+  StudentProfileDtoSchema,
+} from './dashboards';
+import { ChildInviteSchema } from './family';
+import {
+  TopUpWalletBodySchema,
+  WALLET_TOPUP_MAX_KOPECKS,
+  WALLET_TOPUP_MIN_KOPECKS,
+} from './payments';
 import { type RouteMeta } from './meta';
 import { STREAMING_ROUTES } from './streaming';
 
@@ -32,11 +44,14 @@ describe('apiContract', () => {
         "POST /auth/logout",
         "GET /me",
         "PATCH /me/settings",
+        "PUT /me/avatar",
         "POST /student/link-code/rotate",
         "GET /student/home",
         "GET /student/profile",
         "GET /parent/children/:studentId/home",
         "GET /parent/children/:studentId/analytics",
+        "GET /parent/children/:studentId/homework-progress",
+        "GET /parent/children/:studentId/groups/:groupId/tasks",
         "GET /teacher/home",
         "GET /teacher/groups",
         "GET /teacher/groups/:groupId",
@@ -83,15 +98,23 @@ describe('apiContract', () => {
         "POST /ai/conversations",
         "GET /ai/conversations/:conversationId/messages",
         "DELETE /ai/conversations/:conversationId",
+        "GET /parent/children/:studentId/ai/conversations",
+        "POST /parent/children/:studentId/ai/conversations",
+        "GET /parent/ai/conversations/:conversationId/messages",
         "GET /student/trajectory",
         "POST /student/trajectory/refresh",
         "GET /parent/children",
         "POST /parent/children/link",
+        "POST /parent/children/invites",
         "DELETE /parent/children/:studentId",
         "GET /parent/children/:studentId/clubs",
+        "GET /student/parent-invites/:token",
+        "POST /student/parent-invites/:token/accept",
         "GET /parent/children/:studentId/payments",
         "POST /parent/children/:studentId/payments",
         "GET /parent/payments/:paymentId",
+        "GET /parent/wallet",
+        "POST /parent/wallet/top-up",
         "POST /webhooks/payments/:provider",
         "POST /files/upload-url",
         "POST /files/:fileId/confirm",
@@ -169,6 +192,10 @@ describe('apiContract', () => {
     const paths = new Set(routes.map(({ route }) => route.path));
     expect(paths.has(STREAMING_ROUTES.onboardingMessage.path)).toBe(false);
     expect(STREAMING_ROUTES.tutorMessage.path('abc')).toBe('/ai/conversations/abc/messages');
+    expect(STREAMING_ROUTES.parentTutorMessage.path('abc')).toBe(
+      '/parent/ai/conversations/abc/messages',
+    );
+    expect(STREAMING_ROUTES.parentTutorMessage.metadata.roles).toEqual(['PARENT']);
   });
 
   it('совместим с ts-rest клиентом (тип AppRouter)', () => {
@@ -227,6 +254,114 @@ describe('sanity-парсинг схем', () => {
     expect(
       StudentHomeDtoSchema.safeParse({ ...home, stats: { ...home.stats, activityScore: 101 } })
         .success,
+    ).toBe(false);
+  });
+
+  it('HomeworkProgressQuerySchema: строка из query → 1|7|30, по умолчанию 7', () => {
+    expect(HomeworkProgressQuerySchema.parse({})).toEqual({ days: 7 });
+    expect(HomeworkProgressQuerySchema.parse({ days: '30' })).toEqual({ days: 30 });
+    expect(HomeworkProgressQuerySchema.parse({ days: 1 })).toEqual({ days: 1 });
+    expect(HomeworkProgressQuerySchema.safeParse({ days: '14' }).success).toBe(false);
+    expect(HomeworkProgressQuerySchema.safeParse({ days: 'abc' }).success).toBe(false);
+  });
+
+  it('ChildAnalyticsDtoSchema: новые поля опциональны', () => {
+    const analytics = {
+      stats: {
+        attendanceRate: 0.8,
+        completionRate: null,
+        activityScore: 10,
+        absences: 1,
+        lateCount: 0,
+        period: { from: '2026-08-22', to: '2026-09-21' },
+      },
+      clubs: [],
+      weekly: [],
+      recentResults: [],
+      attendanceHistory: [],
+      aiSummary: null,
+    };
+    expect(ChildAnalyticsDtoSchema.safeParse(analytics).success).toBe(true);
+    expect(
+      ChildAnalyticsDtoSchema.safeParse({
+        ...analytics,
+        homework: { correct: 25, wrong: 30, upcoming: 45 },
+        clubHomework: [],
+        week: [{ date: '2026-09-21', status: 'TODAY' }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('StudentProfileDtoSchema: «Успеваемость» (week, homework, clubHomework) опциональна', () => {
+    const profile = {
+      user: me.user,
+      classLabel: '7Б',
+      school: null,
+      clubs: [],
+      stats: {
+        attendanceRate: null,
+        completionRate: null,
+        activityScore: 0,
+        absences: 0,
+        lateCount: 0,
+        period: { from: '2026-08-22', to: '2026-09-21' },
+      },
+      interests: [],
+      goals: [],
+    };
+    expect(StudentProfileDtoSchema.safeParse(profile).success).toBe(true);
+    expect(
+      StudentProfileDtoSchema.safeParse({
+        ...profile,
+        week: [{ date: '2026-09-21', status: 'TODAY' }],
+        homework: { correct: 1, wrong: 0, upcoming: 2 },
+        clubHomework: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      StudentProfileDtoSchema.safeParse({
+        ...profile,
+        homework: { correct: -1, wrong: 0, upcoming: 0 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('HomeworkTaskDetailSchema', () => {
+    const task = {
+      assignmentId: id,
+      number: 1,
+      title: 'Датчик расстояния',
+      status: 'FAILED',
+      dueAt: '2026-09-20T10:00:00.000Z',
+      scorePercent: 20,
+      statement: 'Подставьте функцию вместо __________',
+      code: { language: 'python', source: 'print(1)' },
+      answer: 'stop()',
+      correctAnswer: 'readDistance()',
+      score: 2,
+      maxScore: 10,
+    };
+    expect(HomeworkTaskDetailSchema.safeParse(task).success).toBe(true);
+    expect(HomeworkTaskDetailSchema.safeParse({ ...task, number: 0 }).success).toBe(false);
+    expect(HomeworkTaskDetailSchema.safeParse({ ...task, status: 'OVERDUE' }).success).toBe(false);
+  });
+
+  it('ChildInviteSchema и TopUpWalletBodySchema', () => {
+    expect(
+      ChildInviteSchema.safeParse({
+        token: 'a'.repeat(16),
+        url: 'http://localhost/invite/aaaaaaaaaaaaaaaa',
+        expiresAt: '2026-09-28T10:00:00.000Z',
+      }).success,
+    ).toBe(true);
+    expect(
+      TopUpWalletBodySchema.safeParse({ amountKopecks: WALLET_TOPUP_MIN_KOPECKS }).success,
+    ).toBe(true);
+    expect(
+      TopUpWalletBodySchema.safeParse({ amountKopecks: WALLET_TOPUP_MIN_KOPECKS - 1 }).success,
+    ).toBe(false);
+    expect(
+      TopUpWalletBodySchema.safeParse({ amountKopecks: WALLET_TOPUP_MAX_KOPECKS + 1 }).success,
     ).toBe(false);
   });
 });

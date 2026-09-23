@@ -101,6 +101,7 @@ owners:
     - packages/ai/src/prompts/**
     - packages/db/prisma/schema/ai.prisma
     - apps/web/src/pages/student/tutor/**
+    - apps/web/src/pages/parent/tutor/**
     - apps/web/src/pages/onboarding/**
     - apps/web/src/entities/ai/**
     - apps/web/src/widgets/trajectory/**
@@ -117,10 +118,16 @@ owners:
     - apps/web/src/pages/parent/children/**
     - apps/web/src/pages/parent/analytics/**
     - apps/web/src/pages/parent/courses/**
+    - apps/web/src/pages/parent/wallet/**
+    - apps/web/src/pages/parent/profile/**
+    - apps/web/src/pages/parent/settings/**
+    - apps/web/src/pages/invite/**
     - apps/web/src/entities/student/**
     - apps/web/src/entities/club/**
     - apps/web/src/features/link-child/**
+    - apps/web/src/features/change-avatar/**
     - apps/web/src/widgets/parent-*/**
+    - apps/web/src/widgets/homework-performance/**
   ws-E-groups:
     - apps/api/src/modules/groups/**
     - packages/contracts/src/routes/groups.ts

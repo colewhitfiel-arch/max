@@ -1,0 +1,45 @@
+{
+  "title": "Performance",
+  "picker": {
+    "hint": "Choose a child to see attendance and homework",
+    "listLabel": "Children",
+    "add": "Add a child",
+    "emptyTitle": "No children yet",
+    "emptyText": "Send your child an invite link in MAX or enter the code from their profile — their performance will appear here"
+  },
+  "child": {
+    "notFoundTitle": "Child not found",
+    "notFoundText": "The link may have been revoked. Choose a child from the list",
+    "toPicker": "Back to children",
+    "clubsLabel": "Homework by club",
+    "clubsEmptyTitle": "No homework yet",
+    "clubsEmptyText": "Once the teacher assigns homework, totals for each club will appear here"
+  },
+  "status": {
+    "FAILED_OVERDUE": "overdue, not submitted"
+  },
+  "task": {
+    "title": "Task {{number}}",
+    "answer": "Answer: {{answer}}",
+    "correctAnswer": "Correct answer: {{answer}}",
+    "score": "Score: {{score}} of {{max}}",
+    "pendingReview": "Submitted, awaiting review",
+    "notSubmitted": "Not submitted, deadline passed {{date}}",
+    "upcoming": "To be done",
+    "due": "Due: {{date}}",
+    "noDue": "No deadline",
+    "copy": "copy",
+    "copied": "copied",
+    "copyFailed": "Could not copy the code"
+  },
+  "tasks": {
+    "close": "Tasks",
+    "closeLabel": "Close tasks",
+    "listLabel": "Group tasks",
+    "emptyTitle": "No tasks yet",
+    "emptyText": "The teacher hasn't assigned any tasks in this group yet",
+    "notFoundTitle": "Tasks not found",
+    "notFoundText": "The child isn't in this group or the link is outdated",
+    "back": "Back to performance"
+  }
+}

@@ -6,11 +6,10 @@ import type { Role } from '@edu/contracts';
 import {
   AiIcon,
   BookIcon,
-  CalendarIcon,
   CheckIcon,
   HomeIcon,
-  InboxIcon,
   type IconProps,
+  PieChartIcon,
   SettingsIcon,
   UserIcon,
   UsersIcon,
@@ -43,12 +42,20 @@ export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
     { key: 'settings', path: '/student/settings', labelKey: 'nav.settings', icon: SettingsIcon },
     { key: 'profile', path: '/student/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],
+  // Как у ученика (макет): главная · ИИ-тьютор · аналитика (крупная зелёная) · настройки · профиль.
+  // Дети, кружки и оплата открываются с экранов (сердце «+», «Добавить кружок», кошелёк).
   PARENT: [
     { key: 'home', path: '/parent', labelKey: 'nav.home', icon: HomeIcon },
-    { key: 'children', path: '/parent/children', labelKey: 'nav.children', icon: UsersIcon },
-    { key: 'analytics', path: '/parent/analytics', labelKey: 'nav.analytics', icon: CalendarIcon },
-    { key: 'clubs', path: '/parent/courses', labelKey: 'nav.clubs', icon: BookIcon },
-    { key: 'payments', path: '/parent/payments', labelKey: 'nav.payments', icon: InboxIcon },
+    { key: 'tutor', path: '/parent/tutor', labelKey: 'nav.tutor', icon: AiIcon, iconSize: 'lg' },
+    {
+      key: 'analytics',
+      path: '/parent/analytics',
+      labelKey: 'nav.analytics',
+      icon: PieChartIcon,
+      prominent: true,
+    },
+    { key: 'settings', path: '/parent/settings', labelKey: 'nav.settings', icon: SettingsIcon },
+    { key: 'profile', path: '/parent/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],
   TEACHER: [
     { key: 'home', path: '/teacher', labelKey: 'nav.home', icon: HomeIcon },

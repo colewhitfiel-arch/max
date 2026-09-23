@@ -16,6 +16,11 @@ export interface StudentContextBundle {
   context: StudentContext;
   /** Сериализованный текст для промпта. */
   text: string;
+  /**
+   * Имя из профиля без ника — так ребёнка называет тьютор родителя (в `context` — ник, если есть).
+   * Может отсутствовать в кэше, собранном до появления поля.
+   */
+  firstName?: string;
 }
 
 /**
@@ -118,7 +123,7 @@ export class StudentContextBuilder {
       this.prisma.blockProgress.count({
         where: { studentId, status: 'COMPLETED', completedAt: { gte: from30 } },
       }),
-      this.repo.countUserMessagesSince(student.userId, from30),
+      this.repo.countUserMessagesSince(student.userId, studentId, from30),
       this.repo.latestTrajectory(studentId),
       this.repo.listClubInterests(studentId, 'LATER'),
     ]);
@@ -235,7 +240,9 @@ export class StudentContextBuilder {
         startsAt: l.startsAt.toISOString(),
         ...(l.topic ? { topic: l.topic } : {}),
       })),
-      openAssignments: open.slice(0, 10),
+      // Весь список: сериализатор сам покажет первые maxItems, а в заголовке — настоящее число и
+      // «…и ещё N» (на это число опирается ответ родителю «Какие задания просрочены?»).
+      openAssignments: open,
       recentResults: results.slice(0, 10),
       stats30d: {
         attendanceRate: countable > 0 ? attended / countable : null,
@@ -268,6 +275,7 @@ export class StudentContextBuilder {
       schoolId: student.schoolId,
       context,
       text: serializeStudentContext(context),
+      firstName: student.user.firstName,
     };
   }
 }

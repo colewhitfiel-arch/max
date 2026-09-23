@@ -89,7 +89,10 @@ export interface StudentContext {
   laterClubs?: StudentContextLaterClub[];
   /** Ближайшие 7 дней. */
   upcomingLessons: StudentContextLesson[];
-  /** ≤ 10 */
+  /**
+   * Все открытые задания по сроку: сериализатор покажет не больше `maxItems`, а в заголовке —
+   * полное число и «…и ещё N».
+   */
   openAssignments: StudentContextAssignment[];
   /** ≤ 10 */
   recentResults: StudentContextResult[];

@@ -45,3 +45,62 @@
 .ui-card-columns__column[data-nowrap] .ui-card-columns__cell {
   white-space: nowrap;
 }
+
+/* Действие колонки (макет родителя «+ Добавить кружок»): полоса 25px цвета primary
+ * прямо под карточкой, скруглён только правый нижний угол, плюс 9px в левом верхнем. */
+.ui-card-columns[data-has-action] {
+  --ui-card-columns-action-height: 25px;
+  padding-bottom: var(--ui-card-columns-action-height);
+}
+
+.ui-card-columns__column[data-action] {
+  position: relative;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.ui-card-columns__action-cell {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+}
+
+.ui-card-columns__action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--ui-card-columns-action-height);
+  margin: 0;
+  padding: 0 var(--ui-space-2);
+  border: 0;
+  border-radius: 0 0 var(--ui-radius-lg) 0;
+  background: var(--ui-color-primary);
+  color: var(--ui-color-primary-contrast);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-card-columns__action:active {
+  filter: brightness(0.9);
+}
+
+.ui-card-columns__action:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+.ui-card-columns__action-plus {
+  position: absolute;
+  top: 0;
+  left: 0;
+}

@@ -5,6 +5,7 @@
 import type { MockResponseRule } from '../providers/mock';
 import { courseBuilderMockRules } from './course-builder';
 import { onboardingMockRules } from './onboarding';
+import { parentTutorMockRules, parentTutorPrompt } from './parent-tutor';
 import { PromptRegistry, type AnyPrompt } from './registry';
 import { tutorMockRules } from './tutor';
 import { trajectoryMockRules } from './trajectory';
@@ -16,6 +17,7 @@ import { trajectoryPrompt } from './trajectory';
 export * from './registry';
 export * from './course-builder';
 export * from './tutor';
+export * from './parent-tutor';
 export * from './onboarding';
 export * from './trajectory';
 
@@ -24,6 +26,7 @@ export const productPrompts: AnyPrompt[] = [
   surveyPrompt,
   lessonPrompt,
   tutorPrompt,
+  parentTutorPrompt,
   onboardingTurnPrompt,
   recommendClubsPrompt,
   trajectoryPrompt,
@@ -37,6 +40,7 @@ export function createProductRegistry(): PromptRegistry {
 export const productMockRules: MockResponseRule[] = [
   ...courseBuilderMockRules,
   ...tutorMockRules,
+  ...parentTutorMockRules,
   ...onboardingMockRules,
   ...trajectoryMockRules,
 ];

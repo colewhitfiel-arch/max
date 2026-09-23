@@ -1,0 +1,50 @@
+/* Макет: плашка #242424, радиус 10, поля 1px/2px; кошелёк 24px и сумма 16px medium
+ * через 6px, плюс 10px сразу за суммой (1px). */
+.ui-wallet-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 1px;
+  margin: 0;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ui-color-surface-2);
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--ui-duration-fast) var(--ui-easing);
+}
+
+/* Видимая плашка 26px — зона нажатия добирается до 44px невидимой рамкой. */
+.ui-wallet-chip::before {
+  content: '';
+  position: absolute;
+  inset: -9px -4px;
+}
+
+.ui-wallet-chip:active {
+  transform: scale(0.96);
+}
+
+.ui-wallet-chip:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+.ui-wallet-chip__icon {
+  margin-right: 5px;
+  color: var(--ui-color-primary);
+}
+
+.ui-wallet-chip__plus {
+  flex-shrink: 0;
+  align-self: center;
+}

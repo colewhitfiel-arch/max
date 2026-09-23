@@ -1,6 +1,6 @@
 /**
  * Auth-моки: dev-вход выдаёт токены-заглушки и MeDto по демо-пользователям; refresh, me,
- * switch-role, roles, logout, settings, link-code.
+ * switch-role, roles, logout, settings, аватар (файл purpose AVATAR из files-моков), link-code.
  */
 import {
   AddRoleBodySchema,
@@ -13,6 +13,7 @@ import {
   RefreshBodySchema,
   SwitchRoleBodySchema,
   TokenPairSchema,
+  UpdateAvatarBodySchema,
   UpdateSettingsBodySchema,
 } from '@edu/contracts';
 import { demoUsers } from '@edu/contracts/fixtures';
@@ -29,6 +30,7 @@ import {
   readBody,
 } from '../lib';
 import { createUser, db, findUserByMaxId, grantRole, type MockUser, studentOfUser } from '../state';
+import { fileDto } from './files';
 import type { Role } from '@edu/contracts';
 
 function authResult(user: MockUser, role: Role | null) {
@@ -109,6 +111,28 @@ export const authHandlers = [
         locale: auth.user.locale,
       };
       db.settings.set(auth.user.id, { ...current, ...body.data });
+      return json(MeDtoSchema, buildMe(auth.user, auth.role));
+    }),
+  ),
+
+  http.put(
+    apiUrl('/me/avatar'),
+    authed(async ({ auth, request }) => {
+      const body = await readBody(request, UpdateAvatarBodySchema);
+      if (!body.ok) return body.response;
+      const { fileId } = body.data;
+      if (fileId === null) {
+        auth.user.avatarUrl = null;
+      } else {
+        const file = db.files.find((f) => f.id === fileId && f.ownerUserId === auth.user.id);
+        if (!file) return apiError('NOT_FOUND', 'Файл не найден');
+        if (!file.confirmed) return apiError('BUSINESS_RULE', 'Файл ещё не подтверждён');
+        if (file.purpose !== 'AVATAR' || !file.mime.startsWith('image/')) {
+          return apiError('VALIDATION', 'Для фото профиля нужна картинка с purpose AVATAR');
+        }
+        // В браузере — object URL на загруженные байты; иначе ссылка «скачивания» из FileDto.
+        auth.user.avatarUrl = file.objectUrl ?? fileDto(file).url;
+      }
       return json(MeDtoSchema, buildMe(auth.user, auth.role));
     }),
   ),

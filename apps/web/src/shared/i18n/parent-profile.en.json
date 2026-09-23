@@ -1,0 +1,41 @@
+{
+  "title": "Profile",
+  "children_one": "{{count}} child",
+  "children_few": "{{count}} children",
+  "children_many": "{{count}} children",
+  "children_other": "{{count}} children",
+  "noChildren": "No children added yet",
+  "avatar": {
+    "pick": "Choose a profile photo",
+    "change": "Change photo",
+    "remove": "Remove photo",
+    "changed": "Photo updated",
+    "removed": "Photo removed",
+    "error": "Could not change the photo",
+    "notImage": "Choose an image (JPG, PNG)",
+    "tooBig": "The photo is larger than {{mb}} MB — choose a smaller one"
+  },
+  "offers": {
+    "title": "Clubs for your children",
+    "hint": "School clubs you can enrol your child in",
+    "hintChild": "School clubs: first the ones {{name}} does not attend yet",
+    "enroll": "Enrol",
+    "enrollSoon": "Soon you will be able to enrol right here",
+    "enrolled": "Already attends",
+    "period": {
+      "MONTH": "{{price}} / month"
+    },
+    "empty": "No clubs in the catalog yet",
+    "emptyHint": "Clubs will appear here as soon as the school adds them"
+  },
+  "settings": {
+    "title": "Settings",
+    "family": "Family and payments",
+    "children": "Children",
+    "childrenHint": "Link by code or by invite link",
+    "wallet": "Wallet",
+    "walletHint": "Balance and top-up",
+    "payments": "Club payments",
+    "clubs": "Children's clubs"
+  }
+}

@@ -110,7 +110,7 @@ describe('foundation smoke (mock API)', () => {
   );
 
   it(
-    'преподаватель: главная и группы → смена роли на родителя → шапка с ребёнком',
+    'преподаватель: главная и группы → смена роли на родителя → дети-сердца на главной',
     { timeout: 40_000 },
     async () => {
       const user = userEvent.setup();
@@ -120,6 +120,7 @@ describe('foundation smoke (mock API)', () => {
 
       await expectPage('Главная');
       expect(router.state.location.pathname).toBe('/teacher');
+      expect(document.documentElement).not.toHaveAttribute('data-accent');
       await findText('Робототехника, группа А');
       await findText('На проверку');
 
@@ -139,24 +140,48 @@ describe('foundation smoke (mock API)', () => {
       await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
       expect(useAuthStore.getState().me?.activeRole).toBe('PARENT');
       await expectPage('Главная');
-      // В шапке — выбор ребёнка (Даша), на главной — её данные.
-      const switcher = await screen.findByRole('combobox', { name: 'Ребёнок' }, WAIT);
-      expect(within(switcher).getByRole('option', { name: 'Даша Иванова' })).toBeInTheDocument();
-      await findText('Пропущенные занятия');
+      // Режим родителя — зелёный акцент (у преподавателя был синий, без атрибута).
+      expect(document.documentElement).toHaveAttribute('data-accent', 'green');
+      // Шапки shell больше нет: дети — сердца на главной (выбрана Даша), рядом кошелёк;
+      // под сердцами — расписание и «Выполненные задания» выбранного ребёнка.
+      expect(screen.queryByRole('combobox', { name: 'Ребёнок' })).not.toBeInTheDocument();
+      const hearts = await screen.findByRole('listbox', { name: 'Дети' }, WAIT);
+      expect(
+        await within(hearts).findByRole('option', { name: 'Иванова Д.', selected: true }, WAIT),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Добавить' })).toBeInTheDocument();
+      await screen.findByRole('button', { name: /^Баланс .+, пополнить$/ }, WAIT);
+      await screen.findByRole('heading', { level: 2, name: 'Выполненные задания' }, WAIT);
+      // Нижнее меню родителя: центральная кнопка — аналитика.
+      expect(nav().getByRole('button', { name: 'Аналитика' })).toBeInTheDocument();
+      expect(nav().getByRole('button', { name: 'ИИ-тьютор' })).toBeInTheDocument();
     },
   );
 
-  it('неизвестный маршрут → 404-страница приложения', { timeout: 40_000 }, async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await expectPage('Вход');
-    await user.click(await findText('Ольга Смирнова'));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
-    await expectPage('Главная');
-    // Имя ребёнка есть и в шапке (select), и в заголовке секции.
-    expect((await screen.findAllByText('Алексей Смирнов', {}, WAIT)).length).toBeGreaterThan(0);
+  it(
+    'родитель: кошелёк → пополнение (заглушка) → главная; неизвестный маршрут → 404',
+    { timeout: 40_000 },
+    async () => {
+      const user = userEvent.setup();
+      renderApp();
+      await expectPage('Вход');
+      await user.click(await findText('Ольга Смирнова'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+      await expectPage('Главная');
+      // Подпись выбранного сердца — краткое имя ребёнка.
+      await screen.findByRole('option', { name: 'Смирнов А.', selected: true }, WAIT);
 
-    await router.navigate('/parent/unknown-page');
-    await findText('Страница не найдена');
-  });
+      // Кошелёк в шапке → пополнение: быстрый выбор суммы → «Пополнить» → обратно на главную.
+      await user.click(await screen.findByRole('button', { name: /^Баланс .+, пополнить$/ }, WAIT));
+      await expectPage('Пополнение баланса');
+      expect(router.state.location.pathname).toBe('/parent/wallet');
+      await user.click(screen.getByRole('button', { name: /^1\s?000\s₽$/ }));
+      await user.click(screen.getByRole('button', { name: /^Пополнить на/ }));
+      await findText('Баланс пополнен (демо-режим)');
+      await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+
+      await router.navigate('/parent/unknown-page');
+      await findText('Страница не найдена');
+    },
+  );
 });

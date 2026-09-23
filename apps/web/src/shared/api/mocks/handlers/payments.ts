@@ -1,9 +1,14 @@
-/** Платежи родителя: периоды к оплате, история, создание платежа (fake-провайдер). */
+/**
+ * Платежи родителя: периоды к оплате, история, создание платежа (fake-провайдер); кошелёк —
+ * заглушка (docs/07 F13): пополнение зачисляется сразу, идемпотентно по Idempotency-Key.
+ */
 import {
   ChildPaymentsSchema,
   CreatePaymentBodySchema,
   CreatePaymentResultSchema,
   PaymentDtoSchema,
+  TopUpWalletBodySchema,
+  WalletSchema,
 } from '@edu/contracts';
 import { http } from 'msw';
 import { addDays, toDateOnly } from '../../../lib/dates';
@@ -31,7 +36,50 @@ function paymentDto(paymentId: string) {
   return { ...payment, club: clubBrief(group.clubId), student: studentBrief(payment.studentId) };
 }
 
+const rub = (amountKopecks: number) => ({ amountKopecks, currency: 'RUB' as const });
+
 export const paymentsHandlers = [
+  http.get(
+    apiUrl('/parent/wallet'),
+    authed(
+      ({ auth }) => {
+        const parent = parentOfUser(auth.user.id);
+        if (!parent) return apiError('FORBIDDEN', 'Нет профиля родителя');
+        return json(WalletSchema, { balance: rub(db.wallets.get(parent.id) ?? 0) });
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.post(
+    apiUrl('/parent/wallet/top-up'),
+    authed(
+      async ({ auth, request }) => {
+        const parent = parentOfUser(auth.user.id);
+        if (!parent) return apiError('FORBIDDEN', 'Нет профиля родителя');
+        const body = await readBody(request, TopUpWalletBodySchema);
+        if (!body.ok) return body.response;
+        const key = request.headers.get('idempotency-key');
+        const replayKey = key ? `${parent.id}:${key}` : null;
+        const previous = replayKey ? db.walletTopUps.get(replayKey) : undefined;
+        if (previous) {
+          if (previous.amountKopecks !== body.data.amountKopecks) {
+            return apiError('CONFLICT', 'Ключ идемпотентности уже использован с другой суммой');
+          }
+          return json(WalletSchema, { balance: rub(previous.balanceAfter) });
+        }
+        // Заглушка провайдера: деньги «приходят» сразу.
+        const balanceAfter = (db.wallets.get(parent.id) ?? 0) + body.data.amountKopecks;
+        db.wallets.set(parent.id, balanceAfter);
+        if (replayKey) {
+          db.walletTopUps.set(replayKey, { amountKopecks: body.data.amountKopecks, balanceAfter });
+        }
+        return json(WalletSchema, { balance: rub(balanceAfter) });
+      },
+      ['PARENT'],
+    ),
+  ),
+
   http.get<{ studentId: string }>(
     apiUrl('/parent/children/:studentId/payments'),
     authed(

@@ -15,6 +15,17 @@ export interface CardColumn {
    * не хочется переносить). Без флага колонка делит остаток поровну с другими.
    */
   fit?: boolean;
+  /**
+   * Действие под карточкой колонки — полоса primary «+ Добавить кружок» из макета
+   * родителя (карточка снизу срастается с полосой). Высота таблицы учитывает полосу.
+   */
+  action?: CardColumnAction;
+}
+
+export interface CardColumnAction {
+  /** Текст кнопки («Добавить кружок»). */
+  label: ReactNode;
+  onClick: () => void;
 }
 
 export interface CardColumnsRow {
@@ -43,11 +54,13 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
     '--ui-card-columns-template': template,
     '--ui-card-columns-rows': rows.length + 1,
   } as CSSProperties;
+  const hasAction = columns.some((column) => column.action);
   return (
     <div
       ref={ref}
       className={cx('ui-card-columns', className)}
       role="table"
+      data-has-action={hasAction || undefined}
       style={{ ...vars, ...style }}
       {...rest}
     >
@@ -58,6 +71,7 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
           role="rowgroup"
           data-align={column.align ?? 'start'}
           data-nowrap={column.nowrap || undefined}
+          data-action={column.action ? '' : undefined}
         >
           <div className="ui-card-columns__cell ui-card-columns__header" role="columnheader">
             {column.header}
@@ -67,6 +81,28 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
               {row.cells[column.key]}
             </div>
           ))}
+          {column.action && (
+            // Вне сетки строк (subgrid не растягивается): полоса висит под карточкой.
+            <div className="ui-card-columns__action-cell" role="cell">
+              <button
+                type="button"
+                className="ui-card-columns__action"
+                onClick={column.action.onClick}
+              >
+                <svg
+                  className="ui-card-columns__action-plus"
+                  width={9}
+                  height={9}
+                  viewBox="0 0 9 9"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M4.5.5v8M.5 4.5h8" stroke="currentColor" strokeLinecap="round" />
+                </svg>
+                {column.action.label}
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>

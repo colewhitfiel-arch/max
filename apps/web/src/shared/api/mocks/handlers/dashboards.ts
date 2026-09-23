@@ -1,7 +1,13 @@
-/** Дашборды: главная ученика/родителя/преподавателя, группы, карточка ученика. */
+/**
+ * Дашборды: главная ученика/родителя/преподавателя, группы, карточка ученика; аналитика заданий
+ * родителя (прогресс за окно, сетка статусов, задания группы — `../homework.ts`).
+ */
 import {
   ChildAnalyticsDtoSchema,
+  ChildHomeworkProgressSchema,
   GroupDetailSchema,
+  GroupHomeworkTasksSchema,
+  HomeworkProgressQuerySchema,
   type Lesson,
   ParentHomeDtoSchema,
   StudentHomeDtoSchema,
@@ -19,6 +25,7 @@ import {
   childrenIdsOfParent,
   clubProgress,
   gamification,
+  groupBrief,
   groupCard,
   groupIdsOfStudent,
   groupsOfTeacher,
@@ -36,7 +43,14 @@ import {
   weeklyPoints,
 } from '../demo';
 import { addDays, isSameDay, startOfDay, toDateOnly } from '../../../lib/dates';
-import { apiError, apiUrl, authed, json, query } from '../lib';
+import {
+  clubHomeworkOf,
+  homeworkProgress,
+  homeworkTaskDetails,
+  studentClubHomework,
+  sumCounts,
+} from '../homework';
+import { apiError, apiUrl, authed, denyForeignChild, json, query } from '../lib';
 import { db, parentOfUser, studentOfUser, teacherOfUser } from '../state';
 
 const aiText = (text: string) => ({
@@ -108,16 +122,22 @@ export const dashboardsHandlers = [
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
         const stats = statsBrief(student.id);
+        const groupIds = groupIdsOfStudent(student.id);
+        const clubHomework = studentClubHomework(student.id);
         return json(StudentProfileDtoSchema, {
           user: userBrief(auth.user.id),
           classLabel: student.classLabel,
           school: student.schoolId ? { id: demoSchool.id, name: demoSchool.name } : null,
-          clubs: groupIdsOfStudent(student.id).map((g) => clubProgress(student.id, g)),
+          clubs: groupIds.map((g) => clubProgress(student.id, g)),
           stats,
           interests: student.interests,
           goals: student.goals,
           // Те же заглушки геймификации, что на главной (формулы — в modules/analytics).
           ...gamification(student.id),
+          // «Успеваемость»: неделя посещений и задания по кружкам (docs/04 §4.6).
+          week: weekOfStudent(student.id, lessonsOfGroups(groupIds)),
+          homework: sumCounts(clubHomework.map((item) => item.counts)),
+          clubHomework,
         });
       },
       ['STUDENT'],
@@ -176,11 +196,9 @@ export const dashboardsHandlers = [
         }
         const studentId = params.studentId;
         const q = query(request);
-        const lessons = inPeriod(
-          lessonsOfGroups(groupIdsOfStudent(studentId)),
-          q.get('from'),
-          q.get('to'),
-        );
+        const allLessons = lessonsOfGroups(groupIdsOfStudent(studentId));
+        const lessons = inPeriod(allLessons, q.get('from'), q.get('to'));
+        const clubHomework = clubHomeworkOf(studentId);
         const graded = db.submissions.filter(
           (s) => s.studentId === studentId && s.status === 'GRADED',
         );
@@ -211,6 +229,44 @@ export const dashboardsHandlers = [
           aiSummary: aiText(
             'Посещаемость стабильная, выполнение заданий растёт. Стоит обратить внимание на дедлайны по Python.',
           ),
+          // Экран «Успеваемость»: дуга недели, круговая диаграмма и сетки по кружкам.
+          week: weekOfStudent(studentId, allLessons),
+          homework: sumCounts(clubHomework.map((c) => c.counts)),
+          clubHomework,
+        });
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.get<{ studentId: string }>(
+    apiUrl('/parent/children/:studentId/homework-progress'),
+    authed(
+      ({ auth, params, request }) => {
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
+        const q = HomeworkProgressQuerySchema.safeParse(Object.fromEntries(query(request)));
+        if (!q.success) {
+          return apiError('VALIDATION', 'Неверные параметры запроса', q.error.flatten());
+        }
+        return json(ChildHomeworkProgressSchema, homeworkProgress(params.studentId, q.data.days));
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.get<{ studentId: string; groupId: string }>(
+    apiUrl('/parent/children/:studentId/groups/:groupId/tasks'),
+    authed(
+      ({ auth, params }) => {
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
+        if (!groupIdsOfStudent(params.studentId).includes(params.groupId)) {
+          return apiError('NOT_FOUND', 'Ребёнок не занимается в этой группе');
+        }
+        return json(GroupHomeworkTasksSchema, {
+          group: groupBrief(params.groupId),
+          items: homeworkTaskDetails(params.studentId, params.groupId),
         });
       },
       ['PARENT'],

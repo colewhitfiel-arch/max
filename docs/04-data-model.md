@@ -155,6 +155,7 @@ ParentStudentLink parentId FK, studentId FK, status LinkStatus, requestedAt, con
                                                                         PK(parentId, studentId)
 ```
 Привязка: ребёнок показывает `linkCode` → родитель вводит → link сразу `ACTIVE` (MVP; подтверждение школой — позже).
+Второй способ — ссылка-приглашение (docs/07 F14): родитель создаёт токен (≥16 символов, живёт 7 дней), ребёнок открывает ссылку и подтверждает → link `ACTIVE`. Пока реализовано только в контракте и MSW-моках; модель (`ParentInvite`: token unique, parentId FK, expiresAt, acceptedById?, acceptedAt?) заводится в `family.prisma` вместе с backend-ручками.
 
 ### payments (`payments.prisma`)
 ```
@@ -165,6 +166,7 @@ PaidPeriod      id PK, enrollmentId FK, periodStart date, periodEnd date, paymen
                                                                         index(enrollmentId, periodEnd)
 ```
 «Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment; если периодов нет — сегодня.
+Кошелёк родителя (`GET /parent/wallet`, `POST /parent/wallet/top-up`) — **заглушка**: баланс живёт только в MSW-моках, пополнение зачисляется сразу (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`), реального провайдера и таблиц нет. Модель (`Wallet`, `WalletTransaction`) появится вместе с `PaymentProvider` (docs/07 F13).
 
 ### notifications + support + audit (`notifications.prisma`, `support.prisma`, `base.prisma`)
 ```
@@ -232,4 +234,12 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
 - **Динамика** — те же метрики по неделям из `StudentStatsDaily`; `trend` = разница с предыдущим периодом такой же длины.
 - **Серия** `streakDays` (огонёк на главной ученика): действие — посещение занятия (`PRESENT | LATE`) или сданное задание (`submittedAt`). Действие нужно хотя бы раз в 2 дня: между днями с действием допускается один пустой день, два пустых подряд — серия сгорает. Значение — календарные дни от первого дня текущей серии до последнего дня с действием включительно (пн, ср, пт → 5). Серия жива, пока с последнего действия прошло ≤ 2 дней (сегодня ещё можно успеть), иначе `0`. Дни — в поясе школы.
 - **Кристаллы** `points` (валюта на главной и в «Заданиях»): `50 × посещения (PRESENT | LATE) + 20 × правильно выполненные задания`. Задание выполнено правильно, если `score / maxScore > 0.75` (ровно 75% — нет); одно задание засчитывается один раз (лучшая попытка). Трат пока нет — это заработанная сумма. Реализация — `apps/api/src/modules/analytics/gamification.ts` (+ тесты).
+- **Статус задания для родителя** (`HomeworkTaskStatus`, клетки на экране аналитики), порог 72 ч от «сейчас»:
+  - `DONE` (зелёный) — сдано и (ещё не проверено или `score / maxScore ≥ 0.3`);
+  - `FAILED` (красный) — проверено и `score / maxScore < 0.3`, **или** дедлайн прошёл, а сдачи нет;
+  - `SOON` (жёлтый) — не сдано, дедлайн в ближайшие 72 ч;
+  - `LATER` (серый) — не сдано, дедлайн дальше 72 ч или его нет.
+  Учитывается лучшая попытка. Итоги `HomeworkCounts`: `correct = DONE`, `wrong = FAILED`, `upcoming = SOON + LATER`. `number` — порядковый номер задания в группе (по `dueAt`, затем по публикации), с 1; `scorePercent = round(100 × score / maxScore)` или `null`.
+  **У ученика** (профиль, `StudentProfileDto.homework` / `clubHomework`) те же статусы, но «правильно» — как у кристаллов: `DONE` — сдано и (ещё не проверено или `score / maxScore > 0.75`), `FAILED` — проверено и `score / maxScore ≤ 0.75` или дедлайн прошёл без сдачи. Порог родителя (30%) не меняется.
+- **Выполненные задания за окно** (`GET /parent/children/:id/homework-progress?days=1|7|30`, по умолчанию 7) по каждой группе ребёнка: `done` — задания группы, сданные (`submittedAt`) за последние `days` дней; `recommended` — задания группы с `dueAt` в том же окне (число со «*», может быть 0). Размер кружка на главной родителя: `ratio = recommended > 0 ? min(done / recommended, 1) : (done > 0 ? 1 : 0)`, чем больше `ratio`, тем кружок меньше (визуальное правило фронта).
 - **Требуют внимания** (для преподавателя, с причинами): `attendanceRate < 0.7` за 30 дней; ≥2 просроченных сдачи подряд; 14 дней без `ActivityEvent`; средний балл < 50% по последним 3 проверенным.

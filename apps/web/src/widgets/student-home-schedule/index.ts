@@ -1,1 +1,1 @@
-export { DaySchedule, type DayScheduleProps } from './DaySchedule';
+export { DaySchedule, type DayScheduleColumn, type DayScheduleProps } from './DaySchedule';

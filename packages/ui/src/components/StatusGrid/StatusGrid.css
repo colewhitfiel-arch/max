@@ -1,0 +1,74 @@
+/* Макет: 7 колонок, ячейка ~45×27, скругление 3px, зазор 4px, числа 14px тёмные. */
+.ui-status-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ui-status-grid-columns, 7), minmax(0, 1fr));
+  gap: var(--ui-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-status-grid__item {
+  display: flex;
+  min-width: 0;
+}
+
+.ui-status-grid__cell {
+  --ui-status-grid-color: #a4a4a4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ui-status-grid-color);
+  color: #0d0d0d;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-regular);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+button.ui-status-grid__cell {
+  cursor: pointer;
+  transition:
+    transform var(--ui-duration-fast) var(--ui-easing),
+    filter var(--ui-duration-fast) var(--ui-easing);
+}
+
+button.ui-status-grid__cell:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+button.ui-status-grid__cell:active {
+  transform: scale(0.94);
+}
+
+@media (hover: hover) {
+  button.ui-status-grid__cell:hover {
+    filter: brightness(1.1);
+  }
+}
+
+.ui-status-grid__cell[data-tone='info'] {
+  --ui-status-grid-color: var(--ui-color-info);
+  color: #ffffff;
+}
+
+.ui-status-grid__cell[data-tone='success'] {
+  --ui-status-grid-color: var(--ui-color-success);
+}
+
+.ui-status-grid__cell[data-tone='warning'] {
+  --ui-status-grid-color: var(--ui-color-warning);
+}
+
+.ui-status-grid__cell[data-tone='danger'] {
+  --ui-status-grid-color: var(--ui-color-danger);
+}

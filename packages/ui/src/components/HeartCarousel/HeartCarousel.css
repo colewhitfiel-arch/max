@@ -1,0 +1,163 @@
+/* Макет главной родителя (ширина 402): выбранное сердце 112.5 по центру (верх на 148px),
+ * подпись 18px #0dd058; соседи — сердца 100 цвета #00da91 с подписью 16px, центры ровно
+ * по краям экрана и на 40px выше (верх на 108px). Отсюда: слот = половина ширины ленты,
+ * соседи — масштаб 100/112 и подъём 40px. Вид считает CSS из переменных, которые
+ * HeartCarousel.tsx обновляет на каждом кадре прокрутки:
+ *   --ui-heart-carousel-distance  |расстояние до центра| в слотах, 0…2;
+ *   --ui-heart-carousel-arc       подъём по дуге, 1 − cos(distance · π/2): 0 → 1 → 2;
+ *   --ui-heart-carousel-focus     близость к центру, 1 − distance (не меньше 0);
+ *   --ui-heart-carousel-offset    то же со знаком (слева < 0) — для своих эффектов. */
+.ui-heart-carousel {
+  --ui-heart-carousel-slot: 50vw;
+  --ui-heart-carousel-lift: 40px;
+  --ui-heart-carousel-shrink: 0.107;
+  position: relative;
+  min-width: 0;
+}
+
+.ui-heart-carousel[data-bleed] {
+  margin-inline: calc(-1 * var(--ui-space-4));
+}
+
+.ui-heart-carousel__viewport {
+  padding: var(--ui-heart-carousel-lift) 0 var(--ui-space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ui-heart-carousel__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+/* Мышь тянет ленту сама — snap выключается до остановки. */
+.ui-heart-carousel__viewport[data-dragging] {
+  scroll-snap-type: none;
+  cursor: grabbing;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-heart-carousel__viewport:not([data-dragging]) {
+    cursor: grab;
+  }
+}
+
+/* Поля по половине слота: первое и последнее сердце тоже встают в центр. */
+.ui-heart-carousel__track {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  width: max-content;
+  padding-inline: calc(var(--ui-heart-carousel-slot) / 2);
+}
+
+.ui-heart-carousel__list {
+  display: flex;
+  align-items: flex-start;
+}
+
+.ui-heart-carousel__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 var(--ui-heart-carousel-slot);
+  gap: var(--ui-space-1);
+  width: var(--ui-heart-carousel-slot);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Масштаб от верхнего края: верх сердца стоит на дуге, подпись едет вместе с ним. */
+  transform-origin: 50% 0;
+  transform: translate3d(
+      0,
+      calc(-1 * var(--ui-heart-carousel-lift) * var(--ui-heart-carousel-arc, 1)),
+      0
+    )
+    scale(calc(1 - var(--ui-heart-carousel-shrink) * var(--ui-heart-carousel-distance, 1)));
+  /* Соседи (distance ≤ 1.2) непрозрачны, дальше тают к двум слотам. */
+  opacity: calc((2 - var(--ui-heart-carousel-distance, 1)) * 1.25);
+  will-change: transform, opacity;
+}
+
+.ui-heart-carousel__heart {
+  transition: transform var(--ui-duration-fast) var(--ui-easing);
+}
+
+/* Нажатие — сердце чуть «проседает». */
+.ui-heart-carousel__item:active .ui-heart-carousel__heart {
+  transform: scale(0.96);
+}
+
+.ui-heart-carousel__label {
+  max-width: calc(100% - var(--ui-space-4));
+  overflow: hidden;
+  color: var(--ui-color-accent-2);
+  font-size: 18px;
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-heart-carousel__item[data-selected] .ui-heart-carousel__label {
+  color: var(--ui-color-accent-1);
+}
+
+.ui-heart-carousel__item[data-add] .ui-heart-carousel__label {
+  color: var(--ui-color-text);
+}
+
+/* Цвет сердца и подписи плавно перетекает от второго акцента к первому по мере
+ * приближения к центру (без color-mix — дискретно по выбору, через tone). */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-heart-carousel__item:not([data-add]) {
+    --ui-heart-carousel-tint: color-mix(
+      in srgb,
+      var(--ui-color-accent-1) calc(var(--ui-heart-carousel-focus, 0) * 100%),
+      var(--ui-color-accent-2)
+    );
+  }
+
+  .ui-heart-carousel__item:not([data-add]) .ui-heart-carousel__label {
+    color: var(--ui-heart-carousel-tint);
+  }
+
+  .ui-heart-carousel__item:not([data-add]) > .ui-heart-avatar[data-tone] {
+    --ui-heart-avatar-fill: var(--ui-heart-carousel-tint);
+  }
+}
+
+/* Фокус с клавиатуры — светлый ободок и свечение по контуру сердца. */
+.ui-heart-carousel__item:focus-visible .ui-heart-avatar__shape {
+  filter: drop-shadow(0 0 1px var(--ui-color-text)) drop-shadow(0 0 4px var(--ui-color-focus));
+}
+
+.ui-heart-carousel__item:focus-visible .ui-heart-carousel__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-heart-carousel__viewport {
+    scroll-behavior: auto;
+  }
+
+  .ui-heart-carousel__heart {
+    transition: none;
+  }
+}

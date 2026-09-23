@@ -27,6 +27,10 @@
   --ui-color-danger: #c90000;
   --ui-color-border: #d8dce3;
   --ui-color-focus: #0264ce;
+  /* Акценты «героя» экрана (сердце выбранного ребёнка, подпись) и второй акцент (соседние
+   * сердца, фон переключателя периода). Одинаковы в обеих темах; зелёные — в data-accent. */
+  --ui-color-accent-1: #0264ce;
+  --ui-color-accent-2: #1858fa;
   /* Декоративное свечение фона приложения (в светлой теме выключено). */
   --ui-color-bg-glow: transparent;
 
@@ -130,6 +134,42 @@
   --ui-color-bg-glow: rgba(13, 63, 208, 0.45);
   --ui-shadow-sm: none;
   --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * Акцент палитры (applyAccent из src/theme.ts): data-accent="green" на <html> — режим
+ * родителя из макета (primary #0cce02, сердце #2cda00, бирюзовый #00da91, зелёное свечение).
+ * Без атрибута — синий акцент ученика (значения выше).
+ * Светлая тема — более тёмные зелёные для контраста на белом (в макете её нет).
+ */
+:root[data-accent='green'] {
+  --ui-color-primary: #1a9a12;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-focus: #1a9a12;
+  --ui-color-accent-1: #21a800;
+  --ui-color-accent-2: #00a870;
+}
+
+/* Тёмная тема: системная. Специфичность выше базовых тёмных блоков — порядок не важен. */
+@media (prefers-color-scheme: dark) {
+  :root[data-accent='green']:not([data-theme='light']) {
+    --ui-color-primary: #0cce02;
+    --ui-color-primary-contrast: #ffffff;
+    --ui-color-focus: #2cda00;
+    --ui-color-accent-1: #2cda00;
+    --ui-color-accent-2: #00da91;
+    --ui-color-bg-glow: rgba(13, 208, 88, 0.35);
+  }
+}
+
+/* Тёмная тема: принудительная (значения продублированы, как и у базовых токенов). */
+:root[data-accent='green'][data-theme='dark'] {
+  --ui-color-primary: #0cce02;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-focus: #2cda00;
+  --ui-color-accent-1: #2cda00;
+  --ui-color-accent-2: #00da91;
+  --ui-color-bg-glow: rgba(13, 208, 88, 0.35);
 }
 
 @media (prefers-reduced-motion: reduce) {

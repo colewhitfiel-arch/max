@@ -1,19 +1,22 @@
 import type { LessonDto } from '@edu/contracts';
 import {
   BellIcon,
+  Button,
   CalendarClockIcon,
   Card,
+  type CardColumnAction,
   CardColumns,
   ChevronLeftIcon,
   ChevronRightIcon,
   EmptyState,
   IconButton,
   Inline,
+  PlusIcon,
   Skeleton,
   Stack,
   Text,
 } from '@edu/ui';
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { lessonsOfDay } from '@/entities/lesson';
 import {
@@ -41,6 +44,23 @@ export interface DayScheduleProps {
   onToggleCalendar?: () => void;
   /** Строка «календарь · день · колокольчик»: к ней пристыковывается шторка календаря. */
   headerRef?: Ref<HTMLElement>;
+  /**
+   * Своя вторая колонка вместо группы (главная родителя: «Репетитор» — преподаватель
+   * занятия). По умолчанию — название группы, как у ученика.
+   */
+  secondColumn?: DayScheduleColumn;
+  /**
+   * Действие под колонкой «Название» (главная родителя: полоса «+ Добавить кружок»).
+   * В день без занятий — кнопкой в пустом состоянии.
+   */
+  nameAction?: CardColumnAction;
+}
+
+export interface DayScheduleColumn {
+  header: ReactNode;
+  cell: (lesson: LessonDto) => ReactNode;
+  /** Не переносить (короткие значения вроде «Иванова М.»): ширина колонки — по содержимому. */
+  nowrap?: boolean;
 }
 
 function dayLabel(date: Date, locale: string, t: (key: string) => string) {
@@ -68,6 +88,8 @@ export function DaySchedule({
   calendarOpen = false,
   onToggleCalendar,
   headerRef,
+  secondColumn,
+  nameAction,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
   const now = new Date();
@@ -130,21 +152,35 @@ export function DaySchedule({
         <Skeleton height={110} aria-busy="true" />
       ) : dayLessons.length === 0 ? (
         <Card>
-          <EmptyState title={offset === 0 ? t('home.noLessonsToday') : t('home.noLessonsOnDay')} />
+          <EmptyState
+            title={offset === 0 ? t('home.noLessonsToday') : t('home.noLessonsOnDay')}
+            action={
+              nameAction && (
+                <Button size="sm" leftIcon={<PlusIcon />} onClick={nameAction.onClick}>
+                  {nameAction.label}
+                </Button>
+              )
+            }
+          />
         </Card>
       ) : (
         <CardColumns
           aria-label={label}
           columns={[
-            { key: 'name', header: t('home.columns.name'), fit: true },
-            { key: 'group', header: t('home.columns.group'), align: 'center' },
+            { key: 'name', header: t('home.columns.name'), fit: true, action: nameAction },
+            {
+              key: 'group',
+              header: secondColumn?.header ?? t('home.columns.group'),
+              align: 'center',
+              nowrap: secondColumn?.nowrap,
+            },
             { key: 'time', header: t('home.columns.time'), align: 'center', nowrap: true },
           ]}
           rows={dayLessons.map((lesson) => ({
             key: lesson.id,
             cells: {
               name: lesson.group.club.title,
-              group: lesson.group.title,
+              group: secondColumn ? secondColumn.cell(lesson) : lesson.group.title,
               time: (
                 <Text
                   as="span"

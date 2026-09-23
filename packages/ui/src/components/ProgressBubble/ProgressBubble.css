@@ -1,0 +1,106 @@
+/* Макет (круг 153.85, #1e1e1e): подпись 12px medium на 11px от верха, картинка 85px (55%)
+ * по центру, число 20px semibold + хвост 13px light #464646 у нижнего края.
+ * Все размеры внутри — доли диаметра, поэтому круг масштабируется целиком. Диаметр —
+ * зарегистрированное свойство: его смена анимируется, и содержимое едет вместе с кругом
+ * (без @property размер меняется скачком). */
+@property --ui-progress-bubble-size {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 150px;
+}
+
+.ui-progress-bubble {
+  --ui-progress-bubble-size: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: var(--ui-progress-bubble-size);
+  height: var(--ui-progress-bubble-size);
+  padding: calc(var(--ui-progress-bubble-size) * 0.073) calc(var(--ui-progress-bubble-size) * 0.1)
+    calc(var(--ui-progress-bubble-size) * 0.03);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  text-align: center;
+  user-select: none;
+  transition: --ui-progress-bubble-size calc(var(--ui-duration-normal) * 3) var(--ui-easing);
+}
+
+/* Длинное название («Программирование на Python») переносится максимум на две строки и
+ * обрезается многоточием (переносы по слогам, `lang` документа — ru). */
+.ui-progress-bubble__title {
+  display: -webkit-box;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(10px, calc(var(--ui-progress-bubble-size) * 0.078), 13px);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.ui-progress-bubble__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.ui-progress-bubble__image {
+  width: calc(var(--ui-progress-bubble-size) * 0.554);
+  max-height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+.ui-progress-bubble__value {
+  font-size: clamp(15px, calc(var(--ui-progress-bubble-size) * 0.13), 22px);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ui-progress-bubble__suffix {
+  color: #464646;
+  font-size: 0.65em;
+  font-weight: 300;
+}
+
+/* Две колонки «змейкой»: правые круги ниже на 48px (как в макете). */
+.ui-progress-bubble-group {
+  --ui-progress-bubble-group-offset: 48px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  justify-items: center;
+  column-gap: var(--ui-space-4);
+  row-gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.ui-progress-bubble-group[data-single] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ui-progress-bubble-group__item {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.ui-progress-bubble-group__item:nth-child(even) {
+  margin-top: var(--ui-progress-bubble-group-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-bubble {
+    transition: none;
+  }
+}

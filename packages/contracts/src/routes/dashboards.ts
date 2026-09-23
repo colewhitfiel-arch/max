@@ -16,6 +16,7 @@ import { AttendanceStatusSchema } from '../enums';
 import {
   AiTextSchema,
   AssignmentBriefSchema,
+  ClubBriefSchema,
   ClubProgressSchema,
   GroupBriefSchema,
   LessonDtoSchema,
@@ -58,6 +59,45 @@ export const AssignmentHistoryItemSchema = z.object({
   submittedAt: DateTimeSchema,
 });
 export type AssignmentHistoryItem = z.infer<typeof AssignmentHistoryItemSchema>;
+
+/**
+ * Статус задания в аналитике родителя и в профиле ученика (цвет клетки): DONE — зелёный,
+ * FAILED — красный, SOON — жёлтый (дедлайн ≤ 72 ч), LATER — серый. Правила — docs/04 §4.6.
+ */
+export const HOMEWORK_TASK_STATUSES = ['DONE', 'FAILED', 'SOON', 'LATER'] as const;
+export const HomeworkTaskStatusSchema = z.enum(HOMEWORK_TASK_STATUSES);
+export type HomeworkTaskStatus = z.infer<typeof HomeworkTaskStatusSchema>;
+
+/** Итоги по заданиям: correct = DONE, wrong = FAILED, upcoming = SOON + LATER. */
+export const HomeworkCountsSchema = z.object({
+  correct: z.number().int().nonnegative(),
+  wrong: z.number().int().nonnegative(),
+  upcoming: z.number().int().nonnegative(),
+});
+export type HomeworkCounts = z.infer<typeof HomeworkCountsSchema>;
+
+/** Задание группы в сетке статусов. */
+export const HomeworkTaskSchema = z.object({
+  assignmentId: IdSchema,
+  /** Порядковый номер внутри группы, с 1. */
+  number: z.number().int().positive(),
+  title: z.string(),
+  status: HomeworkTaskStatusSchema,
+  dueAt: DateTimeSchema.nullable(),
+  /** Балл в процентах от максимума; null — не сдано или не проверено. */
+  scorePercent: PercentSchema.nullable(),
+});
+export type HomeworkTask = z.infer<typeof HomeworkTaskSchema>;
+
+/** Задания по кружку: полоса итогов + сетка статусов. */
+export const ClubHomeworkSchema = z.object({
+  club: ClubBriefSchema,
+  group: GroupBriefSchema,
+  counts: HomeworkCountsSchema,
+  /** По порядку `number`. */
+  tasks: z.array(HomeworkTaskSchema),
+});
+export type ClubHomework = z.infer<typeof ClubHomeworkSchema>;
 
 // ---------- Ученик ----------
 
@@ -103,6 +143,12 @@ export const StudentProfileDtoSchema = z.object({
   streakDays: z.number().int().nonnegative().optional(),
   /** Кристаллы — как на главной (docs/04 §4.6). */
   points: z.number().int().nonnegative().optional(),
+  /** Текущая неделя (пн–вс) для дуги «Посещения» — как на главной. */
+  week: z.array(WeekDaySchema).optional(),
+  /** Итоги по заданиям («правильно» — как у кристаллов, docs/04 §4.6) для «Успеваемости». */
+  homework: HomeworkCountsSchema.optional(),
+  /** Задания по каждому кружку ученика. */
+  clubHomework: z.array(ClubHomeworkSchema).optional(),
 });
 export type StudentProfileDto = z.infer<typeof StudentProfileDtoSchema>;
 
@@ -137,8 +183,81 @@ export const ChildAnalyticsDtoSchema = z.object({
   recentResults: z.array(AssignmentResultSchema),
   attendanceHistory: z.array(AttendanceHistoryItemSchema),
   aiSummary: AiTextSchema,
+  /** Текущая неделя (пн–вс) для дуги «Посещения» — как на главной ученика. */
+  week: z.array(WeekDaySchema).optional(),
+  /** Итоги по всем заданиям для круговой диаграммы «Домашние задачи». */
+  homework: HomeworkCountsSchema.optional(),
+  /** Задания по каждому кружку ребёнка. */
+  clubHomework: z.array(ClubHomeworkSchema).optional(),
 });
 export type ChildAnalyticsDto = z.infer<typeof ChildAnalyticsDtoSchema>;
+
+/** Окна «Выполненные задания» на главной родителя, в днях. */
+export const HOMEWORK_PROGRESS_DAYS = [1, 7, 30] as const;
+export type HomeworkProgressDays = (typeof HOMEWORK_PROGRESS_DAYS)[number];
+export const HOMEWORK_PROGRESS_DEFAULT_DAYS: HomeworkProgressDays = 7;
+
+function isHomeworkProgressDays(value: number): value is HomeworkProgressDays {
+  return (HOMEWORK_PROGRESS_DAYS as readonly number[]).includes(value);
+}
+
+/** Query-параметры прогресса: `?days=1|7|30` (строка из query приводится к числу), по умолчанию 7. */
+export const HomeworkProgressQuerySchema = z.object({
+  days: z.coerce
+    .number()
+    .int()
+    .refine(isHomeworkProgressDays, { message: 'Ожидается 1, 7 или 30' })
+    .default(HOMEWORK_PROGRESS_DEFAULT_DAYS),
+});
+export type HomeworkProgressQuery = z.infer<typeof HomeworkProgressQuerySchema>;
+
+/** Прогресс по кружку за окно: done — сдано, recommended — задания с дедлайном в окне («*»). */
+export const ClubHomeworkProgressSchema = z.object({
+  club: ClubBriefSchema,
+  group: GroupBriefSchema,
+  done: z.number().int().nonnegative(),
+  recommended: z.number().int().nonnegative(),
+});
+export type ClubHomeworkProgress = z.infer<typeof ClubHomeworkProgressSchema>;
+
+export const ChildHomeworkProgressSchema = z.object({
+  /** Окно, за которое посчитано. */
+  days: z.number().int().positive(),
+  items: z.array(ClubHomeworkProgressSchema),
+});
+export type ChildHomeworkProgress = z.infer<typeof ChildHomeworkProgressSchema>;
+
+/** Языки подсветки кода в условии задания. */
+export const CODE_SNIPPET_LANGUAGES = ['python', 'cpp', 'javascript', 'text'] as const;
+export const CodeSnippetLanguageSchema = z.enum(CODE_SNIPPET_LANGUAGES);
+export type CodeSnippetLanguage = z.infer<typeof CodeSnippetLanguageSchema>;
+
+export const CodeSnippetSchema = z.object({
+  language: CodeSnippetLanguageSchema,
+  source: z.string(),
+});
+export type CodeSnippet = z.infer<typeof CodeSnippetSchema>;
+
+/** Задание с условием и ответом — экран подробной аналитики заданий. */
+export const HomeworkTaskDetailSchema = HomeworkTaskSchema.extend({
+  statement: z.string(),
+  code: CodeSnippetSchema.nullable(),
+  /** Ответ ребёнка; null — не сдано. */
+  answer: z.string().nullable(),
+  /** Эталон; показывается только после проверки. */
+  correctAnswer: z.string().nullable(),
+  /** null — не сдано или не проверено. */
+  score: z.number().int().nullable(),
+  maxScore: z.number().int().positive(),
+});
+export type HomeworkTaskDetail = z.infer<typeof HomeworkTaskDetailSchema>;
+
+export const GroupHomeworkTasksSchema = z.object({
+  group: GroupBriefSchema,
+  /** По порядку `number`. */
+  items: z.array(HomeworkTaskDetailSchema),
+});
+export type GroupHomeworkTasks = z.infer<typeof GroupHomeworkTasksSchema>;
 
 // ---------- Преподаватель ----------
 
@@ -243,6 +362,23 @@ export const dashboardsContract = c.router(
       query: PeriodQuerySchema,
       responses: { 200: ChildAnalyticsDtoSchema },
       summary: 'Аналитика ребёнка за период',
+      metadata: userRoute('parent:child.analytics.view'),
+    },
+    getParentChildHomeworkProgress: {
+      method: 'GET',
+      path: '/parent/children/:studentId/homework-progress',
+      pathParams: z.object({ studentId: IdSchema }),
+      query: HomeworkProgressQuerySchema,
+      responses: { 200: ChildHomeworkProgressSchema },
+      summary: 'Выполненные и рекомендованные задания ребёнка по кружкам за 1/7/30 дней',
+      metadata: userRoute('parent:child.home.view'),
+    },
+    getParentChildGroupTasks: {
+      method: 'GET',
+      path: '/parent/children/:studentId/groups/:groupId/tasks',
+      pathParams: z.object({ studentId: IdSchema, groupId: IdSchema }),
+      responses: { 200: GroupHomeworkTasksSchema },
+      summary: 'Задания группы ребёнка с условиями, ответами и статусами',
       metadata: userRoute('parent:child.analytics.view'),
     },
     getTeacherHome: {

@@ -1,0 +1,107 @@
+/*
+ * Макет «Задание N»: карточка #1e1e1e, радиус 12, отступ 16, моноширинный 12px,
+ * цвета VS Code Dark+. Блок всегда тёмный (как редактор), поэтому цвета — литералы, не токены.
+ */
+.ui-code-block {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--ui-radius-md);
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.ui-code-block__pre {
+  margin: 0;
+  padding: var(--ui-space-4);
+  /* Над первой строкой — место под «копировать» (отступ 4 + кнопка ~20.5px + зазор 4):
+   * длинная первая строка не уходит под кнопку. */
+  padding-top: calc(var(--ui-space-1) * 2 + 21px);
+  overflow-x: auto;
+  border-radius: inherit;
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.25;
+  white-space: pre;
+  tab-size: 4;
+  /* JetBrains Mono по умолчанию склеивает «<=» в «≤» — в задании нужен код как написан. */
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'calt' 0,
+    'liga' 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #464646 transparent;
+}
+
+.ui-code-block__pre:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+.ui-code-block__code {
+  font: inherit;
+}
+
+.ui-code-block__token[data-token='keyword'] {
+  color: #569cd6;
+}
+.ui-code-block__token[data-token='control'] {
+  color: #c586c0;
+}
+.ui-code-block__token[data-token='function'] {
+  color: #dcdcaa;
+}
+.ui-code-block__token[data-token='identifier'] {
+  color: #9cdcfe;
+}
+.ui-code-block__token[data-token='number'] {
+  color: #b5cea8;
+}
+.ui-code-block__token[data-token='string'] {
+  color: #ce9178;
+}
+.ui-code-block__token[data-token='comment'] {
+  color: #6a9955;
+}
+
+/* «копировать» в углу: иконка 12.5px + подпись 8.4px; код начинается ниже кнопки
+ * (padding-top у pre), псевдоэлемент расширяет зону нажатия. */
+.ui-code-block__copy {
+  position: absolute;
+  top: var(--ui-space-1);
+  right: var(--ui-space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 2.8px;
+  padding: var(--ui-space-1);
+  border: 0;
+  border-radius: 6px;
+  background: #1e1e1e;
+  color: #dadada;
+  font-family: var(--ui-font-family);
+  font-size: 8.4px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-code-block__copy::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.ui-code-block__copy[data-copied] {
+  color: var(--ui-color-success);
+}
+
+.ui-code-block__copy:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  .ui-code-block__copy:hover {
+    color: #ffffff;
+  }
+}

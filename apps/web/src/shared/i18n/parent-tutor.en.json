@@ -1,0 +1,25 @@
+{
+  "title": "AI tutor",
+  "about": "about: {{name}}",
+  "typing": "typing…",
+  "you": "You",
+  "greeting": "Hello, {{name}}!",
+  "greetingAnon": "Hello!",
+  "intro": "I will tell you how {{name}} is doing: attendance, homework and where support is needed",
+  "suggestions": {
+    "progress": "How has {{name}} been doing lately?",
+    "overdue": "Which assignments are overdue?",
+    "help": "Where is help needed?",
+    "motivation": "How can I support motivation?"
+  },
+  "placeholder": "Ask about your child…",
+  "send": "Send",
+  "stop": "Stop",
+  "switchChild": "Switch child",
+  "childSheet": "Who shall we talk about?",
+  "noChildren": {
+    "title": "Nobody to talk about yet",
+    "description": "Add a child and the tutor will tell you how they are doing, what is overdue and where help is needed",
+    "action": "Add a child"
+  }
+}

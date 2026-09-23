@@ -406,8 +406,10 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
 export function materializeDemoLessons(now: Date = new Date(), tzOffsetMinutes = 180): Lesson[] {
   return demoLessonSpecs.map((spec) => {
     const [h, m] = spec.startTime.split(':').map(Number) as [number, number];
+    // День берём по часам школы, а не по UTC: иначе с 00:00 до 03:00 МСК «сегодня» уезжает на вчера.
+    const local = new Date(now.getTime() + tzOffsetMinutes * 60_000);
     const base = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + spec.dayOffset),
+      Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + spec.dayOffset),
     );
     const startsAt = new Date(base.getTime() + (h * 60 + m - tzOffsetMinutes) * 60_000);
     const endsAt = new Date(startsAt.getTime() + spec.durationMin * 60_000);

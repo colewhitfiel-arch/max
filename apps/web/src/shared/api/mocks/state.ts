@@ -1,6 +1,7 @@
 /**
- * Изменяемое состояние демо-мира для MSW: копии фикстур + то, что меняют мутации
- * (сессии, настройки, привязки, прогресс, сдачи, уведомления, диалоги). Живёт до перезагрузки.
+ * Изменяемое состояние демо-мира для MSW: копии фикстур + дополнения моков (`world-extras.ts`)
+ * + то, что меняют мутации (сессии, настройки, привязки, прогресс, сдачи, уведомления, диалоги,
+ * кошельки, приглашения). Живёт до перезагрузки.
  */
 import type {
   AiConversation,
@@ -56,6 +57,7 @@ import {
   demoUsers,
   materializeDemoLessons,
 } from '@edu/contracts/fixtures';
+import { buildWorldExtras, DEMO_WALLET_START_KOPECKS, type MockInvite } from './world-extras';
 
 export type MockUser = DemoUser;
 export type MockNotification = NotificationEntity & { userId: string };
@@ -65,10 +67,12 @@ function clone<T>(value: T): T {
 }
 
 function buildState() {
-  const users = new Map<string, MockUser>();
-  for (const user of Object.values(demoUsers)) users.set(user.id, clone(user));
   const now = new Date();
   const dayMs = 86_400_000;
+  const extras = buildWorldExtras(now);
+  const users = new Map<string, MockUser>();
+  for (const user of [...Object.values(demoUsers), ...extras.users])
+    users.set(user.id, clone(user));
 
   const extraNotifications: MockNotification[] = [
     { ...clone(demoNotification), userId: demoNotificationUserId },
@@ -165,15 +169,19 @@ function buildState() {
     users,
     students: clone(demoStudents) as StudentProfile[],
     parents: clone(demoParents) as ParentProfile[],
-    teachers: clone(demoTeachers) as TeacherProfile[],
+    teachers: clone([...demoTeachers, ...extras.teachers]) as TeacherProfile[],
     links: clone(demoParentLinks) as ParentStudentLink[],
     settings: new Map<string, UserSettings>(),
-    clubs: clone(demoClubs) as Club[],
-    groups: clone(demoGroups) as Group[],
-    enrollments: clone(demoEnrollments) as Enrollment[],
-    scheduleRules: clone(demoScheduleRules) as ScheduleRule[],
-    lessons: materializeDemoLessons(now) as Lesson[],
-    attendance: clone(demoAttendance) as Attendance[],
+    clubs: clone([...demoClubs, ...extras.clubs]) as Club[],
+    groups: clone([...demoGroups, ...extras.groups]) as Group[],
+    enrollments: clone([...demoEnrollments, ...extras.enrollments]) as Enrollment[],
+    scheduleRules: clone([...demoScheduleRules, ...extras.scheduleRules]) as ScheduleRule[],
+    // Пояс браузера вместо МСК: «сегодняшние» занятия остаются сегодняшними в любом TZ.
+    lessons: [
+      ...materializeDemoLessons(now, -now.getTimezoneOffset()),
+      ...extras.lessons,
+    ] as Lesson[],
+    attendance: clone([...demoAttendance, ...extras.attendance]) as Attendance[],
     courses: [clone(demoCourse)] as Course[],
     modules: clone(demoModules) as CourseModule[],
     blocks: clone(demoBlocks) as CourseBlock[],
@@ -202,7 +210,9 @@ function buildState() {
     payments: [clone(demoPayment)] as Payment[],
     paidPeriods: [clone(demoPaidPeriod)] as PaidPeriod[],
     notifications: extraNotifications,
-    conversations: [clone(demoConversation)] as AiConversation[],
+    conversations: [clone(demoConversation), extras.parentConversation] as AiConversation[],
+    /** Диалоги родителя с тьютором о ребёнке (userId — родитель, studentId — ребёнок). */
+    parentConversationIds: new Set<string>([extras.parentConversation.id]),
     /** Спрос на кружки из онбординга (student_club_interests). */
     clubInterests: [] as Array<{
       studentId: string;
@@ -211,15 +221,31 @@ function buildState() {
       score: number | null;
       reason: string | null;
     }>,
-    messages: clone(demoMessages) as AiMessage[],
+    messages: [...clone(demoMessages), ...extras.parentMessages] as AiMessage[],
     trajectories: [trajectory] as Trajectory[],
     generationJobs: [] as CourseGenerationJob[],
-    /** Загруженные файлы (мета + текст для text/*): владелец, подтверждение, содержимое. */
+    /**
+     * Загруженные файлы (мета + текст для text/*, байты картинок): владелец, подтверждение,
+     * содержимое; `objectUrl` — локальная ссылка на картинку (аватар), живёт вместе с миром.
+     */
     files: [] as Array<
-      FileDto & { ownerUserId: string; confirmed: boolean; uploaded: boolean; text: string | null }
+      FileDto & {
+        ownerUserId: string;
+        confirmed: boolean;
+        uploaded: boolean;
+        text: string | null;
+        blob: Blob | null;
+        objectUrl: string | null;
+      }
     >,
-    /** userId → maxUserId для ad-hoc dev-пользователей. */
-    maxIds: new Map<string, string>(Object.values(demoUsers).map((u) => [u.maxUserId, u.id])),
+    /** Кошельки родителей (заглушка, docs/07 F13): parentId → баланс в копейках. */
+    wallets: new Map<string, number>([[DEMO_IDS.parents.olga, DEMO_WALLET_START_KOPECKS]]),
+    /** Пополнения по Idempotency-Key: `${parentId}:${key}` → сумма и баланс после. */
+    walletTopUps: new Map<string, { amountKopecks: number; balanceAfter: number }>(),
+    /** Приглашения ребёнка по ссылке (docs/07 F14). */
+    invites: extras.invites as MockInvite[],
+    /** maxUserId → userId для dev-входа (демо + ad-hoc пользователи). */
+    maxIds: new Map<string, string>([...users.values()].map((u) => [u.maxUserId, u.id])),
   };
 }
 

@@ -21,6 +21,7 @@ export {
   GemIcon,
   GlobeIcon,
   HeartIcon,
+  HeartShapeIcon,
   HomeIcon,
   InboxIcon,
   LifebuoyIcon,
@@ -28,6 +29,7 @@ export {
   LockIcon,
   LogoutIcon,
   MoonIcon,
+  PieChartIcon,
   PlusIcon,
   RefreshIcon,
   SearchIcon,
@@ -41,4 +43,5 @@ export {
   TrashIcon,
   UserIcon,
   UsersIcon,
+  WalletIcon,
 } from './icons';

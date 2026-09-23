@@ -24,7 +24,7 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
   now, timezone }
 ```
 
-Промпты (id@version): `onboarding.dialog@1`, `onboarding.profile-extract@1`, `onboarding.recommend@1`, `tutor.system@1`, `insight.student-home@1`, `insight.parent-summary@1`, `insight.teacher-student@1`, `trajectory@1`, `course.outline@1`, `course.generate-module@1`, `course.summarize-chunk@1`.
+Промпты (id@version): `onboarding.dialog@1`, `onboarding.profile-extract@1`, `onboarding.recommend@1`, `tutor.system@1`, `tutor.parent@1`, `insight.student-home@1`, `insight.parent-summary@1`, `insight.teacher-student@1`, `trajectory@1`, `course.outline@1`, `course.generate-module@1`, `course.summarize-chunk@1`.
 
 ## 6.4. `packages/ui` — дизайн-система (mobile-first, WebView MAX)
 

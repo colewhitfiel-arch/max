@@ -6,6 +6,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { adminRoutes } from '@/pages/admin/routes';
 import { authRoutes } from '@/pages/auth/routes';
 import { forbiddenRoute } from '@/pages/forbidden/routes';
+import { inviteRoutes } from '@/pages/invite/routes';
 import { notFoundRoute } from '@/pages/not-found/routes';
 import { notificationsRoutes } from '@/pages/notifications/routes';
 import { onboardingRoutes } from '@/pages/onboarding/routes';
@@ -14,7 +15,10 @@ import { parentChildrenRoutes } from '@/pages/parent/children/routes';
 import { parentCoursesRoutes } from '@/pages/parent/courses/routes';
 import { parentHomeRoutes } from '@/pages/parent/home/routes';
 import { parentPaymentsRoutes } from '@/pages/parent/payments/routes';
+import { parentProfileRoutes } from '@/pages/parent/profile/routes';
 import { parentSettingsRoutes } from '@/pages/parent/settings/routes';
+import { parentTutorRoutes } from '@/pages/parent/tutor/routes';
+import { parentWalletRoutes } from '@/pages/parent/wallet/routes';
 import { studentAssignmentsRoutes } from '@/pages/student/assignments/routes';
 import { studentCoursesRoutes } from '@/pages/student/courses/routes';
 import { studentHomeRoutes } from '@/pages/student/home/routes';
@@ -64,11 +68,14 @@ export const routes: RouteObject[] = [
     element: <ParentShell />,
     children: [
       ...parentHomeRoutes,
+      ...parentWalletRoutes,
       ...parentChildrenRoutes,
+      ...parentTutorRoutes,
       ...parentAnalyticsRoutes,
       ...parentCoursesRoutes,
       ...parentPaymentsRoutes,
       ...parentSettingsRoutes,
+      ...parentProfileRoutes,
     ],
   },
   {
@@ -86,6 +93,8 @@ export const routes: RouteObject[] = [
     ],
   },
   { path: '/notifications', element: <RequireAuth />, children: notificationsRoutes },
+  // Ссылка-приглашение родителя (F14): открывает ученик, роль проверяет сама страница.
+  { path: '/invite', element: <RequireAuth />, children: inviteRoutes },
   { path: '/admin', element: <RequireAuth />, children: adminRoutes },
   ...devRoutes,
   { path: '/403', ...forbiddenRoute },

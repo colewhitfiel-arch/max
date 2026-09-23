@@ -3,7 +3,8 @@ import { cx } from '../../lib/cx';
 import { Spinner } from '../Spinner';
 import './Button.css';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+/** `link` — текстовая кнопка без подложки («Подробнее» / «Скрыть»). */
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -19,6 +20,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   leftIcon?: ReactNode;
   /** Иконка справа от текста. */
   rightIcon?: ReactNode;
+  /** Подчеркнуть текст (для `variant="link"`: «Скрыть» в раскрытом блоке). */
+  underline?: boolean;
 }
 
 /** Кнопка. `type` по умолчанию `button`, чтобы не сабмитить формы случайно. */
@@ -30,6 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     fullWidth = false,
     leftIcon,
     rightIcon,
+    underline = false,
     disabled,
     type = 'button',
     className,
@@ -46,6 +50,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-variant={variant}
       data-size={size}
       data-full-width={fullWidth || undefined}
+      data-underline={underline || undefined}
       data-loading={loading || undefined}
       disabled={disabled || loading}
       aria-busy={loading || undefined}

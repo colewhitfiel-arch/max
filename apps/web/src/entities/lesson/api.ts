@@ -13,13 +13,20 @@ export function useStudentCalendar(period: PeriodQuery, { enabled = true } = {})
   });
 }
 
-/** `GET /parent/children/:studentId/calendar`. */
-export function useChildCalendar(studentId: string | null, period: PeriodQuery) {
+/**
+ * `GET /parent/children/:studentId/calendar?from&to`; `enabled: false` — не запрашивать
+ * (на главной родителя — пока календарь закрыт и день в пределах недели главной).
+ */
+export function useChildCalendar(
+  studentId: string | null,
+  period: PeriodQuery,
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: lessonKeys.childCalendar(studentId ?? '', period),
     queryFn: () =>
       call(api.groups.getParentChildCalendar({ params: { studentId: studentId! }, query: period })),
-    enabled: !!studentId,
+    enabled: !!studentId && enabled,
   });
 }
 

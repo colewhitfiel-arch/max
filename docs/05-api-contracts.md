@@ -11,7 +11,7 @@
 - Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`.
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
-- Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`.
+- Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`.
 - Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `ai.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
@@ -53,6 +53,7 @@ POST /auth/switch-role    auth     { role: Role } → AuthResult
 POST /auth/logout         auth     { refreshToken } → 204
 GET  /me                  auth     → MeDto
 PATCH /me/settings        auth     { theme?: Theme, locale?: Locale } → MeDto
+PUT  /me/avatar           auth     { fileId: Id | null } → MeDto   // файл purpose AVATAR (files flow); null — убрать фото
 POST /student/link-code/rotate  student → { linkCode }
 
 AuthResult = { accessToken, refreshToken, me: MeDto }
@@ -72,7 +73,10 @@ GET /student/home        → { today: LessonDto[], upcoming: LessonDto[] /* 7 д
                              streakDays?: number /* серия дней с активностью */, points?: number /* баллы */ }
 GET /student/profile     → { user: UserBrief, classLabel?, school?: { id, name }, clubs: ClubProgress[],
                              stats: StatsBrief, interests: string[], goals: string[],
-                             streakDays?: number, points?: number /* как на главной */ }
+                             streakDays?: number, points?: number /* как на главной */,
+                             week?: WeekDay[] /* дуга «Посещения», как на главной */,
+                             homework?: HomeworkCounts /* «правильно» — как у кристаллов, docs/04 §4.6 */,
+                             clubHomework?: [{ club: ClubBrief, group: GroupBrief, counts: HomeworkCounts, tasks: HomeworkTask[] }] }
 
 GET /parent/children/:studentId/home
                          → { student: StudentBrief, today: LessonDto[], upcoming: LessonDto[],
@@ -82,7 +86,15 @@ GET /parent/children/:studentId/home
 GET /parent/children/:studentId/analytics?from&to
                          → { stats: StatsBrief, clubs: ClubProgress[], weekly: WeeklyPoint[],
                              recentResults: [{ assignment: AssignmentBrief, score, maxScore, submittedAt, isLate }],
-                             attendanceHistory: [{ lesson: LessonDto, status: AttendanceStatus }], aiSummary: AiText }
+                             attendanceHistory: [{ lesson: LessonDto, status: AttendanceStatus }], aiSummary: AiText,
+                             week?: WeekDay[] /* пн–вс, дуга «Посещения», как у ученика */,
+                             homework?: HomeworkCounts /* круговая диаграмма «Домашние задачи» */,
+                             clubHomework?: [{ club: ClubBrief, group: GroupBrief, counts: HomeworkCounts, tasks: HomeworkTask[] }] }
+GET /parent/children/:studentId/homework-progress?days=1|7|30   /* по умолчанию 7 */
+                         → { days, items: [{ club: ClubBrief, group: GroupBrief, done, recommended }] }
+                             // «Выполненные задания» на главной родителя; формула — docs/04 §4.6
+GET /parent/children/:studentId/groups/:groupId/tasks
+                         → { group: GroupBrief, items: HomeworkTaskDetail[] }   // экран «Задания» (подробная аналитика)
 
 GET /teacher/home        → { today: LessonDto[], upcoming: LessonDto[], groups: GroupCard[],
                              toGrade: [{ assignment: AssignmentBrief, pendingCount }],
@@ -101,7 +113,13 @@ GET /teacher/students/:studentId
                              aiSummary: AiText, needsAttention: string[] }
 
 GroupCard = GroupBrief & { studentsCount, attendanceRate, completionRate, needsAttentionCount, nextLesson?: LessonDto }
+WeekDay = { date: DateOnly, status: ATTENDED|MISSED|TODAY|UPCOMING|NO_LESSONS }
+HomeworkCounts = { correct /* DONE */, wrong /* FAILED */, upcoming /* SOON + LATER */ }
+HomeworkTask = { assignmentId, number /* 1.. внутри группы */, title, status: DONE|FAILED|SOON|LATER, dueAt?, scorePercent? }
+HomeworkTaskDetail = HomeworkTask & { statement, code?: { language: python|cpp|javascript|text, source }, answer?, correctAnswer?,
+                                      score?, maxScore }
 ```
+Статусы заданий (DONE / FAILED / SOON / LATER) и окно `days` — docs/04 §4.6.
 
 ### `catalog.ts` — владелец B2
 ```
@@ -199,6 +217,12 @@ GET  /ai/conversations/:id/messages?cursor → Paginated<AiMessageDto>
 POST /ai/conversations/:id/messages      { text } → SSE token/done/error      // rate limit: AI_TUTOR_DAILY_LIMIT
 DELETE /ai/conversations/:id             → 204
 
+GET  /parent/children/:studentId/ai/conversations?cursor → Paginated<ConversationDto>   // тьютор родителя о ребёнке
+POST /parent/children/:studentId/ai/conversations        → ConversationDto (kind TUTOR)
+GET  /parent/ai/conversations/:id/messages?cursor        → Paginated<AiMessageDto>
+POST /parent/ai/conversations/:id/messages { text } → SSE token/done/error               // промпт tutor.parent; лимит как у ученика
+                                          // доступ: родитель ↔ ребёнок ACTIVE (FamilyService), иначе 403
+
 GET  /student/trajectory                 → TrajectoryDto | null
 POST /student/trajectory/refresh         → 202 { queued: true }               // rate limit 1/сутки
 
@@ -215,7 +239,11 @@ POST   /parent/children/link             { code } → { student: StudentBrief, l
 DELETE /parent/children/:studentId       → 204 (REVOKED)
 GET    /parent/children/:studentId/clubs → { items: [{ club: ClubCard, group: GroupBrief, enrollmentId, schedule: ScheduleRuleDto[],
                                               progress: ClubProgress, paidUntil?: string, nextPaymentAt: string, price: Money }] }
+POST   /parent/children/invites          → { token, url, expiresAt }   // ссылка-приглашение ребёнку, живёт 7 дней
+GET    /student/parent-invites/:token    student → { token, parent: UserBrief, expiresAt, status: PENDING|ACCEPTED|EXPIRED }
+POST   /student/parent-invites/:token/accept student → { parent: UserBrief, linkStatus }   // связь → ACTIVE
 ```
+`url` строит сервер: сейчас `${origin}/invite/${token}` (экран `/invite/:token`); формат deep link MAX — TODO (workstream J). Поток — docs/07 F14.
 
 ### `payments.ts` — владелец B8
 ```
@@ -223,6 +251,8 @@ GET  /parent/children/:studentId/payments → { periods: [{ enrollmentId, club: 
                                                history: Paginated<PaymentDto> }
 POST /parent/children/:studentId/payments { enrollmentId, periodsCount: 1..12 } → { paymentId, confirmationUrl, amount: Money }   // Idempotency-Key
 GET  /parent/payments/:paymentId          → PaymentDto
+GET  /parent/wallet                       → { balance: Money }
+POST /parent/wallet/top-up                { amountKopecks: 10000..10000000 } → { balance: Money }   // Idempotency-Key; ЗАГЛУШКА (docs/07 F13)
 POST /webhooks/payments/:provider         public (подпись) → 200
 
 PaymentDto = { id, club: ClubBrief, student: StudentBrief, amount: Money, status: PaymentStatus, periodsCount, createdAt, paidAt?, confirmationUrl? }

@@ -11,7 +11,8 @@ import { api, call, setApiAuthAdapter } from '../client';
 import { ApiClientError } from '../errors';
 import { streamSse } from '../sse';
 import { handlers } from './handlers';
-import { resetMockDb } from './state';
+import { db, resetMockDb } from './state';
+import { MOCK_IDS, MOCK_INVITE_TOKENS } from './world-extras';
 
 const server = setupServer(...handlers);
 
@@ -74,6 +75,16 @@ describe('mock world (msw/node)', () => {
 
     const profile = await call(api.dashboards.getStudentProfile());
     expect(profile.school?.name).toContain('Школа');
+    // «Успеваемость»: неделя посещений и только настоящие задания — сгенерированные для
+    // аналитики родителя ученик не видит (клетка открывает /student/assignments/:id).
+    expect(profile.week).toHaveLength(7);
+    const profileTasks = profile.clubHomework?.flatMap((club) => club.tasks) ?? [];
+    expect(profileTasks.length).toBeGreaterThan(0);
+    expect(
+      profileTasks.every((task) => db.assignments.some((a) => a.id === task.assignmentId)),
+    ).toBe(true);
+    const totals = profile.homework!;
+    expect(totals.correct + totals.wrong + totals.upcoming).toBe(profileTasks.length);
 
     const calendar = await call(
       api.groups.getStudentCalendar({ query: { from: '2020-01-01', to: '2099-01-01' } }),
@@ -140,7 +151,8 @@ describe('mock world (msw/node)', () => {
     expect(afterRead.unreadCount).toBe(0);
 
     const catalog = await call(api.catalog.listClubs({ query: {} }));
-    expect(catalog.items).toHaveLength(2);
+    // 2 кружка из фикстур + шахматы, математика и английский из world-extras.
+    expect(catalog.items).toHaveLength(5);
     expect(catalog.items[0]?.schedulePreview[0]).toMatch(/^Пн /);
 
     const updated = await call(api.auth.updateSettings({ body: { theme: 'DARK' } }));
@@ -181,7 +193,8 @@ describe('mock world (msw/node)', () => {
       api.dashboards.getParentChildHome({ params: { studentId: DEMO_IDS.students.dasha } }),
     );
     expect(home.student.user.firstName).toBe('Даша');
-    expect(home.missed).toHaveLength(1);
+    // Робототехника (фикстуры) + шахматы (world-extras).
+    expect(home.missed).toHaveLength(2);
 
     const analytics = await call(
       api.dashboards.getParentChildAnalytics({
@@ -230,6 +243,343 @@ describe('mock world (msw/node)', () => {
       code: 'NOT_FOUND',
     });
   });
+
+  it('родитель: аналитика заданий, прогресс за окно, задания группы, политика связи', async () => {
+    await loginAs('parent');
+    const alexey = DEMO_IDS.students.alexey;
+
+    const analytics = await call(
+      api.dashboards.getParentChildAnalytics({ params: { studentId: alexey }, query: {} }),
+    );
+    expect(analytics.week).toHaveLength(7);
+    expect(analytics.week?.filter((d) => d.status === 'TODAY')).toHaveLength(1);
+    const robotics = analytics.clubHomework?.find((c) => c.group.id === DEMO_IDS.groups.roboticsA);
+    const programming = analytics.clubHomework?.find(
+      (c) => c.group.id === DEMO_IDS.groups.programmingA,
+    );
+    expect(robotics?.tasks).toHaveLength(45);
+    expect(programming?.tasks).toHaveLength(30);
+    expect(robotics?.tasks.map((t) => t.number)).toEqual(
+      Array.from({ length: 45 }, (_, i) => i + 1),
+    );
+    // В сетке есть все четыре цвета: зелёный, красный, жёлтый, серый.
+    expect(new Set(robotics?.tasks.map((t) => t.status))).toEqual(
+      new Set(['DONE', 'FAILED', 'SOON', 'LATER']),
+    );
+    // Настоящая сдача Алексея (85 из 100) — зелёная клетка.
+    expect(
+      programming?.tasks.find((t) => t.assignmentId === DEMO_IDS.assignments.simpleHomework),
+    ).toMatchObject({ status: 'DONE', scorePercent: 85 });
+    for (const club of analytics.clubHomework ?? []) {
+      const { correct, wrong, upcoming } = club.counts;
+      expect(correct + wrong + upcoming).toBe(club.tasks.length);
+      expect(correct).toBe(club.tasks.filter((t) => t.status === 'DONE').length);
+    }
+    expect(analytics.homework).toEqual({
+      correct: robotics!.counts.correct + programming!.counts.correct,
+      wrong: robotics!.counts.wrong + programming!.counts.wrong,
+      upcoming: robotics!.counts.upcoming + programming!.counts.upcoming,
+    });
+    // Детерминированно: повторный запрос — та же картина.
+    const again = await call(
+      api.dashboards.getParentChildAnalytics({ params: { studentId: alexey }, query: {} }),
+    );
+    expect(again.clubHomework).toEqual(analytics.clubHomework);
+
+    const tasks = await call(
+      api.dashboards.getParentChildGroupTasks({
+        params: { studentId: alexey, groupId: DEMO_IDS.groups.roboticsA },
+      }),
+    );
+    expect(tasks.group.club.title).toBe('Робототехника');
+    expect(tasks.items.map((t) => t.assignmentId)).toEqual(
+      robotics?.tasks.map((t) => t.assignmentId),
+    );
+    expect(tasks.items.some((t) => t.code?.language === 'python')).toBe(true);
+    expect(tasks.items.some((t) => t.code?.language === 'cpp')).toBe(true);
+    const wrongAnswer = tasks.items.find((t) => t.status === 'FAILED' && t.answer);
+    expect(wrongAnswer?.correctAnswer).toBeTruthy();
+    expect(wrongAnswer?.answer).not.toBe(wrongAnswer?.correctAnswer);
+    expect(tasks.items.find((t) => t.status === 'SOON')).toMatchObject({
+      answer: null,
+      score: null,
+    });
+    await expect(
+      call(
+        api.dashboards.getParentChildGroupTasks({
+          params: { studentId: alexey, groupId: MOCK_IDS.groups.chessA },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    const byDays = await Promise.all(
+      ([1, 7, 30] as const).map((days) =>
+        call(
+          api.dashboards.getParentChildHomeworkProgress({
+            params: { studentId: alexey },
+            query: { days },
+          }),
+        ),
+      ),
+    );
+    const [d1, d7, d30] = byDays;
+    expect(d7?.days).toBe(7);
+    expect(d30?.items).toHaveLength(2);
+    d30?.items.forEach((item, i) => {
+      expect(d1!.items[i]!.done).toBeLessThanOrEqual(d7!.items[i]!.done);
+      expect(d7!.items[i]!.done).toBeLessThanOrEqual(item.done);
+      expect(d7!.items[i]!.recommended).toBeLessThanOrEqual(item.recommended);
+      expect(item.recommended).toBeGreaterThan(0);
+    });
+    const byDefault = await call(
+      api.dashboards.getParentChildHomeworkProgress({ params: { studentId: alexey }, query: {} }),
+    );
+    expect(byDefault).toEqual(d7);
+
+    // Даша: робототехника + шахматы (шахматы есть только в моках) — как в макете.
+    const dasha = await call(
+      api.dashboards.getParentChildHomeworkProgress({
+        params: { studentId: DEMO_IDS.students.dasha },
+        query: { days: 30 },
+      }),
+    );
+    expect(dasha.items.map((i) => i.club.title).sort()).toEqual(['Робототехника', 'Шахматы']);
+
+    // Мария-родитель привязана только к Даше: Алексей для неё — чужой ребёнок.
+    await loginAs('teacher', 'PARENT');
+    await expect(
+      call(
+        api.dashboards.getParentChildHomeworkProgress({
+          params: { studentId: alexey },
+          query: {},
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      call(
+        api.dashboards.getParentChildGroupTasks({
+          params: { studentId: alexey, groupId: DEMO_IDS.groups.roboticsA },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('родитель: кошелёк-заглушка и фото профиля', async () => {
+    await loginAs('parent');
+    const wallet = await call(api.payments.getWallet());
+    expect(wallet.balance).toEqual({ amountKopecks: 670_000, currency: 'RUB' });
+    const topUp = () =>
+      call(
+        api.payments.topUpWallet({
+          body: { amountKopecks: 50_000 },
+          headers: { 'idempotency-key': 'top-up-1' },
+        }),
+      );
+    expect((await topUp()).balance.amountKopecks).toBe(720_000);
+    // Повтор с тем же ключом не зачисляет второй раз.
+    expect((await topUp()).balance.amountKopecks).toBe(720_000);
+    expect((await call(api.payments.getWallet())).balance.amountKopecks).toBe(720_000);
+    await expect(
+      call(
+        api.payments.topUpWallet({
+          body: { amountKopecks: 100 },
+          headers: { 'idempotency-key': 'top-up-2' },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    const target = await call(
+      api.files.createUploadUrl({
+        body: { fileName: 'me.png', mime: 'image/png', sizeBytes: 4, purpose: 'AVATAR' },
+      }),
+    );
+    await fetch(target.uploadUrl, {
+      method: 'PUT',
+      headers: target.headers,
+      body: new Uint8Array([137, 80, 78, 71]),
+    });
+    const file = await call(api.files.confirmUpload({ params: { fileId: target.fileId } }));
+    const download = await fetch(file.url!);
+    expect(download.headers.get('content-type')).toBe('image/png');
+    expect(new Uint8Array(await download.arrayBuffer())).toEqual(new Uint8Array([137, 80, 78, 71]));
+    const me = await call(api.auth.updateAvatar({ body: { fileId: target.fileId } }));
+    expect(me.user.avatarUrl).toMatch(/^blob:/);
+    expect((await call(api.auth.getMe())).user.avatarUrl).toBe(me.user.avatarUrl);
+    const cleared = await call(api.auth.updateAvatar({ body: { fileId: null } }));
+    expect(cleared.user.avatarUrl).toBeNull();
+    await expect(
+      call(api.auth.updateAvatar({ body: { fileId: DEMO_IDS.course } })),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('приглашение ребёнка по ссылке: создание, просмотр, принятие, ошибки', async () => {
+    await loginAs('parent');
+    const invite = await call(api.family.createChildInvite());
+    expect(invite.token.length).toBeGreaterThanOrEqual(16);
+    expect(invite.url).toBe(`http://localhost/invite/${invite.token}`);
+    // Роль не та — 403.
+    await expect(
+      call(api.family.getParentInvite({ params: { token: invite.token } })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const kid = await call(
+      api.auth.loginDev({ body: { maxUserId: 'max-invited-kid', roles: ['STUDENT'] } }),
+    );
+    session(kid);
+    const seen = await call(api.family.getParentInvite({ params: { token: invite.token } }));
+    expect(seen).toMatchObject({ status: 'PENDING', parent: { firstName: 'Ольга' } });
+    const accepted = await call(api.family.acceptParentInvite({ params: { token: invite.token } }));
+    expect(accepted).toMatchObject({ linkStatus: 'ACTIVE', parent: { lastName: 'Смирнова' } });
+    // Повтор тем же ребёнком — идемпотентно.
+    await call(api.family.acceptParentInvite({ params: { token: invite.token } }));
+    expect(
+      (await call(api.family.getParentInvite({ params: { token: invite.token } }))).status,
+    ).toBe('ACCEPTED');
+    await expect(
+      call(api.family.acceptParentInvite({ params: { token: MOCK_INVITE_TOKENS.expired } })),
+    ).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+    expect(
+      (await call(api.family.getParentInvite({ params: { token: MOCK_INVITE_TOKENS.expired } })))
+        .status,
+    ).toBe('EXPIRED');
+    await expect(
+      call(api.family.getParentInvite({ params: { token: 'no-such-invite' } })),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    // Чужое уже принятое приглашение — конфликт; действующее от Марии Алексей принимает.
+    await loginAs('student1');
+    await expect(
+      call(api.family.acceptParentInvite({ params: { token: invite.token } })),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    const fromMaria = await call(
+      api.family.acceptParentInvite({ params: { token: MOCK_INVITE_TOKENS.pending } }),
+    );
+    expect(fromMaria.parent.firstName).toBe('Мария');
+
+    await loginAs('parent');
+    expect((await call(api.family.listChildren())).items).toHaveLength(3);
+
+    // Своё приглашение принять нельзя (пользователь и родитель, и ученик).
+    const both = await call(
+      api.auth.loginDev({ body: { maxUserId: 'max-both-roles', roles: ['PARENT', 'STUDENT'] } }),
+    );
+    session(both);
+    const own = await call(api.family.createChildInvite());
+    session(await call(api.auth.switchRole({ body: { role: 'STUDENT' } })));
+    await expect(
+      call(api.family.acceptParentInvite({ params: { token: own.token } })),
+    ).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+  });
+
+  it('приглашение: уже привязанный не тратит ссылку, отвязанного принятая ссылка не возвращает', async () => {
+    // Алексей уже привязан к Ольге: её новая ссылка остаётся PENDING для другого ребёнка.
+    await loginAs('parent');
+    const invite = await call(api.family.createChildInvite());
+    await loginAs('student1');
+    await expect(
+      call(api.family.acceptParentInvite({ params: { token: invite.token } })),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(
+      (await call(api.family.getParentInvite({ params: { token: invite.token } }))).status,
+    ).toBe('PENDING');
+
+    // Новый ребёнок принимает, родитель его отвязывает — повтор accept связь не восстанавливает.
+    const kid = await call(
+      api.auth.loginDev({ body: { maxUserId: 'max-unlinked-kid', roles: ['STUDENT'] } }),
+    );
+    session(kid);
+    await call(api.family.acceptParentInvite({ params: { token: invite.token } }));
+    await loginAs('parent');
+    const linked = (await call(api.family.listChildren())).items.find(
+      (item) => item.student.user.firstName === 'max-unlinked-kid',
+    );
+    expect(linked?.linkStatus).toBe('ACTIVE');
+    await call(api.family.unlinkChild({ params: { studentId: linked!.student.id } }));
+
+    session(kid);
+    await expect(
+      call(api.family.acceptParentInvite({ params: { token: invite.token } })),
+    ).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+    await loginAs('parent');
+    expect(
+      (await call(api.family.listChildren())).items.some(
+        (item) => item.student.id === linked!.student.id,
+      ),
+    ).toBe(false);
+  });
+
+  it(
+    'тьютор родителя: диалоги по ребёнку и SSE-ответ про его успехи',
+    { timeout: 20_000 },
+    async () => {
+      await loginAs('parent');
+      const alexeyChats = await call(
+        api.ai.listParentConversations({
+          params: { studentId: DEMO_IDS.students.alexey },
+          query: {},
+        }),
+      );
+      expect(alexeyChats.items).toHaveLength(1);
+      const history = await call(
+        api.ai.listParentConversationMessages({
+          params: { conversationId: alexeyChats.items[0]!.id },
+          query: {},
+        }),
+      );
+      expect(history.items).toHaveLength(2);
+
+      const chat = await call(
+        api.ai.createParentConversation({ params: { studentId: DEMO_IDS.students.dasha } }),
+      );
+      expect(chat.kind).toBe('TUTOR');
+      const ask = async (text: string) => {
+        const events: AiStreamEvent[] = [];
+        await streamSse({
+          path: STREAMING_ROUTES.parentTutorMessage.path(chat.id),
+          body: { text },
+          onEvent: (event) => events.push(event),
+        });
+        expect(events.at(-1)?.type).toBe('done');
+        return events.map((e) => (e.type === 'token' ? e.text : '')).join('');
+      };
+      const summary = await ask('Как Даша занимается в последнее время?');
+      expect(summary).toContain('Даша посещает');
+      expect(summary).toMatch(/Шахматы|Робототехника/);
+      expect(await ask('Какие задания просрочены?')).toMatch(/просроч/i);
+      expect(await ask('Где нужна помощь?')).toMatch(/ошибок|трудностей/);
+      expect(await ask('Как поддержать мотивацию?')).toContain('кристаллов на счету');
+      const messages = await call(
+        api.ai.listParentConversationMessages({ params: { conversationId: chat.id }, query: {} }),
+      );
+      expect(messages.items).toHaveLength(8);
+      expect(
+        (
+          await call(
+            api.ai.listParentConversations({
+              params: { studentId: DEMO_IDS.students.dasha },
+              query: {},
+            }),
+          )
+        ).items[0]?.id,
+      ).toBe(chat.id);
+
+      // Чужому родителю диалоги о ребёнке недоступны.
+      await loginAs('teacher', 'PARENT');
+      await expect(
+        call(
+          api.ai.listParentConversations({
+            params: { studentId: DEMO_IDS.students.alexey },
+            query: {},
+          }),
+        ),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(
+        call(
+          api.ai.listParentConversationMessages({ params: { conversationId: chat.id }, query: {} }),
+        ),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    },
+  );
 
   it('новый родитель: привязка ребёнка по коду и childrenCount', async () => {
     const login = await call(
@@ -340,6 +690,12 @@ describe('mock world (msw/node)', () => {
     session(fresh);
     expect(fresh.me.needsRoleSetup).toBe(false);
     expect(fresh.me.student?.onboardingCompleted).toBe(false);
+    // Рекомендации — только кружки с подходящими причинами, без дополнительных кружков демо-мира.
+    const recommendations = await call(api.ai.getOnboardingRecommendations());
+    expect(recommendations.items.map((item) => item.club.id)).toEqual([
+      DEMO_IDS.clubs.robotics,
+      DEMO_IDS.clubs.programming,
+    ]);
     const done = await call(
       api.ai.completeOnboarding({
         body: {
