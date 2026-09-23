@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     console.log('seed: learning (посещаемость, курс, блоки, задания, сдачи, прогресс)');
     await seedLearning(prisma, now);
     console.log('seed: ai + payments + notifications');
-    await seedAiPaymentsNotifications(prisma);
+    await seedAiPaymentsNotifications(prisma, now);
     console.log('seed: готово');
   } finally {
     await prisma.$disconnect();

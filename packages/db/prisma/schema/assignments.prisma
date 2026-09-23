@@ -26,6 +26,7 @@ model Assignment {
 
   @@index([groupId, dueAt])
   @@index([courseId])
+  @@index([teacherId])
   @@map("assignments")
 }
 

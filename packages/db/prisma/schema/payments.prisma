@@ -27,6 +27,7 @@ model Payment {
 
   @@index([parentId, createdAt])
   @@index([studentId])
+  @@index([enrollmentId])
   @@map("payments")
 }
 
@@ -42,5 +43,6 @@ model PaidPeriod {
   payment    Payment    @relation(fields: [paymentId], references: [id])
 
   @@index([enrollmentId, periodEnd])
+  @@index([paymentId])
   @@map("paid_periods")
 }
