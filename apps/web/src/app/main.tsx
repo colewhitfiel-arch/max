@@ -1,9 +1,9 @@
 import '@edu/ui/styles.css';
-import '@/shared/i18n';
 import { AppLayout, ErrorState, Screen } from '@edu/ui';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { config } from '@/shared/config';
+import { i18n } from '@/shared/i18n';
 import { createMaxBridge, type MaxBridge } from '@/shared/max';
 import { App } from './App';
 import { Providers } from './providers';
@@ -22,7 +22,7 @@ function renderFatal(root: ReturnType<typeof createRoot>, error: unknown) {
     <AppLayout>
       <AppLayout.Content>
         <Screen>
-          <ErrorState title="Не удалось запустить приложение" description={message} />
+          <ErrorState title={i18n.t('common:errors.bootTitle')} description={message} />
         </Screen>
       </AppLayout.Content>
     </AppLayout>,

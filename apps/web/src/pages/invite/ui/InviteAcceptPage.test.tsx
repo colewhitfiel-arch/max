@@ -80,6 +80,20 @@ describe('InviteAcceptPage', () => {
     expect(invite.status).toBe('ACCEPTED');
   });
 
+  it('ребёнок уже привязан к родителю (CONFLICT) — «Ты уже привязан», без «Подтвердить»', async () => {
+    // Даша (max-student-2) уже привязана к Марии — автору приглашения.
+    await useAuthStore.getState().loginDev('max-student-2', ['STUDENT']);
+    const user = userEvent.setup();
+    renderInvite(MOCK_INVITE_TOKENS.pending);
+
+    await user.click(await screen.findByRole('button', { name: 'Подтвердить' }, WAIT));
+
+    expect(await screen.findByText('Ты уже привязан к этому родителю', {}, WAIT)).toBeVisible();
+    expect(screen.queryByText('Данные уже изменились, обнови экран')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'На главную' })).toBeEnabled();
+  });
+
   it('истёкшая и неизвестная ссылки — сообщение и «На главную»', async () => {
     await useAuthStore.getState().loginDev('max-student-1', ['STUDENT']);
     renderInvite(MOCK_INVITE_TOKENS.expired);

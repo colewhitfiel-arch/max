@@ -1,5 +1,6 @@
 import type { LessonDto } from '@edu/contracts';
 import {
+  Badge,
   BellIcon,
   Button,
   CalendarClockIcon,
@@ -18,6 +19,7 @@ import {
 } from '@edu/ui';
 import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
+import { groupLabel } from '@/entities/group';
 import { lessonsOfDay } from '@/entities/lesson';
 import {
   addDays,
@@ -53,7 +55,8 @@ export interface DayScheduleProps {
   headerRef?: Ref<HTMLElement>;
   /**
    * Своя вторая колонка вместо группы (главная родителя: «Репетитор» — преподаватель
-   * занятия). По умолчанию — название группы, как у ученика.
+   * занятия). По умолчанию — группа: короткий код «001», без кода — название группы; колонка
+   * не переносится, если у всех групп дня есть код (иначе длинные названия рвутся по буквам).
    */
   secondColumn?: DayScheduleColumn;
   /**
@@ -86,9 +89,10 @@ function dayLabel(date: Date, locale: string, t: (key: string) => string) {
 
 /**
  * Расписание дня по макету: «календарь · ‹ Сегодня › · колокольчик» и три карточки-колонки
- * (название кружка, группа, время). Назад — не раньше сегодняшнего дня, вперёд — без
- * ограничений (дальние дни подгружает календарь). Текущее/ближайшее занятие сегодня
- * выделено цветом. Иконка календаря открывает шторку-календарь и подсвечивается.
+ * (название кружка, группа, время). Из сегодня назад не листается, вперёд — без
+ * ограничений (дальние дни подгружает календарь); прошедший день, выбранный в календаре,
+ * листается в обе стороны. Текущее/ближайшее занятие сегодня выделено цветом (отменённые не
+ * в счёт); отменённое занятие — с бейджем «Отменено» и приглушённым временем. Иконка календаря открывает шторку-календарь и подсвечивается.
  */
 export function DaySchedule({
   date,
@@ -107,6 +111,7 @@ export function DaySchedule({
   striped = false,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
+  const { t: tc } = useTranslation('common');
   const now = new Date();
   const offset = diffCalendarDays(now, date);
   const label = dayLabel(date, i18n.language, t);
@@ -114,7 +119,10 @@ export function DaySchedule({
   const dayLessons = lessonsOfDay(lessons, date);
   const highlightedId =
     offset === 0
-      ? (dayLessons.find((lesson) => new Date(lesson.endsAt).getTime() > now.getTime())?.id ?? null)
+      ? (dayLessons.find(
+          (lesson) =>
+            lesson.status !== 'CANCELLED' && new Date(lesson.endsAt).getTime() > now.getTime(),
+        )?.id ?? null)
       : null;
 
   return (
@@ -134,7 +142,7 @@ export function DaySchedule({
           <IconButton
             aria-label={t('home.prevDay')}
             onClick={() => onDateChange(addDays(startOfDay(date), -1))}
-            disabled={offset <= 0}
+            disabled={offset === 0}
           >
             <ChevronLeftIcon />
           </IconButton>
@@ -190,26 +198,40 @@ export function DaySchedule({
               key: 'group',
               header: secondColumn?.header ?? t('home.columns.group'),
               align: 'center',
-              nowrap: secondColumn?.nowrap,
+              nowrap: secondColumn
+                ? secondColumn.nowrap
+                : dayLessons.every((lesson) => lesson.group.code != null),
             },
             { key: 'time', header: t('home.columns.time'), align: 'center', nowrap: true },
           ]}
-          rows={dayLessons.map((lesson) => ({
-            key: lesson.id,
-            cells: {
-              name: lesson.group.club.title,
-              group: secondColumn ? secondColumn.cell(lesson) : lesson.group.title,
-              time: (
-                <Text
-                  as="span"
-                  variant="small"
-                  tone={lesson.id === highlightedId ? 'primary' : 'default'}
-                >
-                  {formatTimeRange(lesson.startsAt, lesson.endsAt, i18n.language)}
-                </Text>
-              ),
-            },
-          }))}
+          rows={dayLessons.map((lesson) => {
+            const cancelled = lesson.status === 'CANCELLED';
+            return {
+              key: lesson.id,
+              cells: {
+                name: cancelled ? (
+                  <Stack gap={1} align="start">
+                    <Text as="span" tone="muted">
+                      {lesson.group.club.title}
+                    </Text>
+                    <Badge tone="danger">{tc('lesson.cancelled')}</Badge>
+                  </Stack>
+                ) : (
+                  lesson.group.club.title
+                ),
+                group: secondColumn ? secondColumn.cell(lesson) : groupLabel(lesson.group),
+                time: (
+                  <Text
+                    as="span"
+                    variant="small"
+                    tone={cancelled ? 'muted' : lesson.id === highlightedId ? 'primary' : 'default'}
+                  >
+                    {formatTimeRange(lesson.startsAt, lesson.endsAt, i18n.language)}
+                  </Text>
+                ),
+              },
+            };
+          })}
         />
       )}
     </Stack>

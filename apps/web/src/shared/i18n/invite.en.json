@@ -8,6 +8,8 @@
   "acceptError": "Could not accept the invitation",
   "alreadyAccepted": "The invitation has already been accepted",
   "alreadyAcceptedHint": "The link with your parent is already confirmed — nothing else to do",
+  "alreadyLinked": "You are already linked to this parent",
+  "alreadyLinkedHint": "Your parent can already see your progress — nothing else to do",
   "expired": "The link has expired",
   "expiredHint": "Ask your parent to send a new link in MAX",
   "notFound": "Invitation not found",

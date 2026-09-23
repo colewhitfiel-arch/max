@@ -22,6 +22,9 @@ import { childrenIdsOfParent, clubBrief, enrollmentsOfStudent, studentBrief } fr
 import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
 import { db, parentOfUser, teacherOfUser } from '../state';
 import {
+  fromDateOnly,
+  nextPaymentDate,
+  rub,
   teacherWalletDto,
   teacherWalletOf,
   transactionDto,
@@ -29,17 +32,23 @@ import {
 } from '../teacher-wallet';
 import type { MockTeacherTransaction } from '../world-extras';
 
-/** Оплачено до / следующий платёж по зачислению. */
+/**
+ * Оплачено до / следующий платёж по зачислению. Дата следующего платежа — та же, что у
+ * преподавателя в «Вам должны» (`nextPaymentDate`): день после последнего периода, без оплат —
+ * день зачисления.
+ */
 export function paidUntilOf(enrollmentId: string): {
   paidUntil: string | null;
   nextPaymentAt: string;
 } {
-  const periods = db.paidPeriods
+  const enrollment = db.enrollments.find((e) => e.id === enrollmentId);
+  if (!enrollment) throw new Error(`mock: нет зачисления ${enrollmentId}`);
+  const last = db.paidPeriods
     .filter((p) => p.enrollmentId === enrollmentId)
-    .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
-  const last = periods[0];
-  if (!last) return { paidUntil: null, nextPaymentAt: toDateOnly(new Date()) };
-  return { paidUntil: last.periodEnd, nextPaymentAt: toDateOnly(addDays(last.periodEnd, 1)) };
+    .map((p) => p.periodEnd)
+    .sort()
+    .at(-1);
+  return { paidUntil: last ?? null, nextPaymentAt: toDateOnly(nextPaymentDate(enrollment)) };
 }
 
 function paymentDto(paymentId: string) {
@@ -48,8 +57,6 @@ function paymentDto(paymentId: string) {
   const group = db.groups.find((g) => g.id === enrollment.groupId)!;
   return { ...payment, club: clubBrief(group.clubId), student: studentBrief(payment.studentId) };
 }
-
-const rub = (amountKopecks: number) => ({ amountKopecks, currency: 'RUB' as const });
 
 export const paymentsHandlers = [
   http.get(
@@ -190,6 +197,18 @@ export const paymentsHandlers = [
         }
         const body = await readBody(request, CreatePaymentBodySchema);
         if (!body.ok) return body.response;
+        const key = request.headers.get('idempotency-key');
+        const replayKey = key ? `${parent.id}:${key}` : null;
+        const previous = replayKey ? db.parentPayments.get(replayKey) : undefined;
+        if (previous) {
+          if (
+            previous.enrollmentId !== body.data.enrollmentId ||
+            previous.periodsCount !== body.data.periodsCount
+          ) {
+            return apiError('CONFLICT', 'Ключ идемпотентности уже использован с другим платежом');
+          }
+          return json(CreatePaymentResultSchema, previous.result);
+        }
         const enrollment = db.enrollments.find(
           (e) => e.id === body.data.enrollmentId && e.studentId === params.studentId,
         );
@@ -223,7 +242,8 @@ export const paymentsHandlers = [
           payment.status = 'SUCCEEDED';
           payment.paidAt = new Date().toISOString();
           const { paidUntil } = paidUntilOf(enrollment.id);
-          const start = paidUntil ? addDays(paidUntil, 1) : new Date();
+          // YYYY-MM-DD — как локальная дата, иначе в западных поясах период начнётся в день старого.
+          const start = paidUntil ? addDays(fromDateOnly(paidUntil), 1) : new Date();
           db.paidPeriods.push({
             id: crypto.randomUUID(),
             enrollmentId: enrollment.id,
@@ -232,7 +252,15 @@ export const paymentsHandlers = [
             paymentId: id,
           });
         }, 5000);
-        return json(CreatePaymentResultSchema, { paymentId: id, confirmationUrl, amount });
+        const result = { paymentId: id, confirmationUrl, amount };
+        if (replayKey) {
+          db.parentPayments.set(replayKey, {
+            enrollmentId: enrollment.id,
+            periodsCount: body.data.periodsCount,
+            result,
+          });
+        }
+        return json(CreatePaymentResultSchema, result);
       },
       ['PARENT'],
     ),

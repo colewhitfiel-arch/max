@@ -2,13 +2,20 @@
   "groups": {
     "title": "Groups",
     "empty": "No groups yet",
-    "students": "{{count}} students",
-    "needsAttention": "{{count}} need attention",
+    "students_one": "{{count}} student",
+    "students_other": "{{count}} students",
+    "needsAttention_one": "{{count}} needs attention",
+    "needsAttention_other": "{{count}} need attention",
     "nextLesson": "Next lesson",
     "schedule": "Schedule",
     "studentsList": "Students",
     "lessons": "Lessons",
     "noLessons": "No lessons in this period",
+    "noSchedule": "No schedule yet",
+    "noStudents": "No students in this group yet",
+    "notFoundTitle": "Group not found",
+    "notFoundText": "It is not among your groups — the link may be outdated",
+    "toGroups": "To groups",
     "ok": "all good"
   },
   "students": {
@@ -28,6 +35,9 @@
     "counts": "{{modules}} modules · {{blocks}} blocks",
     "avgProgress": "Average progress",
     "modules": "Modules",
+    "modulesEmpty": "No modules in this course yet",
+    "modulesEmptyHint": "Modules and blocks will appear here once the course is filled",
+    "blocksEmpty": "No blocks in this module yet",
     "create": "New course",
     "createTitle": "Course title",
     "group": "Group",
@@ -67,6 +77,7 @@
     "form": {
       "modeTopic": "By topic",
       "modeMaterials": "From files",
+      "modeLabel": "Course source",
       "modeTopicHint": "No notes: describe the topic, lesson plan or practice — the AI writes the notes itself.",
       "modeMaterialsHint": "Upload notes, a handbook or slides — text is extracted automatically.",
       "group": "Group",
@@ -76,9 +87,16 @@
       "filesHint": "pdf, docx, txt, md — up to 50 MB each",
       "removeFile": "Remove file",
       "uploading": "Uploading…",
+      "size": {
+        "b": "{{value}} B",
+        "kb": "{{value}} KB",
+        "mb": "{{value}} MB"
+      },
       "topic": "Topic or practice",
       "topicExtra": "Addition to materials (optional)",
       "topicHint": "At least {{min}} characters. E.g. \"for and while loops in Python, list practice, grade 7, 2 lessons\"",
+      "topicExtraHint": "If filled in — at least {{min}} characters",
+      "topicExtraTooShort": "Too short: at least {{min}} characters, or leave the field empty",
       "topicPlaceholder": "What to learn, for whom, what practice is needed",
       "instructions": "Wishes",
       "instructionsPlaceholder": "E.g. more practice, short texts, quiz at the end",
@@ -96,7 +114,15 @@
       "tabDraft": "Course draft",
       "tabKnowledge": "Knowledge base",
       "knowledgeTitle": "Atoms and knowledge nodes",
-      "knowledgeStats": "Atoms: {{atoms}} · nodes: {{nodes}} · source coverage: {{coverage}} · nodes rejected without citations: {{rejected}}"
+      "knowledgeStats": "Atoms: {{atoms}} · nodes: {{nodes}} · source coverage: {{coverage}} · nodes rejected without citations: {{rejected}}",
+      "preview": {
+        "quiz_one": "{{count}} question",
+        "quiz_other": "{{count}} questions",
+        "flashcards_one": "{{count}} card",
+        "flashcards_other": "{{count}} cards",
+        "fillGaps": "fill in the gaps",
+        "matching": "matching"
+      }
     }
   },
   "assignments": {

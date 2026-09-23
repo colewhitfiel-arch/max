@@ -15,7 +15,10 @@
     "assignments": "Задания",
     "performance": "Успеваемость",
     "notifications": "Уведомления",
-    "notificationsUnread": "Уведомления: {{count}} непрочитанных"
+    "notificationsUnread_one": "Уведомления: {{count}} непрочитанное",
+    "notificationsUnread_few": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_many": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_other": "Уведомления: {{count}} непрочитанного"
   },
   "actions": {
     "retry": "Повторить",
@@ -47,6 +50,28 @@
     "forbidden": "Нет доступа",
     "forbiddenHint": "У твоей роли нет прав на этот раздел",
     "aiPending": "ИИ-комментарий готовится"
+  },
+  "errors": {
+    "crashTitle": "Что-то сломалось",
+    "reload": "Перезагрузить",
+    "tryContinue": "Попробовать продолжить",
+    "bootTitle": "Не удалось запустить приложение",
+    "network": "Ошибка сети",
+    "aborted": "Запрос отменён",
+    "emptyStream": "Пустой поток",
+    "noLaunchParams": "Нет launch-параметров MAX: открой приложение из мессенджера",
+    "codes": {
+      "VALIDATION": "Проверь введённые данные",
+      "UNAUTHORIZED": "Нужно войти заново",
+      "FORBIDDEN": "Нет доступа к этому разделу",
+      "NOT_FOUND": "Раздел в разработке",
+      "CONFLICT": "Данные уже изменились, обнови экран",
+      "BUSINESS_RULE": "Действие сейчас недоступно",
+      "RATE_LIMITED": "Слишком много запросов, попробуй позже",
+      "NOT_IMPLEMENTED": "Раздел в разработке",
+      "EXTERNAL_INTEGRATION": "Сервис временно недоступен, проверь соединение",
+      "INTERNAL": "Что-то пошло не так, попробуй ещё раз"
+    }
   },
   "roles": {
     "STUDENT": "Ученик",

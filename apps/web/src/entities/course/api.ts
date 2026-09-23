@@ -64,14 +64,6 @@ export function useTeacherCourse(courseId: string) {
   });
 }
 
-/** `GET /teacher/course-builder/jobs` — задачи генерации (F8). */
-export function useGenerationJobs() {
-  return useQuery({
-    queryKey: courseKeys.generationJobs(),
-    queryFn: () => call(api.courseBuilder.listGenerationJobs({ query: {} })),
-  });
-}
-
 /** `POST /teacher/courses`. */
 export function useCreateCourse() {
   const queryClient = useQueryClient();

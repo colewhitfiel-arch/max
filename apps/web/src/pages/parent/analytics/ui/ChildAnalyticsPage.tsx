@@ -5,11 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useChildPerformance, useChildren } from '@/entities/student';
 import { fullName } from '@/shared/lib/format';
+import { FROM_ANALYTICS_STATE } from '@/shared/lib/navigation';
 import { useUiStore } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 import { ClubHomeworkBand, HomeworkPieCard } from '@/widgets/homework-performance';
 import { AttendanceWeekCard } from '@/widgets/student-home-attendance';
-import { analyticsPaths, type FromAnalyticsState } from '../paths';
+import { analyticsPaths } from '../paths';
 
 /** Параметр URL с раскрытым кружком: при возврате с подробностей сетка остаётся открытой. */
 const EXPANDED_PARAM = 'club';
@@ -104,10 +105,10 @@ export function ChildAnalyticsPage() {
       { replace: true },
     );
 
-  const openTask = (groupId: string, assignmentId: string) => {
-    const state: FromAnalyticsState = { fromAnalytics: true };
-    navigate(analyticsPaths.tasks(studentId, groupId, assignmentId), { state });
-  };
+  const openTask = (groupId: string, assignmentId: string) =>
+    navigate(analyticsPaths.tasks(studentId, groupId, assignmentId), {
+      state: FROM_ANALYTICS_STATE,
+    });
 
   return (
     <>

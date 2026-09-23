@@ -1,17 +1,7 @@
 import type { UpdateAvatarBody, UpdateSettingsBody } from '@edu/contracts';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
-import { queryKeys } from '@/shared/api/query-keys';
 import { useAuthStore } from '@/shared/auth/store';
-
-/** `GET /me`; в store уже есть me после входа — запрос нужен для перепроверки/обновления. */
-export function useMeQuery(enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.me,
-    queryFn: () => call(api.auth.getMe()),
-    enabled,
-  });
-}
 
 /** `PATCH /me/settings` — тема/язык; обновляет me в auth-store. */
 export function useUpdateSettings() {

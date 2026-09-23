@@ -1,7 +1,10 @@
-/** Доля 0..1 → «92%»; null → «—». */
-export function formatRate(rate: number | null | undefined, locale = 'ru'): string {
+/**
+ * Доля 0..1 → «92%» (без пробела, как `formatPercent` и макеты); null → «—».
+ * `_locale` оставлен для совместимости вызовов: формат процента одинаков для ru и en.
+ */
+export function formatRate(rate: number | null | undefined, _locale = 'ru'): string {
   if (rate == null || Number.isNaN(rate)) return '—';
-  return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(rate);
+  return `${Math.round(rate * 100)}%`;
 }
 
 /** Проценты 0..100 → «45%». */

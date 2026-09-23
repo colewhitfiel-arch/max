@@ -469,7 +469,7 @@ function realItems(studentId: string, groupId: string): HomeworkItem[] {
           a.description ??
           (a.type === 'QUIZ' ? 'Пройти тест в курсе и набрать проходной балл.' : a.title),
         code: null,
-        dueAt: dueAtOf(a.id) ?? a.dueAt,
+        dueAt: dueAtOf(a),
         publishedAt: a.publishedAt!,
         maxScore: a.maxScore,
         submittedAt: submitted?.submittedAt ?? null,

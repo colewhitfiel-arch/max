@@ -1,7 +1,8 @@
 /**
  * Изменяемое состояние демо-мира для MSW: копии фикстур + дополнения моков (`world-extras.ts`)
  * + то, что меняют мутации (сессии, настройки, привязки, прогресс, сдачи, уведомления, диалоги,
- * кошельки родителей и преподавателей, приглашения). Живёт до перезагрузки.
+ * кошельки родителей и преподавателей, приглашения). Живёт до перезагрузки; исключение —
+ * ad-hoc пользователи dev-входа, которые при `enableMockPersistence()` переживают reload.
  */
 import type {
   AiConversation,
@@ -14,11 +15,13 @@ import type {
   CourseBlock,
   CourseGenerationJob,
   CourseModule,
+  CreatePaymentResult,
   Enrollment,
   FileDto,
   Group,
   Lesson,
   Notification as NotificationEntity,
+  NotificationSettings,
   PaidPeriod,
   ParentProfile,
   ParentStudentLink,
@@ -27,6 +30,7 @@ import type {
   ScheduleRule,
   StudentProfile,
   Submission,
+  SubmissionDto,
   TeacherProfile,
   TeacherWithdrawal,
   Trajectory,
@@ -180,6 +184,8 @@ function buildState() {
     teachers: clone([...demoTeachers, ...extras.teachers]) as TeacherProfile[],
     links: clone(demoParentLinks) as ParentStudentLink[],
     settings: new Map<string, UserSettings>(),
+    /** Настройки уведомлений: userId → настройки (нет записи — все включены). */
+    notificationSettings: new Map<string, NotificationSettings>(),
     clubs: clone([...demoClubs, ...extras.clubs]) as Club[],
     groups: clone([...demoGroups, ...extras.groups]).map((group): MockGroup => ({
       ...group,
@@ -218,10 +224,17 @@ function buildState() {
     ] as BlockProgress[],
     assignments: clone(demoAssignments) as Assignment[],
     submissions: clone(demoSubmissions) as Submission[],
+    /** Сдачи по Idempotency-Key: `${studentId}:${key}` → задание и ответ, отданный в первый раз. */
+    submissionReplays: new Map<string, { assignmentId: string; result: SubmissionDto }>(),
     // + оплаты за недавние поступления в кошелёк Марии (world-extras): «Вам должны» и платежи
     // родителя не спорят с кошельком преподавателя.
     payments: [clone(demoPayment), ...extras.payments] as Payment[],
     paidPeriods: [clone(demoPaidPeriod), ...extras.paidPeriods] as PaidPeriod[],
+    /** Платежи родителя по Idempotency-Key: `${parentId}:${key}` → тело и ответ первого запроса. */
+    parentPayments: new Map<
+      string,
+      { enrollmentId: string; periodsCount: number; result: CreatePaymentResult }
+    >(),
     notifications: extraNotifications,
     conversations: [clone(demoConversation), extras.parentConversation] as AiConversation[],
     /** Диалоги родителя с тьютором о ребёнке (userId — родитель, studentId — ребёнок). */
@@ -273,9 +286,110 @@ export type MockDb = ReturnType<typeof buildState>;
 
 export let db: MockDb = buildState();
 
-/** Сброс мира (для тестов и dev-кнопки). */
-export function resetMockDb(): void {
+// ---------- Персист ad-hoc пользователей ----------
+
+/**
+ * Ключ localStorage с ad-hoc пользователями dev-входа («Свой пользователь»). Мир in-memory, а
+ * refresh-токен мост хранит в localStorage — без персиста после reload refresh отвечал бы 401.
+ */
+export const MOCK_ADHOC_USERS_KEY = 'max-mock:db.adhocUsers';
+
+interface PersistedUser {
+  id: string;
+  maxUserId: string;
+  roles: Role[];
+  createdAt: string;
+}
+
+const ROLES: readonly string[] = ['STUDENT', 'PARENT', 'TEACHER', 'SCHOOL_ADMIN'] satisfies Role[];
+
+let persistence: Storage | null = null;
+
+function isPersistedUser(value: unknown): value is PersistedUser {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === 'string' &&
+    typeof v.maxUserId === 'string' &&
+    typeof v.createdAt === 'string' &&
+    Array.isArray(v.roles) &&
+    v.roles.every((r) => typeof r === 'string' && ROLES.includes(r))
+  );
+}
+
+function readPersistedUsers(): PersistedUser[] {
+  if (!persistence) return [];
+  try {
+    const parsed: unknown = JSON.parse(persistence.getItem(MOCK_ADHOC_USERS_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter(isPersistedUser) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Сохранить ad-hoc пользователя (`create`) или обновить роли уже сохранённого. */
+function persistUser(user: MockUser, create = false): void {
+  if (!persistence) return;
+  const users = readPersistedUsers();
+  const index = users.findIndex((u) => u.id === user.id);
+  if (index < 0 && !create) return;
+  const entry: PersistedUser = {
+    id: user.id,
+    maxUserId: user.maxUserId,
+    roles: [...user.roles],
+    createdAt: user.createdAt,
+  };
+  if (index < 0) users.push(entry);
+  else users[index] = entry;
+  try {
+    persistence.setItem(MOCK_ADHOC_USERS_KEY, JSON.stringify(users));
+  } catch {
+    // Хранилище недоступно или переполнено — мир продолжает жить в памяти.
+  }
+}
+
+/** Вернуть сохранённых ad-hoc пользователей в текущий мир (с прежними id — refresh-токены живы). */
+function restorePersistedUsers(): void {
+  for (const saved of readPersistedUsers()) {
+    if (db.users.has(saved.id) || db.maxIds.has(saved.maxUserId)) continue;
+    const user = newUser(saved.maxUserId, saved.id, saved.createdAt);
+    insertUser(user);
+    for (const role of saved.roles) grantRole(user, role);
+  }
+}
+
+/**
+ * Включить персист ad-hoc пользователей в `storage` (по умолчанию localStorage) и восстановить
+ * сохранённых. Вызывается только из `browser.ts` до `setupWorker`; тесты (msw/node) живут без
+ * него. `null` — выключить.
+ */
+export function enableMockPersistence(storage?: Storage | null): void {
+  if (storage === undefined) {
+    try {
+      persistence = globalThis.localStorage ?? null;
+    } catch {
+      persistence = null;
+    }
+  } else {
+    persistence = storage;
+  }
+  restorePersistedUsers();
+}
+
+/**
+ * Сброс мира (для тестов и dev-кнопки). Ad-hoc пользователи из персиста возвращаются в новый мир;
+ * `clearPersisted: true` — забыть и их.
+ */
+export function resetMockDb(options: { clearPersisted?: boolean } = {}): void {
+  if (options.clearPersisted && persistence) {
+    try {
+      persistence.removeItem(MOCK_ADHOC_USERS_KEY);
+    } catch {
+      // Хранилище недоступно — забывать нечего.
+    }
+  }
   db = buildState();
+  restorePersistedUsers();
 }
 
 export function findUserByMaxId(maxUserId: string): MockUser | undefined {
@@ -283,10 +397,9 @@ export function findUserByMaxId(maxUserId: string): MockUser | undefined {
   return id ? db.users.get(id) : undefined;
 }
 
-/** Ad-hoc пользователь для dev-входа с незнакомым maxUserId. */
-export function createUser(maxUserId: string, roles: Role[]): MockUser {
-  const user: MockUser = {
-    id: crypto.randomUUID(),
+function newUser(maxUserId: string, id: string, createdAt: string): MockUser {
+  return {
+    id,
     maxUserId,
     firstName: maxUserId,
     lastName: null,
@@ -294,26 +407,45 @@ export function createUser(maxUserId: string, roles: Role[]): MockUser {
     avatarUrl: null,
     locale: 'ru',
     theme: 'SYSTEM',
-    createdAt: new Date().toISOString(),
+    createdAt,
     roles: [],
   };
+}
+
+function insertUser(user: MockUser): void {
   db.users.set(user.id, user);
-  db.maxIds.set(maxUserId, user.id);
+  db.maxIds.set(user.maxUserId, user.id);
+}
+
+/** Ad-hoc пользователь для dev-входа с незнакомым maxUserId. */
+export function createUser(maxUserId: string, roles: Role[]): MockUser {
+  const user = newUser(maxUserId, crypto.randomUUID(), new Date().toISOString());
+  insertUser(user);
   for (const role of roles) grantRole(user, role);
+  persistUser(user, true);
   return user;
 }
 
 const LINK_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-function linkCode(): string {
-  return Array.from(
-    { length: 6 },
-    () => LINK_ALPHABET[Math.floor(Math.random() * LINK_ALPHABET.length)],
-  ).join('');
+
+/** Код привязки ученика: 6 символов без неоднозначных 0/O/1/I, уникальный среди учеников. */
+export function linkCode(): string {
+  let code: string;
+  do {
+    code = Array.from(
+      { length: 6 },
+      () => LINK_ALPHABET[Math.floor(Math.random() * LINK_ALPHABET.length)],
+    ).join('');
+  } while (db.students.some((s) => s.linkCode === code));
+  return code;
 }
 
 /** Выдать роль и создать профиль, если его нет (как IdentityService.grantRole). */
 export function grantRole(user: MockUser, role: Role): void {
-  if (!user.roles.includes(role)) user.roles.push(role);
+  if (!user.roles.includes(role)) {
+    user.roles.push(role);
+    persistUser(user);
+  }
   switch (role) {
     case 'STUDENT':
       if (!db.students.some((s) => s.userId === user.id)) {

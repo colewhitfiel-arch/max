@@ -67,16 +67,17 @@ export function transactionDto(tx: MockTeacherTransaction): TeacherWalletTransac
 }
 
 /** YYYY-MM-DD как локальная дата (без сдвига UTC-полуночи в западных поясах). */
-function fromDateOnly(value: string): Date {
+export function fromDateOnly(value: string): Date {
   const [y, m, d] = value.split('-').map(Number) as [number, number, number];
   return new Date(y, m - 1, d);
 }
 
 /**
  * Дата следующего платежа по зачислению: день после последнего оплаченного периода; ничего не
- * оплачено — первый платёж был в день зачисления (в демо такие долги просрочены).
+ * оплачено — первый платёж был в день зачисления (в демо такие долги просрочены). Общая для
+ * «Вам должны» преподавателя и `nextPaymentAt` родителя — даты у ролей не расходятся.
  */
-function nextPaymentDate(enrollment: Enrollment): Date {
+export function nextPaymentDate(enrollment: Enrollment): Date {
   const paidEnd = db.paidPeriods
     .filter((p) => p.enrollmentId === enrollment.id)
     .map((p) => p.periodEnd)

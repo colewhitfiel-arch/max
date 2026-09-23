@@ -85,10 +85,13 @@ function PendingInvite({
   invite,
   accept,
   onFailed,
+  onConflict,
 }: {
   invite: ParentInvite;
   accept: ReturnType<typeof useAcceptParentInvite>;
   onFailed: () => void;
+  /** CONFLICT: ребёнок уже привязан к родителю или приглашение принято другим аккаунтом. */
+  onConflict: () => void;
 }) {
   const { t, i18n } = useTranslation('invite');
   const toast = useToast();
@@ -106,6 +109,11 @@ function PendingInvite({
       toast.show({ tone: 'success', title: t('accepted', { parent: fullName(result.parent) }) });
       leave();
     } catch (error) {
+      // Конфликт — не сбой: вместо «данные изменились» экран покажет итоговое состояние.
+      if (isApiClientError(error) && error.code === 'CONFLICT') {
+        onConflict();
+        return;
+      }
       toast.show({ tone: 'danger', title: t('acceptError'), description: describeApiError(error) });
       // Приглашение могли принять с другого аккаунта или оно истекло — покажем актуальный статус.
       onFailed();
@@ -154,6 +162,7 @@ function StudentInvite({ token }: { token: string }) {
   const { t } = useTranslation('invite');
   const query = useParentInvite(token);
   const accept = useAcceptParentInvite();
+  const [conflict, setConflict] = useState(false);
 
   if (query.isPending) return <InviteSkeleton />;
   if (query.isError) {
@@ -174,6 +183,8 @@ function StudentInvite({ token }: { token: string }) {
   }
 
   const invite = query.data;
+  // После конфликта ждём актуальный статус: принято другим аккаунтом или ребёнок уже привязан.
+  if (conflict && query.isFetching) return <InviteSkeleton />;
   // Своё только что принятое приглашение (кэш уже ACCEPTED) — держим карточку до перехода.
   const acceptedHere = accept.isPending || accept.isSuccess;
   if (invite.status === 'ACCEPTED' && !acceptedHere) {
@@ -186,6 +197,19 @@ function StudentInvite({ token }: { token: string }) {
         }
         title={t('alreadyAccepted')}
         description={t('alreadyAcceptedHint')}
+      />
+    );
+  }
+  if (conflict) {
+    return (
+      <InviteState
+        icon={
+          <IconTile tone="success" size="xl">
+            <CheckIcon />
+          </IconTile>
+        }
+        title={t('alreadyLinked')}
+        description={t('alreadyLinkedHint')}
       />
     );
   }
@@ -202,7 +226,17 @@ function StudentInvite({ token }: { token: string }) {
       />
     );
   }
-  return <PendingInvite invite={invite} accept={accept} onFailed={() => void query.refetch()} />;
+  return (
+    <PendingInvite
+      invite={invite}
+      accept={accept}
+      onFailed={() => void query.refetch()}
+      onConflict={() => {
+        setConflict(true);
+        void query.refetch();
+      }}
+    />
+  );
 }
 
 /**

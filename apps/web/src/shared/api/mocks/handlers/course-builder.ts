@@ -189,18 +189,24 @@ export const courseBuilderHandlers = [
         if (!groupsOfTeacher(teacher.id).some((g) => g.id === body.data.groupId)) {
           return apiError('FORBIDDEN', 'Чужая группа');
         }
-        const materials = (body.data.materialIds ?? []).map((id) => {
-          const file = db.files.find((f) => f.id === id && f.confirmed);
-          return file ? fileDto(file) : null;
-        });
-        if (materials.some((m) => m === null))
-          return apiError('NOT_FOUND', 'Файл материала не найден');
+        // Как `listOwnedMaterials` в API: свой файл, purpose MATERIAL, загрузка подтверждена.
+        const materials: ReturnType<typeof fileDto>[] = [];
+        for (const id of body.data.materialIds ?? []) {
+          const file = db.files.find((f) => f.id === id);
+          if (!file || file.ownerUserId !== auth.user.id)
+            return apiError('NOT_FOUND', 'Файл материала не найден');
+          if (file.purpose !== 'MATERIAL')
+            return apiError('VALIDATION', 'Файл не является материалом курса');
+          if (!file.confirmed)
+            return apiError('BUSINESS_RULE', `Файл «${file.fileName}» ещё не загружен`);
+          materials.push(fileDto(file));
+        }
         const job: Job = {
           id: crypto.randomUUID(),
           teacherId: teacher.id,
           groupId: body.data.groupId,
           courseId: null,
-          materials: materials.filter((m): m is NonNullable<typeof m> => m !== null),
+          materials,
           instructions: body.data.instructions ?? null,
           targetTitle: body.data.targetTitle ?? null,
           sourceKind: materials.length > 0 ? 'MATERIALS' : 'TOPIC',

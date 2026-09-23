@@ -142,7 +142,8 @@ describe('TeacherProfilePage', () => {
     for (const [label, value] of [
       ['Группы', '2'],
       ['Ученики', '3'],
-      ['Посещаемость', /^92\s%$/],
+      // Формат процента зависит от shared/lib/format (с неразрывным пробелом или без).
+      ['Посещаемость', /^92\s?%$/],
       ['Требуют внимания', '1'],
     ] as const) {
       expect(within(stats).getByText(label)).toBeInTheDocument();
@@ -151,11 +152,11 @@ describe('TeacherProfilePage', () => {
 
     const groups = screen.getByRole('region', { name: 'Мои группы' });
     const robotics = within(groups).getByRole('button', { name: /Робототехника/ });
-    expect(robotics).toHaveTextContent(/Группа 001 · 2 ученика · 92\s%/);
+    expect(robotics).toHaveTextContent(/Группа 001 · 2 ученика · 92\s?%/);
     expect(within(robotics).getByTitle('Требуют внимания: 1')).toHaveTextContent('1');
     // Без кода группы — её название.
     expect(within(groups).getByRole('button', { name: /Программирование/ })).toHaveTextContent(
-      /Python, группа А · 1 ученик · 92\s%/,
+      /Python, группа А · 1 ученик · 92\s?%/,
     );
 
     await user.click(robotics);

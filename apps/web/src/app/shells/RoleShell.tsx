@@ -34,7 +34,10 @@ export function RoleShell({ role, header, children }: RoleShellProps) {
           }))}
           onSelect={(key) => {
             const item = items.find((i) => i.key === key);
-            if (item) navigate(item.path);
+            // Повторный тап по открытому экрану историю не наращивает; возврат к корню активного
+            // раздела с его подэкрана — replace; переход в другой раздел — push.
+            if (!item || location.pathname === item.path) return;
+            navigate(item.path, { replace: item.key === active });
           }}
         />
       }

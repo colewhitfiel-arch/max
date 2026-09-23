@@ -1,5 +1,6 @@
 import { type FileDto, MATERIAL_MIME_TYPES } from '@edu/contracts';
 import { Button, Card, CloseIcon, IconButton, ListRow, Stack, Text, useToast } from '@edu/ui';
+import type { TFunction } from 'i18next';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadFile } from '@/entities/file';
@@ -13,34 +14,50 @@ export interface MaterialUploaderProps {
 
 const ACCEPT = [...MATERIAL_MIME_TYPES, '.md', '.txt'].join(',');
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+function formatSize(bytes: number, t: TFunction<'teacher'>, locale: string): string {
+  if (bytes < 1024) return t('courseBuilder.form.size.b', { value: bytes });
+  if (bytes < 1024 * 1024) {
+    return t('courseBuilder.form.size.kb', { value: Math.round(bytes / 1024) });
+  }
+  const mb = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(bytes / 1024 / 1024);
+  return t('courseBuilder.form.size.mb', { value: mb });
+}
+
+interface UploadingItem {
+  id: number;
+  name: string;
 }
 
 /** Выбор и загрузка материалов курса (pdf/docx/txt/md) через presigned/local URL (F8). */
 export function MaterialUploader({ value, onChange, disabled }: MaterialUploaderProps) {
-  const { t } = useTranslation('teacher');
+  const { t, i18n } = useTranslation('teacher');
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState<string[]>([]);
+  const [uploading, setUploading] = useState<UploadingItem[]>([]);
+  // Актуальный список: загрузка асинхронная, и за время неё файлы могли убрать из формы.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const nextUploadId = useRef(0);
 
   const onPick = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
     const files = Array.from(list);
-    setUploading((prev) => [...prev, ...files.map((f) => f.name)]);
-    const uploaded: FileDto[] = [];
-    for (const file of files) {
+    const items = files.map((file) => ({ id: nextUploadId.current++, name: file.name, file }));
+    setUploading((prev) => [...prev, ...items.map(({ id, name }) => ({ id, name }))]);
+    for (const { id, file } of items) {
       try {
-        uploaded.push(await uploadFile({ file, purpose: 'MATERIAL' }));
+        const uploaded = await uploadFile({ file, purpose: 'MATERIAL' });
+        valueRef.current = [...valueRef.current, uploaded];
+        onChange(valueRef.current);
       } catch (error) {
         toast.show({ tone: 'danger', title: `${file.name}: ${describeApiError(error)}` });
       } finally {
-        setUploading((prev) => prev.filter((name) => name !== file.name));
+        setUploading((prev) => prev.filter((item) => item.id !== id));
       }
     }
-    if (uploaded.length > 0) onChange([...value, ...uploaded]);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -73,7 +90,7 @@ export function MaterialUploader({ value, onChange, disabled }: MaterialUploader
             <ListRow
               key={file.id}
               title={file.fileName}
-              subtitle={formatSize(file.sizeBytes)}
+              subtitle={formatSize(file.sizeBytes, t, i18n.language)}
               right={
                 <IconButton
                   aria-label={t('courseBuilder.form.removeFile')}
@@ -85,8 +102,8 @@ export function MaterialUploader({ value, onChange, disabled }: MaterialUploader
               }
             />
           ))}
-          {uploading.map((name) => (
-            <ListRow key={name} title={name} subtitle={t('courseBuilder.form.uploading')} />
+          {uploading.map((item) => (
+            <ListRow key={item.id} title={item.name} subtitle={t('courseBuilder.form.uploading')} />
           ))}
         </Card>
       )}

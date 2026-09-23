@@ -1,8 +1,13 @@
 /**
- * Файлы: upload-url → PUT по локальной ссылке → confirm → get. Хранится мета, текст для text/* и
- * байты картинок (для аватара: локальная object URL + отдача по ссылке `url`).
+ * Файлы: upload-url → PUT по локальной ссылке → confirm → get. Хранится мета, байты (отдаются по
+ * ссылке `url`), текст для text/*; для картинок (аватар) — ещё локальная object URL.
  */
-import { CreateUploadUrlBodySchema, FileDtoSchema, FILE_SIZE_LIMITS } from '@edu/contracts';
+import {
+  CreateUploadUrlBodySchema,
+  FileDtoSchema,
+  FILE_SIZE_LIMITS,
+  UploadUrlResultSchema,
+} from '@edu/contracts';
 import { http, HttpResponse } from 'msw';
 import { apiError, apiUrl, authed, json, readBody } from '../lib';
 import { db } from '../state';
@@ -53,9 +58,14 @@ export const filesHandlers = [
         objectUrl: null,
         createdAt: new Date().toISOString(),
       });
-      return HttpResponse.json({
+      // Контракт требует абсолютный URL: относительный VITE_API_URL достраиваем от адреса страницы.
+      const uploadUrl = new URL(
+        apiUrl(`/files/local/upload-${id}`),
+        globalThis.location?.href ?? 'http://localhost',
+      ).href;
+      return json(UploadUrlResultSchema, {
         fileId: id,
-        uploadUrl: apiUrl(`/files/local/upload-${id}`),
+        uploadUrl,
         headers: { 'Content-Type': body.data.mime },
       });
     }),
@@ -66,15 +76,15 @@ export const filesHandlers = [
     const file = db.files.find((f) => f.id === id);
     if (!file) return apiError('NOT_FOUND', 'Файл не найден');
     file.uploaded = true;
-    file.text = file.mime.startsWith('text/') ? await request.text() : null;
-    if (file.mime.startsWith('image/')) {
-      file.blob = new Blob([await request.arrayBuffer()], { type: file.mime });
-      file.objectUrl = objectUrlOf(file.blob);
-    }
+    // Тело читается один раз: байты храним всегда (ссылка `url` из FileDto рабочая для любого
+    // типа), текст для text/* — из тех же байт.
+    file.blob = new Blob([await request.arrayBuffer()], { type: file.mime });
+    file.text = file.mime.startsWith('text/') ? await file.blob.text() : null;
+    if (file.mime.startsWith('image/')) file.objectUrl = objectUrlOf(file.blob);
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // «Скачивание» по `url` из FileDto: отдаём сохранённые байты картинки.
+  // «Скачивание» по `url` из FileDto: отдаём сохранённые байты файла.
   http.get<{ token: string }>(apiUrl('/files/local/:token'), ({ params }) => {
     const id = params.token.replace(/^download-/, '');
     const file = db.files.find((f) => f.id === id && f.confirmed);

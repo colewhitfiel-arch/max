@@ -22,7 +22,7 @@ import { SettingsGroup } from './SettingsGroup';
 
 /**
  * «Внешний вид»: тема (`SegmentedControl` внутри строки) и язык (строка → bottom sheet со списком).
- * Сохраняет через `PATCH /me/settings`; тема применяется сразу и откатывается при ошибке.
+ * Сохраняет через `PATCH /me/settings`; тема и язык применяются сразу и откатываются при ошибке.
  */
 export function AppearanceSettings() {
   const { t } = useTranslation('common');
@@ -55,17 +55,20 @@ export function AppearanceSettings() {
 
   const onLocale = (locale: Locale) => {
     setLanguageOpen(false);
-    if (locale === me.settings.locale) return;
+    const prev = me.settings.locale;
+    if (locale === prev) return;
     void setLanguage(locale);
     updateSettings.mutate(
       { locale },
       {
-        onError: (error) =>
+        onError: (error) => {
+          void setLanguage(prev);
           toast.show({
             tone: 'danger',
             title: t('account.settingsError'),
             description: describeApiError(error),
-          }),
+          });
+        },
       },
     );
   };

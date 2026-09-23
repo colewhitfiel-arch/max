@@ -1,7 +1,12 @@
 {
   "title": "Уведомления",
   "empty": "Уведомлений нет",
-  "unread": "{{count}} непрочитанных",
+  "unread_one": "{{count}} непрочитанное",
+  "unread_few": "{{count}} непрочитанных",
+  "unread_many": "{{count}} непрочитанных",
+  "unread_other": "{{count}} непрочитанных",
+  "newLabel": "Новое",
+  "loadMore": "Показать ещё",
   "onlyUnread": "Только непрочитанные",
   "all": "Все",
   "type": {

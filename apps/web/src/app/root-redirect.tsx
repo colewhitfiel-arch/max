@@ -3,6 +3,7 @@ import { useAuthStore } from '@/shared/auth/store';
 import {
   AUTH_PATH,
   ONBOARDING_PATH,
+  needsStudentOnboarding,
   ROLE_SETUP_PATH,
   roleHomePath,
 } from '@/shared/auth/role-routes';
@@ -14,9 +15,7 @@ export function rootPath(state: Pick<ReturnType<typeof useAuthStore.getState>, '
   const me = state.me;
   if (!me) return AUTH_PATH;
   if (me.needsRoleSetup || !me.activeRole) return ROLE_SETUP_PATH;
-  if (me.activeRole === 'STUDENT' && me.student && !me.student.onboardingCompleted) {
-    return ONBOARDING_PATH;
-  }
+  if (needsStudentOnboarding(me)) return ONBOARDING_PATH;
   return roleHomePath(me.activeRole);
 }
 

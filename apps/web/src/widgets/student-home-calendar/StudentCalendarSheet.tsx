@@ -1,5 +1,5 @@
 import type { LessonDto } from '@edu/contracts';
-import { DockSheet, MonthCalendar, Spinner, Stack, Text } from '@edu/ui';
+import { Badge, Button, DockSheet, MonthCalendar, Spinner, Stack, Text } from '@edu/ui';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { lessonsOfDay } from '@/entities/lesson';
@@ -16,10 +16,18 @@ export interface StudentCalendarSheetProps {
   /** Показываемый месяц. */
   month: Date;
   onMonthChange: (month: Date) => void;
-  /** Занятия показываемого месяца; `undefined` — ещё грузятся. */
+  /** Занятия показываемого месяца (точки на днях); `undefined` — ещё грузятся. */
   lessons: LessonDto[] | undefined;
+  /**
+   * Где искать занятия выбранного дня для правой колонки. По умолчанию — `lessons`; главная
+   * ученика передаёт ещё неделю главной и месяц выбранного дня, чтобы при листании месяцев
+   * колонка не пустела.
+   */
+  selectedDayLessons?: LessonDto[];
   /** Не удалось загрузить месяц. */
   error?: boolean;
+  /** Повторить загрузку месяца (кнопка под ошибкой). */
+  onRetry?: () => void;
 }
 
 /**
@@ -36,9 +44,12 @@ export function StudentCalendarSheet({
   month,
   onMonthChange,
   lessons,
+  selectedDayLessons,
   error = false,
+  onRetry,
 }: StudentCalendarSheetProps) {
   const { t, i18n } = useTranslation('student');
+  const { t: tc } = useTranslation('common');
   const locale = i18n.language;
   const tabDate = new Intl.DateTimeFormat(locale, {
     day: '2-digit',
@@ -46,16 +57,24 @@ export function StudentCalendarSheet({
     year: 'numeric',
   }).format(date);
   const hasLessons = (day: Date) => !!lessons?.some((lesson) => isSameDay(lesson.startsAt, day));
-  const dayLessons = lessons ? lessonsOfDay(lessons, date) : [];
+  const dayPool = selectedDayLessons ?? lessons;
+  const dayLessons = dayPool ? lessonsOfDay(dayPool, date) : [];
 
   let aside;
   if (error) {
     aside = (
-      <Text variant="caption" tone="muted" align="center" as="p">
-        {t('home.calendarError')}
-      </Text>
+      <Stack gap={2} align="center" role="alert">
+        <Text variant="caption" tone="danger" align="center" as="p">
+          {t('home.calendarError')}
+        </Text>
+        {onRetry && (
+          <Button variant="link" size="sm" onClick={onRetry}>
+            {tc('actions.retry')}
+          </Button>
+        )}
+      </Stack>
     );
-  } else if (!lessons) {
+  } else if (!dayPool || (!lessons && dayLessons.length === 0)) {
     aside = (
       <Stack align="center" justify="center" grow>
         <Spinner size="sm" aria-label={t('home.calendarLoading')} />
@@ -70,14 +89,20 @@ export function StudentCalendarSheet({
   } else {
     aside = (
       <Stack as="ul" gap={4} aria-label={t('home.calendarLessons', { date: tabDate })}>
-        {dayLessons.map((lesson) => (
-          <Stack as="li" key={lesson.id} gap={1}>
-            <Text variant="caption" tone="primary" weight="medium">
-              {formatTimeRange(lesson.startsAt, lesson.endsAt, locale)}
-            </Text>
-            <Text variant="caption">{lesson.group.club.title}</Text>
-          </Stack>
-        ))}
+        {dayLessons.map((lesson) => {
+          const cancelled = lesson.status === 'CANCELLED';
+          return (
+            <Stack as="li" key={lesson.id} gap={1} align="start">
+              <Text variant="caption" tone={cancelled ? 'muted' : 'primary'} weight="medium">
+                {formatTimeRange(lesson.startsAt, lesson.endsAt, locale)}
+              </Text>
+              <Text variant="caption" tone={cancelled ? 'muted' : 'default'}>
+                {lesson.group.club.title}
+              </Text>
+              {cancelled && <Badge tone="danger">{tc('lesson.cancelled')}</Badge>}
+            </Stack>
+          );
+        })}
       </Stack>
     );
   }

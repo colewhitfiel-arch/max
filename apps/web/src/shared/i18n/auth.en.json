@@ -16,6 +16,8 @@
   },
   "roleSetup": {
     "title": "Who are you?",
+    "addTitle": "Add role",
+    "addSubtitle": "Pick another role for this account",
     "subtitle": "Pick a role — you can switch later",
     "current": "Your roles",
     "add": "Add role",
@@ -28,7 +30,7 @@
   },
   "switch": {
     "title": "Switch role",
-    "subtitle": "The active role defines the home screen and menu",
+    "subtitle": "Sets the home screen and menu",
     "active": "Active",
     "switched": "Role switched"
   },

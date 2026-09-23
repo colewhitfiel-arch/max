@@ -115,6 +115,22 @@ describe('ParentHomePage', () => {
     expect(await screen.findByText(`расписание ${ANNA}`)).toBeInTheDocument();
   });
 
+  it('ребёнок с неподтверждённой связью (PENDING) не попадает в сердца и не запрашивается', () => {
+    hooks.children = ready({
+      items: [
+        child(EGOR, 'Егор', 'Иванов'),
+        { ...child(ANNA, 'Анна', 'Петрова'), linkStatus: 'PENDING' as const },
+      ],
+    });
+    useUiStore.setState({ selectedChildId: ANNA });
+    renderHome();
+
+    const hearts = screen.getByRole('listbox', { name: 'Дети' });
+    expect(within(hearts).getByRole('option', { name: 'Иванов Е.' })).toBeInTheDocument();
+    expect(within(hearts).queryByRole('option', { name: 'Петрова А.' })).toBeNull();
+    expect(screen.queryByText(`расписание ${ANNA}`)).toBeNull();
+  });
+
   it('кошелёк в шапке открывает пополнение', async () => {
     const user = userEvent.setup();
     hooks.children = ready({ items: [child(EGOR, 'Егор', 'Иванов')] });

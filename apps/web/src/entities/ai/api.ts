@@ -70,27 +70,33 @@ export function useParentMessages(conversationId: string) {
   });
 }
 
-/** `GET /student/trajectory` (null — ещё не построена). */
-export function useTrajectory() {
+/** Как часто перезапрашивать траекторию, пока пересчёт стоит в очереди (F5). */
+const TRAJECTORY_POLL_MS = 5_000;
+
+/**
+ * `GET /student/trajectory` (null — ещё не построена). `queuedAt` — момент постановки пересчёта
+ * в очередь: пока версия старше (или траектории нет), перезапрашиваем раз в
+ * `TRAJECTORY_POLL_MS`; сколько ждать — решает потребитель (сбрасывает `queuedAt`).
+ */
+export function useTrajectory({ queuedAt = null }: { queuedAt?: number | null } = {}) {
   return useQuery({
     queryKey: aiKeys.trajectory(),
     queryFn: () => call(api.ai.getTrajectory()),
+    refetchInterval: (query) => {
+      if (queuedAt == null) return false;
+      const data = query.state.data;
+      const fresh = data != null && new Date(data.generatedAt).getTime() >= queuedAt;
+      return fresh ? false : TRAJECTORY_POLL_MS;
+    },
   });
 }
 
-/** `POST /student/trajectory/refresh` → 202. */
+/**
+ * `POST /student/trajectory/refresh` → 202. Пересчёт идёт в worker'е: результат подтягивает
+ * опрос `useTrajectory({ poll: true })` у потребителя (без таймеров, переживающих экран).
+ */
 export function useRefreshTrajectory() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => call(api.ai.refreshTrajectory()),
-    onSuccess: () => {
-      // Worker пересчитает; перезапросим через 10 с (F5).
-      setTimeout(
-        () => void queryClient.invalidateQueries({ queryKey: aiKeys.trajectory() }),
-        10_000,
-      );
-    },
-  });
+  return useMutation({ mutationFn: () => call(api.ai.refreshTrajectory()) });
 }
 
 /** `POST /student/onboarding/complete` → MeDto (onboardingCompleted = true). */

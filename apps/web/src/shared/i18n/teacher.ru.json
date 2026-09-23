@@ -3,12 +3,20 @@
     "title": "Группы",
     "empty": "Групп пока нет",
     "students": "{{count}} уч.",
-    "needsAttention": "{{count}} требуют внимания",
+    "needsAttention_one": "{{count}} требует внимания",
+    "needsAttention_few": "{{count}} требуют внимания",
+    "needsAttention_many": "{{count}} требуют внимания",
+    "needsAttention_other": "{{count}} требуют внимания",
     "nextLesson": "Следующее занятие",
     "schedule": "Расписание",
     "studentsList": "Ученики",
     "lessons": "Занятия",
     "noLessons": "Занятий за период нет",
+    "noSchedule": "Расписание не задано",
+    "noStudents": "В группе пока нет учеников",
+    "notFoundTitle": "Группа не найдена",
+    "notFoundText": "Её нет среди твоих групп — возможно, ссылка устарела",
+    "toGroups": "К списку групп",
     "ok": "всё в порядке"
   },
   "students": {
@@ -28,6 +36,9 @@
     "counts": "{{modules}} мод. · {{blocks}} бл.",
     "avgProgress": "Средний прогресс",
     "modules": "Модули",
+    "modulesEmpty": "В курсе пока нет модулей",
+    "modulesEmptyHint": "Модули и блоки появятся здесь после наполнения курса",
+    "blocksEmpty": "В модуле пока нет блоков",
     "create": "Новый курс",
     "createTitle": "Название курса",
     "group": "Группа",
@@ -67,6 +78,7 @@
     "form": {
       "modeTopic": "По теме",
       "modeMaterials": "Из файлов",
+      "modeLabel": "Источник курса",
       "modeTopicHint": "Без конспекта: опиши тему, программу занятия или практику — ИИ напишет конспект сам.",
       "modeMaterialsHint": "Загрузи конспект, методичку или презентацию — текст извлечём автоматически.",
       "group": "Группа",
@@ -76,9 +88,16 @@
       "filesHint": "pdf, docx, txt, md — до 50 МБ каждый",
       "removeFile": "Убрать файл",
       "uploading": "Загружается…",
+      "size": {
+        "b": "{{value}} Б",
+        "kb": "{{value}} КБ",
+        "mb": "{{value}} МБ"
+      },
       "topic": "Тема или практика",
       "topicExtra": "Дополнение к материалам (необязательно)",
       "topicHint": "Минимум {{min}} символов. Например: «Циклы for и while в Python, практика на списках, 7 класс, 2 занятия»",
+      "topicExtraHint": "Если заполняешь — минимум {{min}} символов",
+      "topicExtraTooShort": "Слишком коротко: нужно минимум {{min}} символов или оставь поле пустым",
       "topicPlaceholder": "Что изучаем, для кого, какая практика нужна",
       "instructions": "Пожелания",
       "instructionsPlaceholder": "Например: больше практики, короткие тексты, тест в конце",
@@ -96,7 +115,16 @@
       "tabDraft": "Черновик курса",
       "tabKnowledge": "База знаний",
       "knowledgeTitle": "Атомы и узлы знаний",
-      "knowledgeStats": "Атомов: {{atoms}} · узлов: {{nodes}} · покрытие источника: {{coverage}} · отклонено узлов без цитат: {{rejected}}"
+      "knowledgeStats": "Атомов: {{atoms}} · узлов: {{nodes}} · покрытие источника: {{coverage}} · отклонено узлов без цитат: {{rejected}}",
+      "preview": {
+        "quiz": "{{count}} вопр.",
+        "flashcards_one": "{{count}} карточка",
+        "flashcards_few": "{{count}} карточки",
+        "flashcards_many": "{{count}} карточек",
+        "flashcards_other": "{{count}} карточки",
+        "fillGaps": "пропуски в тексте",
+        "matching": "сопоставление"
+      }
     }
   },
   "assignments": {

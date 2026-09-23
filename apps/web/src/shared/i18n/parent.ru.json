@@ -12,6 +12,9 @@
     "codePlaceholder": "Например, ALX123",
     "link": "Привязать",
     "linked": "Ребёнок привязан",
+    "codeNotFound": "Код не найден. Проверь код в профиле ребёнка",
+    "alreadyLinked": "Ребёнок уже привязан",
+    "selected": "Выбран",
     "linkStatus": {
       "PENDING": "Ожидает",
       "ACTIVE": "Привязан",

@@ -20,6 +20,9 @@ import { useUiStore } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 import { analyticsPaths } from '../paths';
 
+/** Аналитика доступна только по подтверждённой связи: по ожидающей сервер отвечает 403. */
+const isActive = (child: ChildBrief) => child.linkStatus === 'ACTIVE';
+
 /** Размер сердца на плитке: две колонки на экране 360–402px. */
 const TILE_HEART = 96;
 
@@ -88,7 +91,7 @@ export function AnalyticsPickerPage() {
         <AsyncState
           query={query}
           skeleton={<PickerSkeleton />}
-          isEmpty={(data) => data.items.length === 0}
+          isEmpty={(data) => !data.items.some(isActive)}
           empty={
             <EmptyState
               icon={
@@ -106,7 +109,7 @@ export function AnalyticsPickerPage() {
                 {t('picker.hint')}
               </Text>
               <Grid columns={2} gap={3} role="group" aria-label={t('picker.listLabel')}>
-                {data.items.map((child) => (
+                {data.items.filter(isActive).map((child) => (
                   <ChildTile
                     key={child.student.id}
                     child={child}

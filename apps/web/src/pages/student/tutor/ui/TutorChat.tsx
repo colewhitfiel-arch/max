@@ -1,13 +1,12 @@
-import { STREAMING_ROUTES, type AiMessageDto } from '@edu/contracts';
-import { ChatComposer, Chip, Inline, Screen, Stack, Text } from '@edu/ui';
+import { STREAMING_ROUTES } from '@edu/contracts';
+import { ChatComposer, Chip, Inline, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { aiKeys, ChatMessage, TutorAvatar, useMessages } from '@/entities/ai';
+import { aiKeys, ChatMessage, ChatMessageList, TutorAvatar, useMessages } from '@/entities/ai';
 import { describeApiError } from '@/shared/api/errors';
 import { useAiStream } from '@/shared/api/sse';
 import { useMe } from '@/shared/auth/hooks';
-import { formatRelativeDay, isSameDay } from '@/shared/lib/dates';
 import { AsyncState } from '@/shared/ui';
 
 /** Ключи подсказок-стартеров (`tutor.suggestions.*`). */
@@ -25,39 +24,6 @@ function scrollParent(el: HTMLElement | null): HTMLElement | null {
     node = node.parentElement;
   }
   return null;
-}
-
-/** Разделитель дня между сообщениями («сегодня», «вчера», «21 сент.»). */
-function DayDivider({ date }: { date: string }) {
-  const { i18n } = useTranslation();
-  const label = formatRelativeDay(date, i18n.language);
-  return (
-    <Text variant="caption" tone="muted" align="center" role="separator" aria-label={label}>
-      {label.charAt(0).toUpperCase() + label.slice(1)}
-    </Text>
-  );
-}
-
-/** Сообщения с разделителями дней. */
-function MessageList({ items }: { items: AiMessageDto[] }) {
-  return (
-    <>
-      {items.map((message, index) => {
-        const previous = items[index - 1];
-        const newDay = !previous || !isSameDay(previous.createdAt, message.createdAt);
-        return (
-          <Stack key={message.id} gap={3}>
-            {newDay && <DayDivider date={message.createdAt} />}
-            <ChatMessage
-              role={message.role}
-              content={message.content}
-              createdAt={message.createdAt}
-            />
-          </Stack>
-        );
-      })}
-    </>
-  );
 }
 
 /** Пустой чат: маскот, приветствие и подсказки-стартеры, которые сразу отправляют вопрос. */
@@ -105,6 +71,9 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
   const stream = useAiStream();
   const [draft, setDraft] = useState('');
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
+  // Готовый ответ озвучивается один раз (лента не live-регион: иначе скринридер зачитывает
+  // каждый токен стрима и смену скелета на историю).
+  const [announcement, setAnnouncement] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => onStreamingChange?.(stream.isStreaming), [stream.isStreaming, onStreamingChange]);
@@ -112,13 +81,23 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
   const send = useCallback(
     async (text: string) => {
       setPendingUserText(text);
+      setAnnouncement('');
       const result = await stream.start(STREAMING_ROUTES.tutorMessage.path(conversationId), {
         text,
       });
       if (result.status === 'done') {
         await queryClient.invalidateQueries({ queryKey: aiKeys.messages(conversationId) });
         setPendingUserText(null);
+        setAnnouncement(result.text);
         stream.reset();
+      } else if (result.status === 'error') {
+        // Ошибка (лимит, сеть, сбой потока): «отправленный» пузырь убираем, ленту перезапрашиваем —
+        // если сервер успел сохранить вопрос, он придёт с историей. Ответ не начался — вопрос
+        // возвращаем в поле (если пользователь ничего не набрал), чтобы отправить повторно.
+        // Ошибку не сбрасываем: alert живёт до следующей отправки.
+        setPendingUserText(null);
+        if (!result.text) setDraft((current) => current || text);
+        await queryClient.invalidateQueries({ queryKey: aiKeys.messages(conversationId) });
       }
     },
     [conversationId, queryClient, stream],
@@ -136,18 +115,20 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
   useEffect(() => scrollToEnd(true), [messageCount, pendingUserText, scrollToEnd]);
   useEffect(() => scrollToEnd(false), [stream.text, scrollToEnd]);
 
-  const isEmpty = messageCount === 0 && !pendingUserText && !stream.text;
+  // Ошибка первой отправки тоже не «пустой чат»: иначе alert с ошибкой пропадёт вместе с лентой.
+  const isEmpty =
+    messageCount === 0 && !pendingUserText && !stream.text && stream.status !== 'error';
 
   return (
     <Screen fill>
-      <Stack gap={3} grow justify="end" aria-live="polite">
+      <Stack gap={3} grow justify="end">
         <AsyncState query={query}>
           {(page) =>
             isEmpty ? (
               <EmptyChat onPick={(text) => void send(text)} disabled={stream.isStreaming} />
             ) : (
               <>
-                <MessageList items={page.items} />
+                <ChatMessageList items={page.items} />
                 {pendingUserText && <ChatMessage role="USER" content={pendingUserText} />}
                 {(stream.isStreaming || stream.text) && (
                   <ChatMessage
@@ -166,6 +147,7 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
           }
         </AsyncState>
         <div ref={bottomRef} aria-hidden="true" />
+        <VisuallyHidden role="status">{announcement}</VisuallyHidden>
       </Stack>
 
       <ChatComposer

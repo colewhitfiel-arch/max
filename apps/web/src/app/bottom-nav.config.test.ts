@@ -27,7 +27,30 @@ describe('activeNavKey', () => {
     expect(activeNavKey(teacher, '/teacher/groups/g1')).toBe('settings');
     expect(activeNavKey(teacher, '/teacher/course-builder/j1')).toBe('settings');
     expect(activeNavKey(teacher, '/teacher/clubs/demand')).toBe('settings');
-    expect(activeNavKey(teacher, '/teacher/groupsx')).toBe('home');
+    // Неизвестный раздел: «Главная» — только точный корень, ничего не подсвечено.
+    expect(activeNavKey(teacher, '/teacher/groupsx')).toBeNull();
     expect(activeNavKey(teacher, '/parent')).toBeNull();
+  });
+
+  it('«Главная» ученика — только корень: курсы и блоки подсвечивают задания', () => {
+    const student = BOTTOM_NAV.STUDENT;
+    expect(activeNavKey(student, '/student')).toBe('home');
+    expect(activeNavKey(student, '/student/courses')).toBe('assignments');
+    expect(activeNavKey(student, '/student/courses/c1')).toBe('assignments');
+    expect(activeNavKey(student, '/student/blocks/b1')).toBe('assignments');
+    expect(activeNavKey(student, '/student/assignments/a1')).toBe('assignments');
+    expect(activeNavKey(student, '/student/tutor')).toBe('tutor');
+    expect(activeNavKey(student, '/student/unknown')).toBeNull();
+  });
+
+  it('родитель: экраны, открытые с главной, подсвечивают «Главную»', () => {
+    const parent = BOTTOM_NAV.PARENT;
+    expect(activeNavKey(parent, '/parent')).toBe('home');
+    expect(activeNavKey(parent, '/parent/children')).toBe('home');
+    expect(activeNavKey(parent, '/parent/wallet')).toBe('home');
+    expect(activeNavKey(parent, '/parent/courses/teacher/t1')).toBe('home');
+    expect(activeNavKey(parent, '/parent/payments')).toBe('home');
+    expect(activeNavKey(parent, '/parent/analytics/s1')).toBe('analytics');
+    expect(activeNavKey(parent, '/parent/tutor')).toBe('tutor');
   });
 });

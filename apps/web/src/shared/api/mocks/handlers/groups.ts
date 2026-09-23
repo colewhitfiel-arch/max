@@ -3,20 +3,12 @@ import {
   CreateLessonBodySchema,
   LessonDtoSchema,
   LessonsListSchema,
-  PeriodQuerySchema,
   UpdateLessonBodySchema,
 } from '@edu/contracts';
 import { http } from 'msw';
-import {
-  childrenIdsOfParent,
-  groupIdsOfStudent,
-  groupsOfTeacher,
-  inPeriod,
-  lessonDto,
-  lessonsOfGroups,
-} from '../demo';
-import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
-import { db, parentOfUser, studentOfUser, teacherOfUser } from '../state';
+import { groupIdsOfStudent, groupsOfTeacher, inPeriod, lessonDto, lessonsOfGroups } from '../demo';
+import { apiError, apiUrl, authed, denyForeignChild, json, periodQuery, readBody } from '../lib';
+import { db, studentOfUser, teacherOfUser } from '../state';
 
 export const groupsHandlers = [
   http.get(
@@ -25,11 +17,12 @@ export const groupsHandlers = [
       ({ auth, request }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
-        const q = query(request);
+        const q = periodQuery(request);
+        if (!q.ok) return q.response;
         const lessons = inPeriod(
           lessonsOfGroups(groupIdsOfStudent(student.id)),
-          q.get('from'),
-          q.get('to'),
+          q.data.from,
+          q.data.to,
         );
         return json(LessonsListSchema, { lessons: lessons.map((l) => lessonDto(l, student.id)) });
       },
@@ -41,15 +34,14 @@ export const groupsHandlers = [
     apiUrl('/parent/children/:studentId/calendar'),
     authed(
       ({ auth, params, request }) => {
-        const parent = parentOfUser(auth.user.id);
-        if (!parent || !childrenIdsOfParent(parent.id).includes(params.studentId)) {
-          return apiError('FORBIDDEN', 'Ребёнок не привязан');
-        }
-        const q = query(request);
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
+        const q = periodQuery(request);
+        if (!q.ok) return q.response;
         const lessons = inPeriod(
           lessonsOfGroups(groupIdsOfStudent(params.studentId)),
-          q.get('from'),
-          q.get('to'),
+          q.data.from,
+          q.data.to,
         );
         return json(LessonsListSchema, {
           lessons: lessons.map((l) => lessonDto(l, params.studentId)),
@@ -65,10 +57,8 @@ export const groupsHandlers = [
       ({ auth, request }) => {
         const teacher = teacherOfUser(auth.user.id);
         if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
-        const q = PeriodQuerySchema.safeParse(Object.fromEntries(query(request)));
-        if (!q.success) {
-          return apiError('VALIDATION', 'Неверные параметры запроса', q.error.flatten());
-        }
+        const q = periodQuery(request);
+        if (!q.ok) return q.response;
         // Занятия всех групп преподавателя за период (без отметок — они по ученикам).
         const groupIds = groupsOfTeacher(teacher.id).map((g) => g.id);
         const lessons = inPeriod(lessonsOfGroups(groupIds), q.data.from, q.data.to);
@@ -86,8 +76,9 @@ export const groupsHandlers = [
         if (!teacher || !groupsOfTeacher(teacher.id).some((g) => g.id === params.groupId)) {
           return apiError('FORBIDDEN', 'Чужая группа');
         }
-        const q = query(request);
-        const lessons = inPeriod(lessonsOfGroups([params.groupId]), q.get('from'), q.get('to'));
+        const q = periodQuery(request);
+        if (!q.ok) return q.response;
+        const lessons = inPeriod(lessonsOfGroups([params.groupId]), q.data.from, q.data.to);
         return json(LessonsListSchema, { lessons: lessons.map((l) => lessonDto(l)) });
       },
       ['TEACHER'],
@@ -104,6 +95,9 @@ export const groupsHandlers = [
         }
         const body = await readBody(request, CreateLessonBodySchema);
         if (!body.ok) return body.response;
+        if (new Date(body.data.endsAt).getTime() <= new Date(body.data.startsAt).getTime()) {
+          return apiError('VALIDATION', 'Занятие должно заканчиваться позже начала');
+        }
         const lesson = {
           id: crypto.randomUUID(),
           groupId: params.groupId,

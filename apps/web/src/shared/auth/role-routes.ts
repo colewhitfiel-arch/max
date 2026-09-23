@@ -1,4 +1,4 @@
-import type { Role } from '@edu/contracts';
+import type { MeDto, Role } from '@edu/contracts';
 
 /** Корневой маршрут роли. SCHOOL_ADMIN — заглушка (501-страница). */
 export const ROLE_HOME: Record<Role, string> = {
@@ -17,3 +17,8 @@ export const ROLE_SETUP_PATH = '/auth/role';
 export const SWITCH_ROLE_PATH = '/auth/switch';
 export const ONBOARDING_PATH = '/onboarding';
 export const FORBIDDEN_PATH = '/403';
+
+/** Ученик ещё не прошёл онбординг (docs/07): вместо экранов роли — `/onboarding`. */
+export function needsStudentOnboarding(me: MeDto | null | undefined): boolean {
+  return me?.activeRole === 'STUDENT' && !!me.student && !me.student.onboardingCompleted;
+}

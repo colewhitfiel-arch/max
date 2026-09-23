@@ -8,3 +8,4 @@ export {
   useAcceptGenerationJob,
   useCancelGenerationJob,
 } from './api';
+export { generationStageTone } from './model';

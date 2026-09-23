@@ -1,4 +1,3 @@
-import { ROLE_LABELS } from '@edu/contracts';
 import { AppLayout, Button, ErrorState, PageHeader, Screen } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -8,7 +7,7 @@ export function AdminPage() {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
   return (
-    <AppLayout header={<PageHeader title={ROLE_LABELS.SCHOOL_ADMIN} />}>
+    <AppLayout header={<PageHeader title={t('roles.SCHOOL_ADMIN')} />}>
       <AppLayout.Content>
         <Screen>
           <ErrorState

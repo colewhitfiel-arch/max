@@ -30,8 +30,20 @@ import {
 } from '../demo';
 import { apiError, apiUrl, authed, json, noContent, query, readBody } from '../lib';
 import { db, studentOfUser, teacherOfUser } from '../state';
+import { fileDto } from './files';
 
 const submissionDto = ({ answers: _answers, ...s }: Submission) => s;
+
+/** Сдача по заданию этого преподавателя (иначе 404/403, как `listSubmissions`). */
+function ownSubmission(userId: string, submissionId: string): Submission | Response {
+  const submission = db.submissions.find((s) => s.id === submissionId);
+  if (!submission) return apiError('NOT_FOUND', 'Сдача не найдена');
+  const teacher = teacherOfUser(userId);
+  const assignment = db.assignments.find((a) => a.id === submission.assignmentId);
+  if (!teacher || !assignment || assignment.teacherId !== teacher.id)
+    return apiError('FORBIDDEN', 'Чужое задание');
+  return submission;
+}
 
 function teacherCard(assignment: Assignment) {
   const studentIds = studentIdsOfGroup(assignment.groupId);
@@ -76,7 +88,7 @@ export const assignmentsHandlers = [
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
         const dueTime = (a: Assignment) => {
-          const due = dueAtOf(a.id);
+          const due = dueAtOf(a);
           return due ? new Date(due).getTime() : Number.POSITIVE_INFINITY;
         };
         const clubs = groupIdsOfStudent(student.id).map((groupId) => {
@@ -153,13 +165,31 @@ export const assignmentsHandlers = [
         const student = studentOfUser(auth.user.id);
         const assignment = db.assignments.find((a) => a.id === params.assignmentId);
         if (!assignment) return apiError('NOT_FOUND', 'Задание не найдено');
-        if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
+        // Как в GET детали: только опубликованные задания групп ученика.
+        if (!student || !assignmentsOfStudent(student.id).some((a) => a.id === assignment.id)) {
+          return apiError('FORBIDDEN', 'Задание не твоей группы');
+        }
         const body = await readBody(request, SubmitAssignmentBodySchema);
         if (!body.ok) return body.response;
-        const dueAt = dueAtOf(assignment.id);
+        const key = request.headers.get('idempotency-key');
+        const replayKey = key ? `${student.id}:${key}` : null;
+        const previous = replayKey ? db.submissionReplays.get(replayKey) : undefined;
+        if (previous) {
+          if (previous.assignmentId !== assignment.id) {
+            return apiError('CONFLICT', 'Ключ идемпотентности уже использован для другого задания');
+          }
+          return json(SubmissionDtoSchema, previous.result);
+        }
+        const dueAt = dueAtOf(assignment);
         let submission = db.submissions.find(
           (s) => s.assignmentId === assignment.id && s.studentId === student.id,
         );
+        if (
+          assignment.allowedAttempts !== null &&
+          (submission?.attemptsCount ?? 0) >= assignment.allowedAttempts
+        ) {
+          return apiError('BUSINESS_RULE', 'Попытки закончились');
+        }
         if (!submission) {
           submission = {
             id: crypto.randomUUID(),
@@ -179,7 +209,12 @@ export const assignmentsHandlers = [
           };
           db.submissions.push(submission);
         }
+        // Новая попытка: оценка прошлой проверки к ней не относится.
         submission.status = 'SUBMITTED';
+        submission.score = null;
+        submission.gradedAt = null;
+        submission.gradedById = null;
+        submission.feedback = null;
         submission.attemptsCount += 1;
         submission.text = body.data.text ?? null;
         submission.fileIds = body.data.fileIds ?? [];
@@ -187,7 +222,14 @@ export const assignmentsHandlers = [
           body.data.answers ?? (body.data.text ? { text: body.data.text } : null);
         submission.submittedAt = new Date().toISOString();
         submission.isLate = !!dueAt && new Date(dueAt).getTime() < Date.now();
-        return json(SubmissionDtoSchema, submissionDto(submission));
+        const result = submissionDto(submission);
+        if (replayKey) {
+          db.submissionReplays.set(replayKey, {
+            assignmentId: assignment.id,
+            result: { ...result },
+          });
+        }
+        return json(SubmissionDtoSchema, result);
       },
       ['STUDENT'],
     ),
@@ -208,7 +250,7 @@ export const assignmentsHandlers = [
           .filter((a) => groupIds.includes(a.groupId) && (!groupId || a.groupId === groupId))
           .filter((a) => {
             if (!status) return true;
-            const due = dueAtOf(a.id);
+            const due = dueAtOf(a);
             const closed = !!due && new Date(due).getTime() < now;
             return status === 'closed' ? closed : !closed;
           })
@@ -283,6 +325,9 @@ export const assignmentsHandlers = [
         if (!teacher || db.assignments[index]!.teacherId !== teacher.id)
           return apiError('FORBIDDEN', 'Чужое задание');
         db.assignments.splice(index, 1);
+        // Вместе с заданием уходят и его сдачи: иначе карточка ученика и аналитика родителя
+        // споткнутся о сдачу без задания.
+        db.submissions = db.submissions.filter((s) => s.assignmentId !== params.assignmentId);
         return noContent();
       },
       ['TEACHER'],
@@ -318,12 +363,15 @@ export const assignmentsHandlers = [
   http.get<{ submissionId: string }>(
     apiUrl('/teacher/submissions/:submissionId'),
     authed(
-      ({ params }) => {
-        const submission = db.submissions.find((s) => s.id === params.submissionId);
-        if (!submission) return apiError('NOT_FOUND', 'Сдача не найдена');
+      ({ auth, params }) => {
+        const submission = ownSubmission(auth.user.id, params.submissionId);
+        if (submission instanceof Response) return submission;
         return json(TeacherSubmissionDetailSchema, {
           ...submission,
-          files: [],
+          files: submission.fileIds.flatMap((id) => {
+            const file = db.files.find((f) => f.id === id);
+            return file ? [fileDto(file)] : [];
+          }),
           attempts: submission.submittedAt
             ? [
                 {
@@ -343,16 +391,15 @@ export const assignmentsHandlers = [
     apiUrl('/teacher/submissions/:submissionId/grade'),
     authed(
       async ({ auth, params, request }) => {
-        const teacher = teacherOfUser(auth.user.id);
-        const submission = db.submissions.find((s) => s.id === params.submissionId);
-        if (!submission) return apiError('NOT_FOUND', 'Сдача не найдена');
+        const submission = ownSubmission(auth.user.id, params.submissionId);
+        if (submission instanceof Response) return submission;
         const body = await readBody(request, GradeSubmissionBodySchema);
         if (!body.ok) return body.response;
         submission.status = body.data.status;
         submission.score = body.data.score;
         submission.feedback = body.data.feedback ?? null;
         submission.gradedAt = new Date().toISOString();
-        submission.gradedById = teacher?.id ?? null;
+        submission.gradedById = teacherOfUser(auth.user.id)!.id;
         return json(SubmissionDtoSchema, submissionDto(submission));
       },
       ['TEACHER'],

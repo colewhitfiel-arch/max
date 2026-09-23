@@ -33,6 +33,17 @@ import { db, studentOfUser, teacherOfUser } from '../state';
  */
 const onboardingClubs = () => db.clubs.filter((club) => demoClubs.some((d) => d.id === club.id));
 
+/**
+ * Вопросы онбординга после 1-го, 2-го и 3-го ответа (первый — в `/start`); 4-й ответ завершает
+ * диалог. Порядок — как в mock-правилах `packages/ai` (цели → время и формат → «на потом»), так
+ * что `futureInterests` берётся из 4-го ответа.
+ */
+const ONBOARDING_QUESTIONS = [
+  'Здорово! А какие цели ты бы хотел достичь за этот год?',
+  'Понял. Сколько часов в неделю ты готов уделять кружкам и как тебе больше нравится заниматься — практика, проекты, теория?',
+  'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?',
+] as const;
+
 /** Диалог ученика (не родительский — у пользователя могут быть обе роли). */
 const isStudentConversation = (id: string) => !db.parentConversationIds.has(id);
 
@@ -234,20 +245,26 @@ export const aiHandlers = [
   http.post(
     apiUrl('/student/onboarding/messages'),
     authed(
-      async ({ request }) => {
+      async ({ auth, request }) => {
         const body = await readBody(request, OnboardingMessageBodySchema);
         if (!body.ok) return body.response;
-        addMessage(body.data.conversationId, 'USER', body.data.text);
-        const userMessages = db.messages.filter(
-          (m) => m.conversationId === body.data.conversationId && m.role === 'USER',
+        // Только свой диалог онбординга (как requireOwnedOnboarding в API).
+        const conversation = db.conversations.find(
+          (c) =>
+            c.id === body.data.conversationId &&
+            c.kind === 'ONBOARDING' &&
+            c.userId === auth.user.id,
         );
-        const isComplete = userMessages.length >= 4;
+        if (!conversation) return apiError('NOT_FOUND', 'Диалог онбординга не найден');
+        addMessage(conversation.id, 'USER', body.data.text);
+        const userMessages = db.messages.filter(
+          (m) => m.conversationId === conversation.id && m.role === 'USER',
+        );
+        const isComplete = userMessages.length > ONBOARDING_QUESTIONS.length;
         const reply = isComplete
           ? 'Спасибо! Я понял твои интересы. Сейчас подберу кружки, которые тебе подойдут.'
-          : userMessages.length === 3
-            ? 'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?'
-            : 'Здорово! А какие цели ты бы хотел достичь за этот год?';
-        const message = addMessage(body.data.conversationId, 'ASSISTANT', reply);
+          : ONBOARDING_QUESTIONS[userMessages.length - 1]!;
+        const message = addMessage(conversation.id, 'ASSISTANT', reply);
         return sseResponse(reply, {
           type: 'done',
           messageId: message.id,

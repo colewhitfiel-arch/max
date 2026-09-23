@@ -13,7 +13,6 @@ import {
 import { demoSchool } from '@edu/contracts/fixtures';
 import { http } from 'msw';
 import {
-  childrenIdsOfParent,
   clubCard,
   clubProgress,
   enrollmentsOfStudent,
@@ -22,7 +21,7 @@ import {
   studentBrief,
   userBrief,
 } from '../demo';
-import { apiError, apiUrl, authed, json, noContent, readBody } from '../lib';
+import { apiError, apiUrl, authed, denyForeignChild, json, noContent, readBody } from '../lib';
 import { db, parentOfUser, studentOfUser } from '../state';
 import type { MockInvite } from '../world-extras';
 import { paidUntilOf } from './payments';
@@ -106,19 +105,7 @@ export const familyHandlers = [
           (l) => l.parentId === parent.id && l.studentId === student.id,
         );
         if (existing?.status === 'ACTIVE') return apiError('CONFLICT', 'Ребёнок уже привязан');
-        const now = new Date().toISOString();
-        if (existing) {
-          existing.status = 'ACTIVE';
-          existing.confirmedAt = now;
-        } else {
-          db.links.push({
-            parentId: parent.id,
-            studentId: student.id,
-            status: 'ACTIVE',
-            requestedAt: now,
-            confirmedAt: now,
-          });
-        }
+        activateLink(parent.id, student.id);
         return json(LinkChildResultSchema, {
           student: studentBrief(student.id),
           linkStatus: 'ACTIVE',
@@ -232,10 +219,8 @@ export const familyHandlers = [
     apiUrl('/parent/children/:studentId/clubs'),
     authed(
       ({ auth, params }) => {
-        const parent = parentOfUser(auth.user.id);
-        if (!parent || !childrenIdsOfParent(parent.id).includes(params.studentId)) {
-          return apiError('FORBIDDEN', 'Ребёнок не привязан');
-        }
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
         const items = enrollmentsOfStudent(params.studentId).map((enrollment) => {
           const group = groupBrief(enrollment.groupId);
           const club = db.clubs.find((c) => c.id === group.club.id)!;

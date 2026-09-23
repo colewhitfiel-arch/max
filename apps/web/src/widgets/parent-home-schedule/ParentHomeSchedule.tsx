@@ -70,6 +70,10 @@ export function ParentHomeSchedule({ studentId, onAddClub }: ParentHomeScheduleP
         onDateChange={selectDay}
         lessons={lessons}
         loading={outsideHome && calendar.isPending}
+        // Вне окна главной день целиком из календаря: его сбой — ошибка с повтором, а не
+        // ложное «нет занятий».
+        error={outsideHome && calendar.isError ? calendar.error : undefined}
+        onRetry={() => void calendar.refetch()}
         unreadCount={unreadCount}
         onOpenNotifications={() => {
           setCalendarOpen(false);

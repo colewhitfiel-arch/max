@@ -1,6 +1,7 @@
 /**
  * Единый ts-rest клиент (ADR-013). Кастомный fetcher подставляет Authorization и X-Request-Id,
  * по 401 один раз обновляет пару токенов через `authContract.refresh` и повторяет запрос.
+ * Отказ refresh (4xx) разлогинивает; сетевой сбой/5xx refresh — нет (сессия может быть жива).
  * Токены живут в auth-store; клиент получает их через `ApiAuthAdapter`, чтобы не тянуть store
  * (и React) в транспортный слой.
  */
@@ -13,7 +14,7 @@ import {
 } from '@edu/contracts';
 import { type ApiFetcher, type ApiFetcherArgs, initClient } from '@ts-rest/core';
 import { config } from '../config';
-import { apiErrorFromException, apiErrorFromResponse } from './errors';
+import { type ApiClientError, apiErrorFromException, apiErrorFromResponse } from './errors';
 
 export interface ApiAuthAdapter {
   getAccessToken(): string | null;
@@ -43,7 +44,7 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-interface RawResponse {
+export interface RawResponse {
   status: number;
   body: unknown;
   headers: Headers;
@@ -78,27 +79,89 @@ async function parseBody(response: Response): Promise<unknown> {
   return undefined;
 }
 
-let refreshInFlight: Promise<TokenPair | null> | null = null;
+/**
+ * Итог обновления токенов: `unauthorized` — сервер отверг refresh (сессия невалидна);
+ * `failed` — сеть/5xx/429: сессия, возможно, жива, разлогинивать нельзя.
+ */
+export type RefreshOutcome =
+  | { kind: 'ok'; tokens: TokenPair }
+  | { kind: 'unauthorized' }
+  | { kind: 'failed'; error: ApiClientError; response?: RawResponse };
+
+type RefreshFailure = Extract<RefreshOutcome, { kind: 'failed' }>;
+
+/** 4xx на refresh — токен отвергнут; 408/429 и 5xx — временный сбой. */
+const isRefreshRejected = (status: number) =>
+  status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /** Обновляет пару токенов; параллельные 401 ждут один и тот же refresh. */
-function refreshTokens(): Promise<TokenPair | null> {
+export function refreshTokens(): Promise<RefreshOutcome> {
   if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = (async () => {
+  refreshInFlight = (async (): Promise<RefreshOutcome> => {
     const refreshToken = authAdapter?.getRefreshToken();
-    if (!refreshToken || !authAdapter) return null;
+    if (!refreshToken || !authAdapter) return { kind: 'unauthorized' };
     try {
       const result = await refreshClient.refresh({ body: { refreshToken } });
-      if (result.status !== 200) return null;
-      const tokens = TokenPairSchema.parse(result.body);
-      authAdapter.onTokensRefreshed(tokens);
-      return tokens;
-    } catch {
-      return null;
+      if (result.status === 200) {
+        const tokens = TokenPairSchema.parse(result.body);
+        authAdapter.onTokensRefreshed(tokens);
+        return { kind: 'ok', tokens };
+      }
+      if (isRefreshRejected(result.status)) return { kind: 'unauthorized' };
+      return {
+        kind: 'failed',
+        error: apiErrorFromResponse(result.status, result.body),
+        response: result,
+      };
+    } catch (cause) {
+      return { kind: 'failed', error: apiErrorFromException(cause) };
     } finally {
       refreshInFlight = null;
     }
   })();
   return refreshInFlight;
+}
+
+/** Сообщить store, что сессия невалидна (для запросов вне ts-rest). */
+export function notifyUnauthorized(): void {
+  authAdapter?.onUnauthorized();
+}
+
+/**
+ * Запрос с авторизацией: по 401 один раз обновляет токены и повторяет `attempt`.
+ * Отказ refresh → `onUnauthorized` и первый ответ; сбой refresh (сеть/5xx) → `onRefreshFailed`
+ * без разлогина.
+ */
+async function withAuthRetry<T extends { status: number }>(
+  attempt: (token: string | null) => Promise<T>,
+  onRefreshFailed: (failure: RefreshFailure) => T,
+  canRefresh = true,
+): Promise<T> {
+  const first = await attempt(authAdapter?.getAccessToken() ?? null);
+  if (first.status !== 401 || !canRefresh || !authAdapter?.getRefreshToken()) return first;
+  const outcome = await refreshTokens();
+  if (outcome.kind === 'unauthorized') {
+    notifyUnauthorized();
+    return first;
+  }
+  if (outcome.kind === 'failed') return onRefreshFailed(outcome);
+  const second = await attempt(outcome.tokens.accessToken);
+  if (second.status === 401) notifyUnauthorized();
+  return second;
+}
+
+/**
+ * `fetch` вне ts-rest (SSE) с той же логикой 401 → refresh → повтор. `attempt` получает
+ * access-токен для заголовка Authorization. Сбой refresh бросает `ApiClientError`.
+ */
+export function fetchWithAuthRetry(
+  attempt: (token: string | null) => Promise<Response>,
+): Promise<Response> {
+  return withAuthRetry(attempt, (failure) => {
+    throw failure.error;
+  });
 }
 
 const isRefreshRoute = (args: ApiFetcherArgs) => args.route.path === authContract.refresh.path;
@@ -112,18 +175,15 @@ export const customFetch: ApiFetcher = async (args): Promise<RawResponse> => {
     });
 
   try {
-    const first = await attempt(authAdapter?.getAccessToken() ?? null);
-    if (first.status !== 401 || isRefreshRoute(args) || !authAdapter?.getRefreshToken()) {
-      return first;
-    }
-    const tokens = await refreshTokens();
-    if (!tokens) {
-      authAdapter.onUnauthorized();
-      return first;
-    }
-    const second = await attempt(tokens.accessToken);
-    if (second.status === 401) authAdapter.onUnauthorized();
-    return second;
+    return await withAuthRetry(
+      attempt,
+      // 5xx refresh — отдаём его ответ (TanStack ретраит), сеть — бросаем EXTERNAL_INTEGRATION.
+      (failure) => {
+        if (failure.response) return failure.response;
+        throw failure.error;
+      },
+      !isRefreshRoute(args),
+    );
   } catch (cause) {
     throw apiErrorFromException(cause);
   }

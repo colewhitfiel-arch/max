@@ -10,6 +10,7 @@ import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 /** `/teacher/courses` — `GET /teacher/courses` + создание пустого курса. */
 export function TeacherCoursesPage() {
   const { t } = useTranslation('teacher');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const toast = useToast();
   const query = useTeacherCourses();
@@ -64,17 +65,30 @@ export function TeacherCoursesPage() {
                 <Field label={t('courses.createTitle')} required>
                   <Input value={title} onChange={(event) => setTitle(event.target.value)} />
                 </Field>
-                <Field label={t('courses.group')} required>
-                  <Select
-                    value={groupId}
-                    onChange={(event) => setGroupId(event.target.value)}
-                    placeholder={t('courses.group')}
-                    options={(groups.data?.items ?? []).map((group) => ({
-                      value: group.id,
-                      label: group.title,
-                    }))}
-                  />
-                </Field>
+                <Stack gap={1}>
+                  <Field
+                    label={t('courses.group')}
+                    required
+                    disabled={groups.isPending || groups.isError}
+                    hint={groups.isPending ? tc('states.loading') : undefined}
+                    error={groups.isError ? describeApiError(groups.error) : undefined}
+                  >
+                    <Select
+                      value={groupId}
+                      onChange={(event) => setGroupId(event.target.value)}
+                      placeholder={t('courses.group')}
+                      options={(groups.data?.items ?? []).map((group) => ({
+                        value: group.id,
+                        label: group.title,
+                      }))}
+                    />
+                  </Field>
+                  {groups.isError && (
+                    <Button variant="ghost" size="sm" onClick={() => void groups.refetch()}>
+                      {tc('actions.retry')}
+                    </Button>
+                  )}
+                </Stack>
                 <Button
                   type="submit"
                   fullWidth

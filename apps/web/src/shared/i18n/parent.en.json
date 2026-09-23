@@ -12,6 +12,9 @@
     "codePlaceholder": "e.g. ALX123",
     "link": "Link",
     "linked": "Child linked",
+    "codeNotFound": "Code not found. Check the code in the child's profile",
+    "alreadyLinked": "This child is already linked",
+    "selected": "Selected",
     "linkStatus": {
       "PENDING": "Pending",
       "ACTIVE": "Linked",

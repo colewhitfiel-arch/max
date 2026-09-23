@@ -10,7 +10,8 @@ import {
 } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { FROM_APP_STATE, WALLET_PATH } from '@/pages/parent/wallet/paths';
+import { WALLET_PATH } from '@/pages/parent/wallet/paths';
+import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { ScreenHeader } from '@/shared/ui';
 import {
   AccountSettings,
@@ -40,7 +41,7 @@ function FamilySettings() {
           title={t('settings.children')}
           subtitle={t('settings.childrenHint')}
           chevron
-          onClick={() => navigate('/parent/children')}
+          onClick={() => navigate('/parent/children', { state: FROM_APP_STATE })}
         />
         <ListRow
           left={
@@ -61,7 +62,7 @@ function FamilySettings() {
           }
           title={t('settings.payments')}
           chevron
-          onClick={() => navigate('/parent/payments')}
+          onClick={() => navigate('/parent/payments', { state: FROM_APP_STATE })}
         />
         <ListRow
           left={
@@ -71,7 +72,7 @@ function FamilySettings() {
           }
           title={t('settings.clubs')}
           chevron
-          onClick={() => navigate('/parent/courses')}
+          onClick={() => navigate('/parent/courses', { state: FROM_APP_STATE })}
         />
       </Card>
     </SettingsGroup>

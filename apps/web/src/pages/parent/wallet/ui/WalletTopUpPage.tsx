@@ -20,9 +20,9 @@ import { useTopUpWallet, useWallet } from '@/entities/payment';
 import { newRequestId } from '@/shared/api/client';
 import { describeApiError } from '@/shared/api/errors';
 import { formatMoney, rublesToKopecks } from '@/shared/lib/money';
+import { isFromApp } from '@/shared/lib/navigation';
 import { useMaxBridge } from '@/shared/max';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
-import { isFromApp } from '../paths';
 
 /** Быстрый выбор суммы, ₽. */
 const PRESETS_RUBLES = [500, 1000, 3000, 5000] as const;
@@ -104,7 +104,8 @@ export function WalletTopUpPage() {
 
   return (
     <>
-      <ScreenHeader title={t('wallet.title')} back="/parent" />
+      {/* Как и после пополнения: открыт из приложения — назад по истории, иначе — на главную. */}
+      <ScreenHeader title={t('wallet.title')} back={isFromApp(location.state) ? true : '/parent'} />
       <Screen gap={5}>
         <Card>
           <Stack gap={1}>

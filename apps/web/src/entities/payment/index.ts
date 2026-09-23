@@ -4,6 +4,7 @@ export {
   useChildPayments,
   useCreatePayment,
   usePayment,
+  usePaymentResult,
   useWallet,
   useTopUpWallet,
   useTeacherWallet,

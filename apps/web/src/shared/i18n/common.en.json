@@ -15,7 +15,8 @@
     "assignments": "Assignments",
     "performance": "Performance",
     "notifications": "Notifications",
-    "notificationsUnread": "Notifications: {{count}} unread"
+    "notificationsUnread_one": "Notifications: {{count}} unread",
+    "notificationsUnread_other": "Notifications: {{count}} unread"
   },
   "actions": {
     "retry": "Retry",
@@ -47,6 +48,28 @@
     "forbidden": "Access denied",
     "forbiddenHint": "Your role has no access to this section",
     "aiPending": "AI comment is being prepared"
+  },
+  "errors": {
+    "crashTitle": "Something went wrong",
+    "reload": "Reload",
+    "tryContinue": "Try to continue",
+    "bootTitle": "Could not start the app",
+    "network": "Network error",
+    "aborted": "Request cancelled",
+    "emptyStream": "Empty stream",
+    "noLaunchParams": "No MAX launch parameters: open the app from the messenger",
+    "codes": {
+      "VALIDATION": "Check the entered data",
+      "UNAUTHORIZED": "Please sign in again",
+      "FORBIDDEN": "No access to this section",
+      "NOT_FOUND": "Section under development",
+      "CONFLICT": "Data has changed, refresh the screen",
+      "BUSINESS_RULE": "This action is not available right now",
+      "RATE_LIMITED": "Too many requests, try again later",
+      "NOT_IMPLEMENTED": "Section under development",
+      "EXTERNAL_INTEGRATION": "Service is temporarily unavailable, check your connection",
+      "INTERNAL": "Something went wrong, try again"
+    }
   },
   "roles": {
     "STUDENT": "Student",

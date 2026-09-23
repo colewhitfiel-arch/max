@@ -29,9 +29,21 @@ import {
   parseToken,
   readBody,
 } from '../lib';
-import { createUser, db, findUserByMaxId, grantRole, type MockUser, studentOfUser } from '../state';
+import {
+  createUser,
+  db,
+  findUserByMaxId,
+  grantRole,
+  linkCode,
+  type MockUser,
+  studentOfUser,
+  teacherOfUser,
+} from '../state';
 import { fileDto } from './files';
 import type { Role } from '@edu/contracts';
+
+/** Код приглашения демо-школы (`School.inviteCode`, как в seed packages/db). */
+const DEMO_SCHOOL_INVITE_CODE = 'SCHOOL1';
 
 function authResult(user: MockUser, role: Role | null) {
   return json(AuthResultSchema, { ...issueTokens(user.id, role), me: buildMe(user, role) });
@@ -71,6 +83,15 @@ export const authHandlers = [
       if (!body.ok) return body.response;
       if (body.data.role === 'SCHOOL_ADMIN')
         return apiError('NOT_IMPLEMENTED', 'Роль администратора школы');
+      // Как IdentityService: без кода в dev — школа по умолчанию, неверный код — отказ.
+      if (
+        body.data.role === 'TEACHER' &&
+        body.data.inviteCode &&
+        body.data.inviteCode !== DEMO_SCHOOL_INVITE_CODE &&
+        !teacherOfUser(auth.user.id)
+      ) {
+        return apiError('BUSINESS_RULE', 'Код приглашения школы не найден');
+      }
       grantRole(auth.user, body.data.role);
       return authResult(auth.user, body.data.role);
     }),
@@ -143,7 +164,7 @@ export const authHandlers = [
       ({ auth }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Только для ученика');
-        student.linkCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+        student.linkCode = linkCode();
         return json(LinkCodeSchema, { linkCode: student.linkCode });
       },
       ['STUDENT'],

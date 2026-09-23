@@ -1,8 +1,9 @@
 import { Badge, Button, Card, EmptyState, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { StudentRow, useChildren } from '@/entities/student';
 import { ChildInviteLink, LinkChildForm } from '@/features/link-child';
+import { isFromApp } from '@/shared/lib/navigation';
 import { useUiStore } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
@@ -13,13 +14,18 @@ import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 export function ChildrenPage() {
   const { t } = useTranslation('parent');
   const navigate = useNavigate();
+  const location = useLocation();
   const query = useChildren();
   const selectedChildId = useUiStore((s) => s.selectedChildId);
   const setSelectedChildId = useUiStore((s) => s.setSelectedChildId);
 
   return (
     <>
-      <ScreenHeader title={t('children.title')} back="/parent" bell />
+      <ScreenHeader
+        title={t('children.title')}
+        back={isFromApp(location.state) ? true : '/parent'}
+        bell
+      />
       <Screen>
         <AsyncState
           query={query}
@@ -38,8 +44,14 @@ export function ChildrenPage() {
                       .filter(Boolean)
                       .join(' · ')}
                     right={
-                      selected ? (
-                        <Badge tone="success">{t('children.linkStatus.ACTIVE')}</Badge>
+                      // Не подтверждённая связь — её статус (выбрать нельзя: данные ребёнка
+                      // сервер отдаёт только по ACTIVE); выбранный — «Выбран», прочие — «Выбрать».
+                      child.linkStatus !== 'ACTIVE' ? (
+                        <Badge tone={child.linkStatus === 'PENDING' ? 'warning' : 'neutral'}>
+                          {t(`children.linkStatus.${child.linkStatus}`)}
+                        </Badge>
+                      ) : selected ? (
+                        <Badge tone="success">{t('children.selected')}</Badge>
                       ) : (
                         <Button
                           size="sm"

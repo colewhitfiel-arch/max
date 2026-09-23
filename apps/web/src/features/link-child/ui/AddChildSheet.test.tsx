@@ -32,7 +32,13 @@ vi.mock('@/entities/student', async () => {
         },
       };
     },
-    useLinkChild: () => ({ mutate: mocks.link, isPending: false, isError: false, error: null }),
+    useLinkChild: () => ({
+      mutate: mocks.link,
+      reset: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    }),
   };
 });
 

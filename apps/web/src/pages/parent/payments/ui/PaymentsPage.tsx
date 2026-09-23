@@ -10,12 +10,16 @@ import {
   type Tone,
   useToast,
 } from '@edu/ui';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useChildPayments, useCreatePayment } from '@/entities/payment';
+import { useLocation } from 'react-router';
+import { useChildPayments, useCreatePayment, usePaymentResult } from '@/entities/payment';
 import { NoChildState } from '@/features/link-child';
+import { newRequestId } from '@/shared/api/client';
 import { describeApiError } from '@/shared/api/errors';
 import { formatDate, formatDateTime } from '@/shared/lib/dates';
 import { formatMoney } from '@/shared/lib/money';
+import { isFromApp } from '@/shared/lib/navigation';
 import { useMaxBridge } from '@/shared/max';
 import { useSelectedChildId } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
@@ -33,22 +37,50 @@ export function PaymentsPage() {
   const { t, i18n } = useTranslation('parent');
   const bridge = useMaxBridge();
   const toast = useToast();
+  const location = useLocation();
   const studentId = useSelectedChildId();
   const query = useChildPayments(studentId);
   const create = useCreatePayment(studentId);
+  /** Ключ идемпотентности на попытку оплаты периода: повтор после сбоя не создаст второй платёж. */
+  const idempotencyKeys = useRef<Record<string, string>>({});
+  /** Платёж, ушедший на страницу оплаты: опрашиваем до итога (F10 п.4). */
+  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
+  const result = usePaymentResult(pendingPaymentId);
 
-  const pay = (enrollmentId: string) =>
+  const settled = result.data && result.data.status !== 'PENDING' ? result.data : null;
+  useEffect(() => {
+    if (!settled) return;
+    toast.show({
+      tone: STATUS_TONE[settled.status],
+      title: t(`payments.status.${settled.status}`),
+      description: settled.club.title,
+    });
+    setPendingPaymentId(null);
+  }, [settled, t, toast]);
+
+  const pay = (enrollmentId: string) => {
+    const idempotencyKey = (idempotencyKeys.current[enrollmentId] ??= newRequestId());
     create.mutate(
-      { enrollmentId, periodsCount: 1 },
+      { enrollmentId, periodsCount: 1, idempotencyKey },
       {
-        onSuccess: (result) => bridge.openLink(result.confirmationUrl),
+        onSuccess: (created) => {
+          delete idempotencyKeys.current[enrollmentId];
+          setPendingPaymentId(created.paymentId);
+          bridge.openLink(created.confirmationUrl);
+        },
+        // Ключ остаётся: повтор уйдёт с ним же.
         onError: (error) => toast.show({ tone: 'danger', title: describeApiError(error) }),
       },
     );
+  };
 
   return (
     <>
-      <ScreenHeader title={t('payments.title')} bell />
+      <ScreenHeader
+        title={t('payments.title')}
+        back={isFromApp(location.state) ? true : '/parent'}
+        bell
+      />
       <Screen>
         {/* Без выбранного ребёнка запрос выключен (вечный pending) — своё состояние. */}
         {!studentId ? (
@@ -61,33 +93,40 @@ export function PaymentsPage() {
           >
             {(data) => (
               <>
-                <Stack gap={2}>
-                  <SectionTitle>{t('payments.periods')}</SectionTitle>
-                  <Card padding="none">
-                    {data.periods.map((period) => (
-                      <ListRow
-                        key={period.enrollmentId}
-                        title={period.club.title}
-                        subtitle={`${
-                          period.paidUntil
-                            ? t('courses.paidUntil', {
-                                date: formatDate(period.paidUntil, i18n.language),
-                              })
-                            : t('courses.notPaid')
-                        } · ${formatMoney(period.price, i18n.language)}`}
-                        right={
-                          <Button
-                            size="sm"
-                            loading={create.isPending}
-                            onClick={() => pay(period.enrollmentId)}
-                          >
-                            {t('payments.pay')}
-                          </Button>
-                        }
-                      />
-                    ))}
-                  </Card>
-                </Stack>
+                {data.periods.length > 0 && (
+                  <Stack gap={2}>
+                    <SectionTitle>{t('payments.periods')}</SectionTitle>
+                    <Card padding="none">
+                      {data.periods.map((period) => (
+                        <ListRow
+                          key={period.enrollmentId}
+                          title={period.club.title}
+                          subtitle={`${
+                            period.paidUntil
+                              ? t('courses.paidUntil', {
+                                  date: formatDate(period.paidUntil, i18n.language),
+                                })
+                              : t('courses.notPaid')
+                          } · ${formatMoney(period.price, i18n.language)}`}
+                          right={
+                            <Button
+                              size="sm"
+                              // Спиннер — у нажатой строки; остальные заблокированы до ответа.
+                              loading={
+                                create.isPending &&
+                                create.variables?.enrollmentId === period.enrollmentId
+                              }
+                              disabled={create.isPending}
+                              onClick={() => pay(period.enrollmentId)}
+                            >
+                              {t('payments.pay')}
+                            </Button>
+                          }
+                        />
+                      ))}
+                    </Card>
+                  </Stack>
+                )}
 
                 {data.history.items.length > 0 && (
                   <Stack gap={2}>

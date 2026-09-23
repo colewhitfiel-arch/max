@@ -5,7 +5,8 @@
 import { type AiStreamEvent, AiStreamEventSchema } from '@edu/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { config } from '../config';
-import { authHeaders, newRequestId } from './client';
+import { i18n } from '../i18n';
+import { fetchWithAuthRetry, newRequestId } from './client';
 import { ApiClientError, apiErrorFromException, apiErrorFromResponse } from './errors';
 
 export interface StreamSseOptions {
@@ -40,21 +41,27 @@ export function parseSseEvent(raw: string): AiStreamEvent | null {
   }
 }
 
-/** Открывает поток и вызывает onEvent на каждое событие; резолвится по окончании потока. */
+/**
+ * Открывает поток и вызывает onEvent на каждое событие; резолвится по окончании потока.
+ * По 401 — refresh и один повтор (как у ts-rest клиента), отказ refresh — выход из сессии.
+ */
 export async function streamSse({ path, body, signal, onEvent }: StreamSseOptions): Promise<void> {
+  const payload = JSON.stringify(body);
   let response: Response;
   try {
-    response = await fetch(`${config.apiUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        'X-Request-Id': newRequestId(),
-        ...authHeaders(),
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
+    response = await fetchWithAuthRetry((token) =>
+      fetch(`${config.apiUrl}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          'X-Request-Id': newRequestId(),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: payload,
+        signal,
+      }),
+    );
   } catch (cause) {
     throw apiErrorFromException(cause);
   }
@@ -69,7 +76,11 @@ export async function streamSse({ path, body, signal, onEvent }: StreamSseOption
     throw apiErrorFromResponse(response.status, errorBody);
   }
   if (!response.body) {
-    throw new ApiClientError({ code: 'INTERNAL', message: 'Пустой поток', status: 0 });
+    throw new ApiClientError({
+      code: 'INTERNAL',
+      message: i18n.t('common:errors.emptyStream'),
+      status: 0,
+    });
   }
 
   const reader = response.body.getReader();
@@ -122,6 +133,9 @@ const INITIAL: AiStreamState = {
 export function useAiStream() {
   const [state, setState] = useState<AiStreamState>(INITIAL);
   const controllerRef = useRef<AbortController | null>(null);
+  // Поколение стрима: прерванный предыдущий `start` не должен затирать состояние нового.
+  // `abort()` поколение не меняет — после «Стоп» текущий стрим сам выставит status: 'done'.
+  const generationRef = useRef(0);
 
   const abort = useCallback(() => {
     controllerRef.current?.abort();
@@ -130,19 +144,22 @@ export function useAiStream() {
 
   const reset = useCallback(() => {
     abort();
+    // Прерванный стрим не должен вернуть свой текст поверх очищенного состояния.
+    generationRef.current += 1;
     setState(INITIAL);
   }, [abort]);
 
   const start = useCallback(
     async (path: string, body: unknown): Promise<AiStreamState> => {
       abort();
+      const generation = ++generationRef.current;
       const controller = new AbortController();
       controllerRef.current = controller;
       let current: AiStreamState = { ...INITIAL, status: 'streaming' };
       setState(current);
       const update = (patch: Partial<AiStreamState>) => {
         current = { ...current, ...patch };
-        setState(current);
+        if (generation === generationRef.current) setState(current);
       };
       try {
         await streamSse({

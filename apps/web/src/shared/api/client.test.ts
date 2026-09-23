@@ -146,6 +146,37 @@ describe('api client', () => {
     expect(() => unwrap(result)).toThrow(ApiClientError);
   });
 
+  it('401 и сетевой сбой refresh → сессию не трогаем, ошибка EXTERNAL_INTEGRATION', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { code: 'UNAUTHORIZED', message: 'expired' } }),
+      )
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await expect(api.auth.getMe()).rejects.toMatchObject({
+      code: 'EXTERNAL_INTEGRATION',
+      status: 0,
+    });
+    expect(adapter.onUnauthorized).not.toHaveBeenCalled();
+    expect(adapter.onTokensRefreshed).not.toHaveBeenCalled();
+    expect(adapter.refresh).toBe('refresh-1');
+  });
+
+  it('401 и 503 на refresh → ответ 503 (TanStack ретраит), без onUnauthorized', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { code: 'UNAUTHORIZED', message: 'expired' } }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const result = await api.auth.getMe();
+    expect(result.status).toBe(503);
+    expect(adapter.onUnauthorized).not.toHaveBeenCalled();
+    expect(() => unwrap(result)).toThrow(
+      expect.objectContaining({ code: 'EXTERNAL_INTEGRATION', status: 503 }),
+    );
+  });
+
   it('сетевая ошибка → ApiClientError EXTERNAL_INTEGRATION', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(api.health.getHealth()).rejects.toMatchObject({ code: 'EXTERNAL_INTEGRATION' });

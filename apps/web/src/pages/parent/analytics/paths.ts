@@ -7,12 +7,3 @@ export const analyticsPaths = {
   tasks: (studentId: string, groupId: string, task?: string) =>
     `/parent/analytics/${studentId}/groups/${groupId}/tasks${task ? `?task=${encodeURIComponent(task)}` : ''}`,
 };
-
-/** Состояние навигации: экран подробностей открыт из аналитики — «закрыть» = шаг назад. */
-export interface FromAnalyticsState {
-  fromAnalytics: true;
-}
-
-export function isFromAnalytics(state: unknown): state is FromAnalyticsState {
-  return typeof state === 'object' && state !== null && 'fromAnalytics' in state;
-}

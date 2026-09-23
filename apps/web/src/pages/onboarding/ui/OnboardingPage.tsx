@@ -9,8 +9,10 @@ import {
   Button,
   Card,
   ChatComposer,
+  ChevronRightIcon,
   Chip,
   EmptyState,
+  IconButton,
   Inline,
   Screen,
   Stack,
@@ -34,7 +36,7 @@ import { useAiStream } from '@/shared/api/sse';
 import { useMe } from '@/shared/auth/hooks';
 import { roleHomePath } from '@/shared/auth/role-routes';
 import { config } from '@/shared/config';
-import { AsyncState, ScreenHeader } from '@/shared/ui';
+import { AsyncState, QueryError, ScreenHeader } from '@/shared/ui';
 
 const EMPTY_PROFILE: OnboardingProfileDraft = {
   interests: [],
@@ -74,8 +76,10 @@ interface ChatStageProps {
   streaming: boolean;
   streamError: unknown;
   startError: unknown;
+  onRetryStart: () => void;
   canSend: boolean;
-  onSend: (text: string) => void;
+  /** `true` — ответ принят; `false` — не ушёл (ошибка стрима), текст вернётся в поле ввода. */
+  onSend: (text: string) => Promise<boolean>;
   onStop: () => void;
 }
 
@@ -87,6 +91,7 @@ function ChatStage({
   streaming,
   streamError,
   startError,
+  onRetryStart,
   canSend,
   onSend,
   onStop,
@@ -103,11 +108,7 @@ function ChatStage({
     <Screen fill>
       <Stack gap={3} grow justify="end" aria-live="polite">
         <Hero />
-        {startError != null && (
-          <Text variant="small" tone="danger" align="center" role="alert">
-            {describeApiError(startError)}
-          </Text>
-        )}
+        {startError != null && <QueryError error={startError} onRetry={onRetryStart} />}
         {messages.map((message) => (
           <ChatMessage key={message.id} role={message.role} content={message.content} />
         ))}
@@ -129,7 +130,10 @@ function ChatStage({
         onChange={setDraft}
         onSubmit={(text) => {
           setDraft('');
-          onSend(text);
+          void onSend(text).then((sent) => {
+            // Не ушло — вернуть ответ в поле, если ученик не начал набирать новый.
+            if (!sent) setDraft((current) => current || text);
+          });
         }}
         disabled={!canSend}
         busy={streaming}
@@ -263,49 +267,59 @@ export function OnboardingPage() {
     if (profile !== null) topRef.current?.scrollIntoView({ block: 'start' });
   }, [profile]);
 
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+  const startConversation = () =>
     start.mutate(undefined, {
       onSuccess: (result) => {
         setConversationId(result.conversationId);
         setMessages([result.message]);
       },
     });
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    startConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goHome = () => navigate(roleHomePath('STUDENT'), { replace: true });
 
-  const send = async (text: string) => {
-    if (!text.trim() || !conversationId || stream.isStreaming) return;
+  const send = async (text: string): Promise<boolean> => {
+    if (!text.trim() || !conversationId || stream.isStreaming) return false;
     setPendingUserText(text);
     const result = await stream.start(STREAMING_ROUTES.onboardingMessage.path, {
       conversationId,
       text,
     });
-    if (result.status === 'done') {
-      const now = new Date().toISOString();
-      setMessages((prev) => [
-        ...prev,
-        { id: `${now}-u`, conversationId, role: 'USER', content: text, createdAt: now },
-        {
-          id: result.messageId ?? `${now}-a`,
-          conversationId,
-          role: 'ASSISTANT',
-          content: result.text,
-          createdAt: now,
-        },
-      ]);
-      setPendingUserText(null);
-      stream.reset();
-      if (result.done?.isComplete) {
-        const parsed = result.done.profileDraft as OnboardingProfileDraft | undefined;
-        setProfile(parsed ?? EMPTY_PROFILE);
-      }
-    } else {
-      setPendingUserText(null);
+    setPendingUserText(null);
+    if (result.status !== 'done') return false;
+    const now = new Date().toISOString();
+    const userMessage: AiMessageDto = {
+      id: `${now}-u`,
+      conversationId,
+      role: 'USER',
+      content: text,
+      createdAt: now,
+    };
+    // «Остановить» до первого токена даёт пустой ответ — пустой пузырь не добавляем.
+    const assistantMessage: AiMessageDto[] = result.text
+      ? [
+          {
+            id: result.messageId ?? `${now}-a`,
+            conversationId,
+            role: 'ASSISTANT',
+            content: result.text,
+            createdAt: now,
+          },
+        ]
+      : [];
+    setMessages((prev) => [...prev, userMessage, ...assistantMessage]);
+    stream.reset();
+    if (result.done?.isComplete) {
+      const parsed = result.done.profileDraft as OnboardingProfileDraft | undefined;
+      setProfile(parsed ?? EMPTY_PROFILE);
     }
+    return true;
   };
 
   const idsWith = (choice: Choice) =>
@@ -348,14 +362,14 @@ export function OnboardingPage() {
       subtitle={subtitle}
       actions={
         config.isDev && profile === null ? (
-          <Button
-            variant="ghost"
-            size="sm"
+          <IconButton
+            aria-label={t('onboarding.skip')}
+            title={t('onboarding.skip')}
             loading={complete.isPending}
             onClick={() => finish(EMPTY_PROFILE, [], [])}
           >
-            {t('onboarding.skip')}
-          </Button>
+            <ChevronRightIcon />
+          </IconButton>
         ) : undefined
       }
     />
@@ -372,8 +386,9 @@ export function OnboardingPage() {
             streaming={stream.isStreaming}
             streamError={stream.status === 'error' ? stream.error : null}
             startError={start.isError ? start.error : null}
+            onRetryStart={startConversation}
             canSend={conversationId !== null}
-            onSend={(text) => void send(text)}
+            onSend={send}
             onStop={stream.abort}
           />
         ) : (

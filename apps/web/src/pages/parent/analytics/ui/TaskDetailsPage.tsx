@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useChildGroupTasks } from '@/entities/student';
 import { isApiClientError } from '@/shared/api/errors';
+import { isFromAnalytics } from '@/shared/lib/navigation';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 import { HomeworkTaskSection } from '@/widgets/homework-performance';
-import { analyticsPaths, isFromAnalytics } from '../paths';
+import { analyticsPaths } from '../paths';
 
 function TasksSkeleton() {
   return (

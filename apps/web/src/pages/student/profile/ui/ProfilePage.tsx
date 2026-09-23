@@ -12,6 +12,7 @@ import {
   Stack,
   Text,
   useToast,
+  VisuallyHidden,
 } from '@edu/ui';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -62,8 +63,9 @@ function LinkCodeCard({ code }: { code: string }) {
           </Text>
         </Inline>
         <Inline justify="between" align="center" wrap={false}>
-          <Text variant="heading" as="p" aria-label={`${t('profile.linkCode')}: ${code}`}>
-            {code}
+          <Text variant="heading" as="p">
+            <VisuallyHidden>{`${t('profile.linkCode')}: `}</VisuallyHidden>
+            <span>{code}</span>
           </Text>
           <Button
             variant="secondary"

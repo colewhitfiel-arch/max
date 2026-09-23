@@ -40,6 +40,7 @@ import { teacherWalletRoutes } from '@/pages/teacher/wallet/routes';
 import { RequireAuth } from '@/shared/auth/guards';
 import { config } from '@/shared/config';
 import { RootRedirect } from './root-redirect';
+import { RouteErrorScreen } from './route-error';
 import { ParentShell, StudentShell, TeacherShell } from './shells';
 
 const devRoutes: RouteObject[] = config.isDev
@@ -110,4 +111,10 @@ export const routes: RouteObject[] = [
   { path: '*', ...notFoundRoute },
 ];
 
-export const router = createBrowserRouter(routes);
+/**
+ * Pathless-корень с `errorElement`: ошибки рендера страниц и падения `lazy()` показывают наш экран,
+ * а не встроенный «Unexpected Application Error!» (ErrorBoundary в providers их не видит).
+ */
+export const rootRoutes: RouteObject[] = [{ errorElement: <RouteErrorScreen />, children: routes }];
+
+export const router = createBrowserRouter(rootRoutes);

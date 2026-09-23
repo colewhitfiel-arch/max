@@ -29,6 +29,7 @@ type Mode = 'topic' | 'materials';
  */
 export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
   const { t } = useTranslation('teacher');
+  const { t: tc } = useTranslation('common');
   const toast = useToast();
   const groups = useTeacherGroups();
   const create = useCreateGenerationJob();
@@ -42,7 +43,11 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
   const topicTrimmed = topic.trim();
   const topicValid =
     topicTrimmed.length >= TOPIC_MIN_LENGTH && topicTrimmed.length <= TOPIC_MAX_LENGTH;
-  const canSubmit = !!groupId && (mode === 'topic' ? topicValid : files.length > 0);
+  // Дополнение к материалам необязательно, но если заполнено — контракт требует минимум символов.
+  const extraTopicInvalid =
+    mode === 'materials' && topicTrimmed.length > 0 && topicTrimmed.length < TOPIC_MIN_LENGTH;
+  const canSubmit =
+    !!groupId && (mode === 'topic' ? topicValid : files.length > 0 && !extraTopicInvalid);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -70,6 +75,7 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
       <Stack gap={3}>
         <SegmentedControl
           fullWidth
+          aria-label={t('courseBuilder.form.modeLabel')}
           value={mode}
           onChange={(value) => setMode(value as Mode)}
           options={[
@@ -83,17 +89,30 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
             : t('courseBuilder.form.modeMaterialsHint')}
         </Text>
 
-        <Field label={t('courseBuilder.form.group')} required>
-          <Select
-            value={groupId}
-            onChange={(event) => setGroupId(event.target.value)}
-            placeholder={t('courseBuilder.form.groupPlaceholder')}
-            options={(groups.data?.items ?? []).map((group) => ({
-              value: group.id,
-              label: group.title,
-            }))}
-          />
-        </Field>
+        <Stack gap={1}>
+          <Field
+            label={t('courseBuilder.form.group')}
+            required
+            disabled={groups.isPending || groups.isError}
+            hint={groups.isPending ? tc('states.loading') : undefined}
+            error={groups.isError ? describeApiError(groups.error) : undefined}
+          >
+            <Select
+              value={groupId}
+              onChange={(event) => setGroupId(event.target.value)}
+              placeholder={t('courseBuilder.form.groupPlaceholder')}
+              options={(groups.data?.items ?? []).map((group) => ({
+                value: group.id,
+                label: group.title,
+              }))}
+            />
+          </Field>
+          {groups.isError && (
+            <Button variant="ghost" size="sm" onClick={() => void groups.refetch()}>
+              {tc('actions.retry')}
+            </Button>
+          )}
+        </Stack>
 
         {mode === 'materials' && (
           <Field label={t('courseBuilder.form.materials')} required>
@@ -109,6 +128,11 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
           hint={
             mode === 'topic'
               ? t('courseBuilder.form.topicHint', { min: TOPIC_MIN_LENGTH })
+              : t('courseBuilder.form.topicExtraHint', { min: TOPIC_MIN_LENGTH })
+          }
+          error={
+            extraTopicInvalid
+              ? t('courseBuilder.form.topicExtraTooShort', { min: TOPIC_MIN_LENGTH })
               : undefined
           }
         >

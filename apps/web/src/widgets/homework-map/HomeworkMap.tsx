@@ -88,7 +88,7 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
       marker,
       title: t('homework.planet', {
         club: item.club.title,
-        points: item.points,
+        points: t('homework.points', { count: item.points }),
         open: item.openCount,
       }),
       onClick: next ? () => onOpenAssignment(next.id) : undefined,

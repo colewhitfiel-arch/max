@@ -2,7 +2,13 @@
  * Утилиты MSW-хендлеров: адрес API, типизированный JSON-ответ (проверка схемой контракта),
  * единый формат ошибок, разбор Bearer-токена мока.
  */
-import { type ApiError, type ErrorCode, ERROR_HTTP_STATUS, type Role } from '@edu/contracts';
+import {
+  type ApiError,
+  type ErrorCode,
+  ERROR_HTTP_STATUS,
+  PeriodQuerySchema,
+  type Role,
+} from '@edu/contracts';
 import {
   type DefaultBodyType,
   HttpResponse,
@@ -125,5 +131,19 @@ export async function readBody<S extends z.ZodTypeAny>(
 }
 
 export const query = (request: Request) => new URL(request.url).searchParams;
+
+/** `?from=&to=` по `PeriodQuerySchema` (YYYY-MM-DD); неверный формат — VALIDATION, а не пустой список. */
+export function periodQuery(
+  request: Request,
+): { ok: true; data: z.output<typeof PeriodQuerySchema> } | { ok: false; response: Response } {
+  const parsed = PeriodQuerySchema.safeParse(Object.fromEntries(query(request)));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: apiError('VALIDATION', 'Неверные параметры запроса', parsed.error.flatten()),
+    };
+  }
+  return { ok: true, data: parsed.data };
+}
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

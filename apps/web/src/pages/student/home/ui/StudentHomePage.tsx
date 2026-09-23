@@ -1,4 +1,4 @@
-import type { StudentHomeDto } from '@edu/contracts';
+import type { LessonDto, StudentHomeDto } from '@edu/contracts';
 import { Screen, VisuallyHidden } from '@edu/ui';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +14,24 @@ import { NotificationsDrawer } from '@/widgets/student-home-notifications';
 import { DaySchedule } from '@/widgets/student-home-schedule';
 import { StudentHomeStats } from '@/widgets/student-home-stats';
 
-/** Сегодня + 6 дней: столько покрывают `today`/`upcoming` главной, дальше — календарь. */
+/** Сегодня + 6 дней: столько по контракту покрывают `today`/`upcoming` главной, дальше — календарь. */
 const HOME_WINDOW_DAYS = 7;
+/** `upcoming` главной — не более 10 занятий (контракт `StudentHomeDto`). */
+const HOME_UPCOMING_LIMIT = 10;
+
+/**
+ * Сколько дней от сегодня полностью покрывает главная. Если `upcoming` упёрся в лимит, список
+ * обрывается внутри недели и день его последнего занятия может быть неполным — окно до этого
+ * дня (не включая), с него и дальше занятия берутся из календаря.
+ */
+function homeWindowDays(upcoming: LessonDto[], now: Date): number {
+  if (upcoming.length < HOME_UPCOMING_LIMIT) return HOME_WINDOW_DAYS;
+  const lastOffset = upcoming.reduce(
+    (max, lesson) => Math.max(max, diffCalendarDays(now, lesson.startsAt)),
+    0,
+  );
+  return Math.max(1, Math.min(HOME_WINDOW_DAYS, lastOffset));
+}
 
 const monthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const monthPeriod = (month: Date) => ({
@@ -34,15 +50,21 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
   const unread = useNotifications({ unreadOnly: true });
   const unreadCount = unread.data?.unreadCount ?? 0;
 
-  // Дни за пределами недели главной и открытый календарь берут занятия из календаря месяца.
-  const offset = diffCalendarDays(new Date(), day);
-  const outsideHome = offset < 0 || offset >= HOME_WINDOW_DAYS;
-  const calendarMonth = calendarOpen ? month : monthStart(day);
-  const calendar = useStudentCalendar(monthPeriod(calendarMonth), {
-    enabled: calendarOpen || outsideHome,
-  });
+  // Дни за пределами недели главной берут занятия из календаря месяца выбранного дня, шторка —
+  // из календаря показываемого месяца. Запросы раздельные, чтобы листание месяцев в шторке не
+  // сбрасывало уже загруженный день; при одном месяце TanStack Query делит один запрос.
+  const now = new Date();
+  const offset = diffCalendarDays(now, day);
+  const outsideHome = offset < 0 || offset >= homeWindowDays(home.upcoming, now);
+  const dayCalendar = useStudentCalendar(monthPeriod(monthStart(day)), { enabled: outsideHome });
+  const sheetCalendar = useStudentCalendar(monthPeriod(month), { enabled: calendarOpen });
 
-  const lessons = [...home.today, ...home.upcoming, ...(calendar.data?.lessons ?? [])];
+  const lessons = [
+    ...home.today,
+    ...home.upcoming,
+    ...(dayCalendar.data?.lessons ?? []),
+    ...(sheetCalendar.data?.lessons ?? []),
+  ];
   const dayLessons = lessonsOfDay(lessons, day);
 
   const selectDay = (next: Date) => {
@@ -55,7 +77,9 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
       <StudentHomeStats streakDays={home.streakDays} points={home.points} />
       {home.week && home.week.length > 0 && <AttendanceWeekCard week={home.week} />}
       <StudentHomeHero
-        subjects={dayLessons.map((lesson) => lesson.group.club)}
+        subjects={dayLessons
+          .filter((lesson) => lesson.status !== 'CANCELLED')
+          .map((lesson) => lesson.group.club)}
         allSubjects={home.clubs.map((item) => item.club)}
       />
       <DaySchedule
@@ -63,7 +87,11 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
         date={day}
         onDateChange={selectDay}
         lessons={lessons}
-        loading={outsideHome && calendar.isPending}
+        loading={outsideHome && dayCalendar.isPending}
+        // Вне окна главной день целиком из календаря: его сбой — ошибка с повтором, а не ложное
+        // «нет занятий».
+        error={outsideHome && dayCalendar.isError ? dayCalendar.error : undefined}
+        onRetry={() => void dayCalendar.refetch()}
         unreadCount={unreadCount}
         onOpenNotifications={() => {
           setCalendarOpen(false);
@@ -83,8 +111,10 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
         onDateChange={selectDay}
         month={month}
         onMonthChange={setMonth}
-        lessons={calendar.data?.lessons}
-        error={calendar.isError}
+        lessons={sheetCalendar.data?.lessons}
+        selectedDayLessons={outsideHome && !dayCalendar.data ? undefined : lessons}
+        error={sheetCalendar.isError}
+        onRetry={() => void sheetCalendar.refetch()}
       />
       <NotificationsDrawer open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </>

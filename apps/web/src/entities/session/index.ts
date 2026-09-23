@@ -1,1 +1,1 @@
-export { useMeQuery, useUpdateSettings, useUpdateAvatar, useRotateLinkCode } from './api';
+export { useUpdateSettings, useUpdateAvatar, useRotateLinkCode } from './api';

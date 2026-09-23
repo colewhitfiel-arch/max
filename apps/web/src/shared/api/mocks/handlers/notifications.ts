@@ -11,7 +11,6 @@ import { http } from 'msw';
 import { apiUrl, authed, json, query, readBody } from '../lib';
 import { db } from '../state';
 
-const settings = new Map<string, NotificationSettings>();
 const defaultSettings: NotificationSettings = {
   lessons: true,
   assignments: true,
@@ -60,7 +59,10 @@ export const notificationsHandlers = [
   http.get(
     apiUrl('/me/notification-settings'),
     authed(({ auth }) =>
-      json(NotificationSettingsDtoSchema, settings.get(auth.user.id) ?? defaultSettings),
+      json(
+        NotificationSettingsDtoSchema,
+        db.notificationSettings.get(auth.user.id) ?? defaultSettings,
+      ),
     ),
   ),
 
@@ -69,7 +71,7 @@ export const notificationsHandlers = [
     authed(async ({ auth, request }) => {
       const body = await readBody(request, UpdateNotificationSettingsBodySchema);
       if (!body.ok) return body.response;
-      settings.set(auth.user.id, body.data);
+      db.notificationSettings.set(auth.user.id, body.data);
       return json(NotificationSettingsDtoSchema, body.data);
     }),
   ),

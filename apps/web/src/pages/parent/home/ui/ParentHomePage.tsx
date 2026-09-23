@@ -14,8 +14,9 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { shortName, useChildren } from '@/entities/student';
 import { AddChildSheet } from '@/features/link-child';
-import { FROM_APP_STATE, WALLET_PATH } from '@/pages/parent/wallet/paths';
+import { WALLET_PATH } from '@/pages/parent/wallet/paths';
 import { fullName } from '@/shared/lib/format';
+import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { useUiStore } from '@/shared/store/ui-store';
 import { QueryError } from '@/shared/ui';
 import { ParentHomeHeader } from '@/widgets/parent-home-header';
@@ -39,7 +40,10 @@ export function ParentHomePage() {
   const setSelectedChildId = useUiStore((s) => s.setSelectedChildId);
   const [addOpen, setAddOpen] = useState(false);
 
-  const children = childrenQuery.data?.items ?? [];
+  // Только подтверждённые связи: по ожидающей сервер отвечает 403 (как в тьюторе и профиле).
+  const children = (childrenQuery.data?.items ?? []).filter(
+    (child) => child.linkStatus === 'ACTIVE',
+  );
   const selected = children.find((child) => child.student.id === selectedChildId) ?? null;
   const openAdd = () => setAddOpen(true);
 

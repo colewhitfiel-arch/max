@@ -59,6 +59,30 @@ describe('auth guards', () => {
     expect(screen.getByText('login page')).toBeInTheDocument();
   });
 
+  it('RequireAuth: запоминает путь вместе с query и hash (state.from)', () => {
+    useAuthStore.setState({ status: 'anonymous', me: null });
+    function LoginWithFrom() {
+      const location = useLocation();
+      return <div data-testid="from">{(location.state as { from?: string } | null)?.from}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={['/guarded?club=c1#tasks']}>
+        <Routes>
+          <Route
+            path="/guarded"
+            element={
+              <RequireAuth>
+                <div>secret</div>
+              </RequireAuth>
+            }
+          />
+          <Route path="/auth" element={<LoginWithFrom />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('from').textContent).toBe('/guarded?club=c1#tasks');
+  });
+
   it('RequireAuth: authenticated → рендерит children', () => {
     useAuthStore.setState({ status: 'authenticated', me: me('STUDENT') });
     renderGuarded(

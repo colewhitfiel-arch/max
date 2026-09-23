@@ -2,15 +2,16 @@
  * Оплата и кружки родителя без детей: запросы по ребёнку выключены, поэтому вместо вечного
  * скелета — пустое состояние с «Добавить ребёнка» (редиректа на /parent/children больше нет).
  */
+import { DEMO_IDS } from '@edu/contracts/fixtures';
 import { ToastProvider } from '@edu/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import type { ComponentType } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ChildClubsPage } from '@/pages/parent/courses/ui/ChildClubsPage';
 import { handlers } from '@/shared/api/mocks/handlers';
 import { resetMockDb } from '@/shared/api/mocks/state';
@@ -58,4 +59,44 @@ describe.each<[string, ComponentType]>([
     await user.click(screen.getByRole('button', { name: 'Добавить ребёнка' }));
     expect(await screen.findByRole('dialog', { name: 'Добавить ребёнка' }, WAIT)).toBeVisible();
   });
+});
+
+describe('/parent/payments: оплата периода', () => {
+  it('«Оплатить» → страница оплаты, итог — после опроса статуса платежа', async () => {
+    await useAuthStore.getState().loginDev('max-parent-1', ['PARENT']);
+    useUiStore.getState().setSelectedChildId(DEMO_IDS.students.alexey);
+    const bridge = new MockMaxBridge({ launchParams: null });
+    const openLink = vi.spyOn(bridge, 'openLink').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const router = createMemoryRouter([{ path: '/parent/payments', element: <PaymentsPage /> }], {
+      initialEntries: ['/parent/payments'],
+    });
+    render(
+      <MaxBridgeProvider bridge={bridge}>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <I18nextProvider i18n={i18n}>
+              <RouterProvider router={router} />
+            </I18nextProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      </MaxBridgeProvider>,
+    );
+
+    const buttons = await screen.findAllByRole('button', { name: 'Оплатить' }, WAIT);
+    await user.click(buttons[0]!);
+
+    await waitFor(() => expect(openLink).toHaveBeenCalledTimes(1), WAIT);
+    expect(openLink.mock.calls[0]![0]).toMatch(/^https:\/\/pay\.example\.com\/mock\//);
+
+    // Fake-провайдер моков подтверждает оплату через 5 с — экран узнаёт итог опросом.
+    // Новый платёж появился в истории как ожидающий…
+    expect(await screen.findByText('Ожидает оплаты', {}, WAIT)).toBeVisible();
+    // …итог — тостом, а история перезапрошена.
+    const toasts = screen.getByRole('region', { name: 'Уведомления' });
+    expect(await within(toasts).findByText('Оплачено', {}, { timeout: 15_000 })).toBeVisible();
+    await waitFor(() => expect(screen.queryByText('Ожидает оплаты')).toBeNull(), {
+      timeout: 5_000,
+    });
+  }, 30_000);
 });

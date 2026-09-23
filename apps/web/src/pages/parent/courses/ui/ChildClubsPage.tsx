@@ -1,10 +1,11 @@
 import { Button, EmptyState, ProgressBar, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { ClubCard, useChildClubs } from '@/entities/club';
 import { NoChildState } from '@/features/link-child';
 import { formatDate, weekdayName } from '@/shared/lib/dates';
 import { fullName } from '@/shared/lib/format';
+import { isFromApp } from '@/shared/lib/navigation';
 import { useSelectedChildId } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 
@@ -13,12 +14,18 @@ export function ChildClubsPage() {
   const { t, i18n } = useTranslation('parent');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
+  const location = useLocation();
   const studentId = useSelectedChildId();
   const query = useChildClubs(studentId);
 
   return (
     <>
-      <ScreenHeader title={t('courses.title')} bell />
+      {/* Вне нижнего меню: из настроек — назад по истории, по прямой ссылке — на главную. */}
+      <ScreenHeader
+        title={t('courses.title')}
+        back={isFromApp(location.state) ? true : '/parent'}
+        bell
+      />
       <Screen>
         {/* Без выбранного ребёнка запрос выключен (вечный pending) — своё состояние. */}
         {!studentId ? (

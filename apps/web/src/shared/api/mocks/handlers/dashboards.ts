@@ -25,7 +25,6 @@ import { http } from 'msw';
 import {
   assignmentBrief,
   assignmentsOfStudent,
-  childrenIdsOfParent,
   clubProgress,
   gamification,
   groupBrief,
@@ -54,8 +53,8 @@ import {
   studentClubHomework,
   sumCounts,
 } from '../homework';
-import { apiError, apiUrl, authed, denyForeignChild, json, query } from '../lib';
-import { db, parentOfUser, studentOfUser, teacherOfUser } from '../state';
+import { apiError, apiUrl, authed, denyForeignChild, json, periodQuery, query } from '../lib';
+import { db, studentOfUser, teacherOfUser } from '../state';
 import { teacherPerformance } from '../teacher-performance';
 
 const aiText = (text: string) => ({
@@ -72,7 +71,10 @@ function weekOfStudent(studentId: string, lessons: Lesson[], now = new Date()): 
   const monday = addDays(today, -((today.getDay() + 6) % 7));
   return Array.from({ length: 7 }, (_, i) => {
     const date = addDays(monday, i);
-    const dayLessons = lessons.filter((l) => isSameDay(l.startsAt, date));
+    // Отменённые занятия дня не делают его «с занятиями».
+    const dayLessons = lessons.filter(
+      (l) => l.status !== 'CANCELLED' && isSameDay(l.startsAt, date),
+    );
     const attendance = dayLessons
       .map((l) => db.attendance.find((a) => a.lessonId === l.id && a.studentId === studentId))
       .filter((a) => a !== undefined);
@@ -98,9 +100,13 @@ export const dashboardsHandlers = [
         const groupIds = groupIdsOfStudent(student.id);
         const lessons = lessonsOfGroups(groupIds);
         const { today, upcoming } = splitLessons(lessons);
+        // Открытые задания по дедлайну (без срока — в конце), не больше 10 — как в контракте.
+        const dueMs = (dueAt: string | null) =>
+          dueAt ? Date.parse(dueAt) : Number.POSITIVE_INFINITY;
         const tasks = assignmentsOfStudent(student.id)
           .filter((a) => !isDone(a.id, student.id))
           .map((a) => assignmentBrief(a.id, student.id))
+          .sort((a, b) => dueMs(a.dueAt) - dueMs(b.dueAt))
           .slice(0, 10);
         const stats = statsBrief(student.id);
         return json(StudentHomeDtoSchema, {
@@ -156,10 +162,8 @@ export const dashboardsHandlers = [
     apiUrl('/parent/children/:studentId/home'),
     authed(
       ({ auth, params }) => {
-        const parent = parentOfUser(auth.user.id);
-        if (!parent || !childrenIdsOfParent(parent.id).includes(params.studentId)) {
-          return apiError('FORBIDDEN', 'Ребёнок не привязан');
-        }
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
         const studentId = params.studentId;
         const lessons = lessonsOfGroups(groupIdsOfStudent(studentId));
         const { today, upcoming } = splitLessons(lessons);
@@ -198,42 +202,39 @@ export const dashboardsHandlers = [
     apiUrl('/parent/children/:studentId/analytics'),
     authed(
       ({ auth, params, request }) => {
-        const parent = parentOfUser(auth.user.id);
-        if (!parent || !childrenIdsOfParent(parent.id).includes(params.studentId)) {
-          return apiError('FORBIDDEN', 'Ребёнок не привязан');
-        }
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
         const studentId = params.studentId;
-        const q = query(request);
+        const q = periodQuery(request);
+        if (!q.ok) return q.response;
         const allLessons = lessonsOfGroups(groupIdsOfStudent(studentId));
-        const lessons = inPeriod(allLessons, q.get('from'), q.get('to'));
+        const lessons = inPeriod(allLessons, q.data.from, q.data.to);
         const clubHomework = clubHomeworkOf(studentId);
+        // Сдачи без задания (удалено) пропускаем — assignmentBrief для них бросает.
         const graded = db.submissions.filter(
-          (s) => s.studentId === studentId && s.status === 'GRADED',
+          (s) =>
+            s.studentId === studentId &&
+            s.status === 'GRADED' &&
+            db.assignments.some((a) => a.id === s.assignmentId),
         );
         return json(ChildAnalyticsDtoSchema, {
           stats: statsBrief(studentId),
           clubs: groupIdsOfStudent(studentId).map((g) => clubProgress(studentId, g)),
           weekly: weeklyPoints(),
-          recentResults: graded.map((s) => ({
-            assignment: assignmentBrief(s.assignmentId, studentId),
-            score: s.score ?? 0,
-            maxScore: assignmentBrief(s.assignmentId).maxScore,
-            submittedAt: s.submittedAt ?? s.gradedAt ?? new Date().toISOString(),
-            isLate: s.isLate,
-          })),
-          attendanceHistory: lessons
-            .map((l) => ({
-              lesson: lessonDto(l, studentId),
-              status: lessonDto(l, studentId).attendance ?? null,
-            }))
-            .filter(
-              (
-                x,
-              ): x is {
-                lesson: ReturnType<typeof lessonDto>;
-                status: NonNullable<typeof x.status>;
-              } => x.status !== null,
-            ),
+          recentResults: graded.map((s) => {
+            const assignment = assignmentBrief(s.assignmentId, studentId);
+            return {
+              assignment,
+              score: s.score ?? 0,
+              maxScore: assignment.maxScore,
+              submittedAt: s.submittedAt ?? s.gradedAt ?? new Date().toISOString(),
+              isLate: s.isLate,
+            };
+          }),
+          attendanceHistory: lessons.flatMap((l) => {
+            const dto = lessonDto(l, studentId);
+            return dto.attendance ? [{ lesson: dto, status: dto.attendance }] : [];
+          }),
           aiSummary: aiText(
             'Посещаемость стабильная, выполнение заданий растёт. Стоит обратить внимание на дедлайны по Python.',
           ),
@@ -310,8 +311,10 @@ export const dashboardsHandlers = [
           upcoming: upcoming.map((l) => lessonDto(l)),
           groups: cards,
           toGrade,
+          // Последние 5 уведомлений — свежие первыми, как в ленте (`/notifications`).
           events: db.notifications
             .filter((n) => n.userId === auth.user.id)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .slice(0, 5)
             .map(({ userId: _userId, ...n }) => n),
           stats: {
@@ -354,8 +357,9 @@ export const dashboardsHandlers = [
         return json(GroupDetailSchema, {
           ...groupCard(group.id),
           schedule: scheduleOfGroup(group.id),
+          // Показатели учеников — по этой группе, а не по всем их кружкам.
           students: studentIdsOfGroup(group.id).map((studentId) => {
-            const stats = statsBrief(studentId);
+            const stats = statsBrief(studentId, 30, group.id);
             const course = db.courses.find((c) => c.groupId === group.id);
             return {
               student: studentBrief(studentId),
@@ -363,7 +367,7 @@ export const dashboardsHandlers = [
               completionRate: stats.completionRate,
               progress: course ? clubProgress(studentId, group.id).percent : 0,
               activityScore: stats.activityScore,
-              needsAttention: needsAttention(studentId),
+              needsAttention: needsAttention(studentId, group.id),
             };
           }),
         });
@@ -392,7 +396,12 @@ export const dashboardsHandlers = [
           clubs: groupIds.map((g) => clubProgress(studentId, g)),
           weekly: weeklyPoints(),
           history: db.submissions
-            .filter((s) => s.studentId === studentId && s.submittedAt)
+            .filter(
+              (s) =>
+                s.studentId === studentId &&
+                s.submittedAt &&
+                db.assignments.some((a) => a.id === s.assignmentId),
+            )
             .map((s) => ({
               assignment: assignmentBrief(s.assignmentId, studentId),
               score: s.score,

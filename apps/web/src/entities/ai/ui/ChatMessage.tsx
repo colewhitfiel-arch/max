@@ -33,6 +33,8 @@ export function ChatMessage({ role, content, createdAt, streaming, ownLabel }: C
       meta={createdAt ? formatTime(createdAt, i18n.language) : undefined}
       streaming={streaming}
       typingLabel={t('tutor.thinking')}
+      // role=group: имя автора на div без роли скринридеры игнорируют.
+      role="group"
       aria-label={own ? (ownLabel ?? t('tutor.you')) : t('tutor.assistant')}
       data-role={role.toLowerCase()}
     >

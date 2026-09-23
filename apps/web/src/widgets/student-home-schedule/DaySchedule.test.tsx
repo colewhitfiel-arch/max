@@ -18,7 +18,12 @@ const group = {
   },
 };
 
-function lesson(id: string, dayOffset: number, hour: number): LessonDto {
+function lesson(
+  id: string,
+  dayOffset: number,
+  hour: number,
+  extra: Partial<LessonDto> = {},
+): LessonDto {
   const startsAt = addDays(new Date(), dayOffset);
   startsAt.setHours(hour, 0, 0, 0);
   const endsAt = new Date(startsAt.getTime() + 90 * 60_000);
@@ -34,6 +39,7 @@ function lesson(id: string, dayOffset: number, hour: number): LessonDto {
     cancelReason: null,
     group,
     attendance: null,
+    ...extra,
   };
 }
 
@@ -128,5 +134,48 @@ describe('DaySchedule', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: 'Следующий день' }));
     expect(screen.getByText('Завтра')).toBeInTheDocument();
+  });
+
+  it('колонка «Группа»: код группы, без кода — название', () => {
+    const coded = { ...group, title: 'Робототехника, группа А', code: '001' };
+    const { unmount } = render(<Harness lessons={[lesson('l1', 0, 23, { group: coded })]} />);
+    expect(screen.getByRole('table')).toHaveTextContent('001');
+    expect(screen.getByRole('table')).not.toHaveTextContent('Робототехника, группа А');
+    unmount();
+
+    const plain = { ...group, title: 'Робототехника, группа Б', code: null };
+    render(<Harness lessons={[lesson('l1', 0, 23, { group: plain })]} />);
+    expect(screen.getByRole('table')).toHaveTextContent('Робототехника, группа Б');
+  });
+
+  it('отменённое занятие — с бейджем «Отменено», приглушено и не подсвечивается', () => {
+    render(
+      <Harness lessons={[lesson('l1', 0, 22, { status: 'CANCELLED' }), lesson('l2', 0, 23)]} />,
+    );
+    const table = screen.getByRole('table', { name: 'Сегодня' });
+    expect(table).toHaveTextContent('Отменено');
+    const times = Array.from(table.querySelectorAll('[data-tone]')).filter((node) =>
+      /^\d{2}:\d{2}/.test(node.textContent ?? ''),
+    );
+    expect(times.map((time) => time.getAttribute('data-tone'))).toEqual(['muted', 'primary']);
+  });
+
+  it('прошедший день из календаря листается в обе стороны', async () => {
+    const user = userEvent.setup();
+    function PastHarness() {
+      const [date, setDate] = useState(() => addDays(startOfDay(), -3));
+      return <DaySchedule date={date} onDateChange={setDate} lessons={[]} />;
+    }
+    render(<PastHarness />);
+    const prev = screen.getByRole('button', { name: 'Предыдущий день' });
+    expect(prev).toBeEnabled();
+    await user.click(prev);
+    expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeEnabled();
+    // −4 → сегодня.
+    for (let i = 0; i < 4; i += 1) {
+      await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    }
+    expect(screen.getByText('Сегодня занятий нет')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeDisabled();
   });
 });

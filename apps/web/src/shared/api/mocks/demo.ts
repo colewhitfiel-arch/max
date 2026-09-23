@@ -3,6 +3,7 @@
  * задания со сдачами, статистика. Цифры статистики — правдоподобные заглушки, не формулы analytics.
  */
 import type {
+  Assignment,
   AssignmentBrief,
   ClubBrief,
   ClubCard,
@@ -176,8 +177,13 @@ export function splitLessons(lessons: Lesson[], now = new Date()) {
 
 // ---------- Задания ----------
 
-export function dueAtOf(assignmentId: string): string | null {
-  const offset = demoAssignmentDueOffsets[assignmentId];
+/**
+ * Срок задания: сохранённый `dueAt` (создание/PATCH преподавателем), иначе — смещение демо-задания
+ * от «сегодня» (у фикстур `dueAt: null`, срок относительный).
+ */
+export function dueAtOf(assignment: Pick<Assignment, 'id' | 'dueAt'>): string | null {
+  if (assignment.dueAt) return assignment.dueAt;
+  const offset = demoAssignmentDueOffsets[assignment.id];
   if (offset === undefined) return null;
   const due = addDays(new Date(), offset);
   due.setHours(23, 59, 0, 0);
@@ -194,7 +200,7 @@ export function assignmentBrief(assignmentId: string, studentId?: string): Assig
     id: assignment.id,
     title: assignment.title,
     type: assignment.type,
-    dueAt: dueAtOf(assignment.id),
+    dueAt: dueAtOf(assignment),
     maxScore: assignment.maxScore,
     group: groupBrief(assignment.groupId),
     submission: submission
@@ -222,11 +228,21 @@ export const isDone = (assignmentId: string, studentId: string) => {
 
 // ---------- Статистика (заглушки) ----------
 
-export function statsBrief(studentId: string, days = 30): StatsBrief {
-  const records = db.attendance.filter((a) => a.studentId === studentId);
+/**
+ * Статистика ученика; с `groupId` — только по занятиям и заданиям этой группы (карточки кружков
+ * и групп), без него — по всем группам ученика.
+ */
+export function statsBrief(studentId: string, days = 30, groupId?: string): StatsBrief {
+  const records = db.attendance.filter(
+    (a) =>
+      a.studentId === studentId &&
+      (groupId === undefined || db.lessons.find((l) => l.id === a.lessonId)?.groupId === groupId),
+  );
   const countable = records.length;
   const present = records.filter((a) => a.status === 'PRESENT' || a.status === 'LATE').length;
-  const assignments = assignmentsOfStudent(studentId);
+  const assignments = assignmentsOfStudent(studentId).filter(
+    (a) => groupId === undefined || a.groupId === groupId,
+  );
   const done = assignments.filter((a) => isDone(a.id, studentId)).length;
   return {
     attendanceRate: countable ? present / countable : null,
@@ -282,7 +298,7 @@ export function clubProgress(studentId: string, groupId: string): ClubProgress {
   const group = groupBrief(groupId);
   const course = db.courses.find((c) => c.groupId === groupId && c.status === 'PUBLISHED');
   const percent = course ? courseProgressPercent(course.id, studentId) : 0;
-  const stats = statsBrief(studentId);
+  const stats = statsBrief(studentId, 30, groupId);
   return {
     club: group.club,
     group,
@@ -321,7 +337,7 @@ export function weeklyPoints(weeks = 4): WeeklyPoint[] {
 export function groupCard(groupId: string): GroupCard {
   const brief = groupBrief(groupId);
   const studentIds = studentIdsOfGroup(groupId);
-  const stats = studentIds.map((id) => statsBrief(id));
+  const stats = studentIds.map((id) => statsBrief(id, 30, groupId));
   const avg = (values: (number | null)[]) => {
     const nums = values.filter((v): v is number => v !== null);
     return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
@@ -336,14 +352,15 @@ export function groupCard(groupId: string): GroupCard {
     studentsCount: studentIds.length,
     attendanceRate: avg(stats.map((s) => s.attendanceRate)),
     completionRate: avg(stats.map((s) => s.completionRate)),
-    needsAttentionCount: studentIds.filter((id) => needsAttention(id).length > 0).length,
+    needsAttentionCount: studentIds.filter((id) => needsAttention(id, groupId).length > 0).length,
     nextLesson: nextLesson ? lessonDto(nextLesson) : null,
   };
 }
 
-export function needsAttention(studentId: string): string[] {
+/** Причины внимания к ученику; с `groupId` — только по этой группе. */
+export function needsAttention(studentId: string, groupId?: string): string[] {
   const reasons: string[] = [];
-  const stats = statsBrief(studentId);
+  const stats = statsBrief(studentId, 30, groupId);
   if (stats.absences > 0) reasons.push('Пропуски');
   if (stats.completionRate !== null && stats.completionRate < 0.5) reasons.push('Не сдаёт задания');
   return reasons;

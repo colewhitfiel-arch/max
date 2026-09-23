@@ -13,7 +13,7 @@ import {
   Text,
   useToast,
 } from '@edu/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRefreshTrajectory, useTrajectory } from '@/entities/ai';
 import { describeApiError } from '@/shared/api/errors';
@@ -130,15 +130,29 @@ function TrajectoryBody({ value, queued }: { value: TrajectoryDto; queued: boole
   );
 }
 
+/** Сколько ждать пересчёта траектории после «Обновить» (подпись обещает «через минуту»). */
+const QUEUE_TIMEOUT_MS = 60_000;
+
 /** Карточка «Моя траектория» (F5): `GET /student/trajectory` + пересчёт по кнопке. */
 export function TrajectoryCard() {
   const { t } = useTranslation('student');
   const { t: tc } = useTranslation('common');
   const toast = useToast();
-  const trajectory = useTrajectory();
   const refresh = useRefreshTrajectory();
-  // Момент постановки в очередь: пока generatedAt старше — показываем «пересчитываем».
+  // Момент постановки в очередь: пока generatedAt старше — «пересчитываем» и опрос. Не дольше
+  // QUEUE_TIMEOUT_MS: worker может ничего не перегенерировать (данные не изменились), и
+  // подпись не должна висеть вечно.
   const [queuedAt, setQueuedAt] = useState<number | null>(null);
+  const trajectory = useTrajectory({ queuedAt });
+  const current = trajectory.data;
+  const queued =
+    queuedAt != null && (current == null || new Date(current.generatedAt).getTime() < queuedAt);
+
+  useEffect(() => {
+    if (queuedAt == null) return;
+    const timer = setTimeout(() => setQueuedAt(null), QUEUE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [queuedAt]);
 
   const onRefresh = () =>
     refresh.mutate(undefined, {
@@ -157,7 +171,7 @@ export function TrajectoryCard() {
             <EmptyState
               icon={<SparkIcon size={40} />}
               title={t('profile.trajectoryEmpty')}
-              description={t('profile.trajectoryHint')}
+              description={queued ? t('profile.trajectoryQueued') : t('profile.trajectoryHint')}
               action={
                 <Button
                   variant="secondary"
@@ -172,14 +186,7 @@ export function TrajectoryCard() {
           </Card>
         }
       >
-        {(value) =>
-          value && (
-            <TrajectoryBody
-              value={value}
-              queued={queuedAt != null && new Date(value.generatedAt).getTime() < queuedAt}
-            />
-          )
-        }
+        {(value) => value && <TrajectoryBody value={value} queued={queued} />}
       </AsyncState>
     </Stack>
   );

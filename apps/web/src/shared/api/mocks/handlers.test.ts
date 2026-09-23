@@ -22,7 +22,7 @@ import { api, call, setApiAuthAdapter } from '../client';
 import { ApiClientError } from '../errors';
 import { streamSse } from '../sse';
 import { handlers } from './handlers';
-import { db, resetMockDb } from './state';
+import { db, enableMockPersistence, MOCK_ADHOC_USERS_KEY, resetMockDb } from './state';
 import { MOCK_IDS, MOCK_INVITE_TOKENS, DEMO_TEACHER_WITHDRAWAL_KOPECKS } from './world-extras';
 
 const server = setupServer(...handlers);
@@ -1153,4 +1153,396 @@ describe('mock world (msw/node)', () => {
       expect(course.modules.length).toBe(current.draft?.modules.length);
     },
   );
+});
+
+/** Хранилище в памяти вместо localStorage (Node). */
+function memoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear: () => data.clear(),
+    getItem: (key) => data.get(key) ?? null,
+    key: (index) => [...data.keys()][index] ?? null,
+    removeItem: (key) => void data.delete(key),
+    setItem: (key, value) => void data.set(key, String(value)),
+  };
+}
+
+describe('mock world: правила и персист', () => {
+  afterEach(() => enableMockPersistence(null));
+
+  it('ad-hoc пользователь переживает сброс мира только при включённом персисте', async () => {
+    const storage = memoryStorage();
+    enableMockPersistence(storage);
+    const login = await loginDev('max-adhoc-user', 'STUDENT');
+    await call(api.auth.addRole({ body: { role: 'PARENT' } }));
+    expect(JSON.parse(storage.getItem(MOCK_ADHOC_USERS_KEY)!)).toEqual([
+      expect.objectContaining({ id: login.me.user.id, roles: ['STUDENT', 'PARENT'] }),
+    ]);
+
+    // «Перезагрузка»: мир собран заново, refresh-токен из прошлой сессии жив.
+    resetMockDb();
+    const pair = await call(api.auth.refresh({ body: { refreshToken: login.refreshToken } }));
+    session(pair);
+    const me = await call(api.auth.getMe());
+    expect(me.user.id).toBe(login.me.user.id);
+    expect(me.roles).toEqual(['STUDENT', 'PARENT']);
+    expect(me.student).not.toBeNull();
+    // Повторный dev-вход тем же maxUserId — тот же пользователь, без дубля в персисте.
+    expect((await loginDev('max-adhoc-user', 'STUDENT')).me.user.id).toBe(login.me.user.id);
+    expect(JSON.parse(storage.getItem(MOCK_ADHOC_USERS_KEY)!)).toHaveLength(1);
+
+    // clearPersisted — забыть; без персиста сброс теряет пользователя → 401.
+    resetMockDb({ clearPersisted: true });
+    expect(storage.getItem(MOCK_ADHOC_USERS_KEY)).toBeNull();
+    await expect(
+      call(api.auth.refresh({ body: { refreshToken: login.refreshToken } })),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+
+    const again = await loginDev('max-adhoc-2', 'TEACHER');
+    enableMockPersistence(null);
+    resetMockDb();
+    await expect(
+      call(api.auth.refresh({ body: { refreshToken: again.refreshToken } })),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('битый персист не ломает мир', async () => {
+    const storage = memoryStorage();
+    storage.setItem(MOCK_ADHOC_USERS_KEY, '{not json');
+    enableMockPersistence(storage);
+    expect((await loginAs('student1')).me.user.id).toBe(DEMO_IDS.users.student1);
+    storage.setItem(MOCK_ADHOC_USERS_KEY, JSON.stringify([{ id: 1 }, { id: 'x', roles: ['GOD'] }]));
+    resetMockDb();
+    expect(db.users.size).toBeGreaterThan(0);
+  });
+
+  it('онбординг: три разных вопроса, завершение на 4-м ответе; чужой диалог — 404', async () => {
+    await loginDev('max-onboarding-kid', 'STUDENT');
+    const { conversationId } = await call(api.ai.startOnboarding());
+    const replies: string[] = [];
+    const completes: boolean[] = [];
+    for (const text of ['Роботы', 'Сделать игру', '4 часа, практика', 'Шахматы']) {
+      let reply = '';
+      await streamSse({
+        path: STREAMING_ROUTES.onboardingMessage.path,
+        body: { conversationId, text },
+        onEvent: (event) => {
+          if (event.type === 'token') reply += event.text;
+          if (event.type === 'done') completes.push(event.isComplete ?? false);
+        },
+      });
+      replies.push(reply);
+    }
+    expect(completes).toEqual([false, false, false, true]);
+    expect(new Set(replies.slice(0, 3)).size).toBe(3);
+    expect(replies[1]).toMatch(/часов в неделю/);
+    expect(replies[2]).toMatch(/попозже/);
+
+    await loginDev('max-onboarding-other', 'STUDENT');
+    await expect(
+      streamSse({
+        path: STREAMING_ROUTES.onboardingMessage.path,
+        body: { conversationId, text: 'чужой' },
+        onEvent: () => {},
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('задания: срок из сущности, группа, попытки, Idempotency-Key, удаление со сдачами', async () => {
+    await loginAs('teacher');
+    const pastDue = new Date(Date.now() - 86_400_000).toISOString();
+    const card = await call(
+      api.assignments.createAssignment({
+        body: {
+          groupId: DEMO_IDS.groups.programmingA,
+          title: 'Одна попытка',
+          type: 'HOMEWORK',
+          dueAt: pastDue,
+          allowedAttempts: 1,
+          publish: true,
+        },
+      }),
+    );
+    expect(card.dueAt).toBe(pastDue);
+    const closed = await call(
+      api.assignments.listTeacherAssignments({ query: { status: 'closed' } }),
+    );
+    expect(closed.items.map((a) => a.id)).toContain(card.id);
+
+    // Даша не в группе программирования — сдать нельзя.
+    await loginAs('student2');
+    await expect(
+      call(
+        api.assignments.submitAssignment({
+          params: { assignmentId: card.id },
+          body: { text: 'чужое' },
+          headers: { 'idempotency-key': 'd-1' },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    await loginAs('student1');
+    const submit = (key: string, assignmentId = card.id) =>
+      call(
+        api.assignments.submitAssignment({
+          params: { assignmentId },
+          body: { text: 'Готово' },
+          headers: { 'idempotency-key': key },
+        }),
+      );
+    const first = await submit('s-1');
+    expect(first).toMatchObject({ attemptsCount: 1, isLate: true });
+    // Повтор с тем же ключом — тот же ответ, попытка не тратится; другой ключ — лимит.
+    expect(await submit('s-1')).toEqual(first);
+    await expect(submit('s-1', DEMO_IDS.assignments.homework)).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    await expect(submit('s-2')).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+
+    // Пересдача проверенного задания сбрасывает прошлую оценку.
+    const resubmitted = await submit('s-3', DEMO_IDS.assignments.simpleHomework);
+    expect(resubmitted).toMatchObject({ status: 'SUBMITTED', score: null, feedback: null });
+
+    // Удаление задания уносит сдачи: карточка ученика и аналитика родителя не падают.
+    await loginAs('teacher');
+    const deleted = await api.assignments.deleteAssignment({
+      params: { assignmentId: DEMO_IDS.assignments.simpleHomework },
+    });
+    expect(deleted.status).toBe(204);
+    expect(db.submissions.some((s) => s.assignmentId === DEMO_IDS.assignments.simpleHomework)).toBe(
+      false,
+    );
+    await call(
+      api.dashboards.getTeacherStudent({ params: { studentId: DEMO_IDS.students.alexey } }),
+    );
+    await loginAs('parent');
+    await call(
+      api.dashboards.getParentChildAnalytics({
+        params: { studentId: DEMO_IDS.students.alexey },
+        query: {},
+      }),
+    );
+  });
+
+  it('сдачи: чужой преподаватель не видит и не оценивает; файлы сдачи в детали', async () => {
+    const submissionId = DEMO_IDS.submissions.alexeySimpleHomework;
+    db.files.push({
+      id: '00000000-0000-7000-8000-00000000f001',
+      ownerUserId: DEMO_IDS.users.student1,
+      fileName: 'answer.txt',
+      mime: 'text/plain',
+      sizeBytes: 3,
+      purpose: 'SUBMISSION',
+      status: 'UPLOADED',
+      url: null,
+      confirmed: true,
+      uploaded: true,
+      text: 'abc',
+      blob: null,
+      objectUrl: null,
+      createdAt: new Date().toISOString(),
+    });
+    db.submissions.find((s) => s.id === submissionId)!.fileIds = [
+      '00000000-0000-7000-8000-00000000f001',
+    ];
+    await loginDev('max-teacher-2', 'TEACHER');
+    await expect(
+      call(api.assignments.getSubmission({ params: { submissionId } })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      call(
+        api.assignments.gradeSubmission({
+          params: { submissionId },
+          body: { status: 'GRADED', score: 10 },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    await loginAs('teacher');
+    const detail = await call(api.assignments.getSubmission({ params: { submissionId } }));
+    expect(detail.files.map((f) => f.fileName)).toEqual(['answer.txt']);
+    const graded = await call(
+      api.assignments.gradeSubmission({
+        params: { submissionId },
+        body: { status: 'GRADED', score: 90 },
+      }),
+    );
+    expect(graded.gradedById).toBe(DEMO_IDS.teachers.maria);
+  });
+
+  it('главная ученика: задания по дедлайну; события преподавателя — свежие первыми', async () => {
+    await loginAs('student1');
+    const home = await call(api.dashboards.getStudentHome());
+    const due = home.tasks.map((t) => (t.dueAt ? Date.parse(t.dueAt) : Infinity));
+    expect(due).toEqual([...due].sort((a, b) => a - b));
+
+    for (let i = 0; i < 6; i += 1) {
+      db.notifications.push({
+        id: crypto.randomUUID(),
+        userId: DEMO_IDS.users.teacher,
+        type: 'SUBMISSION_RECEIVED',
+        title: `Сдача ${i}`,
+        body: '',
+        payload: null,
+        readAt: null,
+        createdAt: new Date(Date.now() - (10 - i) * 60_000).toISOString(),
+      });
+    }
+    await loginAs('teacher');
+    const teacherHome = await call(api.dashboards.getTeacherHome());
+    expect(teacherHome.events.map((e) => e.title)).toEqual([
+      'Сдача 5',
+      'Сдача 4',
+      'Сдача 3',
+      'Сдача 2',
+      'Сдача 1',
+    ]);
+  });
+
+  it('настройки уведомлений сбрасываются вместе с миром', async () => {
+    await loginAs('student1');
+    const off = {
+      lessons: false,
+      assignments: true,
+      grades: true,
+      attendance: true,
+      insights: true,
+      payments: true,
+    };
+    await call(api.notifications.updateNotificationSettings({ body: off }));
+    expect(await call(api.notifications.getNotificationSettings())).toEqual(off);
+    resetMockDb();
+    await loginAs('student1');
+    expect((await call(api.notifications.getNotificationSettings())).lessons).toBe(true);
+  });
+
+  it('оплата родителя идемпотентна по Idempotency-Key', async () => {
+    await loginAs('parent');
+    const pay = (periodsCount: number) =>
+      call(
+        api.payments.createPayment({
+          params: { studentId: DEMO_IDS.students.alexey },
+          body: { enrollmentId: DEMO_IDS.enrollments.alexeyProgramming, periodsCount },
+          headers: { 'idempotency-key': 'pay-once' },
+        }),
+      );
+    const first = await pay(1);
+    const before = db.payments.length;
+    expect(await pay(1)).toEqual(first);
+    expect(db.payments.length).toBe(before);
+    await expect(pay(2)).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('period-запросы: неверная дата — VALIDATION', async () => {
+    await loginAs('student1');
+    await expect(
+      call(api.groups.getStudentCalendar({ query: { from: '23.09.2026' } as never })),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+    await loginAs('parent');
+    await expect(
+      call(
+        api.dashboards.getParentChildAnalytics({
+          params: { studentId: DEMO_IDS.students.alexey },
+          query: { to: 'вчера' } as never,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('курсы: черновик скрыт от ученика, QUIZ считается по ответам', async () => {
+    await loginAs('teacher');
+    const draft = await call(
+      api.courses.createCourse({
+        body: { groupId: DEMO_IDS.groups.roboticsA, title: 'Черновик' },
+      }),
+    );
+    await loginAs('student1');
+    await expect(
+      call(api.courses.getStudentCourse({ params: { courseId: draft.id } })),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    const quiz = db.blocks.find((b) => b.id === DEMO_IDS.blocks.sensorsQuiz)!;
+    if (quiz.type !== 'QUIZ') throw new Error('ожидался QUIZ');
+    const [right, ...rest] = quiz.content.questions;
+    const answers: Record<string, string[]> = { [right!.id]: right!.correctOptionIds };
+    for (const q of rest) answers[q.id] = [];
+    const result = await call(
+      api.courses.completeBlock({ params: { blockId: quiz.id }, body: { answers } }),
+    );
+    expect(result.score).toBe(Math.round((1 / quiz.content.questions.length) * 100));
+  });
+
+  it('course-builder: материал — только свой файл с purpose MATERIAL', async () => {
+    const file = (id: string, ownerUserId: string, purpose: 'MATERIAL' | 'AVATAR') => ({
+      id,
+      ownerUserId,
+      fileName: `${id}.txt`,
+      mime: 'text/plain',
+      sizeBytes: 3,
+      purpose,
+      status: 'UPLOADED' as const,
+      url: null,
+      confirmed: true,
+      uploaded: true,
+      text: 'abc',
+      blob: null,
+      objectUrl: null,
+      createdAt: new Date().toISOString(),
+    });
+    const foreign = '00000000-0000-7000-8000-00000000f101';
+    const avatar = '00000000-0000-7000-8000-00000000f102';
+    db.files.push(
+      file(foreign, DEMO_IDS.users.student1, 'MATERIAL'),
+      file(avatar, DEMO_IDS.users.teacher, 'AVATAR'),
+    );
+    await loginAs('teacher');
+    const create = (materialIds: string[]) =>
+      call(
+        api.courseBuilder.createGenerationJob({
+          body: { groupId: DEMO_IDS.groups.programmingA, materialIds },
+        }),
+      );
+    await expect(create([foreign])).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(create([avatar])).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('роли и коды: неверный код школы, код привязки без 0/O/1/I, занятие с концом до начала', async () => {
+    await loginDev('max-would-be-teacher', 'STUDENT');
+    await expect(
+      call(api.auth.addRole({ body: { role: 'TEACHER', inviteCode: 'WRONG' } })),
+    ).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+    const teacher = await call(
+      api.auth.addRole({ body: { role: 'TEACHER', inviteCode: 'SCHOOL1' } }),
+    );
+    expect(teacher.me.teacher).not.toBeNull();
+
+    await loginAs('student1');
+    const { linkCode } = await call(api.auth.rotateLinkCode());
+    expect(linkCode).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+
+    await loginAs('teacher');
+    const startsAt = new Date(Date.now() + 86_400_000).toISOString();
+    await expect(
+      call(
+        api.groups.createLesson({
+          params: { groupId: DEMO_IDS.groups.roboticsA },
+          body: { startsAt, endsAt: startsAt },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('следующий платёж родителя без оплат — как долг у преподавателя (день зачисления)', async () => {
+    await loginAs('parent');
+    const payments = await call(
+      api.payments.getChildPayments({ params: { studentId: DEMO_IDS.students.dasha }, query: {} }),
+    );
+    const chess = payments.periods.find((p) => p.enrollmentId === MOCK_IDS.enrollments.dashaChess);
+    const enrollment = db.enrollments.find((e) => e.id === MOCK_IDS.enrollments.dashaChess)!;
+    expect(chess?.paidUntil).toBeNull();
+    expect(chess?.nextPaymentAt).toBe(toDateOnly(startOfDay(enrollment.enrolledAt)));
+  });
 });

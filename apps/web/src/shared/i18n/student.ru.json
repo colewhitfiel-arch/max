@@ -27,7 +27,10 @@
     "prevDay": "Предыдущий день",
     "nextDay": "Следующий день",
     "notifications": "Уведомления",
-    "notificationsUnread": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_one": "Уведомления: {{count}} непрочитанное",
+    "notificationsUnread_few": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_many": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_other": "Уведомления: {{count}} непрочитанных",
     "columns": {
       "name": "Название",
       "group": "Группа",
@@ -80,7 +83,12 @@
     "blockOpened": "Блок открыт",
     "complete": "Завершить блок",
     "completed": "Блок завершён",
-    "contentNotSupported": "Содержимое этого типа блока пока не отображается"
+    "contentNotSupported": "Содержимое этого типа блока пока не отображается",
+    "openVideo": "Открыть видео",
+    "videoUnavailable": "Видео недоступно",
+    "noBlocks": "В курсе пока нет материалов",
+    "noBlocksHint": "Преподаватель добавит уроки позже",
+    "noModuleBlocks": "В модуле пока нет блоков"
   },
   "homework": {
     "title": "Задания",
@@ -93,7 +101,11 @@
     "empty": "Кружков пока нет",
     "emptyHint": "Задания появятся, когда тебя запишут в группу",
     "map": "Карта заданий по кружкам",
-    "planet": "{{club}}: {{points}} баллов, открытых заданий: {{open}}",
+    "planet": "{{club}}: {{points}}, открытых заданий: {{open}}",
+    "points_one": "{{count}} балл",
+    "points_few": "{{count}} балла",
+    "points_many": "{{count}} баллов",
+    "points_other": "{{count}} балла",
     "locked": "{{subject}} — кружок не выбран",
     "due": {
       "today": "сделать сегодня",

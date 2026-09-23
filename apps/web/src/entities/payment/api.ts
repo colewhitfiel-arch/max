@@ -8,7 +8,8 @@ import {
   type WithdrawTeacherWalletBody,
 } from '@edu/contracts';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, call, newRequestId } from '@/shared/api/client';
+import { useEffect } from 'react';
+import { api, call } from '@/shared/api/client';
 import { paymentKeys } from './keys';
 import { withWithdrawal } from './model';
 
@@ -21,16 +22,20 @@ export function useChildPayments(studentId: string | null) {
   });
 }
 
-/** `POST /parent/children/:studentId/payments` с Idempotency-Key → confirmationUrl. */
+/**
+ * `POST /parent/children/:studentId/payments` с Idempotency-Key → confirmationUrl.
+ * Ключ идемпотентности даёт экран: один на попытку, чтобы повтор после сбоя сети не создал
+ * второй платёж.
+ */
 export function useCreatePayment(studentId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreatePaymentBody) =>
+    mutationFn: ({ idempotencyKey, ...body }: CreatePaymentBody & { idempotencyKey: string }) =>
       call(
         api.payments.createPayment({
           params: { studentId: studentId! },
           body,
-          headers: { 'idempotency-key': newRequestId() },
+          headers: { 'idempotency-key': idempotencyKey },
         }),
       ),
     onSuccess: () => {
@@ -40,14 +45,43 @@ export function useCreatePayment(studentId: string | null) {
   });
 }
 
-/** `GET /parent/payments/:paymentId` — опрос статуса после возврата с оплаты. */
+/** Интервал опроса статуса платежа и его предел (docs/07 F10: не дольше 60 с). */
+const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_LIMIT_MS = 60_000;
+
+/**
+ * `GET /parent/payments/:paymentId` — опрос статуса после возврата с оплаты: пока платёж
+ * `PENDING`, но не дольше `PAYMENT_POLL_LIMIT_MS` (по числу ответов, без сверки часов с сервером).
+ */
 export function usePayment(paymentId: string | null, poll = false) {
   return useQuery({
     queryKey: paymentKeys.payment(paymentId ?? ''),
     queryFn: () => call(api.payments.getPayment({ params: { paymentId: paymentId! } })),
     enabled: !!paymentId,
-    refetchInterval: poll ? 3000 : false,
+    refetchInterval: (query) => {
+      if (!poll) return false;
+      const { data, dataUpdateCount } = query.state;
+      if (data && data.status !== 'PENDING') return false;
+      if (dataUpdateCount * PAYMENT_POLL_INTERVAL_MS >= PAYMENT_POLL_LIMIT_MS) return false;
+      return PAYMENT_POLL_INTERVAL_MS;
+    },
   });
+}
+
+/**
+ * Итог платежа после перехода на оплату (docs/07 F10 п.4): опрос `usePayment`, а как только
+ * статус стал терминальным — перезапрос платежей ребёнка (история, «оплачено до»).
+ * Экран показывает итог по `data.status`.
+ */
+export function usePaymentResult(paymentId: string | null) {
+  const queryClient = useQueryClient();
+  const query = usePayment(paymentId, true);
+  const payment = query.data;
+  useEffect(() => {
+    if (!payment || payment.status === 'PENDING') return;
+    void queryClient.invalidateQueries({ queryKey: paymentKeys.childPayments(payment.student.id) });
+  }, [payment, queryClient]);
+  return query;
 }
 
 /** `GET /parent/wallet` — баланс кошелька родителя (чип в шапке главной). */
