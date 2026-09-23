@@ -1,35 +1,35 @@
 // course-builder: задачи пайплайна «материалы → курс». Владелец — A5.
 
 model CourseGenerationJob {
-  id           String          @id @default(uuid(7)) @db.Uuid
-  teacherId    String          @map("teacher_id") @db.Uuid
-  groupId      String          @map("group_id") @db.Uuid
-  materialIds  String[]        @default([]) @map("material_ids") @db.Uuid
-  instructions String?
-  targetTitle  String?         @map("target_title")
+  id             String          @id @default(uuid(7)) @db.Uuid
+  teacherId      String          @map("teacher_id") @db.Uuid
+  groupId        String          @map("group_id") @db.Uuid
+  materialIds    String[]        @default([]) @map("material_ids") @db.Uuid
+  instructions   String?
+  targetTitle    String?         @map("target_title")
   /// MATERIALS | TOPIC (GenerationSourceKind из contracts)
-  sourceKind   String          @default("MATERIALS") @map("source_kind")
+  sourceKind     String          @default("MATERIALS") @map("source_kind")
   /// COURSE | HOMEWORK (GenerationTarget из contracts): целый курс или одно ДЗ одним модулем
-  target       String          @default("COURSE")
+  target         String          @default("COURSE")
   /// Курс, который задача дополняет; null — курс создаётся при accept
-  targetCourseId String?       @map("target_course_id") @db.Uuid
+  targetCourseId String?         @map("target_course_id") @db.Uuid
   /// Адресаты заданий модуля внутри группы: пусто — вся группа
-  studentIds   String[]        @default([]) @map("student_ids") @db.Uuid
+  studentIds     String[]        @default([]) @map("student_ids") @db.Uuid
   /// Дедлайн заданий модуля
-  dueAt        DateTime?       @map("due_at") @db.Timestamptz
+  dueAt          DateTime?       @map("due_at") @db.Timestamptz
   /// Тема / практика для режима TOPIC (ИИ пишет конспект сам)
-  topic        String?
+  topic          String?
   /// KnowledgeBase из contracts: атомы, узлы с цитатами, план
-  knowledge    Json?
-  stage        GenerationStage @default(QUEUED)
-  progress     Int             @default(0)
+  knowledge      Json?
+  stage          GenerationStage @default(QUEUED)
+  progress       Int             @default(0)
   /// CourseDraft из contracts
-  draft        Json?
-  error        String?
-  startedAt    DateTime?       @map("started_at") @db.Timestamptz
-  finishedAt   DateTime?       @map("finished_at") @db.Timestamptz
-  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  draft          Json?
+  error          String?
+  startedAt      DateTime?       @map("started_at") @db.Timestamptz
+  finishedAt     DateTime?       @map("finished_at") @db.Timestamptz
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   teacher TeacherProfile @relation(fields: [teacherId], references: [id])
   group   Group          @relation(fields: [groupId], references: [id])

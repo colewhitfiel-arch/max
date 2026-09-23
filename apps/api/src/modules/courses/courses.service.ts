@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type {
   CourseBlock,
   CourseDraft,
+  CourseProgressReport,
   PublishCourseBody,
   TeacherCourseCard,
   TeacherCourseDetail,
+  UpdateBlockBody,
 } from '@edu/contracts';
 import type { Prisma } from '@edu/db';
 import { Errors } from '../../common/errors/app-error';
@@ -261,6 +263,71 @@ export class CoursesService {
     return { detail: await this.getTeacherCourse(teacherId, courseId), assignmentsCreated };
   }
 
+  /**
+   * Правка блока — разрешена и после публикации, но только заголовок и содержимое:
+   * структура курса после публикации заморожена (docs/04 §4.5 п.7).
+   */
+  async updateBlock(
+    teacherId: string,
+    blockId: string,
+    body: UpdateBlockBody,
+  ): Promise<CourseBlock> {
+    const block = await this.prisma.courseBlock.findUnique({
+      where: { id: blockId },
+      include: { module: { select: { courseId: true } } },
+    });
+    if (!block) throw Errors.notFound('Блок');
+    await this.requireOwned(teacherId, block.module.courseId);
+    if (block.type !== body.type)
+      throw Errors.validation('Тип блока в запросе не совпадает с типом блока курса');
+    const updated = await this.prisma.courseBlock.update({
+      where: { id: blockId },
+      data: {
+        ...(body.title !== undefined ? { title: body.title.trim() } : {}),
+        ...(body.content !== undefined
+          ? { content: body.content as Prisma.InputJsonValue }
+          : {}),
+      },
+    });
+    return updated as unknown as CourseBlock;
+  }
+
+  /** Прогресс учеников по курсу: процент и последняя активность по каждому. */
+  async getCourseProgress(teacherId: string, courseId: string): Promise<CourseProgressReport> {
+    const course = await this.requireOwned(teacherId, courseId);
+    const blockIds = course.modules.flatMap((module) => module.blocks.map((block) => block.id));
+    const roster = await this.groups.listRoster(course.groupId);
+    if (roster.length === 0) return { students: [] };
+    const progress = await this.prisma.blockProgress.findMany({
+      where: {
+        blockId: { in: blockIds },
+        studentId: { in: roster.map((student) => student.id) },
+        status: 'COMPLETED',
+      },
+      select: { studentId: true, completedAt: true },
+    });
+    const byStudent = new Map<string, { completed: number; lastActivityAt: Date | null }>();
+    for (const row of progress) {
+      const entry = byStudent.get(row.studentId) ?? { completed: 0, lastActivityAt: null };
+      entry.completed += 1;
+      if (row.completedAt && (!entry.lastActivityAt || row.completedAt > entry.lastActivityAt))
+        entry.lastActivityAt = row.completedAt;
+      byStudent.set(row.studentId, entry);
+    }
+    return {
+      students: roster.map((student) => {
+        const entry = byStudent.get(student.id) ?? { completed: 0, lastActivityAt: null };
+        return {
+          student,
+          percent:
+            blockIds.length === 0 ? 0 : Math.round((entry.completed / blockIds.length) * 100),
+          completedBlocks: entry.completed,
+          lastActivityAt: entry.lastActivityAt?.toISOString() ?? null,
+        };
+      }),
+    };
+  }
+
   async archiveCourse(teacherId: string, courseId: string): Promise<TeacherCourseDetail> {
     await this.requireOwned(teacherId, courseId);
     await this.prisma.course.update({ where: { id: courseId }, data: { status: 'ARCHIVED' } });
@@ -308,6 +375,17 @@ export class CoursesService {
       result.get(course.groupId)?.push(Math.round((done / ids.length) * 100));
     }
     return result;
+  }
+
+  /**
+   * Публичный сервис (analytics): содержимое блоков по id — условие задания и эталонный
+   * ответ в отчётах родителя и преподавателя. Ученику это содержимое не отдаётся.
+   */
+  async blockContentsByIds(blockIds: string[]): Promise<Map<string, CourseBlock>> {
+    const unique = [...new Set(blockIds)];
+    if (unique.length === 0) return new Map();
+    const rows = await this.prisma.courseBlock.findMany({ where: { id: { in: unique } } });
+    return new Map(rows.map((row) => [row.id, row as unknown as CourseBlock]));
   }
 
   /** Публичный сервис (analytics): сколько блоков ученик прошёл с указанного момента. */

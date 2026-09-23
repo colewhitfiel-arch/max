@@ -1,6 +1,14 @@
 import { randomInt } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuthResult, MeDto, Role, TokenPair, UpdateSettingsBody } from '@edu/contracts';
+import type {
+  AuthResult,
+  MeDto,
+  Role,
+  StudentBrief,
+  TokenPair,
+  UserBrief,
+  UpdateSettingsBody,
+} from '@edu/contracts';
 import { AUTH_PROVIDER, type AuthProvider } from '../../common/auth/auth-provider';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { JwtService } from '../../common/auth/jwt.service';
@@ -191,6 +199,27 @@ export class IdentityService {
   /** Для модуля ai: профиль ученика (школа, анкета онбординга, имя/ник) без чтения чужих таблиц. */
   async getStudentProfile(studentProfileId: string) {
     return this.repo.findStudentProfile(studentProfileId);
+  }
+
+  /** Для других модулей: ученик по коду привязки, который он показал родителю. */
+  async findStudentIdByLinkCode(linkCode: string): Promise<string | null> {
+    return this.repo.findStudentIdByLinkCode(linkCode.trim().toUpperCase());
+  }
+
+  /** Для других модулей: пользователь родителя по id профиля (кто приглашает ребёнка). */
+  async parentUserBrief(parentProfileId: string): Promise<UserBrief | null> {
+    return this.repo.findParentUserBrief(parentProfileId);
+  }
+
+  /** Для других модулей: `StudentBrief` по id профилей (списки платежей, отчёты). */
+  async studentBriefsByIds(studentIds: string[]): Promise<Map<string, StudentBrief>> {
+    const rows = await this.repo.findStudentBriefs(studentIds);
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        { id: row.id, user: row.user, classLabel: row.classLabel } satisfies StudentBrief,
+      ]),
+    );
   }
 
   /**

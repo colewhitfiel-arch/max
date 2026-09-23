@@ -172,6 +172,18 @@ export class AssignmentsRepository {
     });
   }
 
+  /** Опубликованные задания группы со сроком внутри периода («Общая успеваемость»). */
+  listOfGroupDueBetween(groupId: string, from: Date, to: Date): Promise<AssignmentRow[]> {
+    return this.prisma.assignment.findMany({
+      where: {
+        groupId,
+        deletedAt: null,
+        publishedAt: { not: null },
+        dueAt: { not: null, gte: from, lte: to },
+      },
+    });
+  }
+
   /** Все опубликованные задания группы. */
   listPublishedOfGroup(groupId: string): Promise<AssignmentRow[]> {
     return this.prisma.assignment.findMany({

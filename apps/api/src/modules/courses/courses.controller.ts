@@ -59,6 +59,22 @@ export class CoursesController {
     });
   }
 
+  @TsRestHandler(coursesContract.updateBlock)
+  updateBlock(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(coursesContract.updateBlock, async ({ params, body }) => ({
+      status: 200,
+      body: await this.courses.updateBlock(requireTeacher(user), params.blockId, body),
+    }));
+  }
+
+  @TsRestHandler(coursesContract.getCourseProgress)
+  progress(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(coursesContract.getCourseProgress, async ({ params }) => ({
+      status: 200,
+      body: await this.courses.getCourseProgress(requireTeacher(user), params.courseId),
+    }));
+  }
+
   @TsRestHandler(coursesContract.archiveCourse)
   archive(@CurrentUser() user: AuthUser) {
     return tsRestHandler(coursesContract.archiveCourse, async ({ params }) => ({

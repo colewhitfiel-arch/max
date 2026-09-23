@@ -1,8 +1,24 @@
+import { randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import type { LinkStatus } from '@edu/contracts';
 import { Errors } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
-/** Публичный сервис модуля family (docs/08 §8.3). Полные ручки родителя — задача Agent D. */
+/** Ссылка-приглашение ребёнка живёт 7 дней (контракт `CHILD_INVITE_TTL_DAYS`). */
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface ParentInviteRow {
+  token: string;
+  parentId: string;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+}
+
+/**
+ * Публичный сервис модуля family (docs/08 §8.3): связи родитель ↔ ребёнок и
+ * ссылки-приглашения. Таблицы `parent_student_links` и `parent_invites` читает только он;
+ * экраны родителя собирает модуль `parent`, который не знает про эти таблицы.
+ */
 @Injectable()
 export class FamilyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -17,6 +33,15 @@ export class FamilyService {
       select: { studentId: true },
     });
     return links.map((l) => l.studentId);
+  }
+
+  /** Все связи родителя, включая ожидающие подтверждения (экран «Дети»). */
+  async listLinks(parentId: string): Promise<Array<{ studentId: string; status: LinkStatus }>> {
+    return this.prisma.parentStudentLink.findMany({
+      where: { parentId, status: { not: 'REVOKED' } },
+      select: { studentId: true, status: true },
+      orderBy: { requestedAt: 'asc' },
+    });
   }
 
   /** Policy: родитель имеет доступ к данным ребёнка. */
@@ -35,5 +60,89 @@ export class FamilyService {
       select: { parent: { select: { userId: true } } },
     });
     return links.map((l) => l.parent.userId);
+  }
+
+  /**
+   * Привязка по коду, который ученик показал родителю: подтверждения не требует —
+   * код ребёнок передал лично. Повторная привязка того же ребёнка идемпотентна.
+   */
+  async link(parentId: string, studentId: string, status: LinkStatus): Promise<LinkStatus> {
+    const now = new Date();
+    const row = await this.prisma.parentStudentLink.upsert({
+      where: { parentId_studentId: { parentId, studentId } },
+      create: {
+        parentId,
+        studentId,
+        status,
+        ...(status === 'ACTIVE' ? { confirmedAt: now } : {}),
+      },
+      // Отозванную связь восстанавливаем, уже активную не трогаем.
+      update: {
+        status,
+        ...(status === 'ACTIVE' ? { confirmedAt: now } : {}),
+      },
+      select: { status: true },
+    });
+    return row.status;
+  }
+
+  async unlink(parentId: string, studentId: string): Promise<void> {
+    const updated = await this.prisma.parentStudentLink.updateMany({
+      where: { parentId, studentId, status: { not: 'REVOKED' } },
+      data: { status: 'REVOKED' },
+    });
+    if (updated.count === 0) throw Errors.notFound('Связь с ребёнком');
+  }
+
+  // ---------- приглашения по ссылке ----------
+
+  async createInvite(parentId: string): Promise<ParentInviteRow> {
+    const token = randomBytes(24).toString('base64url');
+    return this.prisma.parentInvite.create({
+      data: { token, parentId, expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
+      select: { token: true, parentId: true, expiresAt: true, acceptedAt: true },
+    });
+  }
+
+  async findInvite(token: string): Promise<ParentInviteRow | null> {
+    return this.prisma.parentInvite.findUnique({
+      where: { token },
+      select: { token: true, parentId: true, expiresAt: true, acceptedAt: true },
+    });
+  }
+
+  /**
+   * Принять приглашение: связь становится ACTIVE, токен гасится. Повторное принятие тем же
+   * учеником возвращает прежний результат, другим — конфликт (ссылка одноразовая).
+   */
+  async acceptInvite(token: string, studentId: string): Promise<{ parentId: string }> {
+    const invite = await this.findInvite(token);
+    if (!invite) throw Errors.notFound('Приглашение');
+    if (invite.acceptedAt) {
+      const row = await this.prisma.parentInvite.findUnique({
+        where: { token },
+        select: { acceptedBy: true },
+      });
+      if (row?.acceptedBy !== studentId) throw Errors.conflict('Ссылка уже использована');
+      return { parentId: invite.parentId };
+    }
+    if (invite.expiresAt.getTime() < Date.now()) throw Errors.businessRule('Ссылка просрочена');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.parentInvite.update({
+        where: { token },
+        data: { acceptedAt: new Date(), acceptedBy: studentId },
+      });
+      await tx.parentStudentLink.upsert({
+        where: { parentId_studentId: { parentId: invite.parentId, studentId } },
+        create: {
+          parentId: invite.parentId,
+          studentId,
+          status: 'ACTIVE',
+          confirmedAt: new Date(),
+        },
+        update: { status: 'ACTIVE', confirmedAt: new Date() },
+      });
+    });
+    return { parentId: invite.parentId };
   }
 }

@@ -154,6 +154,25 @@ export class CatalogService {
 
   // ---------- публичный сервис ----------
 
+  /** Публичный сервис: карточки кружков по id (кружки ребёнка у родителя). */
+  async clubCardsByIds(clubIds: string[]): Promise<Map<string, ClubCard>> {
+    const unique = [...new Set(clubIds)];
+    if (unique.length === 0) return new Map();
+    const clubs = await this.prisma.club.findMany({
+      where: { id: { in: unique } },
+      include: {
+        groups: {
+          where: { isActive: true },
+          include: {
+            scheduleRules: { where: { validTo: null }, orderBy: { weekday: 'asc' } },
+            teacher: teacherBriefSelect,
+          },
+        },
+      },
+    });
+    return new Map(this.toCards(clubs).map((card) => [card.id, card]));
+  }
+
   /** Активные кружки школы (без школы — все активные) в формате ClubCard. */
   async listActiveClubCards(schoolId: string | null): Promise<ClubCard[]> {
     const clubs = await this.prisma.club.findMany({

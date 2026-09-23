@@ -16,6 +16,9 @@ import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { IdentityModule } from './identity/identity.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ParentModule } from './parent/parent.module';
+import { SupportModule } from './support/support.module';
+import { PaymentsModule } from './payments/payments.module';
 
 export const DOMAIN_MODULES: Type<unknown>[] = [
   // инфраструктурные (глобальные): хранилище файлов, ИИ-провайдер + онбординг/тьютор/траектория
@@ -33,4 +36,7 @@ export const DOMAIN_MODULES: Type<unknown>[] = [
   AssignmentsModule,
   AnalyticsModule,
   NotificationsModule,
+  PaymentsModule,
+  ParentModule,
+  SupportModule,
 ];

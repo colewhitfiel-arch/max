@@ -100,6 +100,12 @@ export class NotificationsService {
     return this.repo.saveSettings(user.userId, body);
   }
 
+  /** Публичный сервис: последние уведомления пользователя (лента событий на главной). */
+  async latestOf(userId: string, limit: number): Promise<NotificationDto[]> {
+    const rows = await this.repo.list(userId, {}, limit);
+    return rows.slice(0, limit).map(toDto);
+  }
+
   /**
    * Публичный сервис: разослать уведомление адресатам, у которых этот тип включён.
    * Дубли (`userIds` с повторами) схлопываются; пустой список — no-op.

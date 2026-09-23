@@ -143,6 +143,21 @@ export class IdentityRepository {
     });
   }
 
+  /** Краткие карточки учеников по id профилей — для списков в других модулях. */
+  async findStudentBriefs(studentIds: string[]) {
+    if (studentIds.length === 0) return [];
+    return this.prisma.studentProfile.findMany({
+      where: { id: { in: studentIds } },
+      select: {
+        id: true,
+        classLabel: true,
+        user: {
+          select: { id: true, firstName: true, lastName: true, nickname: true, avatarUrl: true },
+        },
+      },
+    });
+  }
+
   /** userId по id профиля роли — кому слать уведомление (`null`, если профиля нет). */
   async findUserIdOfProfile(
     role: 'STUDENT' | 'PARENT' | 'TEACHER',
@@ -165,6 +180,28 @@ export class IdentityRepository {
       select: { schoolId: true },
     });
     return row?.schoolId ?? null;
+  }
+
+  /** Ученик по коду, который он показывает родителю (null — кода нет). */
+  async findStudentIdByLinkCode(linkCode: string): Promise<string | null> {
+    const row = await this.prisma.studentProfile.findUnique({
+      where: { linkCode },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  }
+
+  /** `UserBrief` по id профиля родителя — кто приглашает ребёнка. */
+  async findParentUserBrief(parentProfileId: string) {
+    const row = await this.prisma.parentProfile.findUnique({
+      where: { id: parentProfileId },
+      select: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, nickname: true, avatarUrl: true },
+        },
+      },
+    });
+    return row?.user ?? null;
   }
 
   async linkCodeExists(linkCode: string): Promise<boolean> {

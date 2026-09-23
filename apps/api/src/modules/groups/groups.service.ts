@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { GroupBrief, LessonDto, StudentBrief } from '@edu/contracts';
+import type { BillingPeriod, GroupBrief, LessonDto, ScheduleRuleDto, StudentBrief } from '@edu/contracts';
 import { Errors } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -15,6 +15,22 @@ const groupBriefInclude = {
       },
     },
   },
+} as const;
+
+/** `GroupBrief` + цена кружка и расписание: выборка для оплат и кружков ребёнка. */
+const groupBillingInclude = {
+  ...groupBriefInclude,
+  club: {
+    select: {
+      id: true,
+      title: true,
+      category: true,
+      coverUrl: true,
+      priceKopecks: true,
+      billingPeriod: true,
+    },
+  },
+  scheduleRules: { where: { validTo: null }, orderBy: { weekday: 'asc' } },
 } as const;
 
 type GroupWithBrief = {
@@ -42,6 +58,61 @@ function toGroupBrief(group: GroupWithBrief): GroupBrief {
     code: null,
     club: group.club as GroupBrief['club'],
     teacher: { id: group.teacher.id, user: group.teacher.user, photoUrl: group.teacher.photoUrl },
+  };
+}
+
+
+/** Зачисление с ценой и расписанием: то, что нужно оплатам и кружкам ребёнка. */
+export interface EnrollmentForBilling {
+  id: string;
+  studentId: string;
+  groupId: string;
+  teacherId: string;
+  clubId: string;
+  enrolledAt: Date;
+  group: GroupBrief;
+  schedule: ScheduleRuleDto[];
+  priceKopecks: number;
+  billingPeriod: BillingPeriod;
+}
+
+type EnrollmentForBillingRow = {
+  id: string;
+  studentId: string;
+  groupId: string;
+  enrolledAt: Date;
+  group: Omit<GroupWithBrief, 'club'> & {
+    teacherId: string;
+    clubId: string;
+    club: GroupWithBrief['club'] & { priceKopecks: number; billingPeriod: BillingPeriod };
+    scheduleRules: Array<{
+      id: string;
+      weekday: number;
+      startTime: string;
+      endTime: string;
+      room: string | null;
+    }>;
+  };
+};
+
+function toEnrollmentForBilling(row: EnrollmentForBillingRow): EnrollmentForBilling {
+  return {
+    id: row.id,
+    studentId: row.studentId,
+    groupId: row.groupId,
+    teacherId: row.group.teacherId,
+    clubId: row.group.clubId,
+    enrolledAt: row.enrolledAt,
+    group: toGroupBrief(row.group),
+    schedule: row.group.scheduleRules.map((rule) => ({
+      id: rule.id,
+      weekday: rule.weekday,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      room: rule.room,
+    })),
+    priceKopecks: row.group.club.priceKopecks,
+    billingPeriod: row.group.club.billingPeriod,
   };
 }
 
@@ -140,6 +211,66 @@ export class GroupsService {
       select: { groupId: true, enrolledAt: true },
     });
     return rows;
+  }
+
+  /**
+   * Публичный сервис: зачисления ученика с кружком, ценой и расписанием — всё, что нужно
+   * оплатам и экрану кружков ребёнка. Чужие таблицы вызывающий не читает (AGENT_GUIDE §4).
+   */
+  async listEnrollmentsForBilling(studentId: string): Promise<EnrollmentForBilling[]> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: { studentId, status: { in: ['ACTIVE', 'PAUSED'] } },
+      include: {
+        group: {
+          select: {
+            id: true,
+            title: true,
+            teacherId: true,
+            clubId: true,
+            ...groupBillingInclude,
+          },
+        },
+      },
+    });
+    return rows.map(toEnrollmentForBilling);
+  }
+
+  /** Публичный сервис: одно зачисление для оплаты (null — такого зачисления нет). */
+  async getEnrollmentForBilling(enrollmentId: string): Promise<EnrollmentForBilling | null> {
+    const row = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        group: {
+          select: {
+            id: true,
+            title: true,
+            teacherId: true,
+            clubId: true,
+            ...groupBillingInclude,
+          },
+        },
+      },
+    });
+    return row ? toEnrollmentForBilling(row) : null;
+  }
+
+  /** Публичный сервис: зачисления всех групп преподавателя — «Вам должны» в кошельке. */
+  async listEnrollmentsOfTeacher(teacherId: string): Promise<EnrollmentForBilling[]> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: { status: 'ACTIVE', group: { teacherId, isActive: true } },
+      include: {
+        group: {
+          select: {
+            id: true,
+            title: true,
+            teacherId: true,
+            clubId: true,
+            ...groupBillingInclude,
+          },
+        },
+      },
+    });
+    return rows.map(toEnrollmentForBilling);
   }
 
   /** Группы ученика как `GroupBrief` (карта кружков на экране заданий). */

@@ -15,3 +15,18 @@ model ParentStudentLink {
   @@index([studentId])
   @@map("parent_student_links")
 }
+
+/// Ссылка-приглашение ребёнка: родитель создаёт, ребёнок открывает и принимает.
+model ParentInvite {
+  token      String    @id
+  parentId   String    @map("parent_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz
+  acceptedBy String?   @map("accepted_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  parent ParentProfile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@index([parentId, createdAt])
+  @@map("parent_invites")
+}

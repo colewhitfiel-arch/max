@@ -46,3 +46,36 @@ model PaidPeriod {
   @@index([paymentId])
   @@map("paid_periods")
 }
+
+/// Кошелёк родителя: предоплаченный остаток, из которого списываются оплаты кружков.
+model ParentWallet {
+  parentId       String   @id @map("parent_id") @db.Uuid
+  balanceKopecks Int      @default(0) @map("balance_kopecks")
+  currency       String   @default("RUB")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  parent ParentProfile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@map("parent_wallets")
+}
+
+/// Журнал кошелька преподавателя: поступления за оплаты учеников и выводы средств.
+model TeacherWalletTransaction {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  teacherId     String                @map("teacher_id") @db.Uuid
+  kind          WalletTransactionKind
+  /// Всегда больше нуля; направление задаёт kind.
+  amountKopecks Int                   @map("amount_kopecks")
+  currency      String                @default("RUB")
+  groupId       String?               @map("group_id") @db.Uuid
+  studentId     String?               @map("student_id") @db.Uuid
+  paymentId     String?               @map("payment_id") @db.Uuid
+  at            DateTime              @default(now()) @db.Timestamptz
+
+  teacher TeacherProfile  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  group   Group?          @relation(fields: [groupId], references: [id])
+  student StudentProfile? @relation(fields: [studentId], references: [id])
+
+  @@index([teacherId, at])
+  @@map("teacher_wallet_transactions")
+}

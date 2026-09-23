@@ -18,6 +18,7 @@ model Group {
   courses        Course[]
   assignments    Assignment[]
   generationJobs CourseGenerationJob[]
+  walletLedger   TeacherWalletTransaction[]
 
   @@index([teacherId])
   @@index([clubId])

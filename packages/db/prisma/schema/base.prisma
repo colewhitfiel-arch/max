@@ -35,6 +35,11 @@ enum Theme {
   DARK
 }
 
+enum WalletTransactionKind {
+  INCOME
+  WITHDRAWAL
+}
+
 enum LinkStatus {
   PENDING
   ACTIVE

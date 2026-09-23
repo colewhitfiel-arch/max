@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   type AssignmentBrief,
+  type BlockAnswers,
   type AssignmentSubmissions,
   type AssignmentType,
   type CreateAssignmentBody,
@@ -54,6 +55,9 @@ export const ASSIGNABLE_BLOCK_TYPES: readonly AssignmentType[] = [
 export interface StudentAssignmentFact {
   id: string;
   title: string;
+  description: string | null;
+  /** Блок курса, из которого выросло задание; null — «простое» задание преподавателя. */
+  blockId: string | null;
   type: AssignmentType;
   groupId: string;
   dueAt: Date | null;
@@ -65,6 +69,14 @@ export interface StudentAssignmentFact {
     isLate: boolean;
     submittedAt: Date | null;
   } | null;
+}
+
+/** Ответ ученика на задание: что показать в отчётах родителя и преподавателя. */
+export interface StudentAnswerFact {
+  text: string | null;
+  answers: BlockAnswers | null;
+  score: number | null;
+  isGraded: boolean;
 }
 
 export interface BlockAssignmentInput {
@@ -395,6 +407,69 @@ export class AssignmentsService {
 
   // ---------- публичный сервис (courses, analytics, notifications) ----------
 
+  /**
+   * Публичный сервис: сдачи по заданиям группы со сроком в периоде — пары «задание × ученик»
+   * для счётчиков «Общей успеваемости» (docs/04 §4.6). Задания без сдач не возвращаются.
+   */
+  async factsOfGroupInPeriod(
+    groupId: string,
+    from: Date,
+    to: Date,
+  ): Promise<StudentAssignmentFact[]> {
+    const rows = await this.repo.listOfGroupDueBetween(groupId, from, to);
+    if (rows.length === 0) return [];
+    const submissions = await this.repo.listSubmissionsOfAssignments(rows.map((row) => row.id));
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return submissions.flatMap((submission) => {
+      const row = byId.get(submission.assignmentId);
+      if (!row) return [];
+      if (submission.status !== 'SUBMITTED' && submission.status !== 'GRADED') return [];
+      return [
+        {
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          blockId: row.blockId,
+          type: row.type,
+          groupId: row.groupId,
+          dueAt: row.dueAt,
+          publishedAt: row.publishedAt,
+          maxScore: row.maxScore,
+          submission: {
+            status: submission.status,
+            score: submission.score,
+            isLate: submission.isLate,
+            submittedAt: submission.submittedAt,
+          },
+        },
+      ];
+    });
+  }
+
+  /**
+   * Публичный сервис: задания преподавателя, где есть неоценённые сдачи («Проверить»
+   * на главной). Отсортированы по сроку: сначала то, что горит.
+   */
+  async toGradeOfTeacher(teacherId: string): Promise<Array<{ assignment: AssignmentBrief; pendingCount: number }>> {
+    const rows = await this.repo.listByTeacher(teacherId, {}, 200, null);
+    if (rows.length === 0) return [];
+    const submissions = await this.repo.listSubmissionsOfAssignments(rows.map((row) => row.id));
+    const pending = new Map<string, number>();
+    for (const submission of submissions) {
+      if (submission.status !== 'SUBMITTED') continue;
+      pending.set(submission.assignmentId, (pending.get(submission.assignmentId) ?? 0) + 1);
+    }
+    const waiting = rows.filter((row) => pending.has(row.id));
+    const briefs = await this.toBriefs(waiting, new Map());
+    return briefs
+      .map((assignment) => ({ assignment, pendingCount: pending.get(assignment.id) ?? 0 }))
+      .sort(
+        (a, b) =>
+          (a.assignment.dueAt ? Date.parse(a.assignment.dueAt) : Number.POSITIVE_INFINITY) -
+          (b.assignment.dueAt ? Date.parse(b.assignment.dueAt) : Number.POSITIVE_INFINITY),
+      );
+  }
+
   /** Публичный сервис: кому принадлежит задание и как оно называется (тексты уведомлений). */
   async briefInfo(
     assignmentId: string,
@@ -420,6 +495,8 @@ export class AssignmentsService {
       return {
         id: row.id,
         title: row.title,
+        description: row.description,
+        blockId: row.blockId,
         type: row.type,
         groupId: row.groupId,
         dueAt: row.dueAt,
@@ -435,6 +512,29 @@ export class AssignmentsService {
           : null,
       };
     });
+  }
+
+  /**
+   * Публичный сервис: условие задания и ответ ученика — экраны «Задания» у родителя
+   * и преподавателя. Ключ — id задания.
+   */
+  async answersOfStudent(
+    studentId: string,
+    assignmentIds: string[],
+  ): Promise<Map<string, StudentAnswerFact>> {
+    if (assignmentIds.length === 0) return new Map();
+    const submissions = await this.repo.listSubmissionsOfStudent(studentId, assignmentIds);
+    return new Map(
+      submissions.map((submission) => [
+        submission.assignmentId,
+        {
+          text: submission.text,
+          answers: (submission.answers ?? null) as BlockAnswers | null,
+          score: submission.score,
+          isGraded: submission.status === 'GRADED',
+        },
+      ]),
+    );
   }
 
   /** Публичный сервис: задания ученика как `AssignmentBrief` (списки на дашбордах). */
