@@ -6,16 +6,14 @@
   "nav": {
     "home": "Home",
     "tutor": "AI tutor",
-    "courses": "Courses",
     "settings": "Settings",
     "profile": "Profile",
     "children": "Children",
     "analytics": "Analytics",
     "clubs": "Clubs",
     "payments": "Payments",
-    "groups": "Groups",
     "assignments": "Assignments",
-    "more": "More",
+    "performance": "Performance",
     "notifications": "Notifications",
     "notificationsUnread": "Notifications: {{count}} unread"
   },

@@ -1,0 +1,7 @@
+{
+  "title": "Home",
+  "header": {
+    "wallet": "Balance {{amount}}, open wallet",
+    "walletUnknown": "Open wallet"
+  }
+}

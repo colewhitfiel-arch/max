@@ -4,20 +4,11 @@ import { useWallet } from '@/entities/payment';
 import { shortName } from '@/entities/student';
 import { useMe } from '@/shared/auth/hooks';
 import { fullName } from '@/shared/lib/format';
-import { formatMoney } from '@/shared/lib/money';
+import { formatMoney, wholeRubles } from '@/shared/lib/money';
 
 export interface ParentHomeHeaderProps {
   /** Нажатие на кошелёк — экран пополнения. */
   onOpenWallet: () => void;
-}
-
-/**
- * Баланс целыми рублями, как в макете («6700»): копейки в чипе не показываем, разряды
- * отделяем только от 10 000 («16 700») — четырёхзначная сумма читается и так.
- */
-function wholeRubles(kopecks: number, locale: string): string {
-  const rubles = Math.floor(kopecks / 100);
-  return new Intl.NumberFormat(locale, { useGrouping: rubles >= 10_000 }).format(rubles);
 }
 
 /**

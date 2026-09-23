@@ -15,23 +15,6 @@
     "clubsEmptyTitle": "Заданий пока нет",
     "clubsEmptyText": "Когда преподаватель выдаст задания, здесь появятся итоги по каждому кружку"
   },
-  "status": {
-    "FAILED_OVERDUE": "срок прошёл, не сдано"
-  },
-  "task": {
-    "title": "Задание {{number}}",
-    "answer": "Ответ: {{answer}}",
-    "correctAnswer": "Правильный ответ: {{answer}}",
-    "score": "Баллы: {{score}} из {{max}}",
-    "pendingReview": "Сдано, ждёт проверки",
-    "notSubmitted": "Не сдано, срок истёк {{date}}",
-    "upcoming": "Предстоит выполнить",
-    "due": "Срок: {{date}}",
-    "noDue": "Без срока",
-    "copy": "копировать",
-    "copied": "скопировано",
-    "copyFailed": "Не удалось скопировать код"
-  },
   "tasks": {
     "close": "Задания",
     "closeLabel": "Закрыть задания",

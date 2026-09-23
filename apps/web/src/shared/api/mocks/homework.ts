@@ -1,14 +1,15 @@
 /**
- * Домашние задания для аналитики родителя (и «Успеваемости» в профиле ученика — только настоящие
- * задания, `studentClubHomework`) — фейковый сервер повторяет правила analytics
- * (docs/04 §4.6): статусы DONE / FAILED / SOON / LATER, итоги, окно «Выполненные задания».
+ * Домашние задания для аналитики родителя и успеваемости у преподавателя (и «Успеваемости» в
+ * профиле ученика — только настоящие задания, `studentClubHomework`) — фейковый сервер повторяет
+ * правила analytics (docs/04 §4.6): статусы DONE / FAILED / SOON / LATER, итоги, окно
+ * «Выполненные задания».
  *
  * Задания группы = настоящие задания демо-мира (`db.assignments`, сдачи из `db.submissions`)
  * + детерминированно сгенерированные «учебные» задания, чтобы экраны «Успеваемость» и «Задания»
  * выглядели наполненными (робототехника — 45, Python — 30, шахматы — 45). Сгенерированные живут
- * только здесь: ученик и преподаватель их не видят. Дедлайны разложены от −30 до +21 дня от
- * «сейчас», сдачи и баллы засеяны хешем (ученик, задание) — у каждого ребёнка своя картина,
- * одинаковая от запуска к запуску.
+ * только здесь и видны родителю и преподавателю (у обоих «неправильно» — меньше 30%); ученик их
+ * не видит. Дедлайны разложены от −30 до +21 дня от «сейчас», сдачи и баллы засеяны хешем
+ * (ученик, задание) — у каждого ребёнка своя картина, одинаковая от запуска к запуску.
  */
 import type {
   ChildHomeworkProgress,
@@ -24,6 +25,7 @@ import type {
 import { DEMO_IDS } from '@edu/contracts/fixtures';
 import { addDays, startOfDay } from '../../lib/dates';
 import { dueAtOf, groupBrief, groupIdsOfStudent } from './demo';
+import { hash, roll } from './seed';
 import { db } from './state';
 
 const HOUR_MS = 3_600_000;
@@ -389,21 +391,6 @@ const TEMPLATES_PER_CATEGORY: Partial<Record<ClubCategory, TaskTemplate[]>> = {
   CHESS: CHESS_TASKS,
 };
 
-// ---------- Детерминированный «случай» ----------
-
-/** FNV-1a (32 бита). */
-function hash(input: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-/** Число 0..mod−1 для пары (seed, salt). */
-const roll = (seed: string, salt: string, mod: number) => hash(`${seed}:${salt}`) % mod;
-
 // ---------- Задания группы ----------
 
 /** Задание с «сдачей» ребёнка — общее представление настоящих и сгенерированных. */
@@ -428,8 +415,24 @@ export type HomeworkEntry = HomeworkItem & {
   scorePercent: number | null;
 };
 
-/** Чьими глазами статусы: у родителя красный — ниже 30%, у ученика — не выше 75% (docs/04 §4.6). */
-export type HomeworkViewer = 'parent' | 'student';
+/**
+ * Чьими глазами статусы (docs/04 §4.6): у родителя и преподавателя красный — ниже 30%, у ученика —
+ * не выше 75% (как у кристаллов).
+ */
+export type HomeworkViewer = 'parent' | 'teacher' | 'student';
+
+/**
+ * Кто видит сгенерированные задания (аналитика родителя и успеваемость у преподавателя); ученику —
+ * только настоящие (`studentClubHomework`).
+ */
+export type AnalyticsViewer = Exclude<HomeworkViewer, 'student'>;
+
+/** Какие группы ученика и чьими глазами. */
+export interface HomeworkScope {
+  /** Группы ученика; по умолчанию — все его активные (у преподавателя — только свои). */
+  groupIds?: string[];
+  viewer?: AnalyticsViewer;
+}
 
 const failedScore = (score: number, maxScore: number, viewer: HomeworkViewer) =>
   viewer === 'student' ? score / maxScore <= STUDENT_PASS_RATIO : score / maxScore < FAIL_RATIO;
@@ -583,8 +586,16 @@ function numbered(items: HomeworkItem[], now: Date, viewer: HomeworkViewer): Hom
     }));
 }
 
-/** Все задания группы глазами родителя ребёнка (настоящие + сгенерированные). */
-export function homeworkOf(studentId: string, groupId: string, now = new Date()): HomeworkEntry[] {
+/**
+ * Все задания группы глазами родителя ребёнка или преподавателя группы (настоящие +
+ * сгенерированные; пороги у обоих одинаковые).
+ */
+export function homeworkOf(
+  studentId: string,
+  groupId: string,
+  now = new Date(),
+  viewer: AnalyticsViewer = 'parent',
+): HomeworkEntry[] {
   const group = db.groups.find((g) => g.id === groupId);
   const category = db.clubs.find((c) => c.id === group?.clubId)?.category ?? 'OTHER';
   const real = realItems(studentId, groupId);
@@ -593,7 +604,7 @@ export function homeworkOf(studentId: string, groupId: string, now = new Date())
   const generated = generatedSlots(groupId, Math.max(0, total - real.length), templates).map(
     (slot) => generatedItem(studentId, slot, now),
   );
-  return numbered([...real, ...generated], now, 'parent');
+  return numbered([...real, ...generated], now, viewer);
 }
 
 /** correct = DONE, wrong = FAILED, upcoming = SOON + LATER. */
@@ -621,11 +632,15 @@ export interface GroupHomework {
   entries: HomeworkEntry[];
 }
 
-/** Задания по всем активным группам ребёнка. */
-export function childHomework(studentId: string, now = new Date()): GroupHomework[] {
-  return groupIdsOfStudent(studentId).map((groupId) => ({
+/** Задания по группам ученика: по умолчанию — по всем активным, глазами родителя. */
+export function childHomework(
+  studentId: string,
+  now = new Date(),
+  { groupIds = groupIdsOfStudent(studentId), viewer = 'parent' }: HomeworkScope = {},
+): GroupHomework[] {
+  return groupIds.map((groupId) => ({
     group: groupBrief(groupId),
-    entries: homeworkOf(studentId, groupId, now),
+    entries: homeworkOf(studentId, groupId, now, viewer),
   }));
 }
 
@@ -638,9 +653,16 @@ const toTask = (e: HomeworkEntry): HomeworkTask => ({
   scorePercent: e.scorePercent,
 });
 
-/** Полоса итогов и сетка статусов по каждому кружку (аналитика ребёнка). */
-export function clubHomeworkOf(studentId: string, now = new Date()): ClubHomework[] {
-  return childHomework(studentId, now).map(({ group, entries }) => ({
+/**
+ * Полоса итогов и сетка статусов по каждому кружку: аналитика ребёнка у родителя или
+ * успеваемость ученика у преподавателя (`scope` — только его группы).
+ */
+export function clubHomeworkOf(
+  studentId: string,
+  now = new Date(),
+  scope: HomeworkScope = {},
+): ClubHomework[] {
+  return childHomework(studentId, now, scope).map(({ group, entries }) => ({
     club: group.club,
     group,
     counts: homeworkCounts(entries),
@@ -668,13 +690,14 @@ export function studentClubHomework(studentId: string, now = new Date()): ClubHo
     .filter((item) => item.tasks.length > 0);
 }
 
-/** Задания группы с условиями и ответами (экран «Задания»). */
+/** Задания группы с условиями и ответами (экран «Задания» родителя и преподавателя). */
 export function homeworkTaskDetails(
   studentId: string,
   groupId: string,
   now = new Date(),
+  viewer: AnalyticsViewer = 'parent',
 ): HomeworkTaskDetail[] {
-  return homeworkOf(studentId, groupId, now).map((e) => ({
+  return homeworkOf(studentId, groupId, now, viewer).map((e) => ({
     ...toTask(e),
     statement: e.statement,
     code: e.code,

@@ -9,18 +9,24 @@ export interface WalletChipProps extends Omit<
 > {
   /** Баланс, уже отформатированный («6700»). */
   amount: ReactNode;
-  /** Открыть пополнение. */
+  /** Открыть пополнение (или кошелёк — у репетитора). */
   onClick: () => void;
   /** Доступное название целиком («Баланс 6700 ₽, пополнить»). */
   'aria-label': string;
+  /**
+   * Маленький плюс после суммы — смысл «пополнить» (родитель). По умолчанию `true`;
+   * `false` — только кошелёк и сумма (шапка репетитора: чип открывает кошелёк).
+   */
+  plus?: boolean;
 }
 
 /**
- * Кошелёк в шапке родителя (макет): «пилюля» #242424 с радиусом 10, зелёный кошелёк 24px,
- * сумма 16px и маленький плюс — кнопка «пополнить баланс». Зона нажатия шире видимой.
+ * Кошелёк в шапке (макеты родителя и репетитора): «пилюля» #242424 с радиусом 10, кошелёк 24px
+ * цвета акцента, сумма 16px и маленький плюс (`plus`) — кнопка «пополнить баланс» / «открыть
+ * кошелёк». Зона нажатия шире видимой.
  */
 export const WalletChip = forwardRef<HTMLButtonElement, WalletChipProps>(function WalletChip(
-  { amount, onClick, className, type = 'button', ...rest },
+  { amount, onClick, plus = true, className, type = 'button', ...rest },
   ref,
 ) {
   return (
@@ -33,23 +39,25 @@ export const WalletChip = forwardRef<HTMLButtonElement, WalletChipProps>(functio
     >
       <WalletIcon className="ui-wallet-chip__icon" size={24} />
       <span className="ui-wallet-chip__amount">{amount}</span>
-      {/* Плюс 10×10 из макета: скруглённые перекладины. */}
-      <svg
-        className="ui-wallet-chip__plus"
-        width={10}
-        height={10}
-        viewBox="0 0 10 10"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <path
-          d="M5 0.83v8.34M0.83 5h8.34"
-          stroke="currentColor"
-          strokeWidth={1.67}
-          strokeLinecap="round"
-          fill="none"
-        />
-      </svg>
+      {plus && (
+        /* Плюс 10×10 из макета: скруглённые перекладины. */
+        <svg
+          className="ui-wallet-chip__plus"
+          width={10}
+          height={10}
+          viewBox="0 0 10 10"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="M5 0.83v8.34M0.83 5h8.34"
+            stroke="currentColor"
+            strokeWidth={1.67}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </svg>
+      )}
     </button>
   );
 });

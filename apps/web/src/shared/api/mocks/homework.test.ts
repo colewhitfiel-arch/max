@@ -17,15 +17,21 @@ describe('homeworkStatus (docs/04 §4.6)', () => {
     expect(homeworkStatus(graded(75), now)).toBe('DONE');
   });
 
+  it('преподаватель: порог как у родителя — красный меньше 30%', () => {
+    expect(homeworkStatus(graded(29), now, 'teacher')).toBe('FAILED');
+    expect(homeworkStatus(graded(30), now, 'teacher')).toBe('DONE');
+    expect(homeworkStatus({ ...graded(0), score: null }, now, 'teacher')).toBe('DONE');
+  });
+
   it('ученик: «правильно» — как у кристаллов, больше 75%', () => {
     expect(homeworkStatus(graded(75), now, 'student')).toBe('FAILED');
     expect(homeworkStatus(graded(76), now, 'student')).toBe('DONE');
     expect(homeworkStatus({ ...graded(0), score: null }, now, 'student')).toBe('DONE');
   });
 
-  it('несданное — по дедлайну, одинаково для обоих', () => {
+  it('несданное — по дедлайну, одинаково для всех', () => {
     const open = { submittedAt: null, score: null, maxScore: 100 };
-    for (const viewer of ['parent', 'student'] as const) {
+    for (const viewer of ['parent', 'teacher', 'student'] as const) {
       expect(homeworkStatus({ ...open, dueAt: '2026-09-20T12:00:00Z' }, now, viewer)).toBe(
         'FAILED',
       );

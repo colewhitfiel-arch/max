@@ -1,22 +1,4 @@
 {
-  "home": {
-    "title": "Home",
-    "today": "Today",
-    "upcoming": "Upcoming lessons",
-    "groups": "Groups",
-    "toGrade": "To grade",
-    "events": "Events",
-    "noLessonsToday": "No lessons today",
-    "nothingToGrade": "Everything is graded",
-    "pending": "{{count}} pending",
-    "stats": {
-      "groups": "Groups",
-      "students": "Students",
-      "attendance": "Attendance",
-      "completion": "Completion",
-      "needsAttention": "Need attention"
-    }
-  },
   "groups": {
     "title": "Groups",
     "empty": "No groups yet",
@@ -30,11 +12,7 @@
     "ok": "all good"
   },
   "students": {
-    "title": "Student",
     "groups": "Groups",
-    "history": "Submission history",
-    "attendanceHistory": "Attendance",
-    "aiSummary": "AI summary",
     "needsAttention": "Needs attention",
     "class": "Class"
   },
@@ -132,13 +110,8 @@
     "graded": "{{count}} graded",
     "draft": "Draft"
   },
-  "more": {
-    "title": "More",
-    "school": "School"
-  },
   "clubDemand": {
     "title": "Club demand",
-    "short": "What students pick during onboarding and want to try later",
     "description": "From the AI tutor onboarding: who enrolled right away, who marked “maybe later”, who was shown a club and skipped it. This is demand, not attendance.",
     "empty": "No student has completed onboarding yet",
     "students": "Completed onboarding: {{count}}",

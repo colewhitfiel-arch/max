@@ -6,16 +6,14 @@
   "nav": {
     "home": "Главная",
     "tutor": "ИИ-тьютор",
-    "courses": "Курсы",
     "settings": "Настройки",
     "profile": "Профиль",
     "children": "Дети",
     "analytics": "Аналитика",
     "clubs": "Кружки",
     "payments": "Оплата",
-    "groups": "Группы",
     "assignments": "Задания",
-    "more": "Ещё",
+    "performance": "Успеваемость",
     "notifications": "Уведомления",
     "notificationsUnread": "Уведомления: {{count}} непрочитанных"
   },

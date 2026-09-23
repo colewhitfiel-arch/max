@@ -27,6 +27,7 @@ import {
   formatWeekday,
   startOfDay,
 } from '@/shared/lib/dates';
+import { QueryError } from '@/shared/ui';
 
 export interface DayScheduleProps {
   /** Выбранный день. */
@@ -36,6 +37,12 @@ export interface DayScheduleProps {
   lessons: LessonDto[];
   /** Занятия дня ещё грузятся (день за пределами недели главной). */
   loading?: boolean;
+  /**
+   * Занятия дня не загрузились (день за пределами недели главной, сбой календаря): вместо
+   * таблицы и «нет занятий» — ошибка с повтором, строка «‹ день ›» остаётся, чтобы вернуться.
+   */
+  error?: unknown;
+  onRetry?: () => void;
   /** Непрочитанные уведомления — число в колокольчике (колокольчик жёлтый). */
   unreadCount?: number;
   onOpenNotifications?: () => void;
@@ -54,6 +61,11 @@ export interface DayScheduleProps {
    * В день без занятий — кнопкой в пустом состоянии.
    */
   nameAction?: CardColumnAction;
+  /**
+   * «Зебра» таблицы: нечётные строки (1-я, 3-я…) подложены полосой на всю ширину карточек
+   * (главная репетитора). По умолчанию выключена — у ученика и родителя строк без полос.
+   */
+  striped?: boolean;
 }
 
 export interface DayScheduleColumn {
@@ -83,6 +95,8 @@ export function DaySchedule({
   onDateChange,
   lessons,
   loading = false,
+  error,
+  onRetry,
   unreadCount,
   onOpenNotifications,
   calendarOpen = false,
@@ -90,6 +104,7 @@ export function DaySchedule({
   headerRef,
   secondColumn,
   nameAction,
+  striped = false,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
   const now = new Date();
@@ -150,6 +165,8 @@ export function DaySchedule({
 
       {loading ? (
         <Skeleton height={110} aria-busy="true" />
+      ) : error != null ? (
+        <QueryError error={error} onRetry={onRetry} />
       ) : dayLessons.length === 0 ? (
         <Card>
           <EmptyState
@@ -166,6 +183,7 @@ export function DaySchedule({
       ) : (
         <CardColumns
           aria-label={label}
+          striped={striped}
           columns={[
             { key: 'name', header: t('home.columns.name'), fit: true, action: nameAction },
             {

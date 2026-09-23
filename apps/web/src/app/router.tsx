@@ -32,7 +32,11 @@ import { teacherCoursesRoutes } from '@/pages/teacher/courses/routes';
 import { teacherGroupsRoutes } from '@/pages/teacher/groups/routes';
 import { teacherHomeRoutes } from '@/pages/teacher/home/routes';
 import { teacherMoreRoutes } from '@/pages/teacher/more/routes';
+import { teacherPerformanceRoutes } from '@/pages/teacher/performance/routes';
+import { teacherProfileRoutes } from '@/pages/teacher/profile/routes';
+import { teacherSettingsRoutes } from '@/pages/teacher/settings/routes';
 import { teacherStudentsRoutes } from '@/pages/teacher/students/routes';
+import { teacherWalletRoutes } from '@/pages/teacher/wallet/routes';
 import { RequireAuth } from '@/shared/auth/guards';
 import { config } from '@/shared/config';
 import { RootRedirect } from './root-redirect';
@@ -83,12 +87,17 @@ export const routes: RouteObject[] = [
     element: <TeacherShell />,
     children: [
       ...teacherHomeRoutes,
-      ...teacherGroupsRoutes,
+      ...teacherWalletRoutes,
+      ...teacherPerformanceRoutes,
       ...teacherStudentsRoutes,
+      ...teacherGroupsRoutes,
       ...teacherCoursesRoutes,
       ...teacherCourseBuilderRoutes,
       ...teacherClubDemandRoutes,
       ...teacherAssignmentsRoutes,
+      ...teacherSettingsRoutes,
+      ...teacherProfileRoutes,
+      // `/teacher/more` — старый адрес «Ещё»: редирект на настройки.
       ...teacherMoreRoutes,
     ],
   },

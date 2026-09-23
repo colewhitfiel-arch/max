@@ -11,7 +11,7 @@
 - Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`.
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
-- Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`.
+- Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`.
 - Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `ai.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
@@ -26,7 +26,8 @@ UserBrief = { id, firstName, lastName?, nickname?, avatarUrl? }
 StudentBrief = { id /* studentProfileId */, user: UserBrief, classLabel? }
 TeacherBrief = { id, user: UserBrief, photoUrl? }
 ClubBrief = { id, title, category: ClubCategory, coverUrl? }
-GroupBrief = { id, title, club: ClubBrief, teacher: TeacherBrief }
+GroupBrief = { id, title, code?: string|null /* «001», 1–16 символов; нет — UI показывает title (docs/04, планируется) */,
+               club: ClubBrief, teacher: TeacherBrief }
 LessonDto = { id, group: GroupBrief, startsAt, endsAt, topic?, status: LessonStatus, room?, attendance?: AttendanceStatus }
 ScheduleRuleDto = { id, weekday, startTime, endTime, room? }
 SubmissionBrief = { status: SubmissionStatus, score?, isLate, submittedAt? }
@@ -105,21 +106,37 @@ GET /teacher/groups/:groupId
                          → GroupDetail = GroupCard & { schedule: ScheduleRuleDto[],
                              students: [{ student: StudentBrief, attendanceRate, completionRate, progress, activityScore,
                                           needsAttention: string[] /* причины, пусто = ок */ }] }
+                             // чужая (или несуществующая) группа → 403 FORBIDDEN
 GET /teacher/students/:studentId
                          → { student: StudentBrief, groups: GroupBrief[], stats: StatsBrief, clubs: ClubProgress[],
                              weekly: WeeklyPoint[],
                              history: [{ assignment: AssignmentBrief, score?, isLate, submittedAt }],
                              attendanceHistory: [{ lesson: LessonDto, status }],
-                             aiSummary: AiText, needsAttention: string[] }
+                             aiSummary: AiText, needsAttention: string[],
+                             week?: WeekDay[] /* пн–вс, дуга «Посещения» */,
+                             homework?: HomeworkCounts /* порог — как у родителя, docs/04 §4.6 */,
+                             clubHomework?: [{ club: ClubBrief, group: GroupBrief, counts: HomeworkCounts, tasks: HomeworkTask[] }] }
+                             // teacher:students.view; всё — только по группам этого преподавателя;
+                             // нет общих групп (в том числе нет такого ученика) → 403 FORBIDDEN «Ученик не в ваших группах»
+GET /teacher/students/:studentId/groups/:groupId/tasks
+                         → { group: GroupBrief, items: HomeworkTaskDetail[] }   // экран «Задания» ученика
+                             // teacher:students.view; чужая (или несуществующая) группа или ученик не в ней → 403 FORBIDDEN;
+                             // для преподавателя «нет» и «не ваш» неразличимы (404 фронт показывает как «раздел в разработке»)
+GET /teacher/performance?period=day|week|month|course   /* по умолчанию day */
+                         → TeacherPerformanceDto   // «Общая успеваемость»; teacher:groups.view
+                             // другой period → 400 VALIDATION; нет групп → groups: []; формулы и окна — docs/04 §4.6
 
 GroupCard = GroupBrief & { studentsCount, attendanceRate, completionRate, needsAttentionCount, nextLesson?: LessonDto }
+TeacherPerformanceDto = { period: day|week|month|course, from, to /* DateTime */, groups: TeacherGroupPerformance[] }
+TeacherGroupPerformance = { group: GroupBrief, studentsCount, attended /* PRESENT|LATE */, missed /* ABSENT|EXCUSED */,
+                            homeworkDone /* сдано из заданий со сроком в периоде */, homeworkCorrect /* из них DONE */ }
 WeekDay = { date: DateOnly, status: ATTENDED|MISSED|TODAY|UPCOMING|NO_LESSONS }
 HomeworkCounts = { correct /* DONE */, wrong /* FAILED */, upcoming /* SOON + LATER */ }
 HomeworkTask = { assignmentId, number /* 1.. внутри группы */, title, status: DONE|FAILED|SOON|LATER, dueAt?, scorePercent? }
 HomeworkTaskDetail = HomeworkTask & { statement, code?: { language: python|cpp|javascript|text, source }, answer?, correctAnswer?,
                                       score?, maxScore }
 ```
-Статусы заданий (DONE / FAILED / SOON / LATER) и окно `days` — docs/04 §4.6.
+Статусы заданий (DONE / FAILED / SOON / LATER), окно `days` и счётчики успеваемости групп — docs/04 §4.6.
 
 ### `catalog.ts` — владелец B2
 ```
@@ -136,6 +153,8 @@ ClubCard = ClubBrief & { description, price: Money, billingPeriod, tags: string[
 GET  /student/calendar?from&to                  → { lessons: LessonDto[] }   // с attendance ученика
 GET  /parent/children/:studentId/calendar?from&to → { lessons: LessonDto[] }
 GET  /teacher/groups/:groupId/lessons?from&to   → { lessons: LessonDto[] }
+GET  /teacher/calendar?from&to                  → { lessons: LessonDto[] }   // занятия всех групп преподавателя (главная: «‹ Сегодня ›»,
+                                                                            // календарь); teacher:groups.view
 POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto
 PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCELLED', cancelReason? } → LessonDto
 ```
@@ -253,10 +272,25 @@ POST /parent/children/:studentId/payments { enrollmentId, periodsCount: 1..12 } 
 GET  /parent/payments/:paymentId          → PaymentDto
 GET  /parent/wallet                       → { balance: Money }
 POST /parent/wallet/top-up                { amountKopecks: 10000..10000000 } → { balance: Money }   // Idempotency-Key; ЗАГЛУШКА (docs/07 F13)
+GET  /teacher/wallet?period=day|week|month   /* по умолчанию day */
+                                          → TeacherWallet   // teacher:wallet.view; другой period → 400 VALIDATION; ЗАГЛУШКА (docs/07 F17)
+POST /teacher/wallet/withdraw             { amountKopecks: ≥ 10000 } → { balance: Money, transaction: TeacherWalletTransaction }
+                                          // teacher:wallet.withdraw; Idempotency-Key; ЗАГЛУШКА — списание сразу, перевода нет
+                                          // < 100 ₽ → 400 VALIDATION; больше баланса → 422 BUSINESS_RULE «Недостаточно средств»;
+                                          // тот же ключ и сумма → тот же ответ без второго списания; тот же ключ, другая сумма → 409 CONFLICT
 POST /webhooks/payments/:provider         public (подпись) → 200
 
 PaymentDto = { id, club: ClubBrief, student: StudentBrief, amount: Money, status: PaymentStatus, periodsCount, createdAt, paidAt?, confirmationUrl? }
+TeacherWallet = { balance: Money, period: day|week|month, from, to /* DateTime */,
+                  history: [{ at, balance: Money }] /* по возрастанию at, равный шаг: day — 7 точек через 4 ч, week — 8, month — 31
+                                                       (через сутки); первая — баланс на from, последняя — текущий */,
+                  transactions: TeacherWalletTransaction[] /* за период, по убыванию at */,
+                  debts: [{ id /* enrollmentId */, group: GroupBrief, student: StudentBrief, amount: Money,
+                            dueAt: DateOnly /* следующий платёж; прошёл — просрочено */ }] /* «Вам должны», по возрастанию dueAt */ }
+TeacherWalletTransaction = { id, kind: INCOME|WITHDRAWAL, amount: Money /* > 0 */, at,
+                             group: GroupBrief|null, student: StudentBrief|null /* у WITHDRAWAL — null */ }
 ```
+Смысл полей кошелька преподавателя, окна периодов и правило «Вам должны» — docs/04 (payments). Новый преподаватель получает пустой кошелёк: баланс 0 и пустые списки.
 
 ### `files.ts` — владелец B7
 ```

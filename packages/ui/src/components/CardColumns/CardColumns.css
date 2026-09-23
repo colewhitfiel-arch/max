@@ -1,5 +1,11 @@
 /* Макет: карточки-колонки с отступом 8px, радиусом 20px, строки через 20px. */
 .ui-card-columns {
+  --ui-card-columns-pad: var(--ui-space-2);
+  --ui-card-columns-row-gap: var(--ui-space-5);
+  --ui-card-columns-radius: var(--ui-radius-lg);
+  /* Насколько подпись блока («вчера») выступает за правый край карточек. */
+  --ui-card-columns-caption-bleed: 12px;
+  position: relative;
   display: grid;
   grid-template-columns: var(--ui-card-columns-template, repeat(3, minmax(0, 1fr)));
   grid-template-rows: repeat(var(--ui-card-columns-rows, 1), auto);
@@ -12,10 +18,10 @@
   display: grid;
   grid-row: 1 / -1;
   grid-template-rows: subgrid;
-  row-gap: var(--ui-space-5);
+  row-gap: var(--ui-card-columns-row-gap);
   min-width: 0;
-  padding: var(--ui-space-2);
-  border-radius: var(--ui-radius-lg);
+  padding: var(--ui-card-columns-pad);
+  border-radius: var(--ui-card-columns-radius);
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
   box-shadow: var(--ui-shadow-sm);
@@ -44,6 +50,138 @@
 
 .ui-card-columns__column[data-nowrap] .ui-card-columns__cell {
   white-space: nowrap;
+}
+
+/*
+ * Подложка строки (макет репетитора): «зебра» #4b4545 или цвет тона строки с прозрачностью 10%
+ * на всю ширину карточки; по вертикали — строка плюс почти половина межстрочного зазора
+ * (≈32px у 12px-текста). Слой под текстом, но над фоном карточки: ячейка — свой контекст
+ * наложения, подложка в нём на z-index −1.
+ */
+.ui-card-columns__cell[data-stripe],
+.ui-card-columns__cell[data-tone] {
+  position: relative;
+  z-index: 0;
+}
+
+.ui-card-columns__cell[data-stripe]::before,
+.ui-card-columns__cell[data-tone]::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: calc(var(--ui-card-columns-row-gap) / -2 + 1.5px) calc(-1 * var(--ui-card-columns-pad));
+  background: var(--ui-card-columns-row-fill, var(--ui-color-stripe));
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.ui-card-columns__cell[data-tone='neutral'] {
+  --ui-card-columns-row-fill: var(--ui-color-text-muted);
+}
+.ui-card-columns__cell[data-tone='info'] {
+  --ui-card-columns-row-fill: var(--ui-color-info);
+}
+.ui-card-columns__cell[data-tone='success'] {
+  --ui-card-columns-row-fill: var(--ui-color-success);
+}
+.ui-card-columns__cell[data-tone='warning'] {
+  --ui-card-columns-row-fill: var(--ui-color-warning);
+}
+.ui-card-columns__cell[data-tone='danger'] {
+  --ui-card-columns-row-fill: var(--ui-color-danger);
+}
+
+/* У краёв карточки подложка доходит до края и скругляется вместе с ней (без обрезки карточкой:
+ * иначе пропала бы полоса действия под колонкой). Сверху край — только если заголовок не в
+ * карточке (compact или скрытые заголовки). */
+.ui-card-columns:is([data-variant='compact'], [data-header='hidden'])
+  .ui-card-columns__cell[data-first]::before {
+  top: calc(-1 * var(--ui-card-columns-pad));
+  border-top-left-radius: var(--ui-card-columns-radius);
+  border-top-right-radius: var(--ui-card-columns-radius);
+}
+
+.ui-card-columns__cell[data-last]::before {
+  bottom: calc(-1 * var(--ui-card-columns-pad));
+  border-bottom-left-radius: var(--ui-card-columns-radius);
+  border-bottom-right-radius: var(--ui-card-columns-radius);
+}
+
+/* Карточка с полосой действия снизу не скруглена — подложка тоже. */
+.ui-card-columns__column[data-action] .ui-card-columns__cell[data-last]::before {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/*
+ * compact — таблицы кошелька репетитора: ячейки 12px, колонки через 7px, заголовки
+ * (11px medium, приглушённые, по центру колонки) — отдельной строкой над карточками,
+ * в 8px от них. Строки заголовков и карточек — одна сетка, колонки выровнены.
+ */
+.ui-card-columns[data-variant='compact'] {
+  column-gap: 7px;
+  row-gap: var(--ui-space-2);
+}
+
+.ui-card-columns__head {
+  display: grid;
+  grid-row: 1;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  min-width: 0;
+}
+
+.ui-card-columns[data-variant='compact']:not([data-header='hidden']) .ui-card-columns__column {
+  grid-row: 2 / -1;
+}
+
+.ui-card-columns[data-variant='compact'] .ui-card-columns__cell {
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.25;
+}
+
+.ui-card-columns[data-variant='compact'] .ui-card-columns__header {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  text-align: center;
+}
+
+/*
+ * Подпись блока (макет кошелька: «вчера» / «сегодня»): 8px light над линией 45px, над правым
+ * верхним углом блока, чуть заходит за его край. Абсолютная: не двигает таблицу — место над
+ * блоком (≈11px) оставляет потребитель. Над первой строкой сетки: у блока с видимыми
+ * заголовками — над ними (в макете подпись стоит в поле экрана 30px правее «Время»; при
+ * поле 16px она иначе наезжает на заголовок последней колонки).
+ */
+.ui-card-columns__caption {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--ui-card-columns-caption-bleed));
+  grid-row: 1;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  /* Текст прижат к правому концу линии, линия уходит от него влево (макет 59:16). */
+  align-items: flex-end;
+  width: 45px;
+  transform: translateY(-100%);
+  color: var(--ui-color-text-subtle);
+  font-size: 8px;
+  font-weight: 300;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ui-card-columns__caption::after {
+  content: '';
+  align-self: stretch;
+  height: 1px;
+  margin-top: 1px;
+  background: var(--ui-color-text-muted);
+  opacity: 0.35;
 }
 
 /* Действие колонки (макет родителя «+ Добавить кружок»): полоса 25px цвета primary

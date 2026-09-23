@@ -1,0 +1,115 @@
+/*
+ * Макет кошелька репетитора: кошелёк 62px цвета primary, сумма 14px medium тёмная в его
+ * корпусе (левее застёжки); сразу под ним «чаша» 98×47 цвета success с внутренней тенью
+ * по нижнему краю (#21a400) и надписью 14px тёмной чуть ниже центра.
+ */
+.ui-wallet-hero {
+  display: inline-flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  width: 98px;
+}
+
+.ui-wallet-hero__wallet {
+  position: relative;
+  width: 62px;
+  height: 62px;
+}
+
+.ui-wallet-hero__icon {
+  display: block;
+  color: var(--ui-color-primary);
+}
+
+/* Корпус кошелька под «клапаном»: 25%…92% по высоте, центр левее застёжки (44% ширины). */
+.ui-wallet-hero__amount {
+  position: absolute;
+  inset: 25% 16% 8% 4%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-on-bright);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-wallet-hero__amount[data-size='sm'] {
+  font-size: 11px;
+}
+
+.ui-wallet-hero__amount[data-size='xs'] {
+  font-size: 9px;
+}
+
+.ui-wallet-hero__action {
+  position: relative;
+  display: block;
+  width: 98px;
+  height: 47px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  /* Контур фокуса повторяет чашу: ровный верх, круглое дно. */
+  border-radius: 0 0 49px 49px / 0 0 47px 47px;
+  background: none;
+  color: var(--ui-color-on-bright);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--ui-duration-fast) var(--ui-easing),
+    opacity var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-wallet-hero__action:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.ui-wallet-hero__action:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}
+
+.ui-wallet-hero__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ui-wallet-hero__bowl {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.ui-wallet-hero__bowl-fill {
+  fill: var(--ui-color-success);
+}
+
+/* Нижний край темнее: #2cda00 на 75% с чёрным = #21a400 (как внутренняя тень макета).
+ * Без color-mix — ровная заливка без тени. */
+.ui-wallet-hero__bowl-shade {
+  fill: var(--ui-color-success);
+}
+
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-wallet-hero__bowl-shade {
+    fill: color-mix(in srgb, var(--ui-color-success) 75%, #000);
+  }
+}
+
+.ui-wallet-hero__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px var(--ui-space-3) 0;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-regular);
+  line-height: 1.1;
+  text-align: center;
+}

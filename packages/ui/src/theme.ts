@@ -20,12 +20,13 @@ export function getTheme(root: HTMLElement = document.documentElement): Theme {
 }
 
 /**
- * Акцент палитры: `blue` — режим ученика (по умолчанию), `green` — режим родителя.
+ * Акцент палитры: `blue` — режим ученика (по умолчанию), `green` — режим родителя,
+ * `orange` — режим репетитора.
  * Меняет primary, focus, `--ui-color-accent-*` и свечение фона (styles/tokens.css).
  */
-export type Accent = 'blue' | 'green';
+export type Accent = 'blue' | 'green' | 'orange';
 
-export const ACCENTS: readonly Accent[] = ['blue', 'green'];
+export const ACCENTS: readonly Accent[] = ['blue', 'green', 'orange'];
 
 const ACCENT_ATTR = 'data-accent';
 
@@ -38,9 +39,10 @@ export function applyAccent(accent: Accent, root: HTMLElement = document.documen
   else root.setAttribute(ACCENT_ATTR, accent);
 }
 
-/** Читает текущий акцент из атрибута; без атрибута — `blue`. */
+/** Читает текущий акцент из атрибута; без атрибута или с неизвестным значением — `blue`. */
 export function getAccent(root: HTMLElement = document.documentElement): Accent {
-  return root.getAttribute(ACCENT_ATTR) === 'green' ? 'green' : 'blue';
+  const value = root.getAttribute(ACCENT_ATTR);
+  return ACCENTS.find((accent) => accent === value) ?? 'blue';
 }
 
 /** Фактическая тема с учётом `system` и prefers-color-scheme. */

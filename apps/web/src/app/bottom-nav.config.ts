@@ -6,13 +6,13 @@ import type { Role } from '@edu/contracts';
 import {
   AiIcon,
   BookIcon,
-  CheckIcon,
+  ClipboardListIcon,
+  GraduationCapIcon,
   HomeIcon,
   type IconProps,
   PieChartIcon,
   SettingsIcon,
   UserIcon,
-  UsersIcon,
 } from '@edu/ui';
 import type { ComponentType } from 'react';
 
@@ -26,6 +26,11 @@ export interface BottomNavItem {
   prominent?: boolean;
   /** Размер иконки, см. `BottomNavigationItem.iconSize`. */
   iconSize?: 'md' | 'lg';
+  /**
+   * Другие разделы (абсолютные префиксы), в которых пункт тоже активен: экраны, открытые
+   * из этого пункта, но лежащие вне его `path` (ученик из успеваемости — `/teacher/students`).
+   */
+  activeFor?: string[];
 }
 
 export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
@@ -57,27 +62,58 @@ export const BOTTOM_NAV: Record<Role, BottomNavItem[]> = {
     { key: 'settings', path: '/parent/settings', labelKey: 'nav.settings', icon: SettingsIcon },
     { key: 'profile', path: '/parent/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],
+  // Макет репетитора: главная · задания · успеваемость (крупная оранжевая шапочка) · настройки ·
+  // профиль. Группы, курсы, конструктор и спрос на кружки открываются из настроек («Работа»),
+  // кошелёк — чипом на главной.
   TEACHER: [
     { key: 'home', path: '/teacher', labelKey: 'nav.home', icon: HomeIcon },
-    { key: 'groups', path: '/teacher/groups', labelKey: 'nav.groups', icon: UsersIcon },
-    { key: 'courses', path: '/teacher/courses', labelKey: 'nav.courses', icon: BookIcon },
     {
       key: 'assignments',
       path: '/teacher/assignments',
       labelKey: 'nav.assignments',
-      icon: CheckIcon,
+      icon: ClipboardListIcon,
+      iconSize: 'lg',
     },
-    { key: 'more', path: '/teacher/more', labelKey: 'nav.more', icon: SettingsIcon },
+    {
+      key: 'performance',
+      path: '/teacher/performance',
+      labelKey: 'nav.performance',
+      icon: GraduationCapIcon,
+      prominent: true,
+      activeFor: ['/teacher/students'],
+    },
+    {
+      key: 'settings',
+      path: '/teacher/settings',
+      labelKey: 'nav.settings',
+      icon: SettingsIcon,
+      activeFor: [
+        '/teacher/groups',
+        '/teacher/courses',
+        '/teacher/course-builder',
+        '/teacher/clubs',
+      ],
+    },
+    { key: 'profile', path: '/teacher/profile', labelKey: 'nav.profile', icon: UserIcon },
   ],
   SCHOOL_ADMIN: [{ key: 'home', path: '/admin', labelKey: 'nav.home', icon: HomeIcon }],
 };
 
-/** Активный пункт: самый длинный path, являющийся префиксом текущего пути. */
+/**
+ * Активный пункт: самый длинный префикс текущего пути среди `path` и `activeFor` пунктов
+ * (граница — по сегменту: `/teacher/groups` не совпадает с `/teacher/groupsx`).
+ */
 export function activeNavKey(items: BottomNavItem[], pathname: string): string | null {
-  let best: BottomNavItem | null = null;
+  let bestKey: string | null = null;
+  let bestLength = -1;
   for (const item of items) {
-    const matches = pathname === item.path || pathname.startsWith(`${item.path}/`);
-    if (matches && (!best || item.path.length > best.path.length)) best = item;
+    for (const prefix of [item.path, ...(item.activeFor ?? [])]) {
+      const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
+      if (matches && prefix.length > bestLength) {
+        bestKey = item.key;
+        bestLength = prefix.length;
+      }
+    }
   }
-  return best?.key ?? null;
+  return bestKey;
 }

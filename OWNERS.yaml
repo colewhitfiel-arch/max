@@ -134,11 +134,18 @@ owners:
     - packages/db/prisma/schema/groups.prisma
     - apps/web/src/pages/teacher/home/**
     - apps/web/src/pages/teacher/groups/**
+    - apps/web/src/pages/teacher/settings/**
+    - apps/web/src/pages/teacher/profile/**
+    - apps/web/src/pages/teacher/more/**
     - apps/web/src/entities/group/**
-    - apps/web/src/widgets/teacher-*/**
+    # Виджеты главной и групп; teacher-student-*/teacher-performance-* — зона F.
+    - apps/web/src/widgets/teacher-home-*/**
+    - apps/web/src/widgets/teacher-group-*/**
   ws-F-teacher-student-analytics:
     - apps/web/src/pages/teacher/students/**
+    - apps/web/src/pages/teacher/performance/**
     - apps/web/src/widgets/teacher-student-*/**
+    - apps/web/src/widgets/teacher-performance-*/**
   ws-G-course-builder-files:
     - apps/api/src/modules/files/**
     - apps/api/src/modules/course-builder/**
@@ -172,8 +179,10 @@ owners:
     - packages/contracts/src/routes/payments.ts
     - packages/db/prisma/schema/payments.prisma
     - apps/web/src/pages/parent/payments/**
+    - apps/web/src/pages/teacher/wallet/**
     - apps/web/src/entities/payment/**
     - apps/web/src/features/pay/**
+    - apps/web/src/features/withdraw-wallet/**
   ws-J-max:
     - apps/web/src/shared/max/**
     - apps/api/src/common/auth/providers/max-auth.provider.ts

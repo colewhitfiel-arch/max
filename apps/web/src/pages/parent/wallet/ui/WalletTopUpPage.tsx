@@ -69,8 +69,11 @@ export function WalletTopUpPage() {
   const shownError =
     error && (submitted || error !== 'invalid') ? t(`wallet.${error}`, limits) : undefined;
 
+  /** Новая попытка (и новый ключ) — только если сумма действительно поменялась. */
   const changeAmount = (next: string) => {
-    setAmount(next.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_DIGITS));
+    const normalized = next.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_DIGITS);
+    if (normalized === amount) return;
+    setAmount(normalized);
     idempotencyKey.current = null;
   };
 

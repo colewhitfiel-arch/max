@@ -1,2 +1,12 @@
 export { paymentKeys } from './keys';
-export { useChildPayments, useCreatePayment, usePayment, useWallet, useTopUpWallet } from './api';
+export { withWithdrawal } from './model';
+export {
+  useChildPayments,
+  useCreatePayment,
+  usePayment,
+  useWallet,
+  useTopUpWallet,
+  useTeacherWallet,
+  useWithdrawTeacherWallet,
+  type WithdrawTeacherWalletCallbacks,
+} from './api';

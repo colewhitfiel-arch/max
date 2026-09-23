@@ -3,6 +3,7 @@ import {
   CreateLessonBodySchema,
   LessonDtoSchema,
   LessonsListSchema,
+  PeriodQuerySchema,
   UpdateLessonBodySchema,
 } from '@edu/contracts';
 import { http } from 'msw';
@@ -55,6 +56,25 @@ export const groupsHandlers = [
         });
       },
       ['PARENT'],
+    ),
+  ),
+
+  http.get(
+    apiUrl('/teacher/calendar'),
+    authed(
+      ({ auth, request }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const q = PeriodQuerySchema.safeParse(Object.fromEntries(query(request)));
+        if (!q.success) {
+          return apiError('VALIDATION', 'Неверные параметры запроса', q.error.flatten());
+        }
+        // Занятия всех групп преподавателя за период (без отметок — они по ученикам).
+        const groupIds = groupsOfTeacher(teacher.id).map((g) => g.id);
+        const lessons = inPeriod(lessonsOfGroups(groupIds), q.data.from, q.data.to);
+        return json(LessonsListSchema, { lessons: lessons.map((l) => lessonDto(l)) });
+      },
+      ['TEACHER'],
     ),
   ),
 

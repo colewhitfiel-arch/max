@@ -16,3 +16,17 @@
 .ui-band[data-bleed] {
   margin-inline: calc(-1 * var(--ui-band-gutter));
 }
+
+/* Макет «Задания» (65:283): полоса курса — #1e1e1e на 30%, высота 38px (заголовок 20px × 1.25
+ * + 2 × 6.5px), до первого задания щель 1px — полосы не сливаются в один блок. */
+.ui-band[data-tone='subtle'] {
+  padding-block: 6.5px;
+  margin-bottom: 1px;
+  background: var(--ui-color-surface);
+  background: color-mix(in srgb, var(--ui-color-surface) 30%, transparent);
+}
+
+/* Вплотную к шапке: верхний отступ Screen равен боковому (`--ui-band-gutter`). */
+.ui-band[data-flush] {
+  margin-top: calc(-1 * var(--ui-band-gutter));
+}

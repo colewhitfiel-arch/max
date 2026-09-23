@@ -3,16 +3,27 @@
  * Сквозная проверка демо-мира: реальный ts-rest клиент + MSW в Node. Гарантирует, что в
  * `VITE_API_MODE=mock` все хуки страниц получают данные, прошедшие схемы контракта.
  */
-import { STREAMING_ROUTES, type AiStreamEvent, type TokenPair } from '@edu/contracts';
+import {
+  STREAMING_ROUTES,
+  TEACHER_PERFORMANCE_PERIODS,
+  TEACHER_WALLET_PERIODS,
+  type AiStreamEvent,
+  type Role,
+  type TeacherPerformancePeriod,
+  type TeacherWalletPeriod,
+  type TeacherWalletTransaction,
+  type TokenPair,
+} from '@edu/contracts';
 import { DEMO_IDS, demoUsers } from '@edu/contracts/fixtures';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, startOfDay, toDateOnly } from '../../lib/dates';
 import { api, call, setApiAuthAdapter } from '../client';
 import { ApiClientError } from '../errors';
 import { streamSse } from '../sse';
 import { handlers } from './handlers';
 import { db, resetMockDb } from './state';
-import { MOCK_IDS, MOCK_INVITE_TOKENS } from './world-extras';
+import { MOCK_IDS, MOCK_INVITE_TOKENS, DEMO_TEACHER_WITHDRAWAL_KOPECKS } from './world-extras';
 
 const server = setupServer(...handlers);
 
@@ -34,6 +45,13 @@ async function loginAs(key: keyof typeof demoUsers, role = demoUsers[key].roles[
   const result = await call(
     api.auth.loginDev({ body: { maxUserId: user.maxUserId, roles: [role] } }),
   );
+  session(result);
+  return result;
+}
+
+/** Dev-вход по maxUserId: Андрей из мок-мира (`max-teacher-2`) и новые пользователи. */
+async function loginDev(maxUserId: string, role: Role) {
+  const result = await call(api.auth.loginDev({ body: { maxUserId, roles: [role] } }));
   session(result);
   return result;
 }
@@ -89,7 +107,8 @@ describe('mock world (msw/node)', () => {
     const calendar = await call(
       api.groups.getStudentCalendar({ query: { from: '2020-01-01', to: '2099-01-01' } }),
     );
-    expect(calendar.lessons).toHaveLength(5);
+    // 5 занятий из фикстур + Python сегодня в 12:00 (world-extras, расписание дня репетитора).
+    expect(calendar.lessons).toHaveLength(6);
     expect(calendar.lessons.find((l) => l.id === DEMO_IDS.lessons.roboticsPast1)?.attendance).toBe(
       'PRESENT',
     );
@@ -674,6 +693,395 @@ describe('mock world (msw/node)', () => {
     await expect(call(api.auth.switchRole({ body: { role: 'STUDENT' } }))).rejects.toBeInstanceOf(
       ApiClientError,
     );
+  });
+
+  it('преподаватель: коды групп, расписание дня и календарь всех групп', async () => {
+    await loginAs('teacher');
+    const home = await call(api.dashboards.getTeacherHome());
+    // Сегодня у Марии два занятия: Python (012) в 12:00 и робототехника (001) в 15:00.
+    expect(home.today.map((l) => l.group.code)).toEqual(['012', '001']);
+    expect(home.groups.map((g) => g.code)).toEqual(['001', '012']);
+
+    const all = await call(
+      api.groups.getTeacherCalendar({ query: { from: '2020-01-01', to: '2099-01-01' } }),
+    );
+    // Робототехника — 4 занятия, Python — сегодня и завтра; шахматы Андрея не видны.
+    expect(all.lessons).toHaveLength(6);
+    expect(new Set(all.lessons.map((l) => l.group.code))).toEqual(new Set(['001', '012']));
+    const starts = all.lessons.map((l) => l.startsAt);
+    expect(starts).toEqual([...starts].sort());
+    expect(all.lessons.every((l) => l.attendance === undefined)).toBe(true);
+    const today = toDateOnly(new Date());
+    const day = await call(api.groups.getTeacherCalendar({ query: { from: today, to: today } }));
+    expect(day.lessons.map((l) => l.id)).toEqual([
+      MOCK_IDS.lessons.programmingToday,
+      DEMO_IDS.lessons.roboticsToday,
+    ]);
+    await expect(
+      call(api.groups.getTeacherCalendar({ query: { from: '23.09.2026' } })),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    // Код группы отдаётся везде, где есть GroupBrief: у родителя — в занятиях Даши.
+    await loginAs('parent');
+    const dasha = await call(
+      api.groups.getParentChildCalendar({
+        params: { studentId: DEMO_IDS.students.dasha },
+        query: { from: '2020-01-01', to: '2099-01-01' },
+      }),
+    );
+    expect(new Set(dasha.lessons.map((l) => l.group.code))).toEqual(new Set(['001', '003']));
+    await expect(call(api.groups.getTeacherCalendar({ query: {} }))).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('преподаватель: успеваемость ученика и его задания — только по своим группам', async () => {
+    const { alexey, dasha } = DEMO_IDS.students;
+    const { roboticsA, programmingA } = DEMO_IDS.groups;
+    await loginAs('teacher');
+    const card = await call(api.dashboards.getTeacherStudent({ params: { studentId: alexey } }));
+    expect(card.week).toHaveLength(7);
+    expect(card.week?.filter((d) => d.status === 'TODAY')).toHaveLength(1);
+    expect(card.clubHomework?.map((c) => c.group.code)).toEqual(['001', '012']);
+    // Преподаватель видит те же задания и статусы, что родитель (порог «неправильно» — < 30%).
+    const robotics = card.clubHomework?.find((c) => c.group.id === roboticsA);
+    expect(robotics?.tasks).toHaveLength(45);
+    expect(card.clubHomework?.find((c) => c.group.id === programmingA)?.tasks).toHaveLength(30);
+    const counts = card.clubHomework!.map((c) => c.counts);
+    expect(card.homework).toEqual({
+      correct: counts.reduce((sum, c) => sum + c.correct, 0),
+      wrong: counts.reduce((sum, c) => sum + c.wrong, 0),
+      upcoming: counts.reduce((sum, c) => sum + c.upcoming, 0),
+    });
+
+    // Даша ходит и на шахматы к Андрею — у Марии видна только робототехника.
+    const dashaCard = await call(
+      api.dashboards.getTeacherStudent({ params: { studentId: dasha } }),
+    );
+    expect(dashaCard.groups.map((g) => g.id)).toEqual([roboticsA]);
+    expect(dashaCard.clubHomework?.map((c) => c.group.id)).toEqual([roboticsA]);
+
+    const tasks = await call(
+      api.dashboards.getTeacherStudentGroupTasks({
+        params: { studentId: alexey, groupId: roboticsA },
+      }),
+    );
+    expect(tasks.group.code).toBe('001');
+    expect(tasks.items.map((t) => [t.assignmentId, t.status])).toEqual(
+      robotics?.tasks.map((t) => [t.assignmentId, t.status]),
+    );
+    const wrong = tasks.items.find((t) => t.status === 'FAILED' && t.answer);
+    expect(wrong?.correctAnswer).toBeTruthy();
+    const tasksOf = (studentId: string, groupId: string) =>
+      call(api.dashboards.getTeacherStudentGroupTasks({ params: { studentId, groupId } }));
+    // Чужая группа и группа, где ученик не занимается, — 403; нет ученика или группы — тоже 403:
+    // для преподавателя «нет» и «не ваш» неразличимы, а 404 фронт покажет «раздел в разработке».
+    await expect(tasksOf(dasha, MOCK_IDS.groups.chessA)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(tasksOf(dasha, programmingA)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(tasksOf(DEMO_IDS.course, roboticsA)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(tasksOf(alexey, DEMO_IDS.course)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      call(api.dashboards.getTeacherStudent({ params: { studentId: DEMO_IDS.course } })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      call(api.dashboards.getTeacherGroup({ params: { groupId: DEMO_IDS.course } })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    // Та же картина, что в аналитике родителя.
+    await loginAs('parent');
+    const parentView = await call(
+      api.dashboards.getParentChildAnalytics({ params: { studentId: alexey }, query: {} }),
+    );
+    expect(parentView.clubHomework).toEqual(card.clubHomework);
+
+    // Андрей ведёт шахматы: Алексей ему чужой, задания Даши по шахматам — видны.
+    await loginDev('max-teacher-2', 'TEACHER');
+    await expect(
+      call(api.dashboards.getTeacherStudent({ params: { studentId: alexey } })),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(tasksOf(alexey, roboticsA)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    const chess = await tasksOf(dasha, MOCK_IDS.groups.chessA);
+    expect(chess.group.code).toBe('003');
+    expect(chess.items).toHaveLength(45);
+  });
+
+  it('преподаватель: общая успеваемость по периодам', async () => {
+    await loginAs('teacher');
+    const dtos = await Promise.all(
+      TEACHER_PERFORMANCE_PERIODS.map((period) =>
+        call(api.dashboards.getTeacherPerformance({ query: { period } })),
+      ),
+    );
+    dtos.forEach((dto, i) => {
+      expect(dto.period).toBe(TEACHER_PERFORMANCE_PERIODS[i]);
+      expect(dto.from < dto.to).toBe(true);
+      expect(dto.groups.map((row) => [row.group.code, row.studentsCount])).toEqual([
+        ['001', 2],
+        ['012', 1],
+      ]);
+      for (const row of dto.groups) {
+        expect(row.homeworkCorrect).toBeLessThanOrEqual(row.homeworkDone);
+      }
+    });
+    const [day, week, month, course] = dtos;
+    // day — с начала сегодняшнего дня, 7 дней — включая сегодня, курс — с 1 сентября.
+    expect(new Date(day!.from)).toEqual(startOfDay());
+    expect(new Date(week!.from)).toEqual(startOfDay(addDays(new Date(), -6)));
+    const now = new Date();
+    const courseYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    expect(new Date(course!.from)).toEqual(new Date(courseYear, 8, 1));
+    // Периоды вложены: день ⊂ 7 дней ⊂ 30 дней — счётчики не убывают.
+    const keys = ['attended', 'missed', 'homeworkDone', 'homeworkCorrect'] as const;
+    day!.groups.forEach((row, i) => {
+      for (const key of keys) {
+        expect(row[key]).toBeLessThanOrEqual(week!.groups[i]![key]);
+        expect(week!.groups[i]![key]).toBeLessThanOrEqual(month!.groups[i]![key]);
+      }
+    });
+    // За 30 дней у робототехники есть настоящие отметки: Алексей был дважды, Даша раз пропустила
+    // и раз опоздала (опоздание — посещение).
+    const robotics = month!.groups[0]!;
+    expect(robotics.attended).toBeGreaterThanOrEqual(3);
+    expect(robotics.missed).toBeGreaterThanOrEqual(1);
+    expect(robotics.homeworkDone).toBeGreaterThan(robotics.homeworkCorrect);
+    expect(robotics.homeworkCorrect).toBeGreaterThan(0);
+
+    const byDefault = await call(api.dashboards.getTeacherPerformance({ query: {} }));
+    expect(byDefault.period).toBe('day');
+    expect(byDefault.groups).toEqual(day!.groups);
+    await expect(
+      call(
+        api.dashboards.getTeacherPerformance({
+          query: { period: 'year' as TeacherPerformancePeriod },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    // У Андрея в математике учеников нет — строка с нулями.
+    await loginDev('max-teacher-2', 'TEACHER');
+    const andrey = await call(
+      api.dashboards.getTeacherPerformance({ query: { period: 'course' } }),
+    );
+    expect(andrey.groups.map((row) => row.group.code)).toEqual(['003', '007']);
+    expect(andrey.groups[1]).toMatchObject({
+      studentsCount: 0,
+      attended: 0,
+      missed: 0,
+      homeworkDone: 0,
+      homeworkCorrect: 0,
+    });
+    await loginAs('student1');
+    await expect(call(api.dashboards.getTeacherPerformance({ query: {} }))).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('преподаватель: посещения — только отметки журнала, без выдуманных и двойного счёта', async () => {
+    // Только Date: «сейчас» — среда 23.09.2026; MSW и таймеры остаются настоящими.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const perf = async (period: TeacherPerformancePeriod) =>
+        (await call(api.dashboards.getTeacherPerformance({ query: { period } }))).groups.map(
+          (row) => [row.group.code, row.attended, row.missed],
+        );
+
+      // 11:00 — сегодняшние Python (12:00) и робототехника (15:00) не начались: нулей не выдумываем.
+      vi.setSystemTime(new Date(2026, 8, 23, 11, 0));
+      resetMockDb();
+      await loginAs('teacher');
+      expect(await perf('day')).toEqual([
+        ['001', 0, 0],
+        ['012', 0, 0],
+      ]);
+
+      // 16:00 — оба прошли и отмечены: Алексей был везде, Даша — по уважительной (пропуск).
+      vi.setSystemTime(new Date(2026, 8, 23, 16, 0));
+      resetMockDb();
+      await loginAs('teacher');
+      expect(await perf('day')).toEqual([
+        ['001', 1, 1],
+        ['012', 1, 0],
+      ]);
+      // 7 дней (17–23.09): у робототехники настоящие 20.09 и сегодня + синтетический понедельник
+      // 21.09 по правилу (по 2 ученика). Четверг 17.09 не дополняется: занятие правила «чт» на
+      // этой неделе уже в журнале (20.09). У Python — синтетический вторник 22.09 и сегодня.
+      const total = (rows: Awaited<ReturnType<typeof perf>>) =>
+        rows.map(([code, attended, missed]) => [code, Number(attended) + Number(missed)]);
+      expect(total(await perf('week'))).toEqual([
+        ['001', 6],
+        ['012', 2],
+      ]);
+
+      // Ушедший из группы ученик: его настоящие отметки остаются в счётчиках (docs/04 §4.6).
+      db.enrollments.find((e) => e.id === DEMO_IDS.enrollments.dashaRobotics)!.status = 'LEFT';
+      expect(await perf('day')).toEqual([
+        ['001', 1, 1],
+        ['012', 1, 0],
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('преподаватель: кошелёк — график, транзакции, «Вам должны» и вывод (заглушка)', async () => {
+    await loginAs('teacher');
+    const day = await call(api.payments.getTeacherWallet({ query: {} }));
+    expect(day.period).toBe('day');
+    expect(day.balance).toEqual({ amountKopecks: 670_000, currency: 'RUB' });
+    // Скользящее окно 24 часа, точки каждые 4 часа; последняя — текущий баланс.
+    expect(new Date(day.to).getTime() - new Date(day.from).getTime()).toBe(24 * 3_600_000);
+    expect(day.history[0]?.at).toBe(day.from);
+    expect(day.history.at(-1)).toEqual({ at: day.to, balance: day.balance });
+
+    const signed = (tx: TeacherWalletTransaction) =>
+      tx.kind === 'INCOME' ? tx.amount.amountKopecks : -tx.amount.amountKopecks;
+    const wallets = await Promise.all(
+      TEACHER_WALLET_PERIODS.map((period) =>
+        call(api.payments.getTeacherWallet({ query: { period } })),
+      ),
+    );
+    expect(wallets.map((w) => w.history.length)).toEqual([7, 8, 31]);
+    for (const wallet of wallets) {
+      // Баланс на начало окна + операции окна = текущий; нигде не отрицательный.
+      expect(
+        wallet.history[0]!.balance.amountKopecks +
+          wallet.transactions.reduce((sum, tx) => sum + signed(tx), 0),
+      ).toBe(wallet.balance.amountKopecks);
+      expect(wallet.history.every((p) => p.balance.amountKopecks >= 0)).toBe(true);
+      const times = wallet.transactions.map((tx) => tx.at);
+      expect(times).toEqual([...times].sort().reverse());
+      for (const tx of wallet.transactions) {
+        expect(tx.at > wallet.from && tx.at <= wallet.to).toBe(true);
+        if (tx.kind === 'WITHDRAWAL') expect([tx.group, tx.student]).toEqual([null, null]);
+        else expect(['001', '012']).toContain(tx.group?.code);
+      }
+    }
+    const month = wallets[2]!;
+    // Вчерашний вывод 12 388 ₽ из макета и поступления от учеников за месяц.
+    expect(
+      month.transactions.filter(
+        (tx) =>
+          tx.kind === 'WITHDRAWAL' && tx.amount.amountKopecks === DEMO_TEACHER_WITHDRAWAL_KOPECKS,
+      ),
+    ).toHaveLength(1);
+    expect(month.transactions.filter((tx) => tx.kind === 'INCOME').length).toBeGreaterThan(10);
+
+    // Поступления — не раньше зачисления ученика, сумма — цена кружка (docs/04).
+    const enrolledAt = new Map(db.enrollments.map((e) => [`${e.groupId}:${e.studentId}`, e]));
+    for (const tx of month.transactions.filter((item) => item.kind === 'INCOME')) {
+      const enrollment = enrolledAt.get(`${tx.group!.id}:${tx.student!.id}`)!;
+      expect(tx.at >= enrollment.enrolledAt).toBe(true);
+      expect(tx.amount.amountKopecks).toBe(tx.group!.code === '001' ? 350_000 : 300_000);
+    }
+
+    // «Вам должны»: зачисления в группы Марии по возрастанию даты. Робототехника Алексея
+    // оплачена по 30.09 — следующий платёж 01.10, 3 500 ₽. Даша и Python Алексея заплатили с
+    // последним поступлением — оплачено 30 дней с его дня, следующий платёж не просрочен.
+    const dues = day.debts.map((d) => d.dueAt);
+    expect(dues).toEqual([...dues].sort());
+    expect(day.debts.map((d) => d.id).sort()).toEqual(
+      [
+        DEMO_IDS.enrollments.alexeyRobotics,
+        DEMO_IDS.enrollments.dashaRobotics,
+        DEMO_IDS.enrollments.alexeyProgramming,
+      ].sort(),
+    );
+    expect(day.debts[0]).toMatchObject({
+      id: DEMO_IDS.enrollments.alexeyRobotics,
+      dueAt: '2026-10-01',
+      amount: { amountKopecks: 350_000 },
+      group: { code: '001' },
+      student: { id: DEMO_IDS.students.alexey },
+    });
+    const paidByIncome = [
+      DEMO_IDS.enrollments.dashaRobotics,
+      DEMO_IDS.enrollments.alexeyProgramming,
+    ];
+    for (const id of paidByIncome) {
+      const enrollment = db.enrollments.find((e) => e.id === id)!;
+      const lastIncome = month.transactions.find(
+        (tx) =>
+          tx.kind === 'INCOME' &&
+          tx.group?.id === enrollment.groupId &&
+          tx.student?.id === enrollment.studentId,
+      )!;
+      const debt = day.debts.find((d) => d.id === id)!;
+      expect(debt.dueAt).toBe(toDateOnly(addDays(lastIncome.at, 30)));
+      expect(debt.dueAt > toDateOnly(new Date())).toBe(true);
+    }
+
+    const withdraw = (amountKopecks: number, key: string) =>
+      call(
+        api.payments.withdrawTeacherWallet({
+          body: { amountKopecks },
+          headers: { 'idempotency-key': key },
+        }),
+      );
+    const first = await withdraw(200_000, 'w-1');
+    expect(first.balance.amountKopecks).toBe(470_000);
+    expect(first.transaction).toMatchObject({
+      kind: 'WITHDRAWAL',
+      amount: { amountKopecks: 200_000 },
+      group: null,
+      student: null,
+    });
+    // Повтор с тем же ключом не списывает второй раз; тот же ключ с другой суммой — конфликт.
+    expect(await withdraw(200_000, 'w-1')).toEqual(first);
+    await expect(withdraw(300_000, 'w-1')).rejects.toMatchObject({ code: 'CONFLICT' });
+    const after = await call(api.payments.getTeacherWallet({ query: { period: 'day' } }));
+    expect(after.balance.amountKopecks).toBe(470_000);
+    expect(after.transactions[0]?.id).toBe(first.transaction.id);
+    expect(after.history.at(-1)?.balance.amountKopecks).toBe(470_000);
+    // Меньше 100 ₽ — VALIDATION, больше баланса — BUSINESS_RULE; весь остаток — можно.
+    await expect(withdraw(9_999, 'w-2')).rejects.toMatchObject({ code: 'VALIDATION' });
+    await expect(withdraw(470_001, 'w-3')).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+    expect((await withdraw(470_000, 'w-4')).balance.amountKopecks).toBe(0);
+    await expect(
+      call(api.payments.getTeacherWallet({ query: { period: 'course' as TeacherWalletPeriod } })),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    // Родителю кошелёк преподавателя недоступен; его следующий платёж — тот же, что у Марии в
+    // «Вам должны», а не «сегодня».
+    await loginAs('parent');
+    await expect(call(api.payments.getTeacherWallet({ query: {} }))).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    const dasha = await call(
+      api.payments.getChildPayments({ params: { studentId: DEMO_IDS.students.dasha }, query: {} }),
+    );
+    expect(
+      dasha.periods.find((p) => p.enrollmentId === DEMO_IDS.enrollments.dashaRobotics)
+        ?.nextPaymentAt,
+    ).toBe(day.debts.find((d) => d.id === DEMO_IDS.enrollments.dashaRobotics)?.dueAt);
+    expect(dasha.history.items[0]).toMatchObject({
+      status: 'SUCCEEDED',
+      amount: { amountKopecks: 350_000 },
+    });
+  });
+
+  it('новый преподаватель: пустой кошелёк, нет групп, занятий и долгов', async () => {
+    await loginDev('max-new-teacher', 'TEACHER');
+    const wallet = await call(api.payments.getTeacherWallet({ query: { period: 'month' } }));
+    expect(wallet.balance.amountKopecks).toBe(0);
+    expect(wallet.transactions).toEqual([]);
+    expect(wallet.debts).toEqual([]);
+    expect(wallet.history).toHaveLength(31);
+    expect(wallet.history.every((p) => p.balance.amountKopecks === 0)).toBe(true);
+    await expect(
+      call(
+        api.payments.withdrawTeacherWallet({
+          body: { amountKopecks: 10_000 },
+          headers: { 'idempotency-key': 'new-1' },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'BUSINESS_RULE' });
+    const performance = await call(
+      api.dashboards.getTeacherPerformance({ query: { period: 'course' } }),
+    );
+    expect(performance.groups).toEqual([]);
+    expect((await call(api.groups.getTeacherCalendar({ query: {} }))).lessons).toEqual([]);
   });
 
   it('refresh выдаёт новую пару, logout — 204, dev-вход новым пользователем без онбординга', async () => {

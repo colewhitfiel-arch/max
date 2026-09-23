@@ -1,7 +1,16 @@
-import type { CreatePaymentBody, TopUpWalletBody } from '@edu/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  TEACHER_WALLET_DEFAULT_PERIOD,
+  type CreatePaymentBody,
+  type TeacherWallet,
+  type TeacherWalletPeriod,
+  type TeacherWithdrawal,
+  type TopUpWalletBody,
+  type WithdrawTeacherWalletBody,
+} from '@edu/contracts';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, call, newRequestId } from '@/shared/api/client';
 import { paymentKeys } from './keys';
+import { withWithdrawal } from './model';
 
 /** `GET /parent/children/:studentId/payments`. */
 export function useChildPayments(studentId: string | null) {
@@ -66,6 +75,60 @@ export function useTopUpWallet() {
       ),
     onSuccess: (wallet) => {
       queryClient.setQueryData(paymentKeys.wallet(), wallet);
+    },
+  });
+}
+
+/**
+ * `GET /teacher/wallet?period=` — кошелёк преподавателя (заглушка до PaymentProvider): баланс,
+ * точки графика, транзакции за период и «Вам должны». При смене периода остаются прежние данные
+ * (`placeholderData`), чтобы экран не мигал скелетом, пока грузится новое окно.
+ */
+export function useTeacherWallet(period: TeacherWalletPeriod = TEACHER_WALLET_DEFAULT_PERIOD) {
+  return useQuery({
+    queryKey: paymentKeys.teacherWallet(period),
+    queryFn: () => call(api.payments.getTeacherWallet({ query: { period } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Реакция экрана на итог вывода: срабатывает, даже если форма уже размонтирована. */
+export interface WithdrawTeacherWalletCallbacks {
+  onSuccess?: (result: TeacherWithdrawal) => void;
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * `POST /teacher/wallet/withdraw` с Idempotency-Key. Заглушка: сервер (мок) списывает сразу.
+ * Новый баланс и сам вывод сразу кладём во все закэшированные периоды (чип на главной, крупная
+ * сумма и график меняются без ожидания), а после любого исхода перезапрашиваем их: при ошибке
+ * с неизвестным результатом (таймаут) на экране будет фактический баланс, а не прежний.
+ * Ключ идемпотентности даёт экран: один на попытку, чтобы повтор после сбоя сети не списал дважды.
+ * `callbacks` — уровня мутации (не `mutate`): тост и отклик не теряются, если экран закрыли.
+ */
+export function useWithdrawTeacherWallet(callbacks: WithdrawTeacherWalletCallbacks = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      amountKopecks,
+      idempotencyKey,
+    }: WithdrawTeacherWalletBody & { idempotencyKey: string }) =>
+      call(
+        api.payments.withdrawTeacherWallet({
+          body: { amountKopecks },
+          headers: { 'idempotency-key': idempotencyKey },
+        }),
+      ),
+    onSuccess: (result) => {
+      queryClient.setQueriesData<TeacherWallet>(
+        { queryKey: paymentKeys.teacherWalletRoot() },
+        (wallet) => (wallet ? withWithdrawal(wallet, result) : wallet),
+      );
+      callbacks.onSuccess?.(result);
+    },
+    onError: (error) => callbacks.onError?.(error),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.teacherWalletRoot() });
     },
   });
 }

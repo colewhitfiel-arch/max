@@ -94,3 +94,10 @@ export * from './components/HeartCarousel';
 export * from './components/WalletChip';
 export * from './components/ScoopPanel';
 export * from './components/ProgressBubble';
+
+// Режим репетитора: главная, кошелёк, успеваемость
+export * from './components/Illustration';
+export * from './components/WalletHero';
+export * from './components/LineChart';
+export * from './components/BarChart';
+export * from './components/DataTable';

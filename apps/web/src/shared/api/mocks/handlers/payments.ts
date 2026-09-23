@@ -1,20 +1,33 @@
 /**
  * Платежи родителя: периоды к оплате, история, создание платежа (fake-провайдер); кошелёк —
  * заглушка (docs/07 F13): пополнение зачисляется сразу, идемпотентно по Idempotency-Key.
+ * Кошелёк преподавателя — тоже заглушка (`../teacher-wallet.ts`): вывод списывается сразу,
+ * идемпотентно по Idempotency-Key.
  */
 import {
   ChildPaymentsSchema,
   CreatePaymentBodySchema,
   CreatePaymentResultSchema,
   PaymentDtoSchema,
+  TeacherWalletQuerySchema,
+  TeacherWalletSchema,
+  TeacherWithdrawalSchema,
   TopUpWalletBodySchema,
   WalletSchema,
+  WithdrawTeacherWalletBodySchema,
 } from '@edu/contracts';
 import { http } from 'msw';
 import { addDays, toDateOnly } from '../../../lib/dates';
 import { childrenIdsOfParent, clubBrief, enrollmentsOfStudent, studentBrief } from '../demo';
-import { apiError, apiUrl, authed, json, readBody } from '../lib';
-import { db, parentOfUser } from '../state';
+import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
+import { db, parentOfUser, teacherOfUser } from '../state';
+import {
+  teacherWalletDto,
+  teacherWalletOf,
+  transactionDto,
+  walletBalance,
+} from '../teacher-wallet';
+import type { MockTeacherTransaction } from '../world-extras';
 
 /** Оплачено до / следующий платёж по зачислению. */
 export function paidUntilOf(enrollmentId: string): {
@@ -77,6 +90,65 @@ export const paymentsHandlers = [
         return json(WalletSchema, { balance: rub(balanceAfter) });
       },
       ['PARENT'],
+    ),
+  ),
+
+  http.get(
+    apiUrl('/teacher/wallet'),
+    authed(
+      ({ auth, request }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const q = TeacherWalletQuerySchema.safeParse(Object.fromEntries(query(request)));
+        if (!q.success) {
+          return apiError('VALIDATION', 'Неверные параметры запроса', q.error.flatten());
+        }
+        return json(TeacherWalletSchema, teacherWalletDto(teacher.id, q.data.period));
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  http.post(
+    apiUrl('/teacher/wallet/withdraw'),
+    authed(
+      async ({ auth, request }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const body = await readBody(request, WithdrawTeacherWalletBodySchema);
+        if (!body.ok) return body.response;
+        const { amountKopecks } = body.data;
+        const key = request.headers.get('idempotency-key');
+        const replayKey = key ? `${teacher.id}:${key}` : null;
+        const previous = replayKey ? db.teacherWithdrawals.get(replayKey) : undefined;
+        if (previous) {
+          if (previous.amountKopecks !== amountKopecks) {
+            return apiError('CONFLICT', 'Ключ идемпотентности уже использован с другой суммой');
+          }
+          return json(TeacherWithdrawalSchema, previous.result);
+        }
+        const wallet = teacherWalletOf(teacher.id);
+        const now = new Date();
+        const balance = walletBalance(wallet, now);
+        if (amountKopecks > balance) return apiError('BUSINESS_RULE', 'Недостаточно средств');
+        // Заглушка провайдера: деньги «уходят» сразу, реального перевода нет.
+        const transaction: MockTeacherTransaction = {
+          id: crypto.randomUUID(),
+          kind: 'WITHDRAWAL',
+          amountKopecks,
+          at: now.toISOString(),
+          groupId: null,
+          studentId: null,
+        };
+        wallet.transactions.push(transaction);
+        const result = {
+          balance: rub(balance - amountKopecks),
+          transaction: transactionDto(transaction),
+        };
+        if (replayKey) db.teacherWithdrawals.set(replayKey, { amountKopecks, result });
+        return json(TeacherWithdrawalSchema, result);
+      },
+      ['TEACHER'],
     ),
   ),
 

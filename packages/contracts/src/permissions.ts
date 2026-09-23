@@ -44,6 +44,8 @@ export const PERMISSIONS = [
   'teacher:submissions.grade',
   'teacher:courses.manage',
   'teacher:course-builder.use',
+  'teacher:wallet.view',
+  'teacher:wallet.withdraw',
   // администратор школы (зарезервировано)
   'admin:school.manage',
 ] as const;
@@ -96,6 +98,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'teacher:submissions.grade',
     'teacher:courses.manage',
     'teacher:course-builder.use',
+    'teacher:wallet.view',
+    'teacher:wallet.withdraw',
   ],
   SCHOOL_ADMIN: [...COMMON, 'admin:school.manage'],
 };

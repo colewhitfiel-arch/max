@@ -21,6 +21,9 @@
   --ui-color-text-muted: #6b7380;
   --ui-color-primary: #0264ce;
   --ui-color-primary-contrast: #ffffff;
+  /* Иконка на акцентном круге меню (BottomNavigation prominent). По умолчанию — как текст на
+   * заливке primary; у репетитора — белая шапочка из макета, хотя текст на оранжевом тёмный. */
+  --ui-color-prominent-fg: var(--ui-color-primary-contrast);
   --ui-color-info: #1858fa;
   --ui-color-success: #1f9d55;
   --ui-color-warning: #d9a10b;
@@ -33,6 +36,15 @@
   --ui-color-accent-2: #1858fa;
   /* Декоративное свечение фона приложения (в светлой теме выключено). */
   --ui-color-bg-glow: transparent;
+  /* Тёмный текст на ярких заливках (сумма в оранжевом кошельке, «Вывести» на зелёной чаше) —
+   * одинаков в обеих темах: заливки яркие в любой теме. */
+  --ui-color-on-bright: #0d0d0d;
+  /* Полоса-«зебра» строк таблиц (макет репетитора: #4b4545 с прозрачностью 10% — прозрачность
+   * задаёт компонент). Одинакова в обеих темах. */
+  --ui-color-stripe: #4b4545;
+  /* Совсем второстепенный текст: подписи дней над таблицей («вчера», «сегодня»). Светлее
+   * основного, но с контрастом AA: 4.9:1 на фоне, 5.4:1 на белой поверхности. */
+  --ui-color-text-subtle: #636b77;
 
   /* Типографика */
   --ui-font-family:
@@ -99,6 +111,7 @@
     --ui-color-surface-3: #323131;
     --ui-color-text: #ffffff;
     --ui-color-text-muted: #b9b9b9;
+    --ui-color-text-subtle: #7a7a7a;
     --ui-color-primary: #0264ce;
     --ui-color-primary-contrast: #ffffff;
     --ui-color-info: #1858fa;
@@ -123,6 +136,7 @@
   --ui-color-surface-3: #323131;
   --ui-color-text: #ffffff;
   --ui-color-text-muted: #b9b9b9;
+  --ui-color-text-subtle: #7a7a7a;
   --ui-color-primary: #0264ce;
   --ui-color-primary-contrast: #ffffff;
   --ui-color-info: #1858fa;
@@ -170,6 +184,45 @@
   --ui-color-accent-1: #2cda00;
   --ui-color-accent-2: #00da91;
   --ui-color-bg-glow: rgba(13, 208, 88, 0.35);
+}
+
+/*
+ * data-accent="orange" — режим репетитора из макета: primary и фон переключателя периода
+ * #ffa600, оранжевое свечение. Текст на оранжевой заливке в тёмной теме тёмный
+ * (`--ui-color-on-bright`, 9.9:1; белый дал бы 2:1), белая только шапочка на оранжевом круге
+ * меню (`--ui-color-prominent-fg`), как в макете.
+ * Светлая тема — тёмный оранжевый #a05f00: AA и как цвет текста (5.1:1 на белом, 4.7:1 на
+ * фоне), и под белым текстом заливки (в макете её нет).
+ */
+:root[data-accent='orange'] {
+  --ui-color-primary: #a05f00;
+  --ui-color-primary-contrast: #ffffff;
+  --ui-color-prominent-fg: #ffffff;
+  --ui-color-focus: #a05f00;
+  --ui-color-accent-1: #d98a00;
+  --ui-color-accent-2: #ffa600;
+}
+
+/* Тёмная тема: системная. */
+@media (prefers-color-scheme: dark) {
+  :root[data-accent='orange']:not([data-theme='light']) {
+    --ui-color-primary: #ffa600;
+    --ui-color-primary-contrast: var(--ui-color-on-bright);
+    --ui-color-focus: #ffa600;
+    --ui-color-accent-1: #ffa600;
+    --ui-color-accent-2: #ffa600;
+    --ui-color-bg-glow: rgba(255, 166, 0, 0.3);
+  }
+}
+
+/* Тёмная тема: принудительная (значения продублированы, как и у базовых токенов). */
+:root[data-accent='orange'][data-theme='dark'] {
+  --ui-color-primary: #ffa600;
+  --ui-color-primary-contrast: var(--ui-color-on-bright);
+  --ui-color-focus: #ffa600;
+  --ui-color-accent-1: #ffa600;
+  --ui-color-accent-2: #ffa600;
+  --ui-color-bg-glow: rgba(255, 166, 0, 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -83,6 +83,13 @@ import {
   ScoopPanel,
   WalletChip,
   WalletIcon,
+  BarChart,
+  ClipboardListIcon,
+  DataTable,
+  GraduationCapIcon,
+  Illustration,
+  LineChart,
+  WalletHero,
   applyAccent,
   getAccent,
   type Accent,
@@ -639,6 +646,11 @@ function ParentAnalyticsDemo() {
           <SegmentBar aria-label="Нет заданий" segments={[]} />
         </Stack>
       </Band>
+      <Band tone="subtle">
+        <Text variant="title" as="h3">
+          Робототехника (tone=&quot;subtle&quot; — полоса курса над заданиями)
+        </Text>
+      </Band>
       <Band>
         <Stack gap={3}>
           <Text weight="medium">Задание 9</Text>
@@ -691,6 +703,7 @@ function ParentHomeDemo() {
           options={[
             { value: 'blue', label: 'Синий — ученик' },
             { value: 'green', label: 'Зелёный — родитель' },
+            { value: 'orange', label: 'Оранжевый — репетитор' },
           ]}
           value={accent}
           onChange={(value) => setAccent(value as Accent)}
@@ -831,6 +844,338 @@ function ParentHomeDemo() {
           <HeartShapeIcon size={32} />
         </Text>
       </Row>
+    </Stack>
+  );
+}
+
+/** Иллюстрация-заглушка главной репетитора 342×256 (в приложении — картинка из макета). */
+const TUTOR_ART = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 342 256"><rect x="70" y="40" width="200" height="130" rx="10" fill="#2a2a2a"/><rect x="82" y="56" width="52" height="60" rx="6" fill="#3a3a3a"/><rect x="144" y="56" width="52" height="60" rx="6" fill="#3a3a3a" stroke="#ffa600" stroke-width="2"/><rect x="206" y="56" width="52" height="60" rx="6" fill="#3a3a3a"/><circle cx="108" cy="78" r="12" fill="#ffa600"/><circle cx="170" cy="78" r="12" fill="#ffa600"/><circle cx="232" cy="78" r="12" fill="#ffa600"/><rect x="82" y="128" width="96" height="30" rx="6" fill="#3a3a3a"/><rect x="190" y="128" width="68" height="30" rx="6" fill="#3a3a3a"/><circle cx="150" cy="190" r="18" fill="#1e1e1e"/><rect x="138" y="206" width="24" height="44" rx="8" fill="#1e1e1e"/><path d="M270 210c10-30 30-40 40-60-4 26-18 44-40 60z" fill="#ffa600"/></svg>`,
+)}`;
+
+const DEMO_HOURS = ['4:00', '8:00', '12:00', '16:00', '20:00', '00:00'];
+const DEMO_WEEK = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+const DEMO_MONTH_LABELS = ['24.08', '29.08', '3.09', '8.09', '13.09', '18.09', '23.09'];
+
+/** Баланс по точкам для периода (рубли): ступеньки поступлений и один вывод. */
+function demoBalance(period: string, balance: number): number[] {
+  if (period === 'day') return [2700, 2700, 7200, 7200, 7200, balance];
+  if (period === 'week') return [15200, 18200, 5812, 8812, 9312, 9312, balance];
+  return Array.from({ length: 30 }, (_, day) =>
+    day === 29 ? balance : 3000 + ((day * 1700) % 14000),
+  );
+}
+
+const TX_COLUMNS = [
+  { key: 'group', header: 'Группа', align: 'center' as const, weight: 52 },
+  { key: 'name', header: 'ФИО ученика', weight: 125 },
+  { key: 'sum', header: 'Сумма', align: 'center' as const, weight: 68, nowrap: true },
+  { key: 'time', header: 'Время', align: 'center' as const, weight: 76, nowrap: true },
+];
+
+const txRow = (key: string, group: string, sum: string, time: string, withdrawal = false) => ({
+  key,
+  tone: withdrawal ? ('danger' as const) : undefined,
+  cells: {
+    group: withdrawal ? (
+      <Text as="span" variant="caption" tone="danger">
+        {group}
+      </Text>
+    ) : (
+      group
+    ),
+    name: withdrawal ? 'Вывод' : 'Фамилия А. Б.',
+    sum: (
+      <Text as="span" variant="caption" weight="medium" tone={withdrawal ? 'danger' : 'success'}>
+        {sum}
+      </Text>
+    ),
+    time,
+  },
+});
+
+/** Главная, кошелёк и успеваемость репетитора: иллюстрация, «зебра», графики, таблица. */
+function TutorDemo() {
+  const toast = useToast();
+  const [period, setPeriod] = useState('day');
+  const [performancePeriod, setPerformancePeriod] = useState('day');
+  const [balance, setBalance] = useState(6700);
+  const points = demoBalance(period, balance).map((value, index) => ({
+    key: String(index),
+    value,
+  }));
+  const xLabels = period === 'day' ? DEMO_HOURS : period === 'week' ? DEMO_WEEK : DEMO_MONTH_LABELS;
+  const top = Math.max(...points.map((point) => point.value));
+  return (
+    <Stack gap={4}>
+      <Row label="Иконки меню репетитора">
+        <Text as="span" tone="muted">
+          <ClipboardListIcon size={40} />
+        </Text>
+        <Text as="span" tone="primary">
+          <GraduationCapIcon size={47} />
+        </Text>
+      </Row>
+      <Inline justify="between">
+        <Inline gap={2}>
+          <Avatar name="Мария Иванова" />
+          <Text>Иванова М. П.</Text>
+        </Inline>
+        <WalletChip
+          amount={String(balance)}
+          plus={false}
+          aria-label={`Баланс ${balance} ₽, открыть кошелёк`}
+          onClick={() => toast.show({ title: 'Открыть кошелёк' })}
+        />
+      </Inline>
+      <Illustration src={TUTOR_ART} />
+      <CardColumns
+        aria-label="Расписание на сегодня"
+        striped
+        columns={[
+          { key: 'name', header: 'Название', fit: true },
+          { key: 'group', header: 'Группа', align: 'center', nowrap: true },
+          { key: 'time', header: 'Время', align: 'center', nowrap: true },
+        ]}
+        rows={[
+          {
+            key: 'a',
+            cells: {
+              name: 'Робототехника',
+              group: '001',
+              time: (
+                <Text as="span" variant="small" tone="primary">
+                  12:00-13:30
+                </Text>
+              ),
+            },
+          },
+          { key: 'b', cells: { name: 'Китайский', group: '012', time: '16:30-18:00' } },
+          { key: 'c', cells: { name: 'Робототехника', group: '002', time: '19:00-20:30' } },
+        ]}
+      />
+
+      <Text variant="caption" tone="muted">
+        Кошелёк: WalletHero + переключатель периода + LineChart (ступенчатая линия)
+      </Text>
+      <Inline gap={4} align="start" wrap={false}>
+        <WalletHero
+          amount={String(balance)}
+          aria-label={`Баланс ${balance} ₽`}
+          actionLabel="Вывести"
+          actionDisabled={balance === 0}
+          onAction={() => {
+            setBalance(0);
+            toast.show({ title: 'Вывод оформлен (демо)' });
+          }}
+        />
+        <Stack gap={2} align="end" style={{ flex: 1, minWidth: 0 }}>
+          <SegmentedControl
+            aria-label="Период"
+            variant="accent"
+            options={[
+              { value: 'day', label: '1 день' },
+              { value: 'week', label: '7 дней' },
+              { value: 'month', label: '30 дней' },
+            ]}
+            value={period}
+            onChange={setPeriod}
+          />
+          <LineChart
+            title="Изменение баланса"
+            aria-label={`Баланс за период: до ${balance} ₽, максимум ${top} ₽`}
+            points={points}
+            xLabels={xLabels}
+            step
+            style={{ alignSelf: 'stretch' }}
+          />
+        </Stack>
+      </Inline>
+      <Row label="Баланс">
+        <Button size="sm" variant="secondary" onClick={() => setBalance(6700)}>
+          Вернуть 6700
+        </Button>
+      </Row>
+
+      <Text variant="caption" weight="bold">
+        Транзакции
+      </Text>
+      <Stack gap={3}>
+        <CardColumns
+          aria-label="Транзакции за вчера"
+          caption="вчера"
+          variant="compact"
+          striped
+          columns={TX_COLUMNS}
+          rows={[
+            txRow('t1', '001', '2500', '10:00'),
+            txRow('t2', '012', '5000', '17:00'),
+            txRow('t3', '003', '3000', '17:28'),
+            txRow('t4', '—', '12388', '19:00', true),
+          ]}
+        />
+        <CardColumns
+          aria-label="Транзакции за сегодня"
+          caption="сегодня"
+          variant="compact"
+          striped="even"
+          showHeader={false}
+          columns={TX_COLUMNS}
+          rows={[txRow('t5', '001', '2500', '10:00'), txRow('t6', '012', '5000', '17:00')]}
+        />
+      </Stack>
+      <Text variant="caption" weight="bold">
+        Вам должны
+      </Text>
+      <CardColumns
+        aria-label="Вам должны"
+        variant="compact"
+        striped="even"
+        columns={[
+          ...TX_COLUMNS.slice(0, 3),
+          { key: 'date', header: 'Дата', align: 'center', weight: 76, nowrap: true },
+        ]}
+        rows={[
+          { key: 'd1', group: '001', sum: '2500', date: '24.10.26', overdue: true },
+          { key: 'd2', group: '012', sum: '5000', date: '27.10.26', overdue: false },
+          { key: 'd3', group: '003', sum: '3000', date: '1.11.26', overdue: false },
+        ].map((debt) => ({
+          key: debt.key,
+          cells: {
+            group: debt.group,
+            name: 'Фамилия А. Б.',
+            sum: (
+              <Text as="span" variant="caption" weight="medium" tone="primary">
+                {debt.sum}
+              </Text>
+            ),
+            date: (
+              <Text as="span" variant="caption" tone={debt.overdue ? 'danger' : 'default'}>
+                {debt.date}
+              </Text>
+            ),
+          },
+        }))}
+      />
+
+      <Row label="Общая успеваемость: BarChart + DataTable">
+        <SegmentedControl
+          aria-label="Период успеваемости"
+          variant="accent"
+          options={[
+            { value: 'day', label: '1 день' },
+            { value: 'week', label: '7 дней' },
+            { value: 'month', label: '30 дней' },
+            { value: 'course', label: '1 курс' },
+          ]}
+          value={performancePeriod}
+          onChange={setPerformancePeriod}
+        />
+      </Row>
+      <BarChart
+        title="Посещения"
+        aria-label="Группа 001: посетили 15, пропустили 4; группа 003: посетили 12, пропустили 3; группа 007: занятий не было"
+        legend={[
+          {
+            key: 'robotics',
+            title: 'Робототехника',
+            tone: 'primary',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+          {
+            key: 'chinese',
+            title: 'Китайский',
+            tone: 'success',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+        ]}
+        bars={[
+          {
+            key: '001',
+            label: '001',
+            tone: 'primary',
+            segments: [
+              { key: 'attended', value: performancePeriod === 'day' ? 15 : 60 },
+              { key: 'missed', value: 4, dim: true },
+            ],
+          },
+          {
+            key: '003',
+            label: '003',
+            tone: 'success',
+            segments: [
+              { key: 'attended', value: performancePeriod === 'day' ? 12 : 44 },
+              { key: 'missed', value: 3, dim: true },
+            ],
+          },
+          { key: '007', label: '007', tone: 'info', segments: [{ key: 'attended', value: 0 }] },
+        ]}
+      />
+      <Text variant="caption" tone="muted">
+        BarChart: 11 групп и длинная легенда — столбцы ужимаются, дальше прокрутка
+      </Text>
+      <BarChart
+        title="Посещения"
+        aria-label="Одиннадцать групп: посещения по каждой"
+        legend={[
+          {
+            key: 'robotics',
+            title: 'Робототехника и электроника',
+            tone: 'primary',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+        ]}
+        bars={Array.from({ length: 11 }, (_, index) => ({
+          key: `g${index}`,
+          label: String(index + 1).padStart(3, '0'),
+          tone: 'primary' as const,
+          segments: [
+            { key: 'attended', value: 8 + ((index * 5) % 11) },
+            { key: 'missed', value: index % 4, dim: true },
+          ],
+        }))}
+      />
+      <DataTable
+        caption="Домашние задания по группам"
+        columns={[
+          { key: 'group', header: 'Группа', weight: 1 },
+          {
+            key: 'correct',
+            header: 'Правильно выполненные дз',
+            align: 'center',
+            weight: 2.2,
+            tone: 'success',
+          },
+          { key: 'done', header: 'Выполненные дз', align: 'center', weight: 1.5, tone: 'primary' },
+        ]}
+        rows={['001', '003', '012'].map((group, index) => ({
+          key: group,
+          cells: { group, correct: 30 - index * 7, done: 50 - index * 9 },
+          'aria-label': `Группа ${group}: ученики`,
+          onClick: () => toast.show({ title: `Группа ${group}` }),
+        }))}
+      />
+      <BottomNavigation
+        aria-label="Меню репетитора"
+        items={[
+          { key: 'home', label: 'Главная', icon: <HomeIcon />, active: true },
+          {
+            key: 'assignments',
+            label: 'Задания',
+            icon: <ClipboardListIcon />,
+            iconSize: 'lg',
+          },
+          {
+            key: 'performance',
+            label: 'Успеваемость',
+            icon: <GraduationCapIcon />,
+            prominent: true,
+          },
+          { key: 'settings', label: 'Настройки', icon: <SettingsIcon /> },
+          { key: 'profile', label: 'Профиль', icon: <UserIcon /> },
+        ]}
+        onSelect={(key) => toast.show({ title: `Меню: ${key}` })}
+      />
     </Stack>
   );
 }
@@ -1073,6 +1418,14 @@ function PlaygroundContent() {
         </Text>
       </Section>
 
+      <Section title="Режим репетитора: Illustration, WalletHero, LineChart, BarChart, DataTable, CardColumns compact/striped">
+        <TutorDemo />
+        <Text variant="caption" tone="muted">
+          Оранжевый акцент включается переключателем выше («Оранжевый — репетитор»). «Вывести»
+          обнуляет демо-баланс; строки таблицы успеваемости кликабельны целиком.
+        </Text>
+      </Section>
+
       <Section title="MonthCalendar, DockSheet">
         <Card>
           <div style={{ height: 164 }}>
@@ -1172,6 +1525,10 @@ function PlaygroundContent() {
             <ChevronsDownIcon />
           </Text>
           <LockIcon />
+          <ClipboardListIcon size={32} />
+          <Text as="span" tone="primary">
+            <GraduationCapIcon size={32} />
+          </Text>
         </Row>
       </Section>
 

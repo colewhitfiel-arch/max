@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { applyAccent, applyTheme, getAccent, getTheme, resolveTheme } from './theme';
+import { ACCENTS, applyAccent, applyTheme, getAccent, getTheme, resolveTheme } from './theme';
 
 describe('applyTheme', () => {
   afterEach(() => {
@@ -38,5 +38,24 @@ describe('applyAccent', () => {
     applyAccent('blue');
     expect(document.documentElement.hasAttribute('data-accent')).toBe(false);
     expect(getAccent()).toBe('blue');
+  });
+
+  it('orange (режим репетитора) ставит data-accent и читается getAccent', () => {
+    applyAccent('orange');
+    expect(document.documentElement.getAttribute('data-accent')).toBe('orange');
+    expect(getAccent()).toBe('orange');
+    applyAccent('green');
+    expect(getAccent()).toBe('green');
+    applyAccent('blue');
+    expect(document.documentElement.hasAttribute('data-accent')).toBe(false);
+  });
+
+  it('неизвестное значение атрибута читается как blue', () => {
+    document.documentElement.setAttribute('data-accent', 'purple');
+    expect(getAccent()).toBe('blue');
+  });
+
+  it('ACCENTS перечисляет все акценты', () => {
+    expect(ACCENTS).toEqual(['blue', 'green', 'orange']);
   });
 });

@@ -74,6 +74,14 @@
 
 `apps/web/src/{pages,widgets,features,entities}/<x>/**` — владелец: FE-агент задачи W-* по таблице в `09-tasks.md`. Пересечения разведены подпапками: `entities/course/**` — W2, `entities/course/editors/**` — W10; `entities/club` — W4 (W6 использует, не правит).
 
+Режим репетитора (docs/07 F16–F18) разложен по workstream'ам из `12-workstreams.md`:
+- E — `pages/teacher/{home,groups,settings,profile,more}/**`, `widgets/teacher-{home,group}-*/**`;
+- F — `pages/teacher/{students,performance}/**`, `widgets/teacher-{student,performance}-*/**`;
+- I — `pages/teacher/wallet/**`, `features/withdraw-wallet/**`;
+- D — общий виджет `widgets/homework-performance/**` (статусы заданий, сетка, карточка задания): его используют родитель и преподаватель.
+
+Префиксы виджетов не пересекаются: у каждого `widgets/teacher-*` один владелец (E — главная и группы, F — ученик и успеваемость). Пути экранов преподавателя, на которые ссылаются страницы разных фич, и состояние навигации «открыт из приложения» — в `shared/lib/{teacher-paths,navigation}.ts` (web-shell): страницы не импортируют модули друг друга.
+
 ## 10.6. Владельцы «ui» и «ai»
 
 - `packages/ui/**` — владелец ui (F7). Новые компоненты — запрос; временно компонент живёт в `apps/web/src/shared/ui/` у автора запроса.

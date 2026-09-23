@@ -1,6 +1,8 @@
 import { type AppRoute, type AppRouter, initClient, isAppRoute } from '@ts-rest/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { GroupBriefSchema } from '../entities';
 import { API_PREFIX, type ApiContract, apiContract } from '../index';
+import { hasPermission } from '../permissions';
 import { AuthResultSchema, type MeDto } from './auth';
 import {
   ChildAnalyticsDtoSchema,
@@ -8,12 +10,22 @@ import {
   HomeworkTaskDetailSchema,
   StudentHomeDtoSchema,
   StudentProfileDtoSchema,
+  TEACHER_PERFORMANCE_DEFAULT_PERIOD,
+  TeacherPerformanceDtoSchema,
+  TeacherPerformanceQuerySchema,
+  TeacherStudentCardSchema,
 } from './dashboards';
 import { ChildInviteSchema } from './family';
 import {
+  TEACHER_WALLET_DEFAULT_PERIOD,
+  TEACHER_WITHDRAW_MIN_KOPECKS,
+  TeacherWalletQuerySchema,
+  TeacherWalletSchema,
+  TeacherWithdrawalSchema,
   TopUpWalletBodySchema,
   WALLET_TOPUP_MAX_KOPECKS,
   WALLET_TOPUP_MIN_KOPECKS,
+  WithdrawTeacherWalletBodySchema,
 } from './payments';
 import { type RouteMeta } from './meta';
 import { STREAMING_ROUTES } from './streaming';
@@ -56,11 +68,14 @@ describe('apiContract', () => {
         "GET /teacher/groups",
         "GET /teacher/groups/:groupId",
         "GET /teacher/students/:studentId",
+        "GET /teacher/students/:studentId/groups/:groupId/tasks",
+        "GET /teacher/performance",
         "GET /catalog/clubs",
         "GET /catalog/clubs/:clubId",
         "GET /teachers/:teacherId",
         "GET /student/calendar",
         "GET /parent/children/:studentId/calendar",
+        "GET /teacher/calendar",
         "GET /teacher/groups/:groupId/lessons",
         "POST /teacher/groups/:groupId/lessons",
         "PATCH /teacher/lessons/:lessonId",
@@ -115,6 +130,8 @@ describe('apiContract', () => {
         "GET /parent/payments/:paymentId",
         "GET /parent/wallet",
         "POST /parent/wallet/top-up",
+        "GET /teacher/wallet",
+        "POST /teacher/wallet/withdraw",
         "POST /webhooks/payments/:provider",
         "POST /files/upload-url",
         "POST /files/:fileId/confirm",
@@ -196,6 +213,17 @@ describe('apiContract', () => {
       '/parent/ai/conversations/abc/messages',
     );
     expect(STREAMING_ROUTES.parentTutorMessage.metadata.roles).toEqual(['PARENT']);
+  });
+
+  it('кошелёк преподавателя — только у TEACHER, вывод с Idempotency-Key', () => {
+    const { getTeacherWallet, withdrawTeacherWallet } = apiContract.payments;
+    expect((getTeacherWallet.metadata as RouteMeta).roles).toEqual(['TEACHER']);
+    expect((withdrawTeacherWallet.metadata as RouteMeta).roles).toEqual(['TEACHER']);
+    expect(withdrawTeacherWallet.headers).toBeDefined();
+    expect(hasPermission('TEACHER', 'teacher:wallet.view')).toBe(true);
+    expect(hasPermission('TEACHER', 'teacher:wallet.withdraw')).toBe(true);
+    expect(hasPermission('PARENT', 'teacher:wallet.view')).toBe(false);
+    expect(hasPermission('STUDENT', 'teacher:wallet.withdraw')).toBe(false);
   });
 
   it('совместим с ts-rest клиентом (тип AppRouter)', () => {
@@ -362,6 +390,190 @@ describe('sanity-парсинг схем', () => {
     ).toBe(false);
     expect(
       TopUpWalletBodySchema.safeParse({ amountKopecks: WALLET_TOPUP_MAX_KOPECKS + 1 }).success,
+    ).toBe(false);
+  });
+
+  // ---------- Режим репетитора ----------
+
+  const group = {
+    id,
+    title: 'Робототехника, группа А',
+    club: { id, title: 'Робототехника', category: 'ROBOTICS', coverUrl: null },
+    teacher: { id, user: me.user, photoUrl: null },
+  };
+  const student = { id, user: me.user, classLabel: '7Б' };
+  const rub = (amountKopecks: number) => ({ amountKopecks, currency: 'RUB' as const });
+
+  it('GroupBriefSchema: code опционален, nullable, 1..16 символов', () => {
+    expect(GroupBriefSchema.safeParse(group).success).toBe(true);
+    expect(GroupBriefSchema.safeParse({ ...group, code: null }).success).toBe(true);
+    expect(GroupBriefSchema.parse({ ...group, code: '001' }).code).toBe('001');
+    expect(GroupBriefSchema.safeParse({ ...group, code: '' }).success).toBe(false);
+    expect(GroupBriefSchema.safeParse({ ...group, code: 'x'.repeat(17) }).success).toBe(false);
+  });
+
+  it('TeacherStudentCardSchema: «Успеваемость» (week, homework, clubHomework) опциональна', () => {
+    const card = {
+      student,
+      groups: [group],
+      stats: {
+        attendanceRate: 0.9,
+        completionRate: 0.4,
+        activityScore: 50,
+        absences: 1,
+        lateCount: 0,
+        period: { from: '2026-08-22', to: '2026-09-21' },
+      },
+      clubs: [],
+      weekly: [],
+      history: [],
+      attendanceHistory: [],
+      aiSummary: null,
+      needsAttention: [],
+    };
+    expect(TeacherStudentCardSchema.safeParse(card).success).toBe(true);
+    expect(
+      TeacherStudentCardSchema.safeParse({
+        ...card,
+        week: [{ date: '2026-09-21', status: 'ATTENDED' }],
+        homework: { correct: 18, wrong: 20, upcoming: 7 },
+        clubHomework: [
+          {
+            club: group.club,
+            group: { ...group, code: '001' },
+            counts: { correct: 1, wrong: 0, upcoming: 1 },
+            tasks: [
+              {
+                assignmentId: id,
+                number: 1,
+                title: 'Задание 1',
+                status: 'DONE',
+                dueAt: null,
+                scorePercent: 90,
+              },
+            ],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      TeacherStudentCardSchema.safeParse({
+        ...card,
+        week: [{ date: '21.09.2026', status: 'TODAY' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('TeacherPerformanceQuerySchema: day|week|month|course, по умолчанию day', () => {
+    expect(TeacherPerformanceQuerySchema.parse({})).toEqual({
+      period: TEACHER_PERFORMANCE_DEFAULT_PERIOD,
+    });
+    expect(TEACHER_PERFORMANCE_DEFAULT_PERIOD).toBe('day');
+    expect(TeacherPerformanceQuerySchema.parse({ period: 'course' })).toEqual({ period: 'course' });
+    expect(TeacherPerformanceQuerySchema.safeParse({ period: 'year' }).success).toBe(false);
+    expect(TeacherPerformanceQuerySchema.safeParse({ period: '7' }).success).toBe(false);
+  });
+
+  it('TeacherPerformanceDtoSchema: счётчики неотрицательны, правильно ≤ выполнено', () => {
+    const row = {
+      group: { ...group, code: '001' },
+      studentsCount: 2,
+      attended: 18,
+      missed: 2,
+      homeworkDone: 20,
+      homeworkCorrect: 18,
+    };
+    const dto = {
+      period: 'week',
+      from: '2026-09-16T21:00:00.000Z',
+      to: '2026-09-23T10:00:00.000Z',
+      groups: [row],
+    };
+    expect(TeacherPerformanceDtoSchema.safeParse(dto).success).toBe(true);
+    expect(TeacherPerformanceDtoSchema.safeParse({ ...dto, groups: [] }).success).toBe(true);
+    expect(
+      TeacherPerformanceDtoSchema.safeParse({ ...dto, groups: [{ ...row, missed: -1 }] }).success,
+    ).toBe(false);
+    expect(
+      TeacherPerformanceDtoSchema.safeParse({ ...dto, groups: [{ ...row, homeworkCorrect: 21 }] })
+        .success,
+    ).toBe(false);
+    expect(TeacherPerformanceDtoSchema.safeParse({ ...dto, period: 'year' }).success).toBe(false);
+  });
+
+  it('TeacherWalletQuerySchema: day|week|month, по умолчанию day', () => {
+    expect(TeacherWalletQuerySchema.parse({})).toEqual({ period: TEACHER_WALLET_DEFAULT_PERIOD });
+    expect(TEACHER_WALLET_DEFAULT_PERIOD).toBe('day');
+    expect(TeacherWalletQuerySchema.parse({ period: 'month' })).toEqual({ period: 'month' });
+    expect(TeacherWalletQuerySchema.safeParse({ period: 'course' }).success).toBe(false);
+  });
+
+  it('TeacherWalletSchema: поступления, вывод без группы и ученика, «Вам должны»', () => {
+    const income = {
+      id,
+      kind: 'INCOME',
+      amount: rub(3000_00),
+      at: '2026-09-23T07:00:00.000Z',
+      group,
+      student,
+    };
+    const withdrawal = {
+      id,
+      kind: 'WITHDRAWAL',
+      amount: rub(12_388_00),
+      at: '2026-09-22T16:00:00.000Z',
+      group: null,
+      student: null,
+    };
+    const wallet = {
+      balance: rub(6700_00),
+      period: 'day',
+      from: '2026-09-22T21:00:00.000Z',
+      to: '2026-09-23T10:00:00.000Z',
+      history: [
+        { at: '2026-09-22T21:00:00.000Z', balance: rub(3700_00) },
+        { at: '2026-09-23T10:00:00.000Z', balance: rub(6700_00) },
+      ],
+      transactions: [income, withdrawal],
+      debts: [{ id, group, student, amount: rub(3500_00), dueAt: '2026-10-24' }],
+    };
+    expect(TeacherWalletSchema.safeParse(wallet).success).toBe(true);
+    expect(
+      TeacherWalletSchema.safeParse({ ...wallet, history: [], transactions: [], debts: [] })
+        .success,
+    ).toBe(true);
+    expect(
+      TeacherWalletSchema.safeParse({ ...wallet, transactions: [{ ...income, amount: rub(0) }] })
+        .success,
+    ).toBe(false);
+    expect(
+      TeacherWalletSchema.safeParse({ ...wallet, transactions: [{ ...income, kind: 'REFUND' }] })
+        .success,
+    ).toBe(false);
+    expect(
+      TeacherWalletSchema.safeParse({
+        ...wallet,
+        debts: [{ id, group, student, amount: rub(3500_00), dueAt: '2026-10-24T00:00:00.000Z' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      TeacherWithdrawalSchema.safeParse({ balance: rub(0), transaction: withdrawal }).success,
+    ).toBe(true);
+  });
+
+  it('WithdrawTeacherWalletBodySchema: не меньше минимума, целые копейки', () => {
+    expect(
+      WithdrawTeacherWalletBodySchema.safeParse({ amountKopecks: TEACHER_WITHDRAW_MIN_KOPECKS })
+        .success,
+    ).toBe(true);
+    expect(
+      WithdrawTeacherWalletBodySchema.safeParse({ amountKopecks: TEACHER_WITHDRAW_MIN_KOPECKS - 1 })
+        .success,
+    ).toBe(false);
+    expect(
+      WithdrawTeacherWalletBodySchema.safeParse({
+        amountKopecks: TEACHER_WITHDRAW_MIN_KOPECKS + 0.5,
+      }).success,
     ).toBe(false);
   });
 });

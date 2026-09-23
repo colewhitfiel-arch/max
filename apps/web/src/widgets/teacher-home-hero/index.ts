@@ -1,0 +1,1 @@
+export { TeacherHomeHero } from './TeacherHomeHero';

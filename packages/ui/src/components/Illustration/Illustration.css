@@ -1,0 +1,12 @@
+/* Макет главной репетитора: иллюстрация 342×256 по центру под шапкой, обрезка по области. */
+.ui-illustration {
+  display: block;
+  width: 100%;
+  max-width: 342px;
+  height: auto;
+  aspect-ratio: var(--ui-illustration-ratio, 342 / 256);
+  margin-inline: auto;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}

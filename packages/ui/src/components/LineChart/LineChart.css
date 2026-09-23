@@ -1,0 +1,116 @@
+/*
+ * Макет кошелька «Изменение баланса»: карточка 217×111, радиус 30; заголовок 10px semibold
+ * по центру в 7px от верха; подписи оси Y (8px light) над линиями сетки у левого края
+ * карточки, сетка начинается в 20px от края; линия primary 3px со скруглёнными концами;
+ * подписи оси X (7px light) в 11px под нижней линией.
+ */
+.ui-line-chart {
+  /* Линия начинается правее начала сетки — не наезжает на подписи оси Y. */
+  --ui-line-chart-inset: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: var(--ui-line-chart-height, 111px);
+  padding: 7px 11px 11px 4px;
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-line-chart__title {
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.ui-line-chart__figure {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-left: 16px;
+}
+
+.ui-line-chart__plot {
+  position: relative;
+  flex: 1;
+  min-height: 12px;
+  /* Место под подпись верхнего деления (она стоит над своей линией). */
+  margin-top: 17px;
+}
+
+/* Деление: нулевая по высоте опора на своей доле высоты; линия — от неё вниз на 1px. */
+.ui-line-chart__tick {
+  position: absolute;
+  right: 0;
+  bottom: var(--ui-line-chart-at);
+  left: 0;
+  height: 0;
+}
+
+.ui-line-chart__tick::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ui-color-text-muted);
+  opacity: 0.2;
+}
+
+.ui-line-chart__tick-label {
+  position: absolute;
+  bottom: 1px;
+  left: -16px;
+  color: var(--ui-color-text-muted);
+  font-size: 8px;
+  font-weight: 300;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-line-chart__svg {
+  position: absolute;
+  top: 0;
+  left: var(--ui-line-chart-inset);
+  display: block;
+  width: calc(100% - var(--ui-line-chart-inset));
+  height: 100%;
+  overflow: visible;
+}
+
+.ui-line-chart__line {
+  fill: none;
+  stroke: var(--ui-color-primary);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Подписи оси X — по ширине линии, каждая по центру своей доли. */
+.ui-line-chart__x-axis {
+  position: relative;
+  height: 9px;
+  margin-top: 11px;
+  margin-left: var(--ui-line-chart-inset);
+}
+
+.ui-line-chart__x-label {
+  position: absolute;
+  top: 0;
+  left: var(--ui-line-chart-x);
+  transform: translateX(-50%);
+  color: var(--ui-color-text-muted);
+  font-size: 7px;
+  font-weight: 300;
+  line-height: 9px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

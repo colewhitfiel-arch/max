@@ -1,6 +1,6 @@
 /**
- * Хуки экрана «Успеваемость» родителя (дуга посещений, домашние задачи, подробности заданий).
- * Отдельный файл, чтобы не пересекаться с хуками главной/детей в `api.ts`.
+ * Хуки экранов «Успеваемость» родителя и преподавателя (дуга посещений, домашние задачи,
+ * подробности заданий). Отдельный файл, чтобы не пересекаться с хуками главной/детей в `api.ts`.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -47,6 +47,24 @@ export function useChildGroupTasks(studentId: string | null, groupId: string | n
     queryFn: () =>
       call(
         api.dashboards.getParentChildGroupTasks({
+          params: { studentId: studentId!, groupId: groupId! },
+        }),
+      ),
+    enabled: !!studentId && !!groupId,
+  });
+}
+
+/**
+ * `GET /teacher/students/:studentId/groups/:groupId/tasks` — задания группы преподавателя по
+ * ученику: условия, ответы, эталоны и статусы. Ученик не из групп преподавателя или чужая
+ * группа — `FORBIDDEN` (экран показывает «Ученик не в ваших группах»).
+ */
+export function useTeacherStudentGroupTasks(studentId: string | null, groupId: string | null) {
+  return useQuery({
+    queryKey: studentKeys.teacherStudentGroupTasks(studentId ?? '', groupId ?? ''),
+    queryFn: () =>
+      call(
+        api.dashboards.getTeacherStudentGroupTasks({
           params: { studentId: studentId!, groupId: groupId! },
         }),
       ),

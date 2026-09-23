@@ -1,6 +1,7 @@
 /**
  * Дашборды: главная ученика/родителя/преподавателя, группы, карточка ученика; аналитика заданий
- * родителя (прогресс за окно, сетка статусов, задания группы — `../homework.ts`).
+ * родителя (прогресс за окно, сетка статусов, задания группы — `../homework.ts`); успеваемость у
+ * преподавателя (ученик, задания ученика, «Общая успеваемость» — `../teacher-performance.ts`).
  */
 import {
   ChildAnalyticsDtoSchema,
@@ -14,6 +15,8 @@ import {
   StudentProfileDtoSchema,
   TeacherGroupsListSchema,
   TeacherHomeDtoSchema,
+  TeacherPerformanceDtoSchema,
+  TeacherPerformanceQuerySchema,
   TeacherStudentCardSchema,
   type WeekDay,
 } from '@edu/contracts';
@@ -35,6 +38,7 @@ import {
   lessonsOfGroups,
   needsAttention,
   scheduleOfGroup,
+  sharedGroupIds,
   splitLessons,
   statsBrief,
   studentBrief,
@@ -52,13 +56,17 @@ import {
 } from '../homework';
 import { apiError, apiUrl, authed, denyForeignChild, json, query } from '../lib';
 import { db, parentOfUser, studentOfUser, teacherOfUser } from '../state';
+import { teacherPerformance } from '../teacher-performance';
 
 const aiText = (text: string) => ({
   text,
   generatedAt: new Date(Date.now() - 3_600_000).toISOString(),
 });
 
-/** Текущая неделя пн–вс: статус дня по занятиям ученика и его посещаемости (заглушка analytics). */
+/**
+ * Текущая неделя пн–вс: статус дня по занятиям ученика и его посещаемости (заглушка analytics).
+ * `lessons` — занятия нужных групп: все группы ученика или только группы преподавателя.
+ */
 function weekOfStudent(studentId: string, lessons: Lesson[], now = new Date()): WeekDay[] {
   const today = startOfDay(now);
   const monday = addDays(today, -((today.getDay() + 6) % 7));
@@ -339,9 +347,10 @@ export const dashboardsHandlers = [
       ({ auth, params }) => {
         const teacher = teacherOfUser(auth.user.id);
         const group = db.groups.find((g) => g.id === params.groupId);
-        if (!group) return apiError('NOT_FOUND', 'Группа не найдена');
-        if (!teacher || group.teacherId !== teacher.id)
-          return apiError('FORBIDDEN', 'Чужая группа');
+        // «Нет такой» и «чужая» для преподавателя неразличимы — 403 (docs/05); 404 фронт
+        // показывает как «раздел в разработке».
+        if (!group || !teacher || group.teacherId !== teacher.id)
+          return apiError('FORBIDDEN', 'Группа не найдена или чужая');
         return json(GroupDetailSchema, {
           ...groupCard(group.id),
           schedule: scheduleOfGroup(group.id),
@@ -370,12 +379,12 @@ export const dashboardsHandlers = [
         const teacher = teacherOfUser(auth.user.id);
         if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
         const studentId = params.studentId;
-        if (!db.students.some((s) => s.id === studentId))
-          return apiError('NOT_FOUND', 'Ученик не найден');
-        const teacherGroupIds = groupsOfTeacher(teacher.id).map((g) => g.id);
-        const groupIds = groupIdsOfStudent(studentId).filter((g) => teacherGroupIds.includes(g));
+        const groupIds = sharedGroupIds(teacher.id, studentId);
+        // Нет такого ученика — как «не в ваших группах»: 403, а не 404 (docs/05).
         if (groupIds.length === 0) return apiError('FORBIDDEN', 'Ученик не в ваших группах');
         const lessons = lessonsOfGroups(groupIds);
+        // «Успеваемость» — как у родителя, но только по группам преподавателя (docs/04 §4.6).
+        const clubHomework = clubHomeworkOf(studentId, new Date(), { groupIds, viewer: 'teacher' });
         return json(TeacherStudentCardSchema, {
           student: studentBrief(studentId),
           groups: groupIds.map((g) => groupCard(g)),
@@ -398,7 +407,50 @@ export const dashboardsHandlers = [
             'Ученик активен на практике, но не всегда укладывается в сроки домашних заданий.',
           ),
           needsAttention: needsAttention(studentId),
+          week: weekOfStudent(studentId, lessons),
+          homework: sumCounts(clubHomework.map((item) => item.counts)),
+          clubHomework,
         });
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  http.get<{ studentId: string; groupId: string }>(
+    apiUrl('/teacher/students/:studentId/groups/:groupId/tasks'),
+    authed(
+      ({ auth, params }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const { studentId, groupId } = params;
+        // Нет ученика или группы — тоже 403, как чужие (docs/05).
+        const group = db.groups.find((g) => g.id === groupId);
+        if (!group || group.teacherId !== teacher.id) {
+          return apiError('FORBIDDEN', 'Группа не найдена или чужая');
+        }
+        if (!sharedGroupIds(teacher.id, studentId).includes(groupId)) {
+          return apiError('FORBIDDEN', 'Ученик не в этой группе');
+        }
+        return json(GroupHomeworkTasksSchema, {
+          group: groupBrief(groupId),
+          items: homeworkTaskDetails(studentId, groupId, new Date(), 'teacher'),
+        });
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  http.get(
+    apiUrl('/teacher/performance'),
+    authed(
+      ({ auth, request }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Нет профиля преподавателя');
+        const q = TeacherPerformanceQuerySchema.safeParse(Object.fromEntries(query(request)));
+        if (!q.success) {
+          return apiError('VALIDATION', 'Неверные параметры запроса', q.error.flatten());
+        }
+        return json(TeacherPerformanceDtoSchema, teacherPerformance(teacher.id, q.data.period));
       },
       ['TEACHER'],
     ),

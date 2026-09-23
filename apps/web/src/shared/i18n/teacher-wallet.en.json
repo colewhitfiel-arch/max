@@ -1,0 +1,56 @@
+{
+  "title": "Wallet",
+  "close": "Balance",
+  "closeLabel": "Close balance",
+  "balance": "Balance {{amount}}",
+  "balanceLoading": "Balance is loading",
+  "withdraw": "Withdraw",
+  "periodLabel": "Period",
+  "periods": {
+    "day": "1 day",
+    "week": "7 days",
+    "month": "30 days"
+  },
+  "chart": {
+    "title": "Balance change",
+    "label": "Balance change over {{period}}: from {{from}} to {{to}}"
+  },
+  "columns": {
+    "group": "Group",
+    "student": "Student",
+    "amount": "Amount",
+    "time": "Time",
+    "date": "Date"
+  },
+  "transactions": {
+    "title": "Transactions",
+    "today": "today",
+    "yesterday": "yesterday",
+    "dayLabel": "Transactions: {{day}}",
+    "withdrawal": "Withdrawal",
+    "empty": "No transactions for this period"
+  },
+  "debts": {
+    "title": "Owed to you",
+    "overdue": "overdue",
+    "empty": "Nobody owes you"
+  },
+  "withdrawSheet": {
+    "title": "Withdraw funds",
+    "available": "Available to withdraw: {{amount}}",
+    "amount": "Amount, ₽",
+    "amountPlaceholder": "e.g. 3000",
+    "limits": "From {{min}} to {{max}}",
+    "presets": "Quick amounts",
+    "all": "All",
+    "allLabel": "All — {{amount}}",
+    "tooSmall": "Minimum amount is {{min}}",
+    "tooLarge": "More than your balance: {{max}} available",
+    "invalid": "Enter a whole number of rubles",
+    "submit": "Withdraw",
+    "submitAmount": "Withdraw {{amount}}",
+    "success": "Withdrawal placed (demo mode)",
+    "stubTitle": "Demo mode",
+    "stub": "The money is deducted from the balance instantly, no real transfer is made."
+  }
+}

@@ -30,6 +30,18 @@ export function useChildCalendar(
   });
 }
 
+/**
+ * `GET /teacher/calendar?from&to` — занятия всех групп преподавателя за период; `enabled: false` —
+ * не запрашивать (на главной — пока календарь закрыт и день в пределах недели главной).
+ */
+export function useTeacherCalendar(period: PeriodQuery, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: lessonKeys.teacherCalendar(period),
+    queryFn: () => call(api.groups.getTeacherCalendar({ query: period })),
+    enabled,
+  });
+}
+
 /** `GET /teacher/groups/:groupId/lessons`. */
 export function useTeacherLessons(groupId: string, period: PeriodQuery) {
   return useQuery({

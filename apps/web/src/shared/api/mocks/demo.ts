@@ -63,6 +63,8 @@ export function groupBrief(groupId: string): GroupBrief {
   return {
     id: group.id,
     title: group.title,
+    // Короткий номер («001») — только в моках (`MOCK_GROUP_CODES`), везде, где есть GroupBrief.
+    code: group.code,
     club: clubBrief(group.clubId),
     teacher: teacherBrief(group.teacherId),
   };
@@ -125,6 +127,12 @@ export const studentIdsOfGroup = (groupId: string) =>
 
 export const groupsOfTeacher = (teacherId: string) =>
   db.groups.filter((g) => g.teacherId === teacherId);
+
+/** Группы преподавателя, в которых занимается ученик (политика доступа `teacher:students.view`). */
+export const sharedGroupIds = (teacherId: string, studentId: string) => {
+  const own = new Set(groupsOfTeacher(teacherId).map((g) => g.id));
+  return groupIdsOfStudent(studentId).filter((groupId) => own.has(groupId));
+};
 
 export const childrenIdsOfParent = (parentId: string) =>
   db.links.filter((l) => l.parentId === parentId && l.status === 'ACTIVE').map((l) => l.studentId);

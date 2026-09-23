@@ -55,6 +55,14 @@ export const groupsContract = c.router(
       summary: 'Календарь ребёнка за период',
       metadata: userRoute('parent:child.calendar.view'),
     },
+    getTeacherCalendar: {
+      method: 'GET',
+      path: '/teacher/calendar',
+      query: PeriodQuerySchema,
+      responses: { 200: LessonsListSchema },
+      summary: 'Календарь преподавателя за период: занятия всех его групп',
+      metadata: userRoute('teacher:groups.view'),
+    },
     listGroupLessons: {
       method: 'GET',
       path: '/teacher/groups/:groupId/lessons',

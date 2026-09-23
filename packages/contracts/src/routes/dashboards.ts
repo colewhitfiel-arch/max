@@ -326,8 +326,67 @@ export const TeacherStudentCardSchema = z.object({
   attendanceHistory: z.array(AttendanceHistoryItemSchema),
   aiSummary: AiTextSchema,
   needsAttention: z.array(z.string()),
+  /** Текущая неделя (пн–вс) для дуги «Посещения» — как на главной ученика; только группы преподавателя. */
+  week: z.array(WeekDaySchema).optional(),
+  /**
+   * Итоги по заданиям групп преподавателя для круговой «Домашние задачи»;
+   * «правильно» — порог родителя (docs/04 §4.6).
+   */
+  homework: HomeworkCountsSchema.optional(),
+  /** Задания по каждому кружку ученика в группах преподавателя (полоса итогов + сетка статусов). */
+  clubHomework: z.array(ClubHomeworkSchema).optional(),
 });
 export type TeacherStudentCard = z.infer<typeof TeacherStudentCardSchema>;
+
+/** Периоды экрана «Общая успеваемость»: день, 7 дней, 30 дней, с начала учебного курса. */
+export const TEACHER_PERFORMANCE_PERIODS = ['day', 'week', 'month', 'course'] as const;
+export const TeacherPerformancePeriodSchema = z.enum(TEACHER_PERFORMANCE_PERIODS);
+export type TeacherPerformancePeriod = z.infer<typeof TeacherPerformancePeriodSchema>;
+export const TEACHER_PERFORMANCE_DEFAULT_PERIOD: TeacherPerformancePeriod = 'day';
+
+/**
+ * Query «Общей успеваемости»: `?period=day|week|month|course`, по умолчанию `day`.
+ * Окна календарные: day — с начала сегодняшнего дня, week / month — 7 / 30 календарных дней
+ * включая сегодняшний, course — с 1 сентября текущего учебного года (docs/04 §4.6).
+ */
+export const TeacherPerformanceQuerySchema = z.object({
+  period: TeacherPerformancePeriodSchema.default(TEACHER_PERFORMANCE_DEFAULT_PERIOD),
+});
+export type TeacherPerformanceQuery = z.infer<typeof TeacherPerformanceQuerySchema>;
+
+/** Счётчики группы за период (docs/04 §4.6); считает analytics. */
+export const TeacherGroupPerformanceSchema = z
+  .object({
+    group: GroupBriefSchema,
+    /** Активные ученики группы. */
+    studentsCount: z.number().int().nonnegative(),
+    /**
+     * Отметки PRESENT/LATE на занятиях группы в периоде, которые уже начались (включая идущее
+     * сейчас) и не отменены (docs/04 §4.6). Неотмеченные занятия не считаются.
+     */
+    attended: z.number().int().nonnegative(),
+    /** Отметки ABSENT/EXCUSED на тех же занятиях. */
+    missed: z.number().int().nonnegative(),
+    /** Сдачи (задание × ученик, DONE или проверенный FAILED) по заданиям со сроком в периоде. */
+    homeworkDone: z.number().int().nonnegative(),
+    /** Из сданных — выполнены правильно (статус DONE по порогу §4.6). */
+    homeworkCorrect: z.number().int().nonnegative(),
+  })
+  .refine((row) => row.homeworkCorrect <= row.homeworkDone, {
+    message: 'homeworkCorrect не может превышать homeworkDone',
+    path: ['homeworkCorrect'],
+  });
+export type TeacherGroupPerformance = z.infer<typeof TeacherGroupPerformanceSchema>;
+
+export const TeacherPerformanceDtoSchema = z.object({
+  period: TeacherPerformancePeriodSchema,
+  /** Границы посчитанного окна: from — начало, to — момент расчёта. */
+  from: DateTimeSchema,
+  to: DateTimeSchema,
+  /** Все активные группы преподавателя (и без занятий в периоде — с нулями). */
+  groups: z.array(TeacherGroupPerformanceSchema),
+});
+export type TeacherPerformanceDto = z.infer<typeof TeacherPerformanceDtoSchema>;
 
 // ---------- Роуты ----------
 
@@ -410,6 +469,22 @@ export const dashboardsContract = c.router(
       responses: { 200: TeacherStudentCardSchema },
       summary: 'Карточка ученика для преподавателя',
       metadata: userRoute('teacher:students.view'),
+    },
+    getTeacherStudentGroupTasks: {
+      method: 'GET',
+      path: '/teacher/students/:studentId/groups/:groupId/tasks',
+      pathParams: z.object({ studentId: IdSchema, groupId: IdSchema }),
+      responses: { 200: GroupHomeworkTasksSchema },
+      summary: 'Задания группы преподавателя по ученику: условия, ответы, эталоны и статусы',
+      metadata: userRoute('teacher:students.view'),
+    },
+    getTeacherPerformance: {
+      method: 'GET',
+      path: '/teacher/performance',
+      query: TeacherPerformanceQuerySchema,
+      responses: { 200: TeacherPerformanceDtoSchema },
+      summary: 'Общая успеваемость по группам преподавателя за период: посещения и задания',
+      metadata: userRoute('teacher:groups.view'),
     },
   },
   contractRouterOptions,

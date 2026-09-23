@@ -6,11 +6,16 @@ import { formatDateTime } from '@/shared/lib/dates';
 
 export interface HomeworkTaskSectionProps {
   task: HomeworkTaskDetail;
+  /**
+   * Уровень заголовка «Задание N». По умолчанию `h2` (у родителя `h1` — название кружка);
+   * `h3` — когда над заданиями есть свой `h2` (полоса курса у преподавателя).
+   */
+  titleAs?: 'h2' | 'h3';
 }
 
 /** Строки результата под условием: цвет и текст зависят от статуса задания. */
-function TaskResult({ task }: HomeworkTaskSectionProps) {
-  const { t, i18n } = useTranslation('parent-analytics');
+function TaskResult({ task }: Pick<HomeworkTaskSectionProps, 'task'>) {
+  const { t, i18n } = useTranslation('performance');
   const due = (value: string) => formatDateTime(value, i18n.language);
 
   switch (task.status) {
@@ -19,39 +24,39 @@ function TaskResult({ task }: HomeworkTaskSectionProps) {
         <Stack gap={1}>
           {task.answer != null && (
             <Text variant="caption" as="p" tone="success">
-              {t('task.answer', { answer: task.answer })}
+              {t('taskDetail.answer', { answer: task.answer })}
             </Text>
           )}
           <Text variant="caption" as="p" tone={task.score == null ? 'muted' : 'success'}>
             {task.score == null
-              ? t('task.pendingReview')
-              : t('task.score', { score: task.score, max: task.maxScore })}
+              ? t('taskDetail.pendingReview')
+              : t('taskDetail.score', { score: task.score, max: task.maxScore })}
           </Text>
         </Stack>
       );
     case 'FAILED':
-      // Сдано, но меньше 30% — ответ и эталон; не сдано к сроку — дата истечения.
+      // Сдано, но ниже порога — ответ и эталон; не сдано к сроку — дата истечения.
       return (
         <Stack gap={1}>
           {task.answer != null ? (
             <Text variant="caption" as="p" tone="danger">
-              {t('task.answer', { answer: task.answer })}
+              {t('taskDetail.answer', { answer: task.answer })}
             </Text>
           ) : (
             <Text variant="caption" as="p" tone="danger">
               {task.dueAt
-                ? t('task.notSubmitted', { date: due(task.dueAt) })
+                ? t('taskDetail.notSubmitted', { date: due(task.dueAt) })
                 : t('status.FAILED_OVERDUE')}
             </Text>
           )}
           {task.correctAnswer != null && (
             <Text variant="caption" as="p" tone="success">
-              {t('task.correctAnswer', { answer: task.correctAnswer })}
+              {t('taskDetail.correctAnswer', { answer: task.correctAnswer })}
             </Text>
           )}
           {task.score != null && (
             <Text variant="caption" as="p" tone="muted">
-              {t('task.score', { score: task.score, max: task.maxScore })}
+              {t('taskDetail.score', { score: task.score, max: task.maxScore })}
             </Text>
           )}
         </Stack>
@@ -62,10 +67,10 @@ function TaskResult({ task }: HomeworkTaskSectionProps) {
       return (
         <Stack gap={1}>
           <Text variant="caption" as="p" tone={tone}>
-            {t('task.upcoming')}
+            {t('taskDetail.upcoming')}
           </Text>
           <Text variant="caption" as="p" tone={tone}>
-            {task.dueAt ? t('task.due', { date: due(task.dueAt) }) : t('task.noDue')}
+            {task.dueAt ? t('taskDetail.due', { date: due(task.dueAt) }) : t('taskDetail.noDue')}
           </Text>
         </Stack>
       );
@@ -76,18 +81,19 @@ function TaskResult({ task }: HomeworkTaskSectionProps) {
 /**
  * Задание на экране подробностей: «Задание N», условие, код с подсветкой и результат
  * (ответ / правильный ответ / «Предстоит выполнить»). Полупрозрачная полоса на всю ширину.
+ * Общий для подробностей заданий у родителя и у преподавателя.
  */
 export const HomeworkTaskSection = forwardRef<HTMLElement, HomeworkTaskSectionProps>(
-  function HomeworkTaskSection({ task }, ref) {
-    const { t } = useTranslation('parent-analytics');
+  function HomeworkTaskSection({ task, titleAs = 'h2' }, ref) {
+    const { t } = useTranslation('performance');
     const toast = useToast();
     const titleId = useId();
 
     return (
       <Band as="section" ref={ref} aria-labelledby={titleId}>
         <Stack gap={3}>
-          <Text as="h2" id={titleId} variant="body" weight="medium">
-            {t('task.title', { number: task.number })}
+          <Text as={titleAs} id={titleId} variant="body" weight="medium">
+            {t('taskDetail.title', { number: task.number })}
           </Text>
           <Text variant="caption" as="p">
             {task.statement}
@@ -96,10 +102,10 @@ export const HomeworkTaskSection = forwardRef<HTMLElement, HomeworkTaskSectionPr
             <CodeBlock
               code={task.code.source}
               language={task.code.language}
-              copyLabel={t('task.copy')}
-              copiedLabel={t('task.copied')}
+              copyLabel={t('taskDetail.copy')}
+              copiedLabel={t('taskDetail.copied')}
               onCopyResult={(ok) => {
-                if (!ok) toast.show({ tone: 'danger', title: t('task.copyFailed') });
+                if (!ok) toast.show({ tone: 'danger', title: t('taskDetail.copyFailed') });
               }}
             />
           )}

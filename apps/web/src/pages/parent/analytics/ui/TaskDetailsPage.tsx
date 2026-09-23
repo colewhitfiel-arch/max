@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useChildGroupTasks } from '@/entities/student';
 import { isApiClientError } from '@/shared/api/errors';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
-import { HomeworkTaskSection } from '@/widgets/parent-analytics-homework';
+import { HomeworkTaskSection } from '@/widgets/homework-performance';
 import { analyticsPaths, isFromAnalytics } from '../paths';
 
 function TasksSkeleton() {

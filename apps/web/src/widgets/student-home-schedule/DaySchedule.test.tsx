@@ -116,4 +116,17 @@ describe('DaySchedule', () => {
     await user.click(screen.getByRole('button', { name: 'Добавить кружок' }));
     expect(onAddClub).toHaveBeenCalledTimes(2);
   });
+
+  it('сбой загрузки дня: ошибка с повтором вместо «нет занятий», листать дни можно', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(<Harness lessons={[lesson('l1', 0, 23)]} error={new Error('сеть')} onRetry={onRetry} />);
+    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByText('Сегодня занятий нет')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    expect(screen.getByText('Завтра')).toBeInTheDocument();
+  });
 });

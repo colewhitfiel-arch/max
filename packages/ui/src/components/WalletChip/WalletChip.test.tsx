@@ -17,6 +17,28 @@ describe('WalletChip', () => {
     expect(onClick).toHaveBeenCalledTimes(2);
   });
 
+  it('по умолчанию рисует плюс, plus={false} — только кошелёк и сумма', () => {
+    const { container, rerender } = render(
+      <WalletChip amount="6700" onClick={() => undefined} aria-label="Баланс 6700 ₽" />,
+    );
+    expect(container.querySelector('.ui-wallet-chip__plus')).not.toBeNull();
+    expect(container.querySelectorAll('svg')).toHaveLength(2);
+
+    rerender(
+      <WalletChip
+        amount="6700"
+        plus={false}
+        onClick={() => undefined}
+        aria-label="Баланс 6700 ₽, открыть кошелёк"
+      />,
+    );
+    expect(container.querySelector('.ui-wallet-chip__plus')).toBeNull();
+    expect(container.querySelectorAll('svg')).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Баланс 6700 ₽, открыть кошелёк' }),
+    ).toHaveTextContent('6700');
+  });
+
   it('иконки декоративные', () => {
     const { container } = render(
       <WalletChip amount="0" onClick={() => undefined} aria-label="Баланс 0 ₽" />,

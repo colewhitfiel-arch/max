@@ -48,4 +48,108 @@ describe('CardColumns', () => {
     await userEvent.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it('striped: полоса на нечётных строках (или с чётной), тон строки перекрывает полосу', () => {
+    const three = [
+      ...rows,
+      { key: 'r3', cells: { name: 'Вывод', time: '19:00' }, tone: 'danger' as const },
+    ];
+    const columns = [
+      { key: 'name', header: 'Название' },
+      { key: 'time', header: 'Время', nowrap: true },
+    ];
+    const { rerender } = render(
+      <CardColumns aria-label="Транзакции" columns={columns} rows={three} striped />,
+    );
+    const table = screen.getByRole('table', { name: 'Транзакции' });
+    const nameCells = within(within(table).getAllByRole('rowgroup')[0]!).getAllByRole('cell');
+    expect(nameCells.map((cell) => cell.hasAttribute('data-stripe'))).toEqual([true, false, true]);
+    // Первая и последняя подложенные строки помечены — у краёв карточки полоса скругляется.
+    expect(nameCells[0]).toHaveAttribute('data-first');
+    expect(nameCells[2]).toHaveAttribute('data-last');
+    expect(nameCells[2]).toHaveAttribute('data-tone', 'danger');
+    expect(nameCells[1]).not.toHaveAttribute('data-first');
+
+    rerender(<CardColumns aria-label="Транзакции" columns={columns} rows={three} striped="even" />);
+    const evenCells = within(within(table).getAllByRole('rowgroup')[1]!).getAllByRole('cell');
+    expect(evenCells.map((cell) => cell.hasAttribute('data-stripe'))).toEqual([false, true, false]);
+
+    rerender(<CardColumns aria-label="Транзакции" columns={columns} rows={rows} />);
+    expect(table.querySelector('[data-stripe]')).toBeNull();
+  });
+
+  it('compact: заголовки отдельной строкой над карточками, weight задаёт доли ширины', () => {
+    render(
+      <CardColumns
+        aria-label="Транзакции"
+        variant="compact"
+        columns={[
+          { key: 'name', header: 'ФИО ученика', weight: 125 },
+          { key: 'time', header: 'Время', align: 'center', weight: 76 },
+        ]}
+        rows={rows}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Транзакции' });
+    expect(table).toHaveAttribute('data-variant', 'compact');
+    expect(table.style.getPropertyValue('--ui-card-columns-template')).toBe(
+      'minmax(0, 125fr) minmax(0, 76fr)',
+    );
+    const [head, nameColumn, timeColumn] = within(table).getAllByRole('rowgroup');
+    expect(
+      within(head!)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['ФИО ученика', 'Время']);
+    expect(within(nameColumn!).queryByRole('columnheader')).not.toBeInTheDocument();
+    expect(
+      within(timeColumn!)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['17:00-18:30', '19:00-20:30']);
+  });
+
+  it('showHeader={false}: заголовки только для скринридера, строка сетки под них не нужна', () => {
+    const columns = [
+      { key: 'name', header: 'Название' },
+      { key: 'time', header: 'Время' },
+    ];
+    const { rerender } = render(
+      <CardColumns aria-label="Сегодня" columns={columns} rows={rows} showHeader={false} />,
+    );
+    const table = screen.getByRole('table', { name: 'Сегодня' });
+    expect(table).toHaveAttribute('data-header', 'hidden');
+    expect(table.style.getPropertyValue('--ui-card-columns-rows')).toBe('2');
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers).toHaveLength(2);
+    headers.forEach((header) => expect(header).toHaveClass('ui-visually-hidden'));
+
+    rerender(
+      <CardColumns
+        aria-label="Сегодня"
+        variant="compact"
+        columns={columns}
+        rows={rows}
+        showHeader={false}
+      />,
+    );
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
+    expect(within(table).getAllByRole('rowgroup')[0]).toHaveClass('ui-visually-hidden');
+  });
+
+  it('caption — подпись блока (role="caption") первой в таблице', () => {
+    render(
+      <CardColumns
+        aria-label="Транзакции за вчера"
+        caption="вчера"
+        variant="compact"
+        columns={[{ key: 'name', header: 'Название' }]}
+        rows={rows}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Транзакции за вчера' });
+    const caption = table.firstElementChild!;
+    expect(caption).toHaveAttribute('role', 'caption');
+    expect(caption).toHaveTextContent('вчера');
+  });
 });

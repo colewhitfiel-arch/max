@@ -1,27 +1,36 @@
 import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useTeacherGroup } from '@/entities/group';
 import { LessonCard, useTeacherLessons } from '@/entities/lesson';
 import { StudentRow } from '@/entities/student';
 import { nextDaysPeriod, weekdayName } from '@/shared/lib/dates';
 import { formatPercent, formatRate } from '@/shared/lib/format';
+import { FROM_APP_STATE, isFromApp } from '@/shared/lib/navigation';
+import { teacherStudentPaths } from '@/shared/lib/teacher-paths';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
-/** `/teacher/groups/:groupId` — `GET /teacher/groups/:id` + занятия на 14 дней. */
+/**
+ * `/teacher/groups/:groupId` — `GET /teacher/groups/:id` + занятия на 14 дней. Открыта из
+ * приложения (список групп, «Мои группы» в профиле) — «назад» по истории, иначе — к списку групп.
+ */
 export function GroupPage() {
   const { groupId = '' } = useParams();
   const { t, i18n } = useTranslation('teacher');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
+  const location = useLocation();
   const query = useTeacherGroup(groupId);
   const period = useMemo(() => nextDaysPeriod(14), []);
   const lessons = useTeacherLessons(groupId, period);
 
   return (
     <>
-      <ScreenHeader title={query.data?.title ?? t('groups.title')} back="/teacher/groups" />
+      <ScreenHeader
+        title={query.data?.title ?? t('groups.title')}
+        back={isFromApp(location.state) ? true : '/teacher/groups'}
+      />
       <Screen>
         <AsyncState query={query}>
           {(group) => (
@@ -60,7 +69,11 @@ export function GroupPage() {
                           <Badge tone="success">{t('groups.ok')}</Badge>
                         )
                       }
-                      onClick={() => navigate(`/teacher/students/${row.student.id}`)}
+                      onClick={() =>
+                        navigate(teacherStudentPaths.student(row.student.id), {
+                          state: FROM_APP_STATE,
+                        })
+                      }
                     />
                   ))}
                 </Card>

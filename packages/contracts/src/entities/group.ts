@@ -16,6 +16,11 @@ export type Group = z.infer<typeof GroupSchema>;
 export const GroupBriefSchema = z.object({
   id: IdSchema,
   title: z.string(),
+  /**
+   * Короткий номер группы («001») для таблиц и подписей графиков; null/нет — UI показывает `title`.
+   * В модели данных пока не хранится (docs/04, планируется).
+   */
+  code: z.string().min(1).max(16).nullable().optional(),
   club: ClubBriefSchema,
   teacher: TeacherBriefSchema,
 });

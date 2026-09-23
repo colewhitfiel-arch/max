@@ -44,10 +44,11 @@ export function App() {
     if (locale) void setLanguage(locale);
   }, [locale]);
 
-  // Акцент роли (макет): у родителя зелёный на всех его экранах — и в `/parent/*`, и на общих
-  // (`/notifications`), у остальных ролей и до входа — синий. До отрисовки, без вспышки.
+  // Акцент роли (макеты): у родителя зелёный, у преподавателя оранжевый — на всех экранах роли,
+  // и в `/<role>/*`, и на общих (`/notifications`); у ученика и до входа — синий. До отрисовки,
+  // без вспышки.
   useLayoutEffect(() => {
-    applyAccent(activeRole === 'PARENT' ? 'green' : 'blue');
+    applyAccent(activeRole === 'PARENT' ? 'green' : activeRole === 'TEACHER' ? 'orange' : 'blue');
   }, [activeRole]);
 
   // Системная кнопка «назад» в MAX → история роутера (в браузере её обрабатывает сам роутер).

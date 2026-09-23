@@ -1,1 +1,1 @@
-export { Band, type BandProps } from './Band';
+export { Band, type BandProps, type BandTone } from './Band';

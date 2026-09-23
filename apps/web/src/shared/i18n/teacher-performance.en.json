@@ -1,0 +1,58 @@
+{
+  "title": "Overall performance",
+  "toPerformance": "Back to performance",
+  "period": {
+    "label": "Period",
+    "day": "1 day",
+    "week": "7 days",
+    "month": "30 days",
+    "course": "Course"
+  },
+  "attendance": {
+    "title": "Attendance",
+    "attended": "attended",
+    "missed": "missed",
+    "chartLabel": "Attendance by group: {{groups}}",
+    "bar": "group {{group}} ({{club}}): attended {{attended}}, missed {{missed}}",
+    "barEmpty": "group {{group}} ({{club}}): no lessons"
+  },
+  "table": {
+    "caption": "Homework by group",
+    "group": "Group",
+    "correct": "Homework done correctly",
+    "done": "Homework done",
+    "rowLabel": "Group {{group}}: students"
+  },
+  "empty": {
+    "title": "No groups yet",
+    "text": "Once you are assigned groups, attendance and homework for each will appear here"
+  },
+  "group": {
+    "title": "Group {{code}}",
+    "fallbackTitle": "Group",
+    "students": "Students",
+    "studentStats": "attendance {{attendance}} · progress {{progress}}",
+    "emptyTitle": "No students in the group yet",
+    "emptyText": "Once students join the group, their performance will appear here",
+    "notFoundTitle": "Group not found",
+    "notFoundText": "This isn't your group or the link is outdated"
+  },
+  "student": {
+    "title": "Student performance",
+    "close": "Performance",
+    "closeLabel": "Close performance",
+    "clubsLabel": "Homework by course",
+    "clubsEmptyTitle": "No homework yet",
+    "clubsEmptyText": "Once you assign homework in the student's groups, totals for each course will appear here",
+    "notFoundTitle": "The student isn't in your groups",
+    "notFoundText": "Performance is available only for students of your groups. The student may have moved to another group or the link is outdated"
+  },
+  "tasks": {
+    "title": "Student's tasks",
+    "close": "Tasks",
+    "closeLabel": "Close tasks",
+    "listLabel": "Group tasks",
+    "emptyTitle": "No tasks yet",
+    "emptyText": "You haven't assigned any tasks in this group yet"
+  }
+}

@@ -1,7 +1,7 @@
 /**
  * Изменяемое состояние демо-мира для MSW: копии фикстур + дополнения моков (`world-extras.ts`)
  * + то, что меняют мутации (сессии, настройки, привязки, прогресс, сдачи, уведомления, диалоги,
- * кошельки, приглашения). Живёт до перезагрузки.
+ * кошельки родителей и преподавателей, приглашения). Живёт до перезагрузки.
  */
 import type {
   AiConversation,
@@ -28,6 +28,7 @@ import type {
   StudentProfile,
   Submission,
   TeacherProfile,
+  TeacherWithdrawal,
   Trajectory,
   UserSettings,
 } from '@edu/contracts';
@@ -57,10 +58,17 @@ import {
   demoUsers,
   materializeDemoLessons,
 } from '@edu/contracts/fixtures';
-import { buildWorldExtras, DEMO_WALLET_START_KOPECKS, type MockInvite } from './world-extras';
+import {
+  buildWorldExtras,
+  DEMO_WALLET_START_KOPECKS,
+  MOCK_GROUP_CODES,
+  type MockInvite,
+} from './world-extras';
 
 export type MockUser = DemoUser;
 export type MockNotification = NotificationEntity & { userId: string };
+/** Группа мок-мира: + короткий номер (`GroupBrief.code`; в модели данных пока нет — docs/04). */
+export type MockGroup = Group & { code: string | null };
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -173,7 +181,10 @@ function buildState() {
     links: clone(demoParentLinks) as ParentStudentLink[],
     settings: new Map<string, UserSettings>(),
     clubs: clone([...demoClubs, ...extras.clubs]) as Club[],
-    groups: clone([...demoGroups, ...extras.groups]) as Group[],
+    groups: clone([...demoGroups, ...extras.groups]).map((group): MockGroup => ({
+      ...group,
+      code: MOCK_GROUP_CODES[group.id] ?? null,
+    })),
     enrollments: clone([...demoEnrollments, ...extras.enrollments]) as Enrollment[],
     scheduleRules: clone([...demoScheduleRules, ...extras.scheduleRules]) as ScheduleRule[],
     // Пояс браузера вместо МСК: «сегодняшние» занятия остаются сегодняшними в любом TZ.
@@ -207,8 +218,10 @@ function buildState() {
     ] as BlockProgress[],
     assignments: clone(demoAssignments) as Assignment[],
     submissions: clone(demoSubmissions) as Submission[],
-    payments: [clone(demoPayment)] as Payment[],
-    paidPeriods: [clone(demoPaidPeriod)] as PaidPeriod[],
+    // + оплаты за недавние поступления в кошелёк Марии (world-extras): «Вам должны» и платежи
+    // родителя не спорят с кошельком преподавателя.
+    payments: [clone(demoPayment), ...extras.payments] as Payment[],
+    paidPeriods: [clone(demoPaidPeriod), ...extras.paidPeriods] as PaidPeriod[],
     notifications: extraNotifications,
     conversations: [clone(demoConversation), extras.parentConversation] as AiConversation[],
     /** Диалоги родителя с тьютором о ребёнке (userId — родитель, studentId — ребёнок). */
@@ -242,6 +255,13 @@ function buildState() {
     wallets: new Map<string, number>([[DEMO_IDS.parents.olga, DEMO_WALLET_START_KOPECKS]]),
     /** Пополнения по Idempotency-Key: `${parentId}:${key}` → сумма и баланс после. */
     walletTopUps: new Map<string, { amountKopecks: number; balanceAfter: number }>(),
+    /**
+     * Кошельки преподавателей (заглушка до PaymentProvider): teacherId → операции. Отдельно от
+     * `wallets` (те — по parentId). Нет записи — пустой кошелёк (создаётся при обращении).
+     */
+    teacherWallets: extras.teacherWallets,
+    /** Выводы по Idempotency-Key: `${teacherId}:${key}` → сумма и ответ, отданный в первый раз. */
+    teacherWithdrawals: new Map<string, { amountKopecks: number; result: TeacherWithdrawal }>(),
     /** Приглашения ребёнка по ссылке (docs/07 F14). */
     invites: extras.invites as MockInvite[],
     /** maxUserId → userId для dev-входа (демо + ad-hoc пользователи). */

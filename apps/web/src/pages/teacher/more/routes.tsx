@@ -1,6 +1,10 @@
-import type { RouteObject } from 'react-router';
-import { lazyRoute } from '@/shared/lib/lazy-route';
+import { Navigate, type RouteObject } from 'react-router';
 
+/**
+ * `/teacher/more` — бывший экран «Ещё». Его разделы переехали в настройки («Работа»:
+ * кошелёк, группы, курсы, конструктор, спрос на кружки; роль, тема, выход) — старые ссылки
+ * и закладки ведут туда.
+ */
 export const teacherMoreRoutes: RouteObject[] = [
-  { path: 'more', lazy: lazyRoute(() => import('./ui/MorePage'), 'MorePage') },
+  { path: 'more', element: <Navigate to="/teacher/settings" replace /> },
 ];

@@ -36,7 +36,7 @@ export function TeacherCoursesPage() {
 
   return (
     <>
-      <ScreenHeader title={t('courses.title')} bell />
+      <ScreenHeader title={t('courses.title')} back="/teacher/settings" bell />
       <Screen>
         <AsyncState
           query={query}

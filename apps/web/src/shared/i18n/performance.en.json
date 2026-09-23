@@ -23,5 +23,19 @@
   },
   "task": {
     "cell": "Task {{number}} — {{status}}"
+  },
+  "taskDetail": {
+    "title": "Task {{number}}",
+    "answer": "Answer: {{answer}}",
+    "correctAnswer": "Correct answer: {{answer}}",
+    "score": "Score: {{score}} of {{max}}",
+    "pendingReview": "Submitted, awaiting review",
+    "notSubmitted": "Not submitted, deadline passed {{date}}",
+    "upcoming": "To be done",
+    "due": "Due: {{date}}",
+    "noDue": "No deadline",
+    "copy": "copy",
+    "copied": "copied",
+    "copyFailed": "Could not copy the code"
   }
 }

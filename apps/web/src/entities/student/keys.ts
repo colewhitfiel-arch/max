@@ -11,4 +11,7 @@ export const studentKeys = {
   /** Приглашение родителя глазами ученика (ссылка `/invite/:token`). */
   parentInvite: (token: string) => [...queryKeys.student, 'parent-invites', token] as const,
   teacherStudent: (studentId: string) => [...queryKeys.teacher, 'students', studentId] as const,
+  /** Задания группы по ученику глазами преподавателя (вложен в ключ карточки ученика). */
+  teacherStudentGroupTasks: (studentId: string, groupId: string) =>
+    [...queryKeys.teacher, 'students', studentId, 'groups', groupId, 'tasks'] as const,
 };
