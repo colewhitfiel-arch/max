@@ -38,13 +38,18 @@ ClubInterestStatus   CHOSEN | LATER | SKIPPED                         // в cont
 
 ## 4.2. Сущности
 
-Обозначения: `PK` — id (uuid v7), `FK` — ссылка, `?` — nullable, `[]` — массив, `json` — jsonb со схемой в contracts. У всех таблиц есть `createdAt`, `updatedAt`, если не сказано иное.
+Обозначения: `PK` — id (uuid v7), `FK` — ссылка, `?` — nullable, `[]` — массив, `json` — jsonb со схемой в contracts. У всех таблиц есть `createdAt`, `updatedAt`, если не сказано иное. Исключения (как в схеме):
+- только `createdAt` — `UserRole`, `RefreshToken`, `AiMessage`, `PaidPeriod`, `Notification`, `AuditLog`;
+- только `updatedAt` — `CourseProgress`, `StudentStatsDaily`, `NotificationSettings`, `ParentStudentLink` (время создания — `requestedAt`);
+- без обоих — `ActivityEvent` (`occurredAt`), `SubmissionAttempt` (`submittedAt`), `AiInsight`, `Trajectory` (`generatedAt`).
+
+Индексы, кроме PK и `unique`, перечислены в §4.2.1.
 
 ### identity (`identity.prisma`)
 ```
 User            id PK, maxUserId (unique), firstName, lastName?, nickname?, avatarUrl?,
                 locale Locale=ru, theme Theme=SYSTEM, lastSeenAt?
-UserRole        userId FK, role Role                                    unique(userId, role)
+UserRole        userId FK, role Role                                    PK(userId, role)
 StudentProfile  id PK, userId FK unique, schoolId FK?, classLabel? ("7Б"), birthYear?,
                 interests string[], goals string[], weeklyHours int?, preferredFormats string[],
                 futureInterests string[],        // «хочу попробовать позже» из онбординга — спрос на будущее
@@ -56,10 +61,11 @@ TeacherProfile  id PK, userId FK unique, schoolId FK, qualification?, bio?, phot
 RefreshToken    id PK, userId FK, tokenHash (unique), activeRole Role? (восстанавливается при refresh),
                 expiresAt, revokedAt?
 ```
+`User.avatarUrl` — ссылка из провайдера (MAX), перезаписывается при каждом входе. Своё фото пользователя (`PUT /me/avatar`) пока не хранится: ручка отвечает 501. **Планируется** `User.avatarFileId?` (файл purpose `AVATAR`; в `MeDto`/`UserBrief` — свежая подписанная ссылка), тогда вход не будет затирать выбранное фото (docs/12, техдолг).
 
 ### school (`school.prisma`)
 ```
-School          id PK, name, timezone ("Europe/Moscow"), inviteCode (unique, для преподавателей),
+School          id PK, name, timezone (IANA, "Europe/Moscow"), inviteCode (unique, для преподавателей),
                 settings json { showTeacherContacts: bool }
 ```
 
@@ -73,12 +79,12 @@ Club            id PK, schoolId FK, title, description, category ClubCategory, c
 ### groups + schedule (`groups.prisma`)
 ```
 Group           id PK, clubId FK, teacherId FK(TeacherProfile), title, isActive bool=true
-Enrollment      id PK, studentId FK, groupId FK, status EnrollmentStatus, enrolledAt, leftAt?
+Enrollment      id PK, studentId FK, groupId FK, status EnrollmentStatus=ACTIVE, enrolledAt, leftAt?
                                                                         unique(studentId, groupId)
 ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:mm", room?,
                 validFrom date, validTo date?
 Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, room?, status LessonStatus=PLANNED,
-                cancelReason?                                           index(groupId, startsAt)
+                cancelReason?                                           unique(ruleId, startsAt)
 ```
 Занятия материализуются worker'ом из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`.
 **Планируется** `Group.code?` — короткий номер группы («001», 1–16 символов), который преподаватель видит в расписании, успеваемости и кошельке (docs/07 F16–F18). Пока есть только в контракте (`GroupBrief.code`, опционально; нет — UI показывает `title`) и в MSW-моках; поле в `groups.prisma` добавляется вместе с backend-ручками групп (workstream E).
@@ -117,7 +123,7 @@ SubmissionAttempt id PK, submissionId FK, n int, answers json, score int?, submi
 ### analytics (`analytics.prisma`)
 ```
 ActivityEvent   id PK, userId FK, studentId FK?, type ActivityType, entityType?, entityId?,
-                meta json?, occurredAt                                  index(studentId, occurredAt)
+                meta json?, occurredAt
 StudentStatsDaily studentId FK, date, lessonsPlanned int, lessonsAttended int, lessonsLate int,
                 lessonsExcused int, assignmentsDue int, assignmentsDoneOnTime int, assignmentsDoneLate int,
                 blocksCompleted int, tutorMessages int, appOpens int, activityScore int
@@ -129,17 +135,17 @@ StudentStatsDaily studentId FK, date, lessonsPlanned int, lessonsAttended int, l
 AiConversation  id PK, userId FK, studentId FK?, kind ConversationKind, title?,
                 contextSnapshot json?, lastMessageAt?
 AiMessage       id PK, conversationId FK, role MessageRole, content text, promptId?,
-                tokensIn int?, tokensOut int?                           index(conversationId, createdAt)
+                tokensIn int?, tokensOut int?
 AiInsight       id PK, kind InsightKind, studentId FK, periodFrom date, periodTo date,
                 content text, promptId, sourceHash, generatedAt, expiresAt
                                                                         unique(kind, studentId, periodFrom, periodTo)
 Trajectory      id PK, studentId FK, content json { summary, strengths[], growthAreas[],
                 recommendations[{ title, why, clubId?, courseId? }], nextSteps[] },
-                promptId, sourceHash, generatedAt                       index(studentId, generatedAt)
-```
+                promptId, sourceHash, generatedAt
 StudentClubInterest id PK, studentId FK, clubId FK, status ClubInterestStatus (CHOSEN | LATER | SKIPPED),
-                score? 0..1 (оценка ИИ), reason? (из рекомендации), source "ONBOARDING", createdAt, updatedAt
-                unique(studentId, clubId); index(clubId, status)   // спрос на кружки из онбординга
+                score? 0..1 (оценка ИИ), reason? (из рекомендации), source "ONBOARDING"
+                                                                        unique(studentId, clubId)   // спрос на кружки из онбординга
+```
 
 ### files + course-builder (`files.prisma`, `course-builder.prisma`)
 ```
@@ -154,7 +160,7 @@ CourseGenerationJob id PK, teacherId FK, groupId FK, materialIds string[] (File.
 
 ### family (`family.prisma`)
 ```
-ParentStudentLink parentId FK, studentId FK, status LinkStatus, requestedAt, confirmedAt?
+ParentStudentLink parentId FK, studentId FK, status LinkStatus=ACTIVE, requestedAt, confirmedAt?
                                                                         PK(parentId, studentId)
 ```
 Привязка: ребёнок показывает `linkCode` → родитель вводит → link сразу `ACTIVE` (MVP; подтверждение школой — позже).
@@ -164,9 +170,8 @@ ParentStudentLink parentId FK, studentId FK, status LinkStatus, requestedAt, con
 ```
 Payment         id PK, parentId FK, studentId FK, enrollmentId FK, amountKopecks int, currency "RUB",
                 status PaymentStatus=PENDING, provider string, providerPaymentId? (unique),
-                confirmationUrl?, periodsCount int, idempotencyKey (unique), paidAt?, failReason?, raw json?
+                confirmationUrl?, periodsCount int=1, idempotencyKey (unique), paidAt?, failReason?, raw json?
 PaidPeriod      id PK, enrollmentId FK, periodStart date, periodEnd date, paymentId FK
-                                                                        index(enrollmentId, periodEnd)
 ```
 «Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment; если периодов нет — сегодня.
 Кошелёк родителя (`GET /parent/wallet`, `POST /parent/wallet/top-up`) — **заглушка**: баланс живёт только в MSW-моках, пополнение зачисляется сразу (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`), реального провайдера и таблиц нет. Модель (`Wallet`, `WalletTransaction`) появится вместе с `PaymentProvider` (docs/07 F13).
@@ -186,12 +191,46 @@ PaidPeriod      id PK, enrollmentId FK, periodStart date, periodEnd date, paymen
 ### notifications + support + audit (`notifications.prisma`, `support.prisma`, `base.prisma`)
 ```
 Notification    id PK, userId FK, type NotificationType, title, body?, payload json?, readAt?
-                                                                        index(userId, createdAt)
 NotificationSettings userId PK, lessons bool, assignments bool, grades bool, attendance bool,
                 insights bool, payments bool                              (все по умолчанию true)
 SupportTicket   id PK, userId FK, subject, message, status TicketStatus=OPEN
 AuditLog        id PK, actorUserId FK, action, entityType, entityId, diff json?
 ```
+
+### 4.2.1. Индексы
+
+Неуникальные индексы (`@@index` в схеме). Колонки — в порядке индекса; FK покрыт индексом, если он первая колонка.
+```
+student_profiles        (schoolId)
+teacher_profiles        (schoolId)
+refresh_tokens          (userId)
+clubs                   (schoolId, isActive)
+groups                  (teacherId); (clubId)
+enrollments             (groupId, status)                 // studentId — первая колонка unique(studentId, groupId)
+schedule_rules          (groupId)
+lessons                 (groupId, startsAt); (startsAt)
+attendance              (studentId, markedAt)             // lessonId — unique(lessonId, studentId)
+courses                 (groupId, status); (teacherId)
+course_modules          (courseId, order)
+course_blocks           (moduleId, order)
+block_progress          (blockId)                         // studentId — unique(studentId, blockId)
+course_progress         (courseId)                        // studentId — PK(studentId, courseId)
+assignments             (groupId, dueAt); (courseId); (teacherId)   // blockId — unique
+submissions             (studentId, submittedAt)          // assignmentId — unique(assignmentId, studentId)
+activity_events         (studentId, occurredAt); (userId, occurredAt)
+ai_conversations        (userId, kind, lastMessageAt); (studentId)
+ai_messages             (conversationId, createdAt)
+trajectories            (studentId, generatedAt)
+student_club_interests  (clubId, status)                  // studentId — unique(studentId, clubId)
+course_generation_jobs  (teacherId, createdAt)
+parent_student_links    (studentId)                       // parentId — PK(parentId, studentId)
+payments                (parentId, createdAt); (studentId); (enrollmentId)
+paid_periods            (enrollmentId, periodEnd); (paymentId)
+notifications           (userId, createdAt); (userId, readAt)
+support_tickets         (userId, createdAt)
+audit_logs              (entityType, entityId); (actorUserId, createdAt)
+```
+FK покрыт, если он первая колонка индекса, `unique` или PK. Сейчас не покрыты: `Attendance.markedById`, `Submission.gradedById`, `CourseGenerationJob.groupId`, `AiInsight.studentId` (в `unique(kind, studentId, …)` он второй) — выборок «все строки по этому FK» нет; индекс добавляется вместе с первой такой выборкой.
 
 ## 4.3. Ключевые связи
 
@@ -244,7 +283,7 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
 - **Посещаемость** `attendanceRate = attended / countable`. `countable` — занятия со статусом `DONE` в периоде, на которые ученик был зачислен (`Enrollment.enrolledAt <= lesson.startsAt`), минус `EXCUSED`. `attended` — `PRESENT | LATE`. Нет `countable` → `null`.
 - **Пропуски** `absences = count(ABSENT)`.
 - **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
-- **Активность** `activityScore` (0–100) за неделю: `min(100, 10*blocksCompleted + 15*submissions + 5*lessonsAttended + 2*tutorMessages + 1*appOpens)`. Отображается как «низкая (<30) / средняя / высокая (≥70)» + число.
+- **Активность** `activityScore` (0–100) за неделю: `min(100, 10*blocksCompleted + 15*submissions + 5*lessonsAttended + 2*tutorMessages + 1*appOpens)`. Отображается как «низкая (<30) / средняя / высокая (≥70)» + число. Формула — одна (`apps/api/src/modules/analytics/metrics.ts`), окно выбирает вызывающий. **Исключение:** снимок ученика для ИИ (`StudentContext.stats30d`, `modules/ai/context-builder.ts`) считает её за 30 дней и без `appOpens` (событий открытия приложения в снимке нет) — осознанное расхождение с недельным окном экранов.
 - **Прогресс по кружку** `clubProgress = avg(CourseProgress.percent по PUBLISHED курсам группы)`; если курсов нет — `completionRate` по заданиям группы.
 - **Динамика** — те же метрики по неделям из `StudentStatsDaily`; `trend` = разница с предыдущим периодом такой же длины.
 - **Серия** `streakDays` (огонёк на главной ученика): действие — посещение занятия (`PRESENT | LATE`) или сданное задание (`submittedAt`). Действие нужно хотя бы раз в 2 дня: между днями с действием допускается один пустой день, два пустых подряд — серия сгорает. Значение — календарные дни от первого дня текущей серии до последнего дня с действием включительно (пн, ср, пт → 5). Серия жива, пока с последнего действия прошло ≤ 2 дней (сегодня ещё можно успеть), иначе `0`. Дни — в поясе школы.

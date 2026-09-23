@@ -19,8 +19,9 @@ max/
 │   │   ├── index.html · vite.config.ts · vitest.config.ts · eslint.config.js · tsconfig.json
 │   │   ├── public/mockServiceWorker.js   # MSW (VITE_API_MODE=mock)
 │   │   └── src/
-│   │       ├── app/              # main.tsx, App.tsx, providers.tsx, router.tsx, bottom-nav.config.ts,
-│   │       │                     # shells/{Student,Parent,Teacher}Shell.tsx, error-boundary, splash
+│   │       ├── app/              # main.tsx, App.tsx, providers.tsx, router.tsx, route-error.tsx (errorElement),
+│   │       │                     # bottom-nav.config.ts, shells/{Role,Student,Parent,Teacher}Shell.tsx,
+│   │       │                     # root-redirect, error-boundary, splash
 │   │       ├── pages/
 │   │       │   ├── auth/ · onboarding/ · notifications/ · invite/ · not-found/ · forbidden/ · admin/
 │   │       │   ├── student/{home,tutor,courses,assignments,settings,profile}/
@@ -28,9 +29,9 @@ max/
 │   │       │   └── teacher/{home,groups,students,courses,course-builder,assignments,more,
 │   │       │                club-demand,performance,profile,settings,wallet}/
 │   │       │       └── <feature>/{routes.tsx, ui/*Page.tsx}      # attendance/ появится в workstream H
-│   │       ├── widgets/          # композиции экранов: foundation (account-section, stats-tiles, club-progress-list,
-│   │       │                     # ai-text-card) + workstream'ы (student-home-*, student-profile-hero, parent-home-*,
-│   │       │                     # teacher-home-*, teacher-student-*, teacher-performance-*, homework-*, trajectory, …)
+│   │       ├── widgets/          # композиции экранов: foundation (account-section) + workstream'ы (student-home-*,
+│   │       │                     # student-profile-hero, parent-home-*, teacher-home-*, teacher-student-header,
+│   │       │                     # teacher-performance-*, homework-*, notification-settings, trajectory)
 │   │       ├── features/         # dev-login, switch-role, link-child, mark-notification-read, change-avatar,
 │   │       │                     # generate-course, upload-file, withdraw-wallet
 │   │       ├── entities/<x>/     # session, lesson, assignment, course, student, club, group, dashboard,
@@ -42,7 +43,8 @@ max/
 │   │           ├── max/          # types.ts, mock-bridge.ts, sdk-bridge.ts, index.tsx (provider, hooks)
 │   │           ├── store/        # ui-store.ts (тема, выбранный ребёнок)
 │   │           ├── i18n/         # index.ts, <ns>.ru.json, <ns>.en.json
-│   │           ├── lib/          # dates.ts, money.ts, format.ts, lazy-route.ts, navigation.ts, teacher-paths.ts
+│   │           ├── lib/          # dates.ts, money.ts, format.ts, lazy-route.ts, navigation.ts, parent-paths.ts,
+│   │           │                 # teacher-paths.ts
 │   │           ├── ui/           # AsyncState, ScreenHeader, SectionTitle — композиции над @edu/ui без стилей
 │   │           └── config.ts     # VITE_* переменные
 │   └── api/                      # NestJS (@edu/api): HTTP + worker

@@ -1,6 +1,6 @@
 # FOUNDATION — что построено и как это устроено
 
-Состояние на 2026-09-21. Foundation = техническая основа, поверх которой отдельные агенты реализуют продуктовые модули (`docs/12-workstreams.md`). Продуктовых фич здесь нет; есть каркас, контракты, БД, auth, права, интеграционные порты, dev-моки и проверки.
+Состояние на 2026-09-21; §3 и §10 сверены с кодом после ревью 2026-09-23 (docs/12). Foundation = техническая основа, поверх которой отдельные агенты реализуют продуктовые модули (`docs/12-workstreams.md`). Продуктовых фич здесь нет; есть каркас, контракты, БД, auth, права, интеграционные порты, dev-моки и проверки.
 
 ## 1. Архитектура foundation
 
@@ -26,13 +26,18 @@ apps/web  (React SPA, Vite)  ──HTTP JSON / SSE──▶  apps/api (NestJS, H
 ## 3. Frontend (`apps/web`)
 
 - Роутинг (`react-router` 7, lazy-страницы): `/` → `RootRedirect` по статусу auth/роли; `/auth` (dev-вход / MAX-вход), `/auth/role`, `/auth/switch`, `/onboarding`; `/student/{home,tutor,tutor/:id,courses,courses/:id,blocks/:id,assignments,assignments/:id,settings,profile}`; `/parent/{home,children,analytics,analytics/:studentId,courses,courses/teacher/:id,payments,wallet,tutor,profile,settings}`; `/teacher` (главная) и `/teacher/{wallet,performance,performance/groups/:groupId,students/:id,students/:id/groups/:groupId/tasks,groups,groups/:id,courses,courses/:id,course-builder,course-builder/:jobId,clubs/demand,assignments,settings,profile}` (`/teacher/more` → редирект на `settings`; режим репетитора — docs/07 F16–F18); `/notifications`, `/invite/:token` (принятие приглашения), `/admin` (заглушка 501), `/dev/ui` (песочница UI, только dev), `/403`, `*`.
-- Композиции без стилей над `@edu/ui` — `shared/ui/{AsyncState,ScreenHeader,SectionTitle}`; foundation-набор `widgets/{account-section,stats-tiles,club-progress-list,ai-text-card}` и `features/{dev-login,switch-role,link-child,mark-notification-read}` (виджеты и фичи workstream'ов — см. код и `03-repo-structure.md`).
-- MSW-моки: `shared/api/mocks/state.ts` — изменяемый демо-мир (сессии, роли, привязки, прогресс, сдачи, уведомления, диалоги) поверх фикстур; 13 доменных хендлеров, ответы валидируются схемами контракта; незамоканные пути под `/api/v1/*` → 501. Тест `mocks/handlers.test.ts` гоняет реальный клиент через msw/node; `app/app.smoke.test.tsx` — полное приложение в jsdom (вход учеником, переходы; преподаватель: оранжевый акцент, расписание с кодом группы, чип кошелька → кошелёк, «Успеваемость» → «Общая успеваемость» → ученики группы → успеваемость ученика, «Настройки» → смена роли → родитель: сердца детей, кошелёк, «Выполненные задания»; родитель: пополнение кошелька, 404).
-- Shells ролей (`app/shells`) = `AppLayout` + `BottomNavigation` + `Outlet`, обёрнуты в `RequireAuth` + `RequireRole`. Меню — `app/bottom-nav.config.ts`; активный пункт — самый длинный совпавший префикс среди `path` и `activeFor` (экраны, открытые из пункта вне его пути: у преподавателя «Успеваемость» активна на `/teacher/students/*`, «Настройки» — на группах, курсах, конструкторе и спросе на кружки).
+  - Корень роутера (`rootRoutes`) несёт `errorElement` — `app/route-error.tsx` (`RouteErrorScreen`): ошибка рендера страницы или несгрузившийся lazy-чанк → экран «Что-то сломалось» с кнопкой «Перезагрузить» (тексты из i18n), ошибка пишется в `console.error`. `ErrorBoundary` в providers остаётся для ошибок вне роутов.
+  - Гейт онбординга ученика: `StudentShell` на любом `/student/*` проверяет `needsStudentOnboarding(me)` (`shared/auth/role-routes.ts`: активная роль STUDENT и `onboardingCompleted = false`) и уводит на `/onboarding` — и при прямом заходе/deep-link, и после переключения роли. `/onboarding` закрыт `RequireRole role="STUDENT"` (в `pages/onboarding/routes.tsx`): остальных ролей уводит на их главную.
+  - `RequireAuth` при уходе на `/auth` сохраняет путь вместе с query и hash. После смены роли переход идёт в `/`, дальше решает `RootRedirect`.
+- Композиции без стилей над `@edu/ui` — `shared/ui/{AsyncState,ScreenHeader,SectionTitle}`; foundation-набор `widgets/account-section` и `features/{dev-login,switch-role,link-child,mark-notification-read}` (виджеты `stats-tiles`, `club-progress-list`, `ai-text-card` удалены как неиспользуемые; виджеты и фичи workstream'ов — см. код и `03-repo-structure.md`).
+- MSW-моки: `shared/api/mocks/state.ts` — изменяемый демо-мир (сессии, роли, привязки, прогресс, сдачи, уведомления, диалоги) поверх фикстур; 13 доменных хендлеров, ответы валидируются схемами контракта; незамоканные пути под `/api/v1/*` → 501. Ad-hoc пользователи dev-входа («Свой пользователь») сохраняются в `localStorage` (ключ `MOCK_ADHOC_USERS_KEY`) и переживают reload: мир in-memory, а refresh-токен мост хранит в storage — без персиста refresh после перезагрузки отвечал бы 401. `resetMockDb({ clearPersisted: true })` их забывает. Имя ad-hoc пользователя пустое (экраны показывают «Без имени» и нейтральные приветствия). Списки уведомлений и сообщений ИИ в моке постраничные (общий хелпер `paginate`, keyset по id), остальные списки мока отдают всё одной страницей. Тест `mocks/handlers.test.ts` гоняет реальный клиент через msw/node; `app/app.smoke.test.tsx` — полное приложение в jsdom (вход учеником, переходы; преподаватель: оранжевый акцент, расписание с кодом группы, чип кошелька → кошелёк, «Успеваемость» → «Общая успеваемость» → ученики группы → успеваемость ученика, «Настройки» → смена роли → родитель: сердца детей, кошелёк, «Выполненные задания»; родитель: пополнение кошелька, 404).
+- Shells ролей (`app/shells`) = `AppLayout` + `BottomNavigation` + `Outlet`, обёрнуты в `RequireAuth` + `RequireRole`. Меню — `app/bottom-nav.config.ts`; активный пункт (`activeNavKey`) — самый длинный совпавший префикс среди `path` и `activeFor` с границей по сегменту (`/teacher/groups` не совпадает с `/teacher/groupsx`). У пункта с `exact: true` (главная всех ролей) `path` совпадает только точно, его `activeFor` — по-прежнему по префиксу. Ничего не совпало — активного пункта нет (`null`). `activeFor` — экраны, открытые из пункта вне его пути: у преподавателя «Успеваемость» активна на `/teacher/students/*`, «Настройки» — на группах, курсах, конструкторе и спросе на кружки, «Главная» — на кошельке; у родителя «Главная» — на кошельке, детях, кружках и оплате; у ученика «Задания» — на курсах и блоках. Повторный тап по активному пункту не добавляет запись в историю; «Назад» в `ScreenHeader` делает `replace`.
 - Страницы всех зон созданы как placeholder'ы с реальными состояниями (loading / error / empty / ready) на хуках `entities/*/api.ts`. В `VITE_API_MODE=mock` все страницы работают на фикстурах через MSW; в `real` — работают ручки foundation, остальные показывают «раздел в разработке».
+- Ошибки запросов (`shared/ui/AsyncState` → `QueryError`): «Раздел в разработке» — только для `NOT_IMPLEMENTED` (501 или голый 404 без тела `ApiError` — ручки нет за прокси); `NOT_FOUND` с телом `ApiError` — «Не найдено» без повтора; остальное — «Не удалось загрузить» с текстом и «Повторить». Тексты ошибок API — из i18n по коду (`common:errors.codes.*`), для `BUSINESS_RULE`/`VALIDATION` — сообщение сервера; сетевые и служебные тексты (`errors.network`, `errors.aborted`, `errors.noLaunchParams`, экраны сбоя) — тоже из `common:errors.*`.
 - Данные: единый клиент `shared/api/client.ts` (`@ts-rest/core` `initClient` + кастомный fetch: Authorization, X-Request-Id, авто-refresh по 401, нормализация в `ApiClientError`), TanStack Query (`shared/api/query-client.ts`), SSE (`shared/api/sse.ts`).
+- Сессия: по 401 клиент один раз обновляет пару (`POST /auth/refresh`, параллельные 401 ждут один refresh) и повторяет запрос. Отказ refresh (4xx, кроме 408/429) — сессия невалидна, выход; сеть, 408/429 и 5xx — временный сбой: не разлогинивает, токены в storage сохраняются (при старте `bootstrapAuth` стирает их тоже только при отказе сервера). SSE (`streamSse`) обновляет токен по 401 так же и повторяет запрос один раз. `logout` с протухшим access отзывает и исходный, и ротированный за время запроса refresh-токен. В max-режиме экран `/auth` после logout сам запускает вход через MAX.
 - Состояние: zustand — `shared/auth/store.ts` (сессия), `shared/store/ui-store.ts` (тема, выбранный ребёнок). Серверное состояние — только в Query.
-- i18n: `shared/i18n` (ru, заготовка en), namespace на фичу.
+- i18n: `shared/i18n` (ru и en с одинаковым набором ключей — тест `dictionaries.test.ts`), namespace на фичу; баннер i18next отключён. Стиль обращения и подписи enum — docs/06 §6.5.
 - MAX: `shared/max` (см. §11).
 
 ## 4. Backend (`apps/api`)
@@ -52,9 +57,9 @@ apps/web  (React SPA, Vite)  ──HTTP JSON / SSE──▶  apps/api (NestJS, H
 ## 5. Database (`packages/db`)
 
 - PostgreSQL, Prisma 6.19, multi-file schema `prisma/schema/*.prisma` — 16 файлов по модулям, 30+ моделей, все enum'ы 1:1 с contracts. Соглашения: `uuid(7)`, `timestamptz`, snake_case через `@map`.
-- Миграции — `packages/db/prisma/schema/migrations/` (рядом со схемой): `20260921130803_init` из foundation, затем `20260921180000_course_builder_topic_knowledge` и `20260922085338_onboarding_club_interests` (workstream'ы G и C); применяются `migrate deploy`.
+- Миграции — `packages/db/prisma/schema/migrations/` (рядом со схемой): `20260921130803_init` из foundation, затем `20260921180000_course_builder_topic_knowledge` и `20260922085338_onboarding_club_interests` (workstream'ы G и C), `20260923081801_fk_indexes` (индексы на FK по итогам ревью, docs/04 §4.2.1); применяются `migrate deploy`.
 - Клиент генерируется в `generated/client` (`pnpm db:generate`), экспорт `@edu/db` (`PrismaClient`, `Prisma`, типы, `createPrismaClient`), `@edu/db/testing` (`prepareTestDatabase`).
-- Seed (`src/seed/*.ts`) идемпотентен, строится из `@edu/contracts/fixtures`: школа, 4 пользователя (преподаватель = родитель, 2 ученика, родитель), 2 кружка, 2 группы, 3 зачисления, расписание, 5 занятий относительно «сегодня», посещаемость, курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, прогресс, диалог с ИИ, платёж, уведомление.
+- Seed (`src/seed/*.ts`) идемпотентен, строится из `@edu/contracts/fixtures`: школа, 4 пользователя (преподаватель = родитель, 2 ученика, родитель), 2 кружка, 2 группы, 3 зачисления, расписание, 5 занятий относительно «сегодня», посещаемость (`markedAt` = начало занятия), курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, прогресс, диалог с ИИ, платёж и оплаченный период (относительно «сегодня», `materializeDemoPayment`/`materializeDemoPaidPeriod`), уведомление. Повторный seed перезаписывает прогресс демо-ученика по курсу целиком (`percent`, `lastActivityAt`) и `completedAt` пройденного блока.
 - Локальная БД без Docker: `scripts/pg.mjs` (embedded PostgreSQL 18, данные в `.data/pg`, базы `edu` и `edu_test`).
 
 ## 6. Shared types (`packages/contracts`)
@@ -75,7 +80,7 @@ Enum'ы, сущности (`entities/`), схемы блоков (`blocks/`), п
 
 ## 10. API conventions
 
-`/api/v1`, JSON, UTC ISO-даты, деньги в копейках, cursor-пагинация, единый `ApiError` с `X-Request-Id`, идемпотентность через заголовок `Idempotency-Key` (описан в контракте; проверка на сервере — при реализации сдач/платежей). Подробно — `docs/05` §5.1 и ADR-013.
+`/api/v1`, JSON, UTC ISO-даты, деньги в копейках, cursor-пагинация, единый `ApiError` с `X-Request-Id`, идемпотентность через заголовок `Idempotency-Key` (в контракте обязателен на сдаче задания, платеже, пополнении и выводе — без него 400; MSW-моки уже идемпотентны по ключу; проверка на сервере — при реализации сдач/платежей). Подробно — `docs/05` §5.1 и ADR-013.
 
 ## 11. MAX adapter
 
@@ -99,12 +104,13 @@ pino (JSON в prod, pretty в dev), уровень из `LOG_LEVEL`. Кажда�
 
 ## 16. Testing
 
-- `packages/contracts`: снапшот роутов, дубли, metadata, sanity схем (11).
-- `packages/ui`: поведение/a11y ключевых компонентов (19).
-- `packages/ai`: retry/timeout/json/mock/gigachat с мок-fetch/registry/context (100).
-- `packages/db`: подключение, применённость миграций (3, нужна БД).
-- `apps/api`: env, JWT, guards (public/roles/permission), формат ошибок, очередь/kv/курсор/время, провайдеры auth, AiService(mock), LocalFsStorage, интеграция health+auth через реальную тестовую БД с seed (46).
-- `apps/web`: клиент API, guards, auth-store, MockMaxBridge, RootRedirect.
+Число тестов растёт с каждым workstream'ом — фактическое показывает `pnpm test`; ниже — что покрыто.
+- `packages/contracts`: снапшот роутов, дубли, metadata и её согласованность с `permissions.ts`, sanity схем, схемы блоков (ученическая версия без ответов, VIDEO, QUIZ), фикстуры (относительные даты).
+- `packages/ui`: поведение/a11y компонентов.
+- `packages/ai`: retry/timeout/json/mock/gigachat с мок-fetch/registry/context.
+- `packages/db`: подключение, применённость миграций (нужна БД), seed (посещаемость, прогресс).
+- `apps/api`: env, JWT, guards (public/roles/permission), формат ошибок, очередь/kv/курсор/время, провайдеры auth, AiService(mock), LocalFsStorage, модули workstream'ов, интеграция через реальную тестовую БД с seed.
+- `apps/web`: клиент API и SSE, guards, auth-store, MockMaxBridge, RootRedirect, роутер и меню, MSW-хендлеры (`mocks/handlers.test.ts`), страницы и виджеты ролей, smoke всего приложения, согласованность словарей ru/en.
 - Запуск: `pnpm test` (turbo); БД-тесты пропускаются при `SKIP_DB_TESTS=1`.
 
 ## 17. Dependency direction

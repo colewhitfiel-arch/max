@@ -11,7 +11,7 @@
 - Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`, 501 `NOT_IMPLEMENTED`, 502 `EXTERNAL_INTEGRATION`.
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
-- Идемпотентность: заголовок `Idempotency-Key` на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`.
+- Идемпотентность: заголовок `Idempotency-Key` (1–128 символов, `IdempotencyKeyHeadersSchema`) **обязателен** на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`; без него — 400 `VALIDATION`. Повтор с тем же ключом отдаёт первый результат. Клиент держит один ключ на попытку (ретрай и двойной клик — тот же ключ), новый — на новую попытку.
 - Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `routes/streaming.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
@@ -39,6 +39,8 @@ AiText = { text: string, generatedAt: string } | null
 FileDto = { id, fileName, mime, sizeBytes, url /* presigned GET, TTL 1 ч */ }
 ApiError = { error: { code: ErrorCode; message: string; details?: unknown } }
 ```
+
+`School.timezone` — валидный IANA-пояс (`Europe/Moscow`; проверка через `Intl.DateTimeFormat`), в нём считаются «сегодня», недели и дни серии. `ClubInterestStatus` (`CHOSEN | LATER | SKIPPED`) — в `enums.ts` (`CLUB_INTEREST_STATUSES`), `routes/ai.ts` его реэкспортирует. События стрима тьютора (ученика и родителя) — общий `AiStreamEvent`; отдельного `TutorStreamEvent` нет.
 
 ## 5.3. Контракты по файлам
 
@@ -121,7 +123,9 @@ GET /teacher/students/:studentId
 GET /teacher/students/:studentId/groups/:groupId/tasks
                          → { group: GroupBrief, items: HomeworkTaskDetail[] }   // экран «Задания» ученика
                              // teacher:students.view; чужая (или несуществующая) группа или ученик не в ней → 403 FORBIDDEN;
-                             // для преподавателя «нет» и «не ваш» неразличимы (404 фронт показывает как «раздел в разработке»)
+                             // для преподавателя «нет» и «не ваш» неразличимы: фронт показывает на 403 пустое состояние
+                             // «Ученик не в ваших группах»; NOT_FOUND с телом ApiError — «Не найдено» без повтора,
+                             // «раздел в разработке» — только NOT_IMPLEMENTED (501 или голый 404 без тела ApiError)
 GET /teacher/performance?period=day|week|month|course   /* по умолчанию day */
                          → TeacherPerformanceDto   // «Общая успеваемость»; teacher:groups.view
                              // другой period → 400 VALIDATION; нет групп → groups: []; формулы и окна — docs/04 §4.6
@@ -155,7 +159,7 @@ GET  /parent/children/:studentId/calendar?from&to → { lessons: LessonDto[] }
 GET  /teacher/groups/:groupId/lessons?from&to   → { lessons: LessonDto[] }
 GET  /teacher/calendar?from&to                  → { lessons: LessonDto[] }   // занятия всех групп преподавателя (главная: «‹ Сегодня ›»,
                                                                             // календарь); teacher:groups.view
-POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto
+POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto   // endsAt > startsAt, иначе 400 VALIDATION
 PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCELLED', cancelReason? } → LessonDto
 ```
 
@@ -175,7 +179,7 @@ GET  /student/courses                    → { items: [{ id, title, group: Group
 GET  /student/courses/:courseId          → { id, title, description?, group: GroupBrief,
                                               modules: [{ id, title, order, blocks: [{ id, title, type, order, estimatedMinutes?, isRequired,
                                                                                        progress: BlockProgressStatus|null }] }] }
-GET  /student/blocks/:blockId            → { id, title, type, content /* без ответов для QUIZ */, moduleId, courseId,
+GET  /student/blocks/:blockId            → { id, title, type, content /* без ответов, см. ниже */, moduleId, courseId,
                                               assignment?: AssignmentBrief, progress: { status, attempts, score? }|null }
 POST /student/blocks/:blockId/open       → { progress }
 POST /student/blocks/:blockId/complete   { answers?: unknown } → { progress, score?, courseProgress: { percent, completedBlocks, totalBlocks } }
@@ -197,11 +201,17 @@ CourseDraft = { title, description?, modules: [{ id?, title, summary?, sourceRef
                                                  blocks: [{ id?, type, title, content, estimatedMinutes?, isRequired? }] }] }
 ```
 
+Содержимое блоков (`blocks/`):
+- **Ученик ответов не получает** (`CourseBlockForStudentSchema`): QUIZ — без `correctOptionIds` и `explanation`, QUESTION — без `expectedAnswer` и `rubric`. Сервер отдаёт ученику результат `toStudentBlock(block)` — явная очистка, а не парсинг схемой (в production ts-rest ответы не валидирует). Ответы INTERACTIVE (FILL_GAPS, пары MATCHING, оборот FLASHCARDS) пока уходят ученику как есть — открытый вопрос (docs/12, техдолг).
+- VIDEO: `url` — только абсолютная ссылка `http(s)` (`HttpUrlSchema`/`isHttpUrl`, без `javascript:`/`data:`); обязателен `url` или `fileId`.
+- QUIZ: `correctOptionIds` ⊆ `options[].id`; при `multiple: false` — ровно один правильный вариант.
+
 ### `assignments.ts` — владелец B5
 ```
 GET  /student/assignments?status=open|done|all&cursor → Paginated<AssignmentBrief>
 GET  /student/assignments/:id            → AssignmentBrief & { description?, block?: { id, courseId }, submission?: SubmissionDto, attemptsLeft?: number }
-POST /student/assignments/:id/submit     { answers?: unknown, text?: string, fileIds?: Id[] } → SubmissionDto   // Idempotency-Key
+POST /student/assignments/:id/submit     { answers?: unknown, text?: string, fileIds?: Id[] } → SubmissionDto   // Idempotency-Key (обязателен)
+                                          // пустая сдача (нет непустого текста, файлов и ответов на блоки) → 400 VALIDATION
 GET  /student/homework                   → { clubs: HomeworkClub[] /* по ближайшему дедлайну */,
                                              streakDays?: number, points?: number /* как на главной */ }   // экран «Задания» (карта кружков)
 
@@ -232,13 +242,14 @@ GET  /teacher/clubs/demand               → { students, futureInterests: [{ lab
 
 GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>
 POST /ai/conversations                   { kind: 'TUTOR' } → ConversationDto
-GET  /ai/conversations/:id/messages?cursor → Paginated<AiMessageDto>
+GET  /ai/conversations/:id/messages?cursor → Paginated<AiMessageDto>   // лента с конца: первая страница — последние
+                                          // limit сообщений (внутри — по возрастанию времени), nextCursor ведёт к более старым
 POST /ai/conversations/:id/messages      { text } → SSE token/done/error      // rate limit: AI_TUTOR_DAILY_LIMIT
 DELETE /ai/conversations/:id             → 204
 
 GET  /parent/children/:studentId/ai/conversations?cursor → Paginated<ConversationDto>   // тьютор родителя о ребёнке
 POST /parent/children/:studentId/ai/conversations        → ConversationDto (kind TUTOR)
-GET  /parent/ai/conversations/:id/messages?cursor        → Paginated<AiMessageDto>
+GET  /parent/ai/conversations/:id/messages?cursor        → Paginated<AiMessageDto>   // пагинация с конца, как у ученика
 POST /parent/ai/conversations/:id/messages { text } → SSE token/done/error               // промпт tutor.parent; лимит как у ученика
                                           // доступ: родитель ↔ ребёнок ACTIVE (FamilyService), иначе 403
 
@@ -298,7 +309,7 @@ POST /files/upload-url     { fileName, mime, sizeBytes, purpose: FilePurpose } �
 POST /files/:fileId/confirm → FileDto
 GET  /files/:fileId         → FileDto        // доступ по policies владельца/группы
 ```
-Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ.
+Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ. Текст извлекается пока только из pdf, docx, txt, md: задачу course-builder с материалами png/jpg/pptx сервер отклоняет сразу (422 `BUSINESS_RULE`).
 
 ### `course-builder.ts` — владелец A5 (скелет в F4)
 ```
@@ -353,4 +364,12 @@ NotificationSettingsDto = { lessons, assignments, grades, attendance, insights, 
 
 ## 5.5. Моки и фикстуры
 
-`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO, намеренно маленький (фактический состав — шапка `fixtures/index.ts` и `FOUNDATION.md` §5): 1 школа, 2 кружка (робототехника, программирование), 2 группы, 1 преподаватель (он же родитель), 2 ученика, 1 родитель (у него 2 ребёнка), 3 зачисления, 5 занятий со смещением −7…+4 дня от «сегодня» с посещаемостью, курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, платёж, уведомление. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
+`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO, намеренно маленький (фактический состав — шапка `fixtures/index.ts` и `FOUNDATION.md` §5): 1 школа (`Europe/Moscow`), 4 пользователя, 2 кружка (робототехника, программирование), 2 группы, 1 преподаватель (он же родитель), 2 ученика, 1 родитель (у него 2 ребёнка), 3 зачисления, 3 правила расписания (робототехника пн/чт, программирование вт), 5 занятий со смещением −7…+4 дня от «сегодня» и 4 отметки посещаемости на двух прошедших, курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, диалог с ИИ, платёж с оплаченным периодом, уведомление. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
+
+Даты, которые должны «жить» относительно сегодняшнего дня, задаются смещением и материализуются функциями (`now`, смещение пояса школы — по умолчанию 180 мин):
+- `materializeLessons(specs, now, tz)` — общая функция (её используют и моки); `materializeDemoLessons(now, tz)` — обёртка над `demoLessonSpecs`. День считается по часам школы. Все 5 демо-занятий разовые (`ruleId: null`): их даты плавают и с днём недели правил не совпадают.
+- `materializeDemoAttendance(now, tz)` — посещаемость с `markedAt` = начало занятия. У константы `demoAttendance` `markedAt` — заглушка, напрямую её не брать.
+- `materializeDemoPayment(now, tz)` / `materializeDemoPaidPeriod(now, tz)` — оплата Ольги за робототехнику Алексея 22 дня назад (10:00 по часам школы), период 30 дней с дня оплаты. Констант `demoPayment`/`demoPaidPeriod` больше нет.
+- `demoAssignmentDueOffsets` — дедлайны заданий в днях от «сейчас».
+
+Остальные даты (`createdAt`, `publishedAt`, сдача, диалог) — фиксированная `T0 = 2026-09-01`.

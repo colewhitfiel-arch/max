@@ -45,7 +45,7 @@ apps/web/src
 - Страница фичи импортирует только свои `widgets/features/entities` и `shared`. Другая роль — чужая зона.
 - `entities/<x>` не импортирует `entities/<y>`; композиция — в `widgets`.
 - Данные: `useQuery`/`useMutation` в `entities/<x>/api.ts` поверх `api` (ts-rest клиент) и `unwrap()`. Ключи — префикс из `shared/api/query-keys.ts` + локальный `keys.ts`.
-- Состояния экрана обязательны: loading (`Skeleton`), error (`ErrorState`; для `NOT_FOUND`/`NOT_IMPLEMENTED` — «раздел в разработке»), empty (`EmptyState`), ready.
+- Состояния экрана обязательны: loading (`Skeleton`), error (`ErrorState` через `AsyncState`/`QueryError`: «раздел в разработке» — только для `NOT_IMPLEMENTED` (501 или голый 404 без тела `ApiError`); `NOT_FOUND` с телом `ApiError` — «Не найдено» без повтора; остальное — текст ошибки и «Повторить»), empty (`EmptyState`), ready.
 - Тексты — через i18n (`shared/i18n/<ns>.ru.json`, namespace на фичу).
 - Права: `useHasPermission('teacher:attendance.mark')`, `<Can permission=...>`, route-guards `RequireAuth/RequireRole/RequirePermission`.
 
@@ -91,7 +91,7 @@ apps/api/src
 ## 7. Shared types
 
 `packages/contracts/src/`:
-- `enums.ts` — все enum'ы + словари (`ROLE_LABELS`, `CLUB_CATEGORY_LABELS`, `BLOCK_TYPE_META`).
+- `enums.ts` — все enum'ы + словари (`ROLE_LABELS`, `CLUB_CATEGORY_LABELS`, `BLOCK_TYPE_META`). Во фронте подписи enum берутся из i18n (`common:roles.*`, `clubCategory.*`, `blockType.*`, `knowledgeNodeType.*`, `billing.period.*`), а не из `*_LABELS` — иначе они не переключаются с языком.
 - `entities/*.ts` — сущности как они ходят по API (`User`, `StudentProfile`, `Group`, `Lesson`=`ScheduleEvent`, `Course`, `CourseModule`, `CourseBlock`, `Assignment`, `Submission`, `Attendance`, `CourseProgress`=`StudentProgress`, `Trajectory`=`LearningTrajectory`, `Payment`, `AiConversation`, `AiMessage`, …).
 - `blocks/` — содержимое блоков курса по типу.
 - `common/` — `IdSchema`, `DateTimeSchema`, `MoneySchema`, пагинация.
@@ -143,7 +143,7 @@ apps/api/src
 
 1. Измени `packages/db/prisma/schema/<module>.prisma` (только добавление полей/индексов; переименования — через владельца db).
 2. Обнови `docs/04-data-model.md`.
-3. Миграцию создаёт владелец db: `pnpm --filter @edu/db migrate:dev --name <snake_case_name>` (нужен интерактивный терминал и запущенная БД). Без TTY (из `packages/db`): создать папку `prisma/schema/migrations/<timestamp>_<name>/`, затем `pnpm exec prisma migrate diff --from-migrations prisma/schema/migrations --to-schema-datamodel prisma/schema --shadow-database-url <url пустой временной БД> --script > prisma/schema/migrations/<timestamp>_<name>/migration.sql` (`--from-migrations` требует shadow DB), затем `pnpm db:deploy`. Миграции лежат рядом со схемой — `packages/db/prisma/schema/migrations/` (Prisma при `prisma.schema = prisma/schema` берёт `<папка схемы>/migrations`).
+3. Миграцию создаёт владелец db: `pnpm --filter @edu/db migrate:dev --name <snake_case_name>` (нужен интерактивный терминал и запущенная БД). Без TTY (из `packages/db`): создать папку `prisma/schema/migrations/<timestamp>_<name>/`, затем `pnpm exec prisma migrate diff --from-migrations prisma/schema/migrations --to-schema-datamodel prisma/schema --shadow-database-url <url пустой временной БД> --script > prisma/schema/migrations/<timestamp>_<name>/migration.sql` (`--from-migrations` требует shadow DB), затем `pnpm db:deploy`. Вариант без shadow DB — только если dev-база синхронна со всеми миграциями (`migrate status` чистый): `--from-url <DATABASE_URL> --to-schema-datamodel prisma/schema --script`; после `db:deploy` проверить drift на `edu_test`. Миграции лежат рядом со схемой — `packages/db/prisma/schema/migrations/` (Prisma при `prisma.schema = prisma/schema` берёт `<папка схемы>/migrations`).
 4. `pnpm db:generate` → `pnpm --filter @edu/db build` → typecheck потребителей.
 5. Никогда две миграции параллельно; не редактируй применённые миграции.
 

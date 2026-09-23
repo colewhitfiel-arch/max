@@ -5,7 +5,9 @@
 ## 6.1. `packages/contracts` — типы API
 Экспортирует: enum'ы (4.1), общие DTO (5.2), zod-схемы всех DTO, ts-rest роутер `apiContract`, коды ошибок, события (5.4), схемы контента блоков (4.4), `CourseDraft`, фикстуры демо-мира. Тип `StudentContext` живёт в `packages/ai` (`src/context/student-context.ts`): пакет ai не зависит от contracts, снимок собирает `apps/api/src/modules/ai/context-builder`. Никакой логики, только схемы/типы/константы. Зависимостей на Nest/React нет.
 
-Справочники: `CLUB_CATEGORIES` + словарь названий, `ATTENDANCE_LABELS`, `BLOCK_TYPE_META` (иконка, название, «является заданием»).
+Справочники: `CLUB_CATEGORIES` + словарь названий, `ATTENDANCE_LABELS`, `BLOCK_TYPE_META` (иконка, название, «является заданием»). Русские подписи (`ROLE_LABELS`, `CLUB_CATEGORY_LABELS`, `ATTENDANCE_LABELS`, `BLOCK_TYPE_META[].label`, `KNOWLEDGE_NODE_TYPE_LABELS`) веб **не использует**: подписи enum во фронте — из i18n (`common:roles.*`, `clubCategory.*`, `blockType.*`, `knowledgeNodeType.*`, `billing.period.*`), чтобы переключались с языком. Нужны ли константы apps/api — решает владелец contracts.
+
+Хелперы: `toStudentBlock(block)` (блок без ответов для ученика, docs/05 §5.3 courses), `isHttpUrl`/`HttpUrlSchema` (ссылки только http/https), `materialize*` фикстур (docs/05 §5.5).
 
 ## 6.2. `packages/db`
 Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Экспортирует типы Prisma для api. Фронт **не** зависит от `db`.
@@ -40,7 +42,15 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 - Чат: `ChatMessage`, `ChatInput`, `TypingIndicator`, `StreamingText`.
 - Файлы: `FileUploader` (presigned, прогресс), `FilePreview`.
 
-Доменные компоненты живут в `apps/web/src/entities`, не в `packages/ui`: `LessonCard`, `AssignmentCard`, `CourseCard`, `ClubCard`, `StudentRow`, `PaymentRow`, `NotificationRow`, `ChildSwitcher`.
+Доменные компоненты живут в `apps/web/src/entities`, не в `packages/ui`: `LessonCard`, `AssignmentCard`, `CourseCard`, `ClubCard`, `StudentRow`, `PaymentRow`, `NotificationRow`. (`ChildSwitcher` удалён: выбор ребёнка — сердца на главной родителя и экран «Дети».)
+
+Поведение компонентов `@edu/ui`, на которое опираются фичи (подробно — `packages/ui/README.md`):
+- `Text preserveLines` — сохраняет переносы строк (`white-space: pre-wrap`); инлайн-`style` в фичах не нужен.
+- `Chip` ставит `aria-pressed` только при переданном `selected` (в том числе `false`); без него — обычная кнопка (стартеры чата тьютора).
+- `ListRow onClick` нажимается по Enter/Space только с фокусом на самой строке; клик вложенной кнопки всплывает — её `onClick` вызывает `stopPropagation()`.
+- `Button`/`IconButton` в `loading` — `aria-busy` + `aria-disabled` (фокус не теряется, нажатие гасится) вместо `disabled`; тесты проверяют `aria-disabled`, формы дополнительно проверяют `mutation.isPending`.
+- `CardColumns` (`variant="default"`) — size-container по ширине: ширину задаёт родитель (внутри shrink-to-fit контейнера её надо задать явно); уже 380px — зазор колонок 8px и поля карточек 6px; потолок `fit`-колонки 45% — только рядом с «резиновой» колонкой. Строки связаны через `aria-owns` (в VoiceOver/Safari поддержка частичная — техдолг).
+- Служебные подписи (`closeLabel`, `backLabel`, `regionLabel`, `inputLabel` чата и т.п.) веб передаёт из i18n; доступное имя поля чата — «Сообщение»/«Message», а не плейсхолдер. `I18nextProvider` снаружи `ToastProvider` (`app/providers.tsx`).
 
 Рендереры блоков курса (`entities/course/blocks/`) — по одному на `BlockType`: `TextBlock`, `VideoBlock`, `ImageBlock`, `FileBlock`, `QuizBlock`, `QuestionBlock`, `PracticeBlock`, `HomeworkBlock`, `InteractiveBlock`. Редакторы для преподавателя (`entities/course/editors/`): `*BlockEditor` + `CourseStructureEditor`.
 
@@ -49,8 +59,8 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 ## 6.5. `apps/web/src/shared`
 - `api/client.ts` — ts-rest клиент + react-query обёртки; `api/sse.ts` — стрим (`useAiStream`); `api/query-keys.ts` — префиксы (`['student']`, `['parent', studentId]`, `['teacher']`, `['ai']`, `['notifications']`).
 - `max/` — `MaxBridge` интерфейс (`types.ts`) + реальный адаптер (`sdk-bridge.ts`) + mock (`mock-bridge.ts`), провайдер и хуки (`index.tsx`).
-- `i18n/` — i18next, namespaces по фичам.
-- `lib/dates.ts` («сегодня, 15:30», «через 2 дня», недели, tz), `lib/money.ts` (копейки → «1 500 ₽»), `lib/format.ts` (проценты, склонения); `api/errors.ts` (`ApiClientError` → текст).
+- `i18n/` — i18next, namespaces по фичам; ru и en совпадают по ключам (тест `dictionaries.test.ts`), плюрализация — суффиксы `_one/_few/_many/_other` (ru) и `_one/_other` (en) с переменной `count`. Обращение: ученик — на «ты», родитель и преподаватель — на «вы», общие тексты (ошибки, выбор роли) — без обращения. Подписи enum — `common:roles.*`, `clubCategory.*`, `blockType.*`, `knowledgeNodeType.*`, `billing.period.*`.
+- `lib/dates.ts` («сегодня, 15:30», «через 2 дня», недели, tz; подписи — из `common:dates.*`; `parseDateOnly`/`formatDateOnly` — дата `YYYY-MM-DD` как локальная, без сдвига через UTC-полночь), `lib/money.ts` (копейки → «1 500 ₽»), `lib/format.ts` (`formatRate`, `formatPercent`, `formatScore`, `fullName`; склонения — через i18n, а не здесь), `lib/navigation.ts` (`FROM_APP_STATE`/`isFromApp` — «Назад» по истории или на корень роли), `lib/parent-paths.ts`, `lib/teacher-paths.ts` (пути, общие для нескольких страниц роли); `api/errors.ts` (`ApiClientError` → текст из `common:errors.codes.*`).
 - `config.ts` — `VITE_API_URL`, `VITE_API_MODE=mock|real`.
 
 ## 6.6. `apps/api/src/common`
