@@ -8,7 +8,7 @@ export interface CourseCardProps {
   onClick?: () => void;
 }
 
-/** Курс ученика: название, группа, прогресс, следующий блок. */
+/** Курс ученика: название, группа, прогресс, следующий блок. «N из M блоков» склоняется по M. */
 export function CourseCard({ course, onClick }: CourseCardProps) {
   const { t } = useTranslation('student');
   return (
@@ -22,13 +22,13 @@ export function CourseCard({ course, onClick }: CourseCardProps) {
           value={course.progress.percent}
           label={t('courses.blocks', {
             completed: course.progress.completedBlocks,
-            total: course.progress.totalBlocks,
+            count: course.progress.totalBlocks,
           })}
         />
         <Text variant="caption" tone="muted">
           {t('courses.blocks', {
             completed: course.progress.completedBlocks,
-            total: course.progress.totalBlocks,
+            count: course.progress.totalBlocks,
           })}
           {' · '}
           {formatPercent(course.progress.percent)}
@@ -59,8 +59,8 @@ export function TeacherCourseCardView({ course, onClick }: TeacherCourseCardProp
       <Stack gap={2}>
         <Text weight="medium">{course.title}</Text>
         <Text variant="caption" tone="muted">
-          {course.group.title} ·{' '}
-          {t('courses.counts', { modules: course.modulesCount, blocks: course.blocksCount })}
+          {course.group.title} · {t('courses.modulesCount', { count: course.modulesCount })} ·{' '}
+          {t('courses.blocksCount', { count: course.blocksCount })}
         </Text>
         <Badge tone={tone}>{t(`courses.status.${course.status}`)}</Badge>
         <ProgressBar value={course.avgProgress} size="sm" label={t('courses.avgProgress')} />

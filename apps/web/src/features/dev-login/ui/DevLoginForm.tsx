@@ -89,7 +89,9 @@ export function DevLoginForm({ onLoggedIn }: DevLoginFormProps) {
               autoComplete="off"
             />
           </Field>
+          {/* Группа чекбоксов: имя группы — «Роли», у каждого чекбокса свой id и своя подпись. */}
           <Field
+            group
             label={t('login.roles')}
             error={roles.length === 0 ? t('login.rolesRequired') : undefined}
           >

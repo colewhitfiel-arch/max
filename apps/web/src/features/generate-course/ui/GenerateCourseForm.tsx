@@ -46,6 +46,8 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
   // Дополнение к материалам необязательно, но если заполнено — контракт требует минимум символов.
   const extraTopicInvalid =
     mode === 'materials' && topicTrimmed.length > 0 && topicTrimmed.length < TOPIC_MIN_LENGTH;
+  // «10 символов» склоняется по числу (count), а не вшито в фразу подсказки.
+  const minChars = t('courseBuilder.form.characters', { count: TOPIC_MIN_LENGTH });
   const canSubmit =
     !!groupId && (mode === 'topic' ? topicValid : files.length > 0 && !extraTopicInvalid);
 
@@ -127,12 +129,12 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
           required={mode === 'topic'}
           hint={
             mode === 'topic'
-              ? t('courseBuilder.form.topicHint', { min: TOPIC_MIN_LENGTH })
-              : t('courseBuilder.form.topicExtraHint', { min: TOPIC_MIN_LENGTH })
+              ? t('courseBuilder.form.topicHint', { chars: minChars })
+              : t('courseBuilder.form.topicExtraHint', { chars: minChars })
           }
           error={
             extraTopicInvalid
-              ? t('courseBuilder.form.topicExtraTooShort', { min: TOPIC_MIN_LENGTH })
+              ? t('courseBuilder.form.topicExtraTooShort', { chars: minChars })
               : undefined
           }
         >

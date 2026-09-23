@@ -69,6 +69,11 @@ export interface DayScheduleProps {
    * (главная репетитора). По умолчанию выключена — у ученика и родителя строк без полос.
    */
   striped?: boolean;
+  /**
+   * Плотная таблица на экранах до 414px (CardColumns `dense`): для трёх широких колонок
+   * (главная родителя), где иначе длинное название кружка рвётся на 390px.
+   */
+  dense?: boolean;
 }
 
 export interface DayScheduleColumn {
@@ -109,6 +114,7 @@ export function DaySchedule({
   secondColumn,
   nameAction,
   striped = false,
+  dense = false,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
   const { t: tc } = useTranslation('common');
@@ -192,6 +198,7 @@ export function DaySchedule({
         <CardColumns
           aria-label={label}
           striped={striped}
+          dense={dense}
           columns={[
             { key: 'name', header: t('home.columns.name'), fit: true, action: nameAction },
             {
@@ -211,7 +218,8 @@ export function DaySchedule({
               cells: {
                 name: cancelled ? (
                   <Stack gap={1} align="start">
-                    <Text as="span" tone="muted">
+                    {/* small — размер ячейки (14px, в узкой таблице 13px), а не body 16px. */}
+                    <Text as="span" variant="small" tone="muted">
                       {lesson.group.club.title}
                     </Text>
                     <Badge tone="danger">{tc('lesson.cancelled')}</Badge>

@@ -90,6 +90,7 @@ export function ParentHomeSchedule({ studentId, onAddClub }: ParentHomeScheduleP
           nowrap: true,
         }}
         nameAction={{ label: t('schedule.addClub'), onClick: onAddClub }}
+        dense
       />
       <StudentCalendarSheet
         open={calendarOpen}

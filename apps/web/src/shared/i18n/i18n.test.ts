@@ -42,6 +42,29 @@ describe('i18n: плюрализация ru (Intl.PluralRules, формат v4 _
     expect(i18n.getFixedT('ru', 'student')('home.streak', { count: 5 })).toBe('Серия: 5 дн.');
   });
 
+  it('число перед словом в переменной не count — склоняется через count', () => {
+    const student = i18n.getFixedT('ru', 'student');
+    expect(student('courses.blocks', { completed: 0, count: 1 })).toBe('0 из 1 блока');
+    expect(student('courses.blocks', { completed: 1, count: 3 })).toBe('1 из 3 блоков');
+    expect(student('courses.blocks', { completed: 2, count: 5 })).toBe('2 из 5 блоков');
+    expect(student('courses.blocks', { completed: 7, count: 21 })).toBe('7 из 21 блока');
+    const studentEn = i18n.getFixedT('en', 'student');
+    expect(studentEn('courses.blocks', { completed: 0, count: 1 })).toBe('0 of 1 block');
+    expect(studentEn('courses.blocks', { completed: 1, count: 2 })).toBe('1 of 2 blocks');
+
+    const teacherEn = i18n.getFixedT('en', 'teacher');
+    expect(teacherEn('courses.modulesCount', { count: 1 })).toBe('1 module');
+    expect(teacherEn('courses.blocksCount', { count: 3 })).toBe('3 blocks');
+    const teacher = i18n.getFixedT('ru', 'teacher');
+    expect(teacher('courses.modulesCount', { count: 5 })).toBe('5 мод.');
+    expect(teacher('courses.blocksCount', { count: 1 })).toBe('1 бл.');
+
+    expect(teacher('courseBuilder.form.characters', { count: 1 })).toBe('1 символ');
+    expect(teacher('courseBuilder.form.characters', { count: 2 })).toBe('2 символа');
+    expect(teacher('courseBuilder.form.characters', { count: 10 })).toBe('10 символов');
+    expect(teacherEn('courseBuilder.form.characters', { count: 1 })).toBe('1 character');
+  });
+
   it('describeApiError берёт текст на текущем языке', async () => {
     const error = new ApiClientError({ code: 'EXTERNAL_INTEGRATION', message: 'x', status: 0 });
     expect(describeApiError(error)).toBe('Сервис временно недоступен, возможно, нет соединения');

@@ -12,6 +12,28 @@
       "port": 5173,
       "autoPort": true,
       "url": "http://127.0.0.1:5173"
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:CORS_ORIGINS='http://localhost:5173,http://127.0.0.1:5175'; pnpm --filter @edu/api dev"
+      ],
+      "port": 3000,
+      "url": "http://localhost:3000/api/v1/health"
+    },
+    {
+      "name": "web-real",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:VITE_API_MODE='real'; pnpm --filter @edu/web exec vite --host 127.0.0.1 --port 5175 --strictPort"
+      ],
+      "port": 5175,
+      "url": "http://127.0.0.1:5175"
     }
   ]
 }

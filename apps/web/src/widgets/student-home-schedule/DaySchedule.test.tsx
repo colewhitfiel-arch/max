@@ -1,5 +1,5 @@
 import type { LessonDto } from '@edu/contracts';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -158,6 +158,11 @@ describe('DaySchedule', () => {
       /^\d{2}:\d{2}/.test(node.textContent ?? ''),
     );
     expect(times.map((time) => time.getAttribute('data-tone'))).toEqual(['muted', 'primary']);
+    // Название отменённого — в размер ячейки (small), а не body 16px: не шире соседних строк.
+    const cancelledTitle = within(table)
+      .getAllByText('Робототехника')
+      .find((node) => node.getAttribute('data-tone') === 'muted');
+    expect(cancelledTitle).toHaveAttribute('data-variant', 'small');
   });
 
   it('прошедший день из календаря листается в обе стороны', async () => {

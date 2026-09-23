@@ -96,7 +96,8 @@ export function StudentCalendarSheet({
               <Text variant="caption" tone={cancelled ? 'muted' : 'primary'} weight="medium">
                 {formatTimeRange(lesson.startsAt, lesson.endsAt, locale)}
               </Text>
-              <Text variant="caption" tone={cancelled ? 'muted' : 'default'}>
+              {/* micro (10px): в узкой карточке ≈110px текста — «Программирование» целиком. */}
+              <Text variant="micro" tone={cancelled ? 'muted' : 'default'}>
                 {lesson.group.club.title}
               </Text>
               {cancelled && <Badge tone="danger">{tc('lesson.cancelled')}</Badge>}

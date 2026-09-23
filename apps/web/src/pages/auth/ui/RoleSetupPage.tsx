@@ -17,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
-
-const OPTIONS: Role[] = ['STUDENT', 'PARENT', 'TEACHER'];
+import { ADDABLE_ROLES } from '../model';
 
 /** `/auth/role`: выбор первой роли (F1) или добавление новой (`POST /auth/roles`). */
 export function RoleSetupPage() {
@@ -87,7 +86,7 @@ export function RoleSetupPage() {
               {t('roleSetup.add')}
             </Text>
             <Card padding="none">
-              {OPTIONS.map((role) => (
+              {ADDABLE_ROLES.map((role) => (
                 <ListRow
                   key={role}
                   title={t(`roleSetup.${role}`)}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssignmentCard, useTeacherAssignments } from '@/entities/assignment';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
+import { submissionTone } from '../model';
 
 const FILTERS: TeacherAssignmentsFilter[] = ['open', 'closed'];
 
@@ -36,11 +37,7 @@ export function TeacherAssignmentsPage() {
                   assignment={assignment}
                   right={
                     assignment.publishedAt ? (
-                      <Badge
-                        tone={
-                          assignment.submittedCount > assignment.gradedCount ? 'info' : 'success'
-                        }
-                      >
+                      <Badge tone={submissionTone(assignment)}>
                         {t('assignments.submitted', {
                           submitted: assignment.submittedCount,
                           students: assignment.studentsCount,
