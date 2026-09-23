@@ -26,14 +26,20 @@
   padding: 0 var(--ui-space-1);
 }
 
+/* До двух строк, многоточие — только после второй: на 375px между «Назад» и действиями
+ * ≈230px, одной строки мало для «Основы робототехники» (≈252px при 20px/600). Короткий
+ * заголовок остаётся в одну строку — высота шапки и выравнивание не меняются. */
 .ui-page-header__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   margin: 0;
   font-size: var(--ui-font-size-lg);
   font-weight: var(--ui-font-weight-bold);
   line-height: 1.25;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ui-page-header__subtitle {

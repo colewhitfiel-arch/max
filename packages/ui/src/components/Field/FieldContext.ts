@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
 
 export interface FieldContextValue {
-  /** id контрола, на который указывает label. */
-  id: string;
+  /** id контрола, на который указывает label. В групповом режиме (`Field group`) не задан. */
+  id?: string;
   /** Список id для aria-describedby (hint/error). */
   describedBy?: string;
   /** Есть ли ошибка. */

@@ -31,6 +31,26 @@ describe('CardColumns', () => {
     expect(within(table).queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('dense: data-dense только при включённом пропе', () => {
+    const { rerender } = render(
+      <CardColumns
+        aria-label="Расписание"
+        columns={[{ key: 'name', header: 'Название' }]}
+        rows={rows}
+      />,
+    );
+    expect(screen.getByRole('table')).not.toHaveAttribute('data-dense');
+    rerender(
+      <CardColumns
+        aria-label="Расписание"
+        columns={[{ key: 'name', header: 'Название' }]}
+        rows={rows}
+        dense
+      />,
+    );
+    expect(screen.getByRole('table')).toHaveAttribute('data-dense');
+  });
+
   it('ARIA: строки row собирают ячейки по строкам через aria-owns', () => {
     render(
       <CardColumns

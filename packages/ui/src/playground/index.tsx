@@ -313,11 +313,19 @@ function DockSheetDemo() {
         anchorRef={anchorRef}
         tab={selected.toLocaleDateString('ru')}
         aside={
-          <Stack gap={1}>
-            <Text variant="caption" tone="primary">
-              17:00–18:30
-            </Text>
-            <Text variant="caption">Робототехника</Text>
+          <Stack gap={4}>
+            <Stack gap={1}>
+              <Text variant="caption" tone="primary" weight="medium">
+                15:00–16:30
+              </Text>
+              <Text variant="micro">Программирование на Python</Text>
+            </Stack>
+            <Stack gap={1}>
+              <Text variant="caption" tone="primary" weight="medium">
+                17:00–18:30
+              </Text>
+              <Text variant="micro">Робототехника</Text>
+            </Stack>
           </Stack>
         }
       >
@@ -368,6 +376,13 @@ function FormsDemo() {
         onChange={(event) => setChecked(event.target.checked)}
       />
       <Checkbox label="Недоступный" disabled />
+      <Field group label="Роли" required hint="Можно выбрать несколько">
+        <Inline gap={3}>
+          <Checkbox label="Ученик" defaultChecked />
+          <Checkbox label="Родитель" />
+          <Checkbox label="Преподаватель" />
+        </Inline>
+      </Field>
       <Switch
         label="Уведомления"
         description="Напоминания о занятиях"
@@ -1199,6 +1214,9 @@ function PlaygroundContent() {
         <Text variant="title">Title 20px</Text>
         <Text variant="body">Body 16px — основной текст интерфейса.</Text>
         <Text variant="caption">Caption 12px — подписи и вспомогательный текст.</Text>
+        <Text variant="micro">
+          Micro 10px — подписи в узких карточках (занятия дня в DockSheet).
+        </Text>
         <Row label="tone">
           <Text tone="muted">muted</Text>
           <Text tone="primary">primary</Text>

@@ -13,7 +13,8 @@
   gap: var(--ui-space-4);
   /* Узкая таблица (≤ 380px — экран 375/390): колонки через 8px, к 388px плавно возвращается 16px.
    * Процент — от ширины самой таблицы. Вместе с полями карточек 6px (ниже) это ≈ 28px ширины
-   * названию: «Робототехника» у родителя и «Программирование» у ученика не рвутся на 375px. */
+   * названию: «Программирование» у ученика не рвётся на 375px; у родителя (Репетитор) — ещё
+   * и мельче шрифт уже 358px (ниже). */
   column-gap: clamp(var(--ui-space-2), calc(100% - 372px), var(--ui-space-4));
   min-width: 0;
 }
@@ -77,6 +78,55 @@
 
 .ui-card-columns__column[data-nowrap] .ui-card-columns__cell {
   white-space: nowrap;
+}
+
+/*
+ * Самая узкая таблица (< 358px — экран уже 390px при полях 16px): три колонки родителя
+ * Название / Репетитор / Время на 14px не влезают на 375px (таблица 343px, под текст
+ * 343 − 2×8 − 6×6 = 291px): «Программирование» 149 + «Иванова М.» 83 (заголовок
+ * «Репетитор» 16px — 90) + «16:00–17:00» 76 = 315px (Montserrat 400/500). Ячейки 13px,
+ * заголовки 14px, поля 5px: 138 + 78 + 71 = 288px из 297px — название не рвётся (запас ≈9px,
+ * у «19:00–20:30» ≈6px). Время и другие `Text small` в ячейках — в размер ячейки.
+ * После базовых правил: запрос контейнера специфичности не добавляет.
+ */
+@container ui-card-columns (max-width: 357.98px) {
+  .ui-card-columns__column {
+    --ui-card-columns-pad: 5px;
+  }
+
+  .ui-card-columns__cell {
+    font-size: 13px;
+  }
+
+  .ui-card-columns__header {
+    font-size: var(--ui-font-size-sm);
+  }
+
+  .ui-card-columns__cell .ui-text[data-variant='small'] {
+    font-size: inherit;
+  }
+}
+
+/*
+ * `dense`: то же сжатие и на экранах 390–414px (таблица 358–382px). На 390px у родителя
+ * «Программирование» + «Репетитор» + время на 14/16px не влезают на ≈9px; на 13/14px — с запасом.
+ */
+@container ui-card-columns (max-width: 383.98px) {
+  .ui-card-columns[data-dense] .ui-card-columns__column {
+    --ui-card-columns-pad: 5px;
+  }
+
+  .ui-card-columns[data-dense] .ui-card-columns__cell {
+    font-size: 13px;
+  }
+
+  .ui-card-columns[data-dense] .ui-card-columns__header {
+    font-size: var(--ui-font-size-sm);
+  }
+
+  .ui-card-columns[data-dense] .ui-card-columns__cell .ui-text[data-variant='small'] {
+    font-size: inherit;
+  }
 }
 
 /*

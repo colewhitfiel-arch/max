@@ -78,6 +78,13 @@ export interface CardColumnsProps extends HTMLAttributes<HTMLDivElement> {
    * Вешается над верхним краем карточек и не сдвигает таблицу.
    */
   caption?: ReactNode;
+  /**
+   * Плотная таблица для узких экранов: при ширине таблицы меньше 384px (экраны до 414px)
+   * ячейки 13px, заголовки 14px, поля карточек 5px — как у всех таблиц уже 358px. Для таблиц
+   * с тремя «широкими» колонками (главная родителя: Название / Репетитор / Время), где иначе
+   * длинное название («Программирование») рвётся на 390–414px. По умолчанию `false`.
+   */
+  dense?: boolean;
 }
 
 function isWeighted(column: CardColumn): boolean {
@@ -122,6 +129,7 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
     striped = false,
     showHeader = true,
     caption,
+    dense = false,
     className,
     style,
     ...rest
@@ -164,6 +172,7 @@ export const CardColumns = forwardRef<HTMLDivElement, CardColumnsProps>(function
       data-variant={variant}
       data-header={showHeader ? undefined : 'hidden'}
       data-has-action={hasAction || undefined}
+      data-dense={dense || undefined}
       style={{ ...vars, ...style }}
       {...rest}
     >

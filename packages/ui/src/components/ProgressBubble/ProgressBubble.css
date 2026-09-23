@@ -29,11 +29,15 @@
 }
 
 /* Длинное название («Программирование на Python») переносится максимум на две строки и
- * обрезается многоточием (переносы по слогам, `lang` документа — ru). */
+ * обрезается многоточием (переносы по слогам, `lang` документа — ru). Подпись шире полей
+ * круга — на весь диаметр (поля по 10% — только у картинки и числа): «Программирование»
+ * 500 — ≈10.73 кегля, 0.84 диаметра при 7.8%; у самого маленького круга 112px кегль 10px —
+ * 107px из 112px, у 170px — 13px, 140px из 170px. Слово не рвётся ни при каком размере. */
 .ui-progress-bubble__title {
   display: -webkit-box;
   flex-shrink: 0;
-  max-width: 100%;
+  max-width: calc(100% + var(--ui-progress-bubble-size) * 0.2);
+  margin-inline: calc(var(--ui-progress-bubble-size) * -0.1);
   overflow: hidden;
   font-size: clamp(10px, calc(var(--ui-progress-bubble-size) * 0.078), 13px);
   font-weight: var(--ui-font-weight-medium);

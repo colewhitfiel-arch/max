@@ -12,4 +12,11 @@ describe('Text', () => {
     render(<Text>Строка</Text>);
     expect(screen.getByText('Строка')).not.toHaveAttribute('data-preserve-lines');
   });
+
+  it('micro (10px) — строчный span, как caption', () => {
+    render(<Text variant="micro">Программирование на Python</Text>);
+    const text = screen.getByText('Программирование на Python');
+    expect(text.tagName).toBe('SPAN');
+    expect(text).toHaveAttribute('data-variant', 'micro');
+  });
 });
