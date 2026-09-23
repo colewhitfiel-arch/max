@@ -17,7 +17,7 @@ import { AiProviderError, isAiProviderError, toAiProviderError } from '../../typ
 import { GigaChatTokenManager } from './auth';
 import { mapFetchError } from './errors';
 import type { FetchLike, GigaChatHttp, HttpRequestOptions } from './http';
-import { createGigaChatHttp, readJson } from './http';
+import { createGigaChatHttp } from './http';
 import {
   ChatChunkSchema,
   ChatCompletionSchema,
@@ -34,7 +34,7 @@ export interface GigaChatProviderOptions {
   embeddingsModel?: string;
   oauthUrl?: string;
   apiUrl?: string;
-  /** Таймаут запроса (для стрима — до получения заголовков). */
+  /** Таймаут запроса вместе с чтением тела (для стрима — до получения заголовков). */
   timeoutMs?: number;
   maxRetries?: number;
   retryBaseDelayMs?: number;
@@ -194,15 +194,21 @@ export class GigaChatProvider implements AiProvider {
   private async chatUnbounded(req: AiChatRequest): Promise<AiChatResponse> {
     const model = req.model ?? this.config.model;
     const body = JSON.stringify(buildChatBody(req, model, false));
-    const response = await this.withRetries('chat', req.signal, () =>
-      this.authorized('chat', req.signal, this.config.timeoutMs, (token) => ({
-        url: `${this.config.apiUrl}/chat/completions`,
-        method: 'POST',
-        headers: jsonHeaders(token, req),
-        body,
-      })),
+    // Чтение и разбор тела — внутри ретраев и таймаута: обрыв при чтении повторяется как NETWORK.
+    const data = await this.withRetries('chat', req.signal, () =>
+      this.authorized(
+        'chat',
+        req.signal,
+        this.config.timeoutMs,
+        (token) => ({
+          url: `${this.config.apiUrl}/chat/completions`,
+          method: 'POST',
+          headers: jsonHeaders(token, req),
+          body,
+        }),
+        (opts) => this.http.requestJson(opts, ChatCompletionSchema),
+      ),
     );
-    const data = await readJson(response, ChatCompletionSchema, 'chat');
     const choice = data.choices[0];
     if (!choice) {
       throw new AiProviderError('INVALID_RESPONSE', 'GigaChat chat: пустой список choices', {
@@ -254,12 +260,18 @@ export class GigaChatProvider implements AiProvider {
         );
       }, this.config.timeoutMs);
       try {
-        const response = await this.authorized('stream', attempt.signal, 0, (token) => ({
-          url: `${this.config.apiUrl}/chat/completions`,
-          method: 'POST',
-          headers: { ...jsonHeaders(token, req), Accept: 'text/event-stream' },
-          body,
-        }));
+        const response = await this.authorized(
+          'stream',
+          attempt.signal,
+          0,
+          (token) => ({
+            url: `${this.config.apiUrl}/chat/completions`,
+            method: 'POST',
+            headers: { ...jsonHeaders(token, req), Accept: 'text/event-stream' },
+            body,
+          }),
+          (opts) => this.http.request(opts),
+        );
         return { response, signal: attempt.signal };
       } catch (error) {
         unlinkAttempt();
@@ -296,54 +308,68 @@ export class GigaChatProvider implements AiProvider {
     let usage: AiUsage | undefined;
     let finishReason: string | undefined;
 
+    // Тело не дочитано (ошибка, досрочный break/return потребителя) — в finally соединение
+    // закрывается через master; idle-таймер и подписка на signal снимаются всегда.
+    let finished = false;
     try {
-      armIdle();
-      for await (const event of parseSse(response.body, signal)) {
+      try {
         armIdle();
-        if (event.data.trim() === '[DONE]') break;
-        const chunk = parseChunk(event.data);
-        if (chunk.model) responseModel = chunk.model;
-        const chunkUsage = toUsage(chunk.usage);
-        if (chunkUsage) usage = chunkUsage;
-        const choice = chunk.choices[0];
-        if (!choice) continue;
-        if (choice.finish_reason) finishReason = choice.finish_reason;
-        const text = choice.delta?.content;
-        if (text) {
-          parts.push(text);
-          yield { type: 'token', text };
+        for await (const event of parseSse(response.body, signal)) {
+          armIdle();
+          if (event.data.trim() === '[DONE]') break;
+          const chunk = parseChunk(event.data);
+          if (chunk.model) responseModel = chunk.model;
+          const chunkUsage = toUsage(chunk.usage);
+          if (chunkUsage) usage = chunkUsage;
+          const choice = chunk.choices[0];
+          if (!choice) continue;
+          if (choice.finish_reason) finishReason = choice.finish_reason;
+          const text = choice.delta?.content;
+          if (text) {
+            parts.push(text);
+            yield { type: 'token', text };
+          }
         }
+      } catch (error) {
+        cleanup();
+        if (isCallerAbort(master.signal) || isCallerAbort(signal)) return;
+        const reason = signal.aborted ? signal.reason : error;
+        yield {
+          type: 'error',
+          error: isAiProviderError(reason) ? reason : mapFetchError(reason, 'stream'),
+        };
+        return;
       }
-    } catch (error) {
+      finished = true;
       cleanup();
-      if (isCallerAbort(master.signal) || isCallerAbort(signal)) return;
-      const reason = signal.aborted ? signal.reason : error;
-      yield {
-        type: 'error',
-        error: isAiProviderError(reason) ? reason : mapFetchError(reason, 'stream'),
-      };
-      return;
-    }
-    cleanup();
 
-    const result: AiChatResponse = { content: parts.join(''), model: responseModel ?? model };
-    if (usage) result.usage = usage;
-    if (finishReason) result.finishReason = finishReason;
-    yield { type: 'done', response: result };
+      const result: AiChatResponse = { content: parts.join(''), model: responseModel ?? model };
+      if (usage) result.usage = usage;
+      if (finishReason) result.finishReason = finishReason;
+      yield { type: 'done', response: result };
+    } finally {
+      if (!finished && !master.signal.aborted) master.abort();
+      cleanup();
+    }
   }
 
   private async embedUnbounded(req: AiEmbedRequest): Promise<AiEmbedResponse> {
     const model = req.model ?? this.config.embeddingsModel;
     const body = JSON.stringify({ model, input: req.input });
-    const response = await this.withRetries('embeddings', req.signal, () =>
-      this.authorized('embeddings', req.signal, this.config.timeoutMs, (token) => ({
-        url: `${this.config.apiUrl}/embeddings`,
-        method: 'POST',
-        headers: jsonHeaders(token, req),
-        body,
-      })),
+    const data = await this.withRetries('embeddings', req.signal, () =>
+      this.authorized(
+        'embeddings',
+        req.signal,
+        this.config.timeoutMs,
+        (token) => ({
+          url: `${this.config.apiUrl}/embeddings`,
+          method: 'POST',
+          headers: jsonHeaders(token, req),
+          body,
+        }),
+        (opts) => this.http.requestJson(opts, EmbeddingsResponseSchema),
+      ),
     );
-    const data = await readJson(response, EmbeddingsResponseSchema, 'embeddings');
     const items = [...data.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     const perItemTokens = items.reduce((sum, item) => sum + (item.usage?.prompt_tokens ?? 0), 0);
     const promptTokens = perItemTokens || data.usage?.prompt_tokens || 0;
@@ -376,23 +402,25 @@ export class GigaChatProvider implements AiProvider {
   }
 
   /** Запрос с Bearer-токеном; при 401 — сброс кэша токена и одна повторная попытка. */
-  private async authorized(
+  private async authorized<T>(
     op: string,
     signal: AbortSignal | undefined,
     timeoutMs: number,
     build: RequestBuilder,
-  ): Promise<Response> {
+    send: (opts: HttpRequestOptions) => Promise<T>,
+  ): Promise<T> {
     let token = await this.tokens.getToken();
     throwIfAborted(signal);
     try {
-      return await this.http.request({ ...build(token), signal, timeoutMs, op });
+      return await send({ ...build(token), signal, timeoutMs, op });
     } catch (error) {
       if (isAiProviderError(error) && error.code === 'AUTH' && error.status === 401) {
         this.logger.warn('gigachat.auth.expired', { op });
-        this.tokens.invalidate();
+        // Сбрасываем только токен, с которым пришёл 401: свежий от параллельного запроса не трогаем.
+        this.tokens.invalidate(token);
         token = await this.tokens.getToken();
         throwIfAborted(signal);
-        return this.http.request({ ...build(token), signal, timeoutMs, op });
+        return send({ ...build(token), signal, timeoutMs, op });
       }
       throw error;
     }

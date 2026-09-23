@@ -3,16 +3,17 @@
  * поэтому любое изменение текста промпта — новая версия.
  */
 import type { MockResponseRule } from '../providers/mock';
-import { courseBuilderMockRules } from './course-builder';
-import { onboardingMockRules } from './onboarding';
+import {
+  courseBuilderMockRules,
+  lessonPrompt,
+  surveyPrompt,
+  topicMaterialPrompt,
+} from './course-builder';
+import { onboardingMockRules, onboardingTurnPrompt, recommendClubsPrompt } from './onboarding';
 import { parentTutorMockRules, parentTutorPrompt } from './parent-tutor';
 import { PromptRegistry, type AnyPrompt } from './registry';
-import { tutorMockRules } from './tutor';
-import { trajectoryMockRules } from './trajectory';
-import { lessonPrompt, surveyPrompt, topicMaterialPrompt } from './course-builder';
-import { onboardingTurnPrompt, recommendClubsPrompt } from './onboarding';
-import { tutorPrompt } from './tutor';
-import { trajectoryPrompt } from './trajectory';
+import { trajectoryMockRules, trajectoryPrompt } from './trajectory';
+import { tutorMockRules, tutorPrompt } from './tutor';
 
 export * from './registry';
 export * from './course-builder';

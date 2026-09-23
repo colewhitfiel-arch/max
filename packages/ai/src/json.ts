@@ -135,7 +135,7 @@ function parseLoose(candidate: string): { value: unknown; repaired: boolean } | 
   try {
     return { value: JSON.parse(candidate), repaired: false };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = describeJsonSyntaxError(error);
     for (const variant of [candidate, fixSwappedClosers(candidate)]) {
       try {
         return { value: JSON.parse(jsonrepair(variant)), repaired: true };
@@ -147,12 +147,28 @@ function parseLoose(candidate: string): { value: unknown; repaired: boolean } | 
   }
 }
 
-/** Человекочитаемое описание ошибок zod — идёт обратно модели при ретрае. */
+/**
+ * Описание `SyntaxError` без фрагмента входа: V8 цитирует разбираемую строку
+ * (`Unexpected token 'П', "Привет, во"... is not valid JSON`), а текст ошибки уходит в логи.
+ * Остаётся только позиция — её достаточно и для лога, и для подсказки модели при ретрае.
+ */
+function describeJsonSyntaxError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const position = /at position (\d+)/.exec(message)?.[1];
+  if (position !== undefined) return `синтаксическая ошибка JSON (позиция ${position})`;
+  if (/unexpected end/i.test(message)) return 'JSON оборван (неожиданный конец)';
+  return 'синтаксическая ошибка JSON';
+}
+
+/**
+ * Человекочитаемое описание ошибок zod — идёт обратно модели при ретрае и в лог `ai.json.invalid`.
+ * Хвост `, received '…'` (zod цитирует полученное значение для enum) вырезается: это текст модели.
+ */
 export function formatZodIssues(error: ZodError): string {
   return error.issues
     .map((issue) => {
       const path = issue.path.length > 0 ? issue.path.join('.') : '(корень)';
-      return `${path}: ${issue.message}`;
+      return `${path}: ${issue.message.replace(/,\s*received\s+'[\s\S]*'$/, '')}`;
     })
     .join('; ');
 }
@@ -185,6 +201,8 @@ export interface ChatJsonOptions {
   maxRetries?: number;
   /** Текст сообщения с ошибкой валидации, отправляемого модели перед повтором. */
   buildRetryMessage?: (error: string) => string;
+  /** Текст повторного запроса, если ответ обрезан по лимиту токенов (`finishReason: 'length'`). */
+  buildTruncatedMessage?: () => string;
   /** Вызывается на каждый невалидный ответ (для логов/метрик): номер попытки и текст ошибки схемы. */
   onInvalid?: (info: { attempt: number; error: string }) => void;
   /** Вызывается, когда JSON ответа пришлось чинить (`jsonrepair`), но он прошёл схему. */
@@ -200,6 +218,16 @@ export interface ChatJsonResult<T> {
   repaired: boolean;
 }
 
+/** Ошибка для ответа, оборванного по `max_tokens`: такой JSON «чинить» нельзя — данные неполные. */
+export const TRUNCATED_JSON_ERROR = 'ответ обрезан по лимиту токенов';
+
+export function defaultTruncatedMessage(): string {
+  return (
+    'Предыдущий ответ оборвался: не хватило лимита длины. Ответь заново короче, но полностью: ' +
+    'меньше разделов, абзацев и блоков, короче формулировки. Верни только валидный JSON без пояснений и без markdown.'
+  );
+}
+
 export function defaultRetryMessage(error: string): string {
   return (
     `Предыдущий ответ не прошёл проверку: ${error}. ` +
@@ -210,6 +238,8 @@ export function defaultRetryMessage(error: string): string {
 /**
  * Запрос к модели с ожиданием структурированного ответа.
  * При невалидном JSON повторяет запрос, добавляя в диалог ответ модели и текст ошибки валидации.
+ * Ответ, оборванный по лимиту токенов (`finishReason: 'length'`), принимается, только если он
+ * разобрался без починки; иначе — повтор с просьбой ответить короче (обрезанный текст в историю не идёт).
  * После исчерпания попыток бросает `AiProviderError('INVALID_RESPONSE')`.
  */
 export async function chatJson<S extends ZodTypeAny>(
@@ -220,6 +250,7 @@ export async function chatJson<S extends ZodTypeAny>(
 ): Promise<ChatJsonResult<z.output<S>>> {
   const maxRetries = options.maxRetries ?? 2;
   const buildRetryMessage = options.buildRetryMessage ?? defaultRetryMessage;
+  const buildTruncatedMessage = options.buildTruncatedMessage ?? defaultTruncatedMessage;
 
   let messages: AiChatMessage[] = req.messages;
   let lastError = 'нет ответа';
@@ -227,6 +258,14 @@ export async function chatJson<S extends ZodTypeAny>(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
     const response = await provider.chat({ ...req, messages, responseFormat: 'json' });
     const parsed = parseJsonResponse(response.content, schema);
+    // Обрезанный ответ, который пришлось «дозакрыть», проходит схему, но данные в нём неполные.
+    if (response.finishReason === 'length' && (!parsed.ok || parsed.repaired)) {
+      lastError = TRUNCATED_JSON_ERROR;
+      options.onInvalid?.({ attempt, error: TRUNCATED_JSON_ERROR });
+      // При том же max_tokens обрезанный ответ в истории лишь съест контекст — просим короче.
+      messages = [...messages, { role: 'user', content: buildTruncatedMessage() }];
+      continue;
+    }
     if (parsed.ok) {
       if (parsed.repaired) options.onRepaired?.({ attempt });
       return { data: parsed.data, response, attempts: attempt, repaired: parsed.repaired };

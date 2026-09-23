@@ -18,9 +18,14 @@ src/
   config.ts                AiConfig, createAiProvider(), aiConfigFromEnv()
   logger.ts                AiLogger, noop/console, describeRequest/Response/Error (безопасная мета)
   retry.ts / timeout.ts    withRetry (backoff + джиттер), withTimeout (AbortSignal)
+  abort.ts / semaphore.ts  утилиты AbortSignal (abortReason, sleep, linkAbortSignal); Semaphore — лимит параллельности
   json.ts                  extractJson, parseJsonResponse, chatJson (ретраи с текстом ошибки)
   prompts/registry.ts      definePrompt, buildMessages, buildRequest, PromptRegistry
-  prompts/examples/echo.ts единственный пример; продуктовые промпты — prompts/<feature>.ts
+  prompts/examples/echo.ts пример промпта (для тестов реестра)
+  prompts/index.ts         productPrompts, productMockRules, createProductRegistry
+  prompts/<feature>.ts     продуктовые промпты + mock-правила: course-builder, onboarding, tutor,
+                           parent-tutor, trajectory
+  prompts/data-fence.ts    ограждение пользовательских данных в промптах (<<<ДАННЫЕ … ДАННЫЕ>>>, safeName)
   context/student-context.ts  StudentContext + serializeStudentContext (≤ 6000 символов)
   providers/mock.ts        MockAiProvider (= FakeLlmProvider)
   providers/gigachat/      GigaChatProvider: OAuth, chat, SSE-стрим, embeddings, маппинг ошибок
@@ -32,11 +37,11 @@ src/
 import { aiConfigFromEnv, createAiService } from '@edu/ai';
 
 // AI_PROVIDER=mock | gigachat, GIGACHAT_* — см. .env.example
-const ai = createAiService(aiConfigFromEnv(process.env), { logger, defaultModel: 'GigaChat' });
+const ai = createAiService(aiConfigFromEnv(process.env), { logger, defaultModel: 'GigaChat-2' });
 
 const res = await ai.chat({
   messages: [{ role: 'user', content: 'Привет' }],
-  metadata: { promptId: 'tutor.system@1', userId },
+  metadata: { promptId: 'tutor.system@3', userId },
 });
 
 for await (const chunk of ai.stream({ messages })) {
@@ -57,12 +62,16 @@ for await (const chunk of ai.stream({ messages })) {
 JSON-ответы: `chatJson` → `parseJsonResponse` вырезает JSON из текста/```-блока, при синтаксической ошибке
 чинит его (`fixSwappedClosers` — переставленные `}]`, затем `jsonrepair` — потерянные скобки, висящие запятые)
 и лишь затем переспрашивает модель с текстом ошибки схемы. Результат несёт `attempts` и `repaired`;
-`AiService` логирует `ai.json.repaired` / `ai.json.invalid`.
+`AiService` логирует `ai.json.repaired` / `ai.json.invalid`. Ответ, оборванный по лимиту токенов
+(`finishReason: 'length'`), не «чинится»: если он не разобрался как есть, модель переспрашивается с просьбой
+ответить короче (обрезанный текст в историю не добавляется). Тексты ошибок — без фрагментов ответа модели.
 
 Параллельность: `GigaChatProvider` ограничивает одновременные `chat`/`stream`/`embed` семафором
 `maxConcurrency` (`GIGACHAT_MAX_CONCURRENCY`, по умолчанию 1 — персональный тариф отвечает 429 на второй
 параллельный запрос). Стрим держит слот до конца итерации. При 429 без `Retry-After` пауза
-`rateLimitDelayMs × 2^attempt` (по умолчанию 2 с).
+`rateLimitDelayMs × 2^attempt` (по умолчанию 2 с). Если `Retry-After` больше `retryMaxDelayMs`, повтора нет —
+ошибка `RATE_LIMITED` сразу уходит вызывающему с `retryAfterMs`. Таймаут `timeoutMs` для `chat`/`embed`/OAuth
+действует на весь запрос вместе с чтением тела, для стрима — до заголовков (дальше — idle-таймаут).
 
 ## Как писать промпты
 
@@ -121,6 +130,6 @@ const { data } = await ai.chatJson(
 | Сеть в тестах | нет | нет — `fetch` инжектируется |
 
 Реальный API в тестах пакета не вызывается. Smoke на живом API — отдельным скриптом за флагом
-(задача F8), после проверки допущений по документации GigaChat: формат `expires_at` (мс), поля
+(workstream K, `scripts/smoke-gigachat.mjs`), после проверки допущений по документации GigaChat: формат `expires_at` (мс), поля
 `usage` в стрим-чанках, структура ответа `/embeddings`, поддержка `response_format`
 (сейчас провайдер его не отправляет — просить JSON нужно в промпте).

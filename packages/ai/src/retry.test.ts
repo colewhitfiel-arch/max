@@ -141,6 +141,18 @@ describe('withRetry', () => {
     expect(delays).toEqual([900]);
   });
 
+  it('Retry-After больше maxDelayMs — без повтора, ошибка с retryAfterMs уходит вызывающему', async () => {
+    const fn = vi.fn(async () => {
+      throw new AiProviderError('RATE_LIMITED', 'slow', { retryAfterMs: 60_000 });
+    });
+    const sleep = vi.fn(async () => {});
+    await expect(
+      withRetry(fn, { maxRetries: 3, baseDelayMs: 100, maxDelayMs: 20_000, sleep }),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterMs: 60_000 });
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   it('прерывается по signal во время ожидания', async () => {
     const controller = new AbortController();
     let calls = 0;

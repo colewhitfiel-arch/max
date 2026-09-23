@@ -75,4 +75,35 @@ describe('parseSse', () => {
     ).rejects.toThrow('stop');
     expect(events).toEqual([{ data: 'first' }]);
   });
+
+  it('досрочный выход потребителя отменяет тело, полностью прочитанное — нет', async () => {
+    let cancelled = 0;
+    const encoder = new TextEncoder();
+    const open = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: a\n\ndata: b\n\n'));
+        // поток не закрывается — сервер ещё «пишет»
+      },
+      cancel() {
+        cancelled += 1;
+      },
+    });
+    for await (const event of parseSse(open)) {
+      expect(event.data).toBe('a');
+      break;
+    }
+    expect(cancelled).toBe(1);
+
+    const closed = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: a\n\n'));
+        controller.close();
+      },
+      cancel() {
+        cancelled += 1;
+      },
+    });
+    expect((await collect(closed)).map((e) => e.data)).toEqual(['a']);
+    expect(cancelled).toBe(1);
+  });
 });

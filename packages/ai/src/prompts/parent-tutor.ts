@@ -1,5 +1,6 @@
 import type { AiChatRequest } from '../types';
 import type { MockResponseRule } from '../providers/mock';
+import { DATA_CLOSE, DATA_OPEN, fenceData, safeName } from './data-fence';
 import { definePrompt } from './registry';
 
 /**
@@ -13,29 +14,13 @@ export interface ParentTutorVars {
   context: string;
 }
 
-/** Границы блока данных: всё между ними — сведения о ребёнке, а не указания модели. */
-const DATA_OPEN = '<<<ДАННЫЕ';
-const DATA_CLOSE = 'ДАННЫЕ>>>';
-const MAX_NAME_LENGTH = 40;
-
-/** Имя одной строкой и не длиннее 40 символов: перевод строки в имени не ломает формат промпта. */
-function safeName(name: string): string {
-  const flat = name.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME_LENGTH).trim();
-  return flat || 'ребёнок';
-}
-
-/** Внутри данных не бывает границы блока: ребёнок не «закроет» данные своим текстом. */
-function fenceData(context: string): string {
-  return context.replace(/<{3,}|>{3,}/g, '…');
-}
-
 export const parentTutorPrompt = definePrompt({
   id: 'tutor.parent',
   version: 1,
   description:
     'ИИ-тьютор для родителя: рассказывает, как занимается ребёнок, и даёт бережные советы родителю',
   system: (vars: ParentTutorVars) => {
-    const childName = safeName(vars.childName);
+    const childName = safeName(vars.childName, 'ребёнок');
     return [
       'Ты — Сайд, ИИ-помощник в приложении дополнительного образования.',
       `Сейчас ты говоришь с родителем ученика по имени ${childName}, а не с самим ребёнком.`,
