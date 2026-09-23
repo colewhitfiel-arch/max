@@ -78,6 +78,15 @@ export class AuthController {
     }));
   }
 
+  @RequirePermission('common:profile.edit')
+  @TsRestHandler(authContract.updateAvatar)
+  updateAvatar(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(authContract.updateAvatar, async ({ body }) => ({
+      status: 200,
+      body: await this.identity.updateAvatar(user, body.fileId),
+    }));
+  }
+
   @Roles('STUDENT')
   @TsRestHandler(authContract.rotateLinkCode)
   rotateLinkCode(@CurrentUser() user: AuthUser) {

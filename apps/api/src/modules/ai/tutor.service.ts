@@ -15,14 +15,26 @@ import { DomainEventBus } from '../../common/events/domain-events';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
+import { toDateOnly } from '../../common/time/time';
 import { type Env } from '../../config/env';
 import { InjectEnv } from '../../config/env.module';
-import { type ConversationCursor, type MessageCursor, AiRepository } from './ai.repository';
+import {
+  type ConversationCursor,
+  ConversationCursorSchema,
+  MessageCursorSchema,
+  AiRepository,
+} from './ai.repository';
 import { StudentContextBuilder } from './context-builder';
 import type { SseSink } from './sse';
 
 const HISTORY_LIMIT = 20;
 const MAX_MESSAGE_CHARS = 2000;
+/**
+ * Пояс, в котором считается «сегодня» для дневного лимита. Пока одна зона на всех (как дефолт
+ * SchoolService/context-builder); пояс конкретной школы — когда лимит переедет на schoolId.
+ */
+const LIMIT_TIMEZONE = 'Europe/Moscow';
+const LIMIT_TTL_SEC = 86_400;
 
 export const toConversationDto = (c: AiConversation): ConversationDto => ({
   id: c.id,
@@ -99,7 +111,7 @@ export class TutorService {
       userId,
       kind,
       limit,
-      decodeCursor<ConversationCursor>(query.cursor),
+      decodeCursor(query.cursor, ConversationCursorSchema),
       student,
     );
     const page = toPage(rows, limit, (last): ConversationCursor => ({
@@ -132,7 +144,10 @@ export class TutorService {
     return this.messagesPage(conversation.id, query);
   }
 
-  /** Страница сообщений диалога; доступ проверяет вызывающий. */
+  /**
+   * Страница сообщений диалога; доступ проверяет вызывающий. Первая страница — последние
+   * `limit` сообщений, `nextCursor` ведёт к более старым; внутри страницы — хронологический порядок.
+   */
   async messagesPage(
     conversationId: string,
     query: PaginationQuery,
@@ -141,14 +156,14 @@ export class TutorService {
     const rows = await this.repo.listMessages(
       conversationId,
       limit,
-      decodeCursor<MessageCursor>(query.cursor),
+      decodeCursor(query.cursor, MessageCursorSchema),
     );
     const page = toPage(rows, limit, (last) => ({
       createdAt: last.createdAt.toISOString(),
       id: last.id,
     }));
     return {
-      items: page.items.map(toMessageDto),
+      items: [...page.items].reverse().map(toMessageDto),
       ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
     };
   }
@@ -180,7 +195,8 @@ export class TutorService {
       },
       unavailableMessage: 'Тьютор сейчас недоступен, попробуй позже',
     });
-    if (!result) return;
+    // Без ответа модели диалога не было — активностью ученика это не считается
+    if (!result || (result.failed && result.chars === 0)) return;
     if (studentId) {
       await this.events.emit('tutor.message.sent', {
         studentId,
@@ -200,7 +216,7 @@ export class TutorService {
     const { conversation, sink, prompt } = turn;
     const question = turn.text.trim().slice(0, MAX_MESSAGE_CHARS);
     if (!question) throw Errors.validation('Пустое сообщение');
-    await this.enforceDailyLimit(turn.userId);
+    const limitKey = await this.enforceDailyLimit(turn.userId);
 
     const vars = await turn.vars();
     const history: AiChatMessage[] = (
@@ -237,6 +253,8 @@ export class TutorService {
     }
     if (sink.signal.aborted && !answer) return null;
     if (!failed || answer) {
+      // Попытка списывается только за состоявшийся ответ: сбой модели лимит не тратит
+      await this.kv.incr(limitKey, LIMIT_TTL_SEC);
       const saved = await this.repo.addMessage({
         conversationId: conversation.id,
         role: 'ASSISTANT',
@@ -248,12 +266,18 @@ export class TutorService {
     return { chars: answer.length, failed };
   }
 
-  private async enforceDailyLimit(userId: string): Promise<void> {
-    const day = new Date().toISOString().slice(0, 10);
-    const used = await this.kv.incr(`ai:tutor:${userId}:${day}`, 86_400);
-    if (used > this.env.AI_TUTOR_DAILY_LIMIT) {
+  /**
+   * Проверка дневного лимита (день — по LIMIT_TIMEZONE). Сам учёт — после ответа модели
+   * (`kv.incr` в runTurn); параллельные запросы могут чуть превысить лимит — для дневного
+   * бюджета это допустимо. Возвращает ключ счётчика.
+   */
+  private async enforceDailyLimit(userId: string): Promise<string> {
+    const key = `ai:tutor:${userId}:${toDateOnly(LIMIT_TIMEZONE)}`;
+    const used = Number((await this.kv.get<number | string>(key)) ?? 0);
+    if (used >= this.env.AI_TUTOR_DAILY_LIMIT) {
       throw Errors.rateLimited('Лимит сообщений тьютору на сегодня исчерпан — продолжим завтра');
     }
+    return key;
   }
 
   /** Свой диалог ученика; чат родителя о ребёнке (studentId чужого профиля) — не его. */

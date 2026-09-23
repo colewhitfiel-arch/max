@@ -3,6 +3,7 @@ import { type StudentContext, serializeStudentContext } from '@edu/ai';
 import type { TrajectoryContent } from '@edu/contracts';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { activityScore, attendanceRate, clubProgress, completionRate } from '../analytics/metrics';
 import { AiRepository } from './ai.repository';
 
 const WEEKDAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -28,7 +29,9 @@ export interface StudentContextBundle {
  * инвалидация по событиям (ai.events.ts). PII минимизируется: имя/ник, без фамилий и контактов.
  *
  * Пока модули analytics/groups/courses не опубликовали read-сервисы (workstreams A/E/B/H),
- * снимок собирается прямыми чтениями Prisma — единственное место таких чтений в модуле ai.
+ * снимок собирается прямыми чтениями Prisma. Временные исключения из правила «только свои
+ * таблицы» в модуле ai: этот сборщик и `AiRepository.futureInterestsOfSchool`
+ * (student_profiles); остальное — через публичные сервисы (IdentityService и др.).
  */
 @Injectable()
 export class StudentContextBuilder {
@@ -229,10 +232,8 @@ export class StudentContextBuilder {
             e.group.scheduleRules
               .map((r) => `${WEEKDAYS[r.weekday]} ${r.startTime}–${r.endTime}`)
               .join(', ') || 'не задано',
-          progressPercent: percents.length
-            ? Math.round(percents.reduce((s, v) => s + v, 0) / percents.length)
-            : 0,
-          attendanceRate: rate && rate.countable > 0 ? rate.attended / rate.countable : null,
+          progressPercent: clubProgress(percents) ?? 0,
+          attendanceRate: rate ? attendanceRate(rate.attended, rate.countable) : null,
         };
       }),
       upcomingLessons: upcoming.map((l) => ({
@@ -245,12 +246,15 @@ export class StudentContextBuilder {
       openAssignments: open,
       recentResults: results.slice(0, 10),
       stats30d: {
-        attendanceRate: countable > 0 ? attended / countable : null,
-        completionRate: due > 0 ? doneOnTime / due : null,
-        activityScore: Math.min(
-          100,
-          10 * blocksCompleted + 15 * submissions30 + 5 * attended + 2 * tutorMessages,
-        ),
+        attendanceRate: attendanceRate(attended, countable),
+        completionRate: completionRate(doneOnTime, due),
+        // Окно 30 дней (под снимок для ИИ), а не неделя docs/04 — расхождение отмечено в docs
+        activityScore: activityScore({
+          blocksCompleted,
+          submissions: submissions30,
+          lessonsAttended: attended,
+          tutorMessages,
+        }),
         absences,
         lateCount,
       },

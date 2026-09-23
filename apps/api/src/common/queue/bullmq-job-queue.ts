@@ -45,7 +45,10 @@ export class BullMqJobQueue implements JobQueue {
   ): Promise<void> {
     await this.queue(queue).add(name, payload, {
       ...(options.delayMs ? { delay: options.delayMs } : {}),
-      ...(options.jobId ? { jobId: options.jobId } : {}),
+      // Дедупликация только активных задач (waiting/delayed/active), как в InlineJobQueue.
+      // Не jobId: BullMQ игнорирует повторный jobId и после завершения, пока job хранится
+      // (removeOnComplete) — повторные пересчёты молча терялись бы.
+      ...(options.jobId ? { deduplication: { id: options.jobId } } : {}),
       attempts: options.attempts ?? 3,
       backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: 1000,

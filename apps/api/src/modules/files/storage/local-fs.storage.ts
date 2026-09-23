@@ -1,10 +1,11 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { access, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { API_PREFIX } from '@edu/contracts';
+import { safeEqual } from '../../../common/auth/safe-equal';
 import { Errors } from '../../../common/errors/app-error';
 import { type PutOptions, type StorageProvider, type UploadTarget } from './storage-provider';
 
@@ -56,13 +57,15 @@ export class LocalFsStorage implements StorageProvider {
     const [body, sig] = token.split('.');
     if (!body || !sig) throw Errors.unauthorized('Некорректный токен файла');
     const expected = createHmac('sha256', this.options.secret).update(body).digest('base64url');
-    if (
-      expected.length !== sig.length ||
-      !timingSafeEqual(Buffer.from(expected), Buffer.from(sig))
-    ) {
+    if (!safeEqual(expected, sig)) {
       throw Errors.unauthorized('Подпись токена файла неверна');
     }
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as LocalToken;
+    let payload: LocalToken;
+    try {
+      payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as LocalToken;
+    } catch {
+      throw Errors.unauthorized('Некорректный токен файла');
+    }
     if (payload.op !== op) throw Errors.unauthorized('Токен выдан для другой операции');
     if (payload.exp < Date.now()) throw Errors.unauthorized('Ссылка на файл истекла');
     return payload;
@@ -92,9 +95,19 @@ export class LocalFsStorage implements StorageProvider {
     };
   }
 
-  async createDownloadUrl(key: string, opts: { expiresSec?: number } = {}): Promise<string> {
+  async createDownloadUrl(
+    key: string,
+    opts: { expiresSec?: number; contentType?: string } = {},
+  ): Promise<string> {
     const exp = Date.now() + (opts.expiresSec ?? 3600) * 1000;
-    return this.localUrl(this.signToken({ key, op: 'download', exp }));
+    return this.localUrl(
+      this.signToken({
+        key,
+        op: 'download',
+        exp,
+        ...(opts.contentType ? { ct: opts.contentType } : {}),
+      }),
+    );
   }
 
   async put(key: string, body: Buffer | Readable, _opts?: PutOptions): Promise<void> {

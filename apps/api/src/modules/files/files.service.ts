@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Readable } from 'node:stream';
+import { type Readable, Transform } from 'node:stream';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   type CreateUploadUrlBody,
@@ -11,7 +11,7 @@ import {
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
 import { AppLogger } from '../../common/logger/logger.service';
-import { extractText, supportsExtraction } from './extract/text-extractor';
+import { canExtractNow, extractText, supportsExtraction } from './extract/text-extractor';
 import { type FileRow, FilesRepository } from './files.repository';
 import { LocalFsStorage } from './storage/local-fs.storage';
 import { STORAGE, type StorageProvider, buildStorageKey } from './storage/storage-provider';
@@ -55,6 +55,11 @@ export class FilesService {
     }
     const fileId = randomUUID();
     const storageKey = buildStorageKey(body.purpose, fileId, body.fileName);
+    // Сначала цель загрузки: сбой хранилища не должен оставлять строк-сирот в files
+    const target = await this.storage.createUploadTarget(storageKey, {
+      contentType: body.mime,
+      sizeBytes: body.sizeBytes,
+    });
     const row = await this.repo.create({
       id: fileId,
       ownerUserId: user.userId,
@@ -63,10 +68,6 @@ export class FilesService {
       mime: body.mime,
       sizeBytes: body.sizeBytes,
       storageKey,
-    });
-    const target = await this.storage.createUploadTarget(storageKey, {
-      contentType: body.mime,
-      sizeBytes: body.sizeBytes,
     });
     return { fileId: row.id, uploadUrl: target.url, headers: target.headers };
   }
@@ -84,18 +85,56 @@ export class FilesService {
     return this.toDto(await this.requireOwned(user, fileId));
   }
 
-  /** Локальная загрузка (dev): проверка подписанного токена, запись потока в хранилище. */
-  async putLocal(token: string, body: Readable, contentType: string | undefined): Promise<void> {
+  /**
+   * Локальная загрузка (dev): проверка подписанного токена, запись потока в хранилище.
+   * Размер и тип сверяются с подписанными в токене: байтов не больше заявленного `size`,
+   * Content-Type (без параметров) — тот, что заявлен при upload-url.
+   */
+  async putLocal(
+    token: string,
+    body: Readable,
+    contentType: string | undefined,
+    contentLength?: number,
+  ): Promise<void> {
     const local = this.requireLocalStorage();
     const payload = local.verifyToken(token, 'upload');
-    await local.put(payload.key, body, contentType ? { contentType } : undefined);
+    if (payload.size === undefined) throw Errors.validation('В ссылке загрузки нет размера файла');
+    const maxBytes = payload.size;
+    if (contentLength !== undefined && contentLength > maxBytes) {
+      throw Errors.validation('Файл больше заявленного размера');
+    }
+    if (contentType && payload.ct && baseMime(contentType) !== baseMime(payload.ct)) {
+      throw Errors.validation('Тип файла не совпадает с заявленным');
+    }
+    let received = 0;
+    const limiter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        received += chunk.length;
+        if (received > maxBytes) callback(Errors.validation('Файл больше заявленного размера'));
+        else callback(null, chunk);
+      },
+    });
+    body.on('error', (err) => limiter.destroy(err));
+    try {
+      await local.put(payload.key, body.pipe(limiter), contentType ? { contentType } : undefined);
+    } catch (error) {
+      // Недописанный файл не должен пройти confirm
+      await local.delete(payload.key).catch(() => undefined);
+      throw error;
+    }
   }
 
-  /** Локальное скачивание (dev): поток файла и его MIME. */
-  async getLocal(token: string): Promise<{ stream: Readable; key: string }> {
+  /** Локальное скачивание (dev): поток файла и его MIME (из подписанного токена). */
+  async getLocal(
+    token: string,
+  ): Promise<{ stream: Readable; key: string; contentType: string | null }> {
     const local = this.requireLocalStorage();
     const payload = local.verifyToken(token, 'download');
-    return { stream: await local.get(payload.key), key: payload.key };
+    return {
+      stream: await local.get(payload.key),
+      key: payload.key,
+      contentType: payload.ct ?? null,
+    };
   }
 
   // ---------- для course-builder ----------
@@ -110,6 +149,11 @@ export class FilesService {
         throw Errors.notFound('Файл материала', { fileId: id });
       if (row.purpose !== 'MATERIAL') throw Errors.validation('Файл не является материалом курса');
       if (!row.confirmedAt) throw Errors.businessRule(`Файл «${row.fileName}» ещё не загружен`);
+      // Сразу 422, а не QUEUED → FAILED в фоне: из картинок и pptx текст пока не извлекается
+      if (!canExtractNow(row.mime))
+        throw Errors.businessRule(
+          `Из файла «${row.fileName}» нельзя извлечь текст для генерации курса`,
+        );
     }
     return fileIds.map((id) => byId.get(id)!);
   }
@@ -195,7 +239,10 @@ export class FilesService {
       purpose: row.purpose,
       status: row.status,
       url: row.confirmedAt
-        ? await this.storage.createDownloadUrl(row.storageKey, { fileName: row.fileName })
+        ? await this.storage.createDownloadUrl(row.storageKey, {
+            fileName: row.fileName,
+            contentType: row.mime,
+          })
         : null,
       createdAt: row.createdAt.toISOString(),
     };
@@ -204,4 +251,9 @@ export class FilesService {
   async toDtos(rows: FileRow[]): Promise<FileDto[]> {
     return Promise.all(rows.map((row) => this.toDto(row)));
   }
+}
+
+/** MIME без параметров и в нижнем регистре: `text/markdown; charset=utf-8` → `text/markdown`. */
+function baseMime(value: string): string {
+  return value.split(';')[0]!.trim().toLowerCase();
 }

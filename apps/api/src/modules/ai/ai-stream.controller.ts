@@ -82,7 +82,7 @@ export class AiStreamController {
   @Post('ai/conversations/:conversationId/messages')
   async tutorMessage(
     @CurrentUser() user: AuthUser,
-    @Param('conversationId') conversationId: string,
+    @Param('conversationId', new ZodValidationPipe(IdSchema)) conversationId: string,
     @Body(new ZodValidationPipe(TutorMessageBodySchema)) body: TutorMessageBody,
     @Req() req: Request,
     @Res() res: Response,

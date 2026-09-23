@@ -117,6 +117,31 @@ export class IdentityRepository {
     });
   }
 
+  async findStudentProfile(studentProfileId: string) {
+    return this.prisma.studentProfile.findUnique({
+      where: { id: studentProfileId },
+      select: {
+        id: true,
+        schoolId: true,
+        interests: true,
+        goals: true,
+        weeklyHours: true,
+        preferredFormats: true,
+        futureInterests: true,
+        aiProfileSummary: true,
+        user: { select: { firstName: true, nickname: true } },
+      },
+    });
+  }
+
+  async findTeacherSchoolId(teacherProfileId: string): Promise<string | null> {
+    const row = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherProfileId },
+      select: { schoolId: true },
+    });
+    return row?.schoolId ?? null;
+  }
+
   async linkCodeExists(linkCode: string): Promise<boolean> {
     return (await this.prisma.studentProfile.count({ where: { linkCode } })) > 0;
   }
@@ -134,6 +159,25 @@ export class IdentityRepository {
 
   async findRefreshToken(tokenHash: string) {
     return this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+  }
+
+  /**
+   * Атомарно «забрать» refresh-токен для ротации: помечает его отозванным, только если он ещё
+   * не отозван и не истёк. false — токен уже использован (параллельный refresh) или недействителен.
+   */
+  async consumeRefreshToken(tokenHash: string, now = new Date()): Promise<boolean> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null, expiresAt: { gt: now } },
+      data: { revokedAt: now },
+    });
+    return result.count > 0;
+  }
+
+  /** Удалить мёртвые (истёкшие или отозванные) refresh-токены пользователя, чтобы таблица не росла. */
+  async deleteDeadRefreshTokens(userId: string, now = new Date()): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId, OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
+    });
   }
 
   async revokeRefreshToken(tokenHash: string): Promise<void> {

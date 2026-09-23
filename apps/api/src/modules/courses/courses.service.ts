@@ -62,14 +62,13 @@ export class CoursesService {
   async listStudentCourseProgress(
     studentId: string,
   ): Promise<Array<{ courseId: string; title: string; percent: number; nextBlockTitle?: string }>> {
+    // Фильтр по статусу — в запросе: иначе take отрезал бы опубликованные курсы за черновиками
     const rows = await this.prisma.courseProgress.findMany({
-      where: { studentId },
-      include: { course: { select: { id: true, title: true, status: true } } },
+      where: { studentId, course: { status: 'PUBLISHED' } },
+      include: { course: { select: { id: true, title: true } } },
       orderBy: { updatedAt: 'desc' },
       take: 10,
     });
-    return rows
-      .filter((r) => r.course.status === 'PUBLISHED')
-      .map((r) => ({ courseId: r.course.id, title: r.course.title, percent: r.percent }));
+    return rows.map((r) => ({ courseId: r.course.id, title: r.course.title, percent: r.percent }));
   }
 }

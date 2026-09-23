@@ -1,9 +1,10 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { type Env } from '../../../config/env';
 import { InjectEnv } from '../../../config/env.module';
 import { Errors } from '../../errors/app-error';
 import { type AuthProvider, type AuthProviderInput } from '../auth-provider';
+import { safeEqual } from '../safe-equal';
 import type { ExternalIdentity } from '../auth-user';
 
 /**
@@ -19,6 +20,7 @@ import type { ExternalIdentity } from '../auth-user';
 export class MaxAuthProvider implements AuthProvider {
   readonly name = 'max' as const;
   private readonly maxAgeSec = 24 * 60 * 60;
+  private readonly clockSkewSec = 5 * 60;
 
   constructor(@InjectEnv() private readonly env: Env) {}
 
@@ -39,15 +41,19 @@ export class MaxAuthProvider implements AuthProvider {
       .join('\n');
     const secretKey = createHmac('sha256', 'WebAppData').update(secret).digest();
     const expected = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (
-      expected.length !== hash.length ||
-      !timingSafeEqual(Buffer.from(expected), Buffer.from(hash))
-    ) {
+    if (!safeEqual(expected, hash)) {
       throw Errors.unauthorized('Подпись launch-параметров неверна');
     }
 
-    const authDate = Number(params.get('auth_date') ?? 0);
-    if (authDate && Date.now() / 1000 - authDate > this.maxAgeSec) {
+    // auth_date обязателен: без него подписанные параметры можно было бы переиспользовать вечно
+    const rawAuthDate = params.get('auth_date');
+    const authDate = Number(rawAuthDate);
+    if (!rawAuthDate || !Number.isFinite(authDate) || authDate <= 0) {
+      throw Errors.unauthorized('Нет auth_date в launch-параметрах');
+    }
+    const age = Date.now() / 1000 - authDate;
+    // Допуск 5 минут на рассинхрон часов в будущую сторону
+    if (age > this.maxAgeSec || age < -this.clockSkewSec) {
       throw Errors.unauthorized('Launch-параметры устарели');
     }
 

@@ -51,7 +51,7 @@ export class IdentityService {
     const identity = await this.authProvider.verify({ kind: 'dev', maxUserId });
     let user = await this.repo.upsertByIdentity(identity);
     for (const role of roles) {
-      if (!user.roles.some((r) => r.role === role)) await this.grantRole(user, role, undefined);
+      if (!this.hasRoleWithProfile(user, role)) await this.grantRole(user, role, undefined);
     }
     user = (await this.repo.findById(user.id))!;
     this.log.info({ userId: user.id, roles }, 'dev-вход');
@@ -65,7 +65,8 @@ export class IdentityService {
       throw Errors.unauthorized('Сессия истекла');
     const user = await this.repo.findById(stored.userId);
     if (!user) throw Errors.unauthorized();
-    await this.repo.revokeRefreshToken(hash);
+    // Атомарный захват: из параллельных refresh с одним токеном новую пару получит только один
+    if (!(await this.repo.consumeRefreshToken(hash))) throw Errors.unauthorized('Сессия истекла');
     const activeRole = this.pickActiveRole(user, stored.activeRole);
     return this.issueTokens(user, activeRole);
   }
@@ -78,8 +79,22 @@ export class IdentityService {
 
   async addRole(auth: AuthUser, role: Role, inviteCode?: string): Promise<AuthResult> {
     const user = await this.requireUser(auth.userId);
-    if (!user.roles.some((r) => r.role === role)) await this.grantRole(user, role, inviteCode);
+    // Недостающий профиль при уже выданной роли (сбой прошлой выдачи) досоздаётся здесь же
+    if (!this.hasRoleWithProfile(user, role)) await this.grantRole(user, role, inviteCode);
     return this.issueSession((await this.repo.findById(user.id))!, role);
+  }
+
+  async updateAvatar(_auth: AuthUser, _fileId: string | null): Promise<MeDto> {
+    // Нужен стабильный URL/ключ аватара (подписанные ссылки files живут час) — схема не готова
+    throw Errors.notImplemented('Смена фото профиля');
+  }
+
+  private hasRoleWithProfile(user: UserWithProfiles, role: Role): boolean {
+    if (!user.roles.some((r) => r.role === role)) return false;
+    if (role === 'STUDENT') return user.student !== null;
+    if (role === 'PARENT') return user.parent !== null;
+    if (role === 'TEACHER') return user.teacher !== null;
+    return true;
   }
 
   async switchRole(auth: AuthUser, role: Role): Promise<AuthResult> {
@@ -95,17 +110,19 @@ export class IdentityService {
     inviteCode: string | undefined,
   ): Promise<void> {
     switch (role) {
+      // Сначала профиль, потом роль: сбой посередине не оставит роль без профиля
       case 'STUDENT': {
-        await this.repo.addRole(user.id, 'STUDENT');
-        let schoolId: string | null = null;
-        if (inviteCode) schoolId = (await this.school.findByInviteCode(inviteCode))?.id ?? null;
-        if (!user.student)
+        if (!user.student) {
+          let schoolId: string | null = null;
+          if (inviteCode) schoolId = (await this.school.findByInviteCode(inviteCode))?.id ?? null;
           await this.repo.createStudentProfile(user.id, await this.generateLinkCode(), schoolId);
+        }
+        await this.repo.addRole(user.id, 'STUDENT');
         return;
       }
       case 'PARENT':
-        await this.repo.addRole(user.id, 'PARENT');
         if (!user.parent) await this.repo.createParentProfile(user.id);
+        await this.repo.addRole(user.id, 'PARENT');
         return;
       case 'TEACHER': {
         let schoolId = user.teacher?.schoolId ?? null;
@@ -171,6 +188,16 @@ export class IdentityService {
     });
   }
 
+  /** Для модуля ai: профиль ученика (школа, анкета онбординга, имя/ник) без чтения чужих таблиц. */
+  async getStudentProfile(studentProfileId: string) {
+    return this.repo.findStudentProfile(studentProfileId);
+  }
+
+  /** Для других модулей: школа преподавателя по id профиля (null — профиля нет). */
+  async getTeacherSchoolId(teacherProfileId: string): Promise<string | null> {
+    return this.repo.findTeacherSchoolId(teacherProfileId);
+  }
+
   /** Для других модулей: AuthUser по userId и роли (например, для тестов и фоновых задач). */
   async buildAuthUser(userId: string, activeRole: Role | null): Promise<AuthUser> {
     const user = await this.requireUser(userId);
@@ -212,6 +239,10 @@ export class IdentityService {
     const accessToken = await this.jwt.signAccess(this.toAuthUser(user, activeRole));
     const refresh = this.jwt.generateRefreshToken();
     await this.repo.createRefreshToken(user.id, refresh.hash, refresh.expiresAt, activeRole);
+    // Оппортунистическая чистка: истёкшие и отозванные токены пользователя больше не нужны
+    await this.repo
+      .deleteDeadRefreshTokens(user.id)
+      .catch((err: unknown) => this.log.warn({ userId: user.id, err }, 'чистка refresh-токенов'));
     return { accessToken, refreshToken: refresh.token };
   }
 

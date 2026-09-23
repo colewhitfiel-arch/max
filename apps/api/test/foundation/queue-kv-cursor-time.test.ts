@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { MemoryKeyValueStore } from '../../src/common/kv/key-value-store';
 import {
   decodeCursor,
@@ -63,6 +64,15 @@ describe('cursor pagination', () => {
     expect(page.items).toEqual([1, 2]);
     expect(decodeCursor(page.nextCursor)).toEqual({ last: 2 });
     expect(toPage([1], 2, (l) => ({ l })).nextCursor).toBeUndefined();
+  });
+
+  it('схема курсора: чужая форма → VALIDATION, а не Invalid Date в Prisma', () => {
+    const schema = z.object({ createdAt: z.string().datetime(), id: z.string() });
+    const good = encodeCursor({ createdAt: '2026-01-01T00:00:00.000Z', id: 'a' });
+    expect(decodeCursor(good, schema)).toEqual({ createdAt: '2026-01-01T00:00:00.000Z', id: 'a' });
+    expect(() => decodeCursor(encodeCursor({ x: 1 }), schema)).toThrow(
+      expect.objectContaining({ code: 'VALIDATION' }),
+    );
   });
 });
 

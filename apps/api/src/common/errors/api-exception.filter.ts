@@ -19,6 +19,8 @@ interface Normalized {
   code: ErrorCode;
   message: string;
   details?: unknown;
+  /** Только для лога (внутренние подробности, которые клиенту не отдаются). */
+  logMeta?: Record<string, unknown>;
   logLevel: 'warn' | 'error' | 'debug';
 }
 
@@ -88,20 +90,28 @@ export function normalizeException(exception: unknown): Normalized {
   if (exception instanceof Prisma.PrismaClientKnownRequestError) {
     if (exception.code === 'P2025')
       return { status: 404, code: 'NOT_FOUND', message: 'Объект не найден', logLevel: 'debug' };
-    if (exception.code === 'P2002')
+    // meta Prisma (модель, констрейнт, колонки) наружу не уходит — только в лог
+    const logMeta = { prismaCode: exception.code, meta: exception.meta };
+    if (exception.code === 'P2002') {
+      const target = exception.meta?.target;
+      const fields = Array.isArray(target)
+        ? target.filter((x): x is string => typeof x === 'string')
+        : [];
       return {
         status: 409,
         code: 'CONFLICT',
         message: 'Нарушение уникальности',
-        details: exception.meta,
+        ...(fields.length > 0 ? { details: { fields } } : {}),
+        logMeta,
         logLevel: 'warn',
       };
+    }
     if (exception.code === 'P2003')
       return {
         status: 409,
         code: 'CONFLICT',
         message: 'Нарушение ссылочной целостности',
-        details: exception.meta,
+        logMeta,
         logLevel: 'warn',
       };
     return { status: 500, code: 'INTERNAL', message: 'Ошибка базы данных', logLevel: 'error' };
@@ -135,7 +145,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       code: n.code,
     };
     if (n.logLevel === 'error') this.log.error({ ...entry, err: exception }, n.message);
-    else if (n.logLevel === 'warn') this.log.warn(entry, n.message);
+    else if (n.logLevel === 'warn') this.log.warn({ ...entry, ...n.logMeta }, n.message);
     else this.log.debug(entry, n.message);
 
     const body: ApiError = {

@@ -25,10 +25,10 @@ export interface StorageProvider {
     key: string,
     opts: { contentType: string; sizeBytes: number; expiresSec?: number },
   ): Promise<UploadTarget>;
-  /** Временная ссылка на скачивание. */
+  /** Временная ссылка на скачивание; `contentType` — MIME, с которым файл будет отдан. */
   createDownloadUrl(
     key: string,
-    opts?: { expiresSec?: number; fileName?: string },
+    opts?: { expiresSec?: number; fileName?: string; contentType?: string },
   ): Promise<string>;
   put(key: string, body: Buffer | Readable, opts?: PutOptions): Promise<void>;
   get(key: string): Promise<Readable>;

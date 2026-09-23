@@ -75,6 +75,18 @@ describe('единый формат ошибок', () => {
     });
     expect(normalizeException(notFound)).toMatchObject({ status: 404, code: 'NOT_FOUND' });
     expect(normalizeException(unique)).toMatchObject({ status: 409, code: 'CONFLICT' });
+    const withMeta = new Prisma.PrismaClientKnownRequestError('x', {
+      code: 'P2002',
+      clientVersion: '6',
+      meta: { modelName: 'User', target: ['max_user_id'] },
+    });
+    expect(normalizeException(withMeta).details).toEqual({ fields: ['max_user_id'] });
+    const fk = new Prisma.PrismaClientKnownRequestError('x', {
+      code: 'P2003',
+      clientVersion: '6',
+      meta: { field_name: 'users_school_id_fkey' },
+    });
+    expect(normalizeException(fk).details).toBeUndefined();
     expect(normalizeException(new ZodError([]))).toMatchObject({ status: 400, code: 'VALIDATION' });
   });
 });

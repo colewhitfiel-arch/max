@@ -1,3 +1,4 @@
+import { pipeline } from 'node:stream/promises';
 import { Controller, Get, Param, Put, Req, Res } from '@nestjs/common';
 import { filesContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
@@ -5,6 +6,9 @@ import type { Request, Response } from 'express';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, Public, RequirePermission } from '../../common/auth/decorators';
 import { FilesService } from './files.service';
+
+/** Типы, которые безопасно показывать inline с origin API; остальное (html, svg…) — скачивание. */
+const INLINE_MIME = new Set(['image/png', 'image/jpeg', 'image/webp', 'application/pdf']);
 
 /** Реализация contracts/routes/files.ts + локальные ручки загрузки/скачивания (STORAGE_DRIVER=local). */
 @Controller()
@@ -45,16 +49,35 @@ export class FilesController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    await this.files.putLocal(decodeURIComponent(token), req, req.header('content-type'));
+    const length = Number(req.header('content-length'));
+    await this.files.putLocal(
+      decodeURIComponent(token),
+      req,
+      req.header('content-type'),
+      Number.isFinite(length) && length >= 0 ? length : undefined,
+    );
     res.status(204).end();
   }
 
   @Public()
   @Get('files/local/:token')
   async getLocal(@Param('token') token: string, @Res() res: Response): Promise<void> {
-    const { stream, key } = await this.files.getLocal(decodeURIComponent(token));
+    const { stream, key, contentType } = await this.files.getLocal(decodeURIComponent(token));
     const name = key.split('/').pop() ?? 'file';
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(name)}`);
-    stream.pipe(res);
+    const mime = contentType ?? 'application/octet-stream';
+    const disposition = INLINE_MIME.has(mime) ? 'inline' : 'attachment';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader(
+      'Content-Disposition',
+      `${disposition}; filename*=UTF-8''${encodeURIComponent(name)}`,
+    );
+    try {
+      await pipeline(stream, res);
+    } catch {
+      // Ошибка чтения: до отправки заголовков — 500, после — только оборвать ответ
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy();
+    }
   }
 }

@@ -36,6 +36,18 @@ describe('JwtService', () => {
     await expect(jwt.verifyAccess(token)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
+  it('подпись с не-ASCII символом той же длины даёт 401, а не RangeError', async () => {
+    const token = await jwt.signAccess({
+      userId: 'u',
+      maxUserId: 'm',
+      roles: [],
+      activeRole: null,
+      profileId: null,
+    });
+    const forged = `${token.slice(0, -1)}é`;
+    await expect(jwt.verifyAccess(forged)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
   it('истёкший токен отклоняется', async () => {
     const token = await jwt.signAccess(
       { userId: 'u', maxUserId: 'm', roles: [], activeRole: null, profileId: null },

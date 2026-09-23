@@ -82,6 +82,34 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
       .expect(204);
   });
 
+  it('параллельный refresh одним токеном: новую пару получает только один запрос', async () => {
+    const login = await request(app.getHttpServer())
+      .post(`${base}/auth/dev`)
+      .send({ maxUserId: 'max-parent-1', roles: ['PARENT'] })
+      .expect(200);
+    const results = await Promise.all(
+      [0, 1, 2].map(() =>
+        request(app.getHttpServer())
+          .post(`${base}/auth/refresh`)
+          .send({ refreshToken: login.body.refreshToken }),
+      ),
+    );
+    expect(results.map((r) => r.status).sort()).toEqual([200, 401, 401]);
+  });
+
+  it('PUT /me/avatar пока не реализован → 501, а не 404', async () => {
+    const login = await request(app.getHttpServer())
+      .post(`${base}/auth/dev`)
+      .send({ maxUserId: 'max-parent-1', roles: ['PARENT'] })
+      .expect(200);
+    const res = await request(app.getHttpServer())
+      .put(`${base}/me/avatar`)
+      .set('Authorization', `Bearer ${login.body.accessToken}`)
+      .send({ fileId: null })
+      .expect(501);
+    expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+  });
+
   it('новый dev-пользователь создаётся с профилем и ролью', async () => {
     const login = await request(app.getHttpServer())
       .post(`${base}/auth/dev`)

@@ -1,11 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import type { CourseDraft, GenerationStage, KnowledgeBase } from '@edu/contracts';
+import { IdSchema } from '@edu/contracts';
 import { Prisma, type CourseGenerationJob } from '@edu/db';
+import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type JobRow = CourseGenerationJob & { course: { id: string } | null };
+/** Строка для списка: без тяжёлых JSON `draft`/`knowledge`. */
+export type JobListRow = Omit<JobRow, 'draft' | 'knowledge'>;
 
-export type JobCursor = { createdAt: string; id: string };
+export const JobCursorSchema = z.object({ createdAt: z.string().datetime(), id: IdSchema });
+export type JobCursor = z.infer<typeof JobCursorSchema>;
+
+/** Стадии, после которых задача не меняется фоновым процессом. */
+export const TERMINAL_STAGES: readonly GenerationStage[] = [
+  'READY',
+  'ACCEPTED',
+  'FAILED',
+  'CANCELLED',
+];
+/** Стадии выполняющегося пайплайна (после старта runJob). */
+const RUNNING_STAGES: GenerationStage[] = ['EXTRACTING', 'OUTLINING', 'GENERATING', 'ASSEMBLING'];
+
+type JobPatch = {
+  stage?: GenerationStage;
+  progress?: number;
+  draft?: CourseDraft | null;
+  knowledge?: KnowledgeBase | null;
+  error?: string | null;
+  startedAt?: Date | null;
+  finishedAt?: Date | null;
+};
+
+function toScalarData(patch: JobPatch): Prisma.CourseGenerationJobUpdateManyMutationInput {
+  const data: Prisma.CourseGenerationJobUpdateManyMutationInput = {};
+  if (patch.stage !== undefined) data.stage = patch.stage;
+  if (patch.progress !== undefined) data.progress = patch.progress;
+  if (patch.draft !== undefined)
+    data.draft = patch.draft === null ? Prisma.JsonNull : (patch.draft as Prisma.InputJsonValue);
+  if (patch.knowledge !== undefined)
+    data.knowledge =
+      patch.knowledge === null ? Prisma.JsonNull : (patch.knowledge as Prisma.InputJsonValue);
+  if (patch.error !== undefined) data.error = patch.error;
+  if (patch.startedAt !== undefined) data.startedAt = patch.startedAt;
+  if (patch.finishedAt !== undefined) data.finishedAt = patch.finishedAt;
+  return data;
+}
 
 const withCourse = { course: { select: { id: true } } } as const;
 
@@ -34,8 +74,9 @@ export class CourseBuilderRepository {
     teacherId: string,
     limit: number,
     cursor: JobCursor | null,
-  ): Promise<JobRow[]> {
+  ): Promise<JobListRow[]> {
     return this.prisma.courseGenerationJob.findMany({
+      omit: { draft: true, knowledge: true },
       where: {
         teacherId,
         ...(cursor
@@ -53,33 +94,43 @@ export class CourseBuilderRepository {
     });
   }
 
-  async update(
-    id: string,
-    patch: {
-      stage?: GenerationStage;
-      progress?: number;
-      draft?: CourseDraft | null;
-      knowledge?: KnowledgeBase | null;
-      error?: string | null;
-      courseId?: string | null;
-      startedAt?: Date | null;
-      finishedAt?: Date | null;
-    },
-  ): Promise<JobRow> {
-    const data: Prisma.CourseGenerationJobUpdateInput = {};
-    if (patch.stage !== undefined) data.stage = patch.stage;
-    if (patch.progress !== undefined) data.progress = patch.progress;
-    if (patch.draft !== undefined)
-      data.draft = patch.draft === null ? Prisma.JsonNull : (patch.draft as Prisma.InputJsonValue);
-    if (patch.knowledge !== undefined)
-      data.knowledge =
-        patch.knowledge === null ? Prisma.JsonNull : (patch.knowledge as Prisma.InputJsonValue);
-    if (patch.error !== undefined) data.error = patch.error;
-    if (patch.courseId !== undefined)
-      data.course = patch.courseId ? { connect: { id: patch.courseId } } : { disconnect: true };
-    if (patch.startedAt !== undefined) data.startedAt = patch.startedAt;
-    if (patch.finishedAt !== undefined) data.finishedAt = patch.finishedAt;
+  async update(id: string, patch: JobPatch & { courseId?: string | null }): Promise<JobRow> {
+    const { courseId, ...scalar } = patch;
+    const data: Prisma.CourseGenerationJobUpdateInput = toScalarData(scalar);
+    if (courseId !== undefined)
+      data.course = courseId ? { connect: { id: courseId } } : { disconnect: true };
     return this.prisma.courseGenerationJob.update({ where: { id }, data, include: withCourse });
+  }
+
+  /**
+   * Условное обновление: только пока задача не в терминальной стадии. Атомарно закрывает гонки
+   * отмены с фоновым пайплайном (CANCELLED не перезапишется на READY/FAILED и наоборот).
+   * `false` — задача уже завершена (или удалена), ничего не записано.
+   */
+  async updateIfActive(id: string, patch: JobPatch): Promise<boolean> {
+    const result = await this.prisma.courseGenerationJob.updateMany({
+      where: { id, stage: { notIn: [...TERMINAL_STAGES] } },
+      data: toScalarData(patch),
+    });
+    return result.count > 0;
+  }
+
+  /**
+   * Зависшие задачи: пайплайн стартовал, но стадия не менялась дольше `staleBefore` (упал процесс
+   * или worker). `includeQueued` — ещё и не начатые (inline-очередь не переживает рестарт).
+   */
+  async findStale(
+    staleBefore: Date,
+    includeQueued: boolean,
+  ): Promise<Array<{ id: string; teacherId: string }>> {
+    return this.prisma.courseGenerationJob.findMany({
+      where: {
+        stage: { in: includeQueued ? ['QUEUED', ...RUNNING_STAGES] : RUNNING_STAGES },
+        updatedAt: { lt: staleBefore },
+      },
+      select: { id: true, teacherId: true },
+      take: 100,
+    });
   }
 
   async stageOf(id: string): Promise<GenerationStage | null> {

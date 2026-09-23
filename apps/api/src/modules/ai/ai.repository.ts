@@ -12,15 +12,23 @@ import {
   type StudentClubInterest,
   type Trajectory,
 } from '@edu/db';
+import { IdSchema } from '@edu/contracts';
+import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
-export type MessageCursor = { createdAt: string; id: string };
+export const MessageCursorSchema = z.object({ createdAt: z.string().datetime(), id: IdSchema });
+export type MessageCursor = z.infer<typeof MessageCursorSchema>;
 
 /**
  * Курсор списка диалогов — все ключи его сортировки: `lastMessageAt desc nulls last`,
  * `createdAt desc`, `id desc`. `lastMessageAt: null` — диалог без сообщений (они в конце).
  */
-export type ConversationCursor = { lastMessageAt: string | null; createdAt: string; id: string };
+export const ConversationCursorSchema = z.object({
+  lastMessageAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  id: IdSchema,
+});
+export type ConversationCursor = z.infer<typeof ConversationCursorSchema>;
 
 /** Строки строго после курсора в порядке `lastMessageAt desc nulls last, createdAt desc, id desc`. */
 function afterConversationCursor(cursor: ConversationCursor): Prisma.AiConversationWhereInput {
@@ -172,6 +180,10 @@ export class AiRepository {
     return rows.reverse();
   }
 
+  /**
+   * Лента с конца: от новых к старым (`createdAt desc, id desc`), курсор ведёт к более старым.
+   * Первая страница — самые свежие сообщения; хронологический порядок наводит сервис.
+   */
   async listMessages(
     conversationId: string,
     limit: number,
@@ -183,13 +195,13 @@ export class AiRepository {
         ...(cursor
           ? {
               OR: [
-                { createdAt: { gt: new Date(cursor.createdAt) } },
-                { createdAt: new Date(cursor.createdAt), id: { gt: cursor.id } },
+                { createdAt: { lt: new Date(cursor.createdAt) } },
+                { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } },
               ],
             }
           : {}),
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
     });
   }
