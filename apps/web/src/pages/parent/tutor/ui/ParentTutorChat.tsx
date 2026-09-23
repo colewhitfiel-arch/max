@@ -1,5 +1,5 @@
 import { STREAMING_ROUTES } from '@edu/contracts';
-import { Button, ChatComposer, Chip, Inline, Screen, Stack, Text } from '@edu/ui';
+import { Button, ChatComposer, Screen, Stack, Text } from '@edu/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,19 +16,8 @@ import { useAiStream } from '@/shared/api/sse';
 import { useMe } from '@/shared/auth/hooks';
 import { AsyncState } from '@/shared/ui';
 
-/** Ключи подсказок-стартеров (`suggestions.*`). */
-const SUGGESTIONS = ['progress', 'overdue', 'help', 'motivation'] as const;
-
-/** Пустой чат: маскот, приветствие родителя и подсказки про ребёнка, которые сразу отправляют вопрос. */
-function EmptyChat({
-  childName,
-  onPick,
-  disabled,
-}: {
-  childName: string;
-  onPick: (text: string) => void;
-  disabled: boolean;
-}) {
+/** Пустой чат: маскот и приветствие родителя. Вопрос родитель формулирует сам. */
+function EmptyChat({ childName }: { childName: string }) {
   const { t } = useTranslation('parent-tutor');
   const name = useMe()?.user.firstName.trim();
   return (
@@ -44,23 +33,13 @@ function EmptyChat({
           </Text>
         </Stack>
       </Stack>
-      <Inline gap={2} justify="center">
-        {SUGGESTIONS.map((key) => {
-          const text = t(`suggestions.${key}`, { name: childName });
-          return (
-            <Chip key={key} disabled={disabled} onClick={() => onPick(text)}>
-              {text}
-            </Chip>
-          );
-        })}
-      </Inline>
     </Stack>
   );
 }
 
 export interface ParentTutorChatProps {
   conversationId: string;
-  /** Имя ребёнка для приветствия и подсказок. */
+  /** Имя ребёнка для приветствия. */
   childName: string;
   /** Идёт ли стрим — для подписи в шапке экрана. */
   onStreamingChange?: (streaming: boolean) => void;
@@ -133,11 +112,7 @@ export function ParentTutorChat({
         <AsyncState query={query}>
           {(page) =>
             isEmpty ? (
-              <EmptyChat
-                childName={childName}
-                onPick={(text) => void send(text)}
-                disabled={stream.isStreaming}
-              />
+              <EmptyChat childName={childName} />
             ) : (
               <>
                 {query.hasNextPage && (

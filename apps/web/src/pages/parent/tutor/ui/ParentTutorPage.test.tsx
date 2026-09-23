@@ -84,7 +84,7 @@ describe('ParentTutorPage', () => {
   );
 
   it(
-    'первый разговор: диалог создаётся, стартер про ребёнка сразу отправляется',
+    'первый разговор: диалог создаётся с первым вопросом родителя',
     { timeout: 30_000 },
     async () => {
       // Мария (преподаватель и родитель Даши): диалогов с тьютором о Даше ещё нет.
@@ -95,9 +95,11 @@ describe('ParentTutorPage', () => {
 
       expect(await screen.findByText('Здравствуйте, Мария!', {}, WAIT)).toBeVisible();
       expect(screen.getByText('про ребёнка: Даша Иванова')).toBeVisible();
-      await user.click(
-        screen.getByRole('button', { name: 'Как Даша занимается в последнее время?' }),
+      await user.type(
+        screen.getByRole('textbox'),
+        'Как Даша занимается в последнее время?',
       );
+      await user.click(screen.getByRole('button', { name: 'Отправить' }));
 
       expect(await screen.findByLabelText('Вы', {}, WAIT)).toHaveTextContent(
         'Как Даша занимается в последнее время?',

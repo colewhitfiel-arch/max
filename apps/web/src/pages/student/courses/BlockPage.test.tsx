@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/shared/i18n';
 import { MaxBridgeProvider } from '@/shared/max';
 import { MockMaxBridge } from '@/shared/max/mock-bridge';
+import type * as CourseEntity from '@/entities/course';
 import type * as SharedUi from '@/shared/ui';
 import { BlockPage } from './ui/BlockPage';
 
@@ -21,7 +22,9 @@ const hooks = vi.hoisted(() => ({
   mutation: { mutate: () => undefined, isPending: false },
 }));
 
-vi.mock('@/entities/course', () => ({
+vi.mock('@/entities/course', async (importOriginal) => ({
+  // BlockContent — настоящий: тест проверяет именно то, что видит ученик в блоке.
+  ...(await importOriginal<typeof CourseEntity>()),
   useStudentBlock: () => hooks.block,
   useOpenBlock: () => hooks.mutation,
   useCompleteBlock: () => hooks.mutation,

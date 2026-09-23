@@ -1,5 +1,5 @@
 import { STREAMING_ROUTES } from '@edu/contracts';
-import { Button, ChatComposer, Chip, Inline, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
+import { Button, ChatComposer, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,11 +16,8 @@ import { useAiStream } from '@/shared/api/sse';
 import { useMe } from '@/shared/auth/hooks';
 import { AsyncState } from '@/shared/ui';
 
-/** Ключи подсказок-стартеров (`tutor.suggestions.*`). */
-const SUGGESTIONS = ['today', 'explain', 'help', 'plan'] as const;
-
-/** Пустой чат: маскот, приветствие и подсказки-стартеры, которые сразу отправляют вопрос. */
-function EmptyChat({ onPick, disabled }: { onPick: (text: string) => void; disabled: boolean }) {
+/** Пустой чат: маскот и приветствие. Вопрос ученик формулирует сам — готовых подсказок нет. */
+function EmptyChat() {
   const { t } = useTranslation('student');
   const name = useMe()?.user.firstName.trim();
   return (
@@ -36,13 +33,6 @@ function EmptyChat({ onPick, disabled }: { onPick: (text: string) => void; disab
           </Text>
         </Stack>
       </Stack>
-      <Inline gap={2} justify="center">
-        {SUGGESTIONS.map((key) => (
-          <Chip key={key} disabled={disabled} onClick={() => onPick(t(`tutor.suggestions.${key}`))}>
-            {t(`tutor.suggestions.${key}`)}
-          </Chip>
-        ))}
-      </Inline>
     </Stack>
   );
 }
@@ -122,7 +112,7 @@ export function TutorChat({ conversationId, onStreamingChange }: TutorChatProps)
         <AsyncState query={query}>
           {(page) =>
             isEmpty ? (
-              <EmptyChat onPick={(text) => void send(text)} disabled={stream.isStreaming} />
+              <EmptyChat />
             ) : (
               <>
                 {query.hasNextPage && (

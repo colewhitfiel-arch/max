@@ -20,11 +20,15 @@ export function useStudentCourse(courseId: string) {
   });
 }
 
-/** `GET /student/blocks/:blockId`. */
-export function useStudentBlock(blockId: string) {
+/**
+ * `GET /student/blocks/:blockId`. `enabled: false` — когда блока нет (задание преподавателя
+ * без курса): запрос не уходит, а хук всё равно вызывается на каждом рендере.
+ */
+export function useStudentBlock(blockId: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: courseKeys.studentBlock(blockId),
     queryFn: () => call(api.courses.getStudentBlock({ params: { blockId } })),
+    enabled: options.enabled ?? true,
   });
 }
 

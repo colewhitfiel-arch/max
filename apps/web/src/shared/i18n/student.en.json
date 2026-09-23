@@ -45,12 +45,6 @@
     "greeting": "Hi, {{name}}!",
     "greetingAnon": "Hi!",
     "intro": "I can explain a topic, help with a task or plan your day",
-    "suggestions": {
-      "today": "What should I do today?",
-      "explain": "Explain the for loop in Python",
-      "help": "Help me with homework",
-      "plan": "How do I prepare for a lesson?"
-    },
     "placeholder": "Type a question…",
     "send": "Send",
     "stop": "Stop",
@@ -98,7 +92,8 @@
       "tomorrow": "due tomorrow",
       "overdue": "overdue",
       "date": "due by {{date}}"
-    }
+    },
+    "planetDone": "{{club}}: {{points}}, no open tasks — open the course"
   },
   "assignments": {
     "title": "Assignments",
@@ -106,7 +101,26 @@
     "submission": "Your submission",
     "feedback": "Teacher feedback",
     "attemptsLeft": "Attempts left: {{count}}",
-    "notSubmitted": "Not submitted yet"
+    "notSubmitted": "Not submitted yet",
+    "task": "Task",
+    "answer": "Your answer",
+    "answerPlaceholder": "Write your answer…",
+    "submit": "Submit",
+    "resubmit": "Submit again",
+    "resubmitTitle": "New attempt",
+    "submitted": "Work submitted",
+    "emptyHint": "Add an answer, text or a file",
+    "noAttempts": "No attempts left",
+    "quiz": {
+      "multiple": "You can pick several",
+      "empty": "This quiz has no questions yet"
+    },
+    "files": {
+      "add": "Attach a file",
+      "remove": "Remove file",
+      "uploading": "Uploading…",
+      "hint": "A photo of your work or a document"
+    }
   },
   "settings": {
     "title": "Settings"

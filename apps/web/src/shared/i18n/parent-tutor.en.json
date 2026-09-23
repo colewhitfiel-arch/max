@@ -6,12 +6,6 @@
   "greeting": "Hello, {{name}}!",
   "greetingAnon": "Hello!",
   "intro": "I will tell you how {{name}} is doing: attendance, homework and where support is needed",
-  "suggestions": {
-    "progress": "How has {{name}} been doing lately?",
-    "overdue": "Which assignments are overdue?",
-    "help": "Where is help needed?",
-    "motivation": "How can I support motivation?"
-  },
   "placeholder": "Ask about your child…",
   "send": "Send",
   "stop": "Stop",

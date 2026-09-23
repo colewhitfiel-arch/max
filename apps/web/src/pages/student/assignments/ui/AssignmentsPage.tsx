@@ -2,6 +2,7 @@ import { EmptyState, Screen, Stack, Text, VisuallyHidden } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useStudentHomework } from '@/entities/assignment';
+import { useStudentCourses } from '@/entities/course';
 import { AsyncState, DashboardSkeleton } from '@/shared/ui';
 import { HomeworkBackdrop, HomeworkMap } from '@/widgets/homework-map';
 import { HomeworkRecommendations } from '@/widgets/homework-recommendations';
@@ -10,12 +11,17 @@ import { StudentHomeStats } from '@/widgets/student-home-stats';
 /**
  * `/student/assignments` — экран «Задания» по макету Figma: серия/баллы, «Рекомендации на
  * сегодня» (кружки с открытыми заданиями) и карта планет по кружкам. Данные — `GET /student/homework`.
- * Тап по планете открывает ближайшее задание кружка.
+ * Тап по планете открывает ближайшее задание кружка, а если всё сдано — его курс.
  */
 export function AssignmentsPage() {
   const { t } = useTranslation('student');
   const navigate = useNavigate();
   const query = useStudentHomework();
+  // Курсы нужны только для перехода с планеты, у которой не осталось открытых заданий.
+  const courses = useStudentCourses();
+  const courseByGroup = new Map(
+    (courses.data?.items ?? []).map((course) => [course.group.id, course.id]),
+  );
 
   return (
     <Screen gap={8} fill>
@@ -37,6 +43,10 @@ export function AssignmentsPage() {
             <HomeworkMap
               clubs={homework.clubs}
               onOpenAssignment={(id) => navigate(`/student/assignments/${id}`)}
+              onOpenClub={(groupId) => {
+                const courseId = courseByGroup.get(groupId);
+                navigate(courseId ? `/student/courses/${courseId}` : '/student/courses');
+              }}
             />
           </>
         )}

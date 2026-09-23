@@ -48,14 +48,17 @@ export interface HomeworkMapProps {
   clubs: HomeworkClub[];
   /** Открыть ближайшее задание кружка. */
   onOpenAssignment: (assignmentId: string) => void;
+  /** Открыть курс кружка — когда открытых заданий не осталось. */
+  onOpenClub: (groupId: string) => void;
 }
 
 /**
  * Карта заданий по кружкам: планета на кружок, баллы крупно, название под линией;
- * над самым срочным кружком — жёлтая пометка со сроком. Тап по планете — ближайшее задание.
+ * над самым срочным кружком — жёлтая пометка со сроком. Тап по планете — ближайшее задание,
+ * а если всё сделано — курс кружка (планета без действия выглядела бы сломанной).
  * Дальше по траектории — серые планеты с замком: предметы, на которые ученик не записан.
  */
-export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
+export function HomeworkMap({ clubs, onOpenAssignment, onOpenClub }: HomeworkMapProps) {
   const { t, i18n } = useTranslation('student');
 
   const dueMarker = (dueAt: string | null): string | null => {
@@ -81,12 +84,17 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
       value: item.points,
       label: item.club.title,
       marker,
-      title: t('homework.planet', {
-        club: item.club.title,
-        points: t('homework.points', { count: item.points }),
-        open: item.openCount,
-      }),
-      onClick: next ? () => onOpenAssignment(next.id) : undefined,
+      title: next
+        ? t('homework.planet', {
+            club: item.club.title,
+            points: t('homework.points', { count: item.points }),
+            open: item.openCount,
+          })
+        : t('homework.planetDone', {
+            club: item.club.title,
+            points: t('homework.points', { count: item.points }),
+          }),
+      onClick: next ? () => onOpenAssignment(next.id) : () => onOpenClub(item.group.id),
     };
   });
 

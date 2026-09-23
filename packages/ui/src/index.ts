@@ -68,6 +68,7 @@ export * from './components/ListRow';
 export * from './components/StatTile';
 export * from './components/ProgressBar';
 export * from './components/ProgressRing';
+export * from './components/Radio';
 export * from './components/WeekArc';
 export * from './components/PlanetMap';
 export * from './components/MonthCalendar';

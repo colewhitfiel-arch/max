@@ -43,6 +43,7 @@ import {
   MonthCalendar,
   ProgressBar,
   ProgressRing,
+  Radio,
   Screen,
   SegmentedControl,
   SettingsIcon,
@@ -382,6 +383,13 @@ function FormsDemo() {
           <Checkbox label="Родитель" />
           <Checkbox label="Преподаватель" />
         </Inline>
+      </Field>
+      <Field group label="Вариант ответа" hint="Только один">
+        <Stack gap={0}>
+          <Radio name="playground-answer" label="Ультразвуковой датчик" defaultChecked />
+          <Radio name="playground-answer" label="Датчик освещённости" />
+          <Radio name="playground-answer" label="Серводвигатель" disabled />
+        </Stack>
       </Field>
       <Switch
         label="Уведомления"

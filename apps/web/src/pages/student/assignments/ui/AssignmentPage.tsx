@@ -1,18 +1,29 @@
+import type { StudentBlockDetail } from '@edu/contracts';
 import { Badge, Button, Card, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useStudentAssignment } from '@/entities/assignment';
+import { BlockContent, useStudentBlock } from '@/entities/course';
+import { SubmitAssignmentForm } from '@/features/submit-assignment';
 import { formatDue } from '@/shared/lib/dates';
 import { formatScore } from '@/shared/lib/format';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
-/** `/student/assignments/:assignmentId` — `GET /student/assignments/:id` (сдача — задача W2). */
+/**
+ * `/student/assignments/:assignmentId` — задание целиком: условие из блока курса,
+ * форма сдачи и результат проверки (docs/07 F7). Сюда ведёт тап по планете на «Заданиях».
+ */
 export function AssignmentPage() {
   const { assignmentId = '' } = useParams();
   const { t, i18n } = useTranslation('student');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const query = useStudentAssignment(assignmentId);
+  const blockId = query.data?.block?.id;
+  // Условие задания живёт в блоке курса; у «простого» задания блока нет — запрос не идёт.
+  const blockQuery = useStudentBlock(blockId ?? '', { enabled: !!blockId });
+  const block: StudentBlockDetail | null = blockQuery.data ?? null;
+
   return (
     <>
       <ScreenHeader title={query.data?.title ?? t('assignments.title')} back />
@@ -40,17 +51,27 @@ export function AssignmentPage() {
                 </Stack>
               )}
 
-              <Stack gap={2}>
-                <SectionTitle>{t('assignments.submission')}</SectionTitle>
-                <Card>
-                  {assignment.submission ? (
+              {/* У теста вопросы показывает сама форма ответа — иначе они задвоятся. */}
+              {block && block.type !== 'QUIZ' && (
+                <Stack gap={2}>
+                  <SectionTitle>{t('assignments.task')}</SectionTitle>
+                  <BlockContent block={block} card />
+                </Stack>
+              )}
+
+              {assignment.submission && (
+                <Stack gap={2}>
+                  <SectionTitle>{t('assignments.submission')}</SectionTitle>
+                  <Card>
                     <Stack gap={2}>
                       <Badge tone={assignment.submission.status === 'GRADED' ? 'success' : 'info'}>
                         {tc(`assignment.status.${assignment.submission.status}`)}
                       </Badge>
                       <Text>{formatScore(assignment.submission.score, assignment.maxScore)}</Text>
                       {assignment.submission.text && (
-                        <Text tone="muted">{assignment.submission.text}</Text>
+                        <Text tone="muted" preserveLines>
+                          {assignment.submission.text}
+                        </Text>
                       )}
                       {assignment.submission.feedback && (
                         <Text variant="caption">
@@ -58,15 +79,15 @@ export function AssignmentPage() {
                         </Text>
                       )}
                     </Stack>
-                  ) : (
-                    <Text tone="muted">{t('assignments.notSubmitted')}</Text>
-                  )}
-                  {assignment.attemptsLeft != null && (
-                    <Text variant="caption" tone="muted">
-                      {t('assignments.attemptsLeft', { count: assignment.attemptsLeft })}
-                    </Text>
-                  )}
-                </Card>
+                  </Card>
+                </Stack>
+              )}
+
+              <Stack gap={2}>
+                <SectionTitle>
+                  {assignment.submission ? t('assignments.resubmitTitle') : t('assignments.answer')}
+                </SectionTitle>
+                <SubmitAssignmentForm assignment={assignment} block={block} />
               </Stack>
 
               {assignment.block && (

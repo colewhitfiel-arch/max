@@ -9,4 +9,5 @@ export {
   useTeacherCourse,
   useCreateCourse,
 } from './api';
+export { BlockContent, type BlockContentProps } from './ui/BlockContent';
 export { CourseCard, TeacherCourseCardView, type CourseCardProps } from './ui/CourseCard';
