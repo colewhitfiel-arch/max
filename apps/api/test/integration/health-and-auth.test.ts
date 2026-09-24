@@ -119,6 +119,19 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
     expect(login.body.me.student.onboardingCompleted).toBe(false);
   });
 
+  it('при AUTH_PROVIDER=max демо-вход остаётся доступным (стенд открывают и в браузере)', async () => {
+    const maxApp = await createTestApp({ AUTH_PROVIDER: 'max', MAX_BOT_TOKEN: 'bot-token' });
+    try {
+      const res = await request(maxApp.getHttpServer())
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: `max-dev-with-max-${Date.now()}`, roles: ['STUDENT'] })
+        .expect(200);
+      expect(res.body.accessToken).toBeTypeOf('string');
+    } finally {
+      await maxApp.close();
+    }
+  });
+
   it('невалидное тело → VALIDATION в едином формате', async () => {
     const res = await request(app.getHttpServer())
       .post(`${base}/auth/dev`)

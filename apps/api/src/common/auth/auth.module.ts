@@ -28,6 +28,8 @@ import { MaxAuthProvider } from './providers/max-auth.provider';
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: AccessGuard },
   ],
-  exports: [JwtService, AUTH_PROVIDER],
+  // DevAuthProvider экспортируется отдельно: демо-вход не зависит от выбранного AUTH_PROVIDER
+  // (на стенде с подписью MAX браузерный вход демо-пользователем тоже нужен).
+  exports: [JwtService, AUTH_PROVIDER, DevAuthProvider],
 })
 export class AuthCoreModule {}
