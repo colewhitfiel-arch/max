@@ -1,0 +1,42 @@
+# Контекст сборки: всё ставится и собирается внутри образа (см. Dockerfile).
+
+# Зависимости и артефакты — ставятся/собираются заново в стадии deps и build
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/coverage
+*.tsbuildinfo
+
+# Клиент Prisma генерируется в стадии build под linux-musl; локальный собран под хост
+packages/db/generated
+
+# Локальные данные и логи
+.data
+**/.data
+*.log
+
+# VCS и CI
+.git
+.gitignore
+.gitattributes
+.github
+
+# Секреты: .env в образ не попадает, конфигурация приходит из окружения compose
+.env
+.env.*
+!.env.example
+
+# Документация и служебное — на сборку не влияют, но инвалидируют кэш слоёв
+docs
+.claude
+.vscode
+.idea
+.DS_Store
+README.md
+OWNERS.yaml
+CLAUDE.md
+
+# Dev-инфраструктура (продовая — в compose.yaml в корне)
+infra/docker-compose.yml

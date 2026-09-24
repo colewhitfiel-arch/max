@@ -106,6 +106,65 @@ Seed создаёт школу, 4 демо-пользователей (`max-stud
 
 `pnpm test` — все пакеты. Тесты, которым нужна БД (`packages/db`, интеграционные в `apps/api`), используют `DATABASE_URL_TEST` (база `edu_test`, создаётся `pnpm db:up`) и пропускаются при `SKIP_DB_TESTS=1`.
 
-## Production
+## Запуск в Docker (одна команда)
 
-`APP_ENV=production` требует: `AUTH_PROVIDER=max` (+ `MAX_APP_SECRET`), нестандартный `JWT_SECRET`, явный `CORS_ORIGINS`, `QUEUE_DRIVER=bullmq` с Redis, `STORAGE_DRIVER=s3`. Процессы: `apps/api` (`node dist/main.js`), worker (`node dist/worker.js`), статика `apps/web/dist`. Миграции — `pnpm db:deploy` до раскатки api.
+```bash
+cp .env.example .env     # если файла ещё нет
+docker compose up -d --build
+```
+
+Приложение — на <http://localhost:8080>. Это **один origin**: nginx отдаёт статику и проксирует
+`/api/` в контейнер api (мини-приложение MAX иначе не подключить). Миграции применяются
+автоматически при старте api. Нужен Docker Compose ≥ 2.24 с BuildKit.
+
+| Сервис | Что | Порт наружу |
+|---|---|---|
+| `web` | nginx: SPA + прокси `/api/` | 8080 |
+| `api` | NestJS + inline-очередь | нет (только внутри сети) |
+| `postgres` | PostgreSQL 16, том `pg-data` | нет |
+
+Остановить — `docker compose down`, вместе с данными — `docker compose down -v`,
+логи — `docker compose logs -f api`. Файлы `Dockerfile`, `compose.yaml`, `infra/nginx.conf`.
+`infra/docker-compose.yml` — это отдельная dev-инфраструктура, она не связана с `compose.yaml`.
+
+## Мини-приложение MAX
+
+Приложение упаковано как мини-апп мессенджера MAX (dev.max.ru/docs/webapps):
+
+- В `index.html` подключён SDK `https://st.max.ru/js/max-web-app.js`, он даёт глобальный `WebApp`.
+  Адаптер — `apps/web/src/shared/max/sdk-bridge.ts`: launch-параметры, `start_param` диплинка,
+  системная кнопка «назад», haptic, `openLink`/`openMaxLink`, `DeviceStorage`. Вне MAX мост не падает,
+  а работает как обычный веб: показывается вход, хранилище — localStorage.
+- Вход по подписи: `WebApp.initData` уходит в `POST /auth/max`, сервер проверяет HMAC-SHA256
+  (`secret_key = HMAC("WebAppData", токен бота)`) — `apps/api/src/common/auth/providers/max-auth.provider.ts`.
+
+Как подключить:
+
+1. Разверните приложение по **https** (см. «Хостинг» ниже) — URL до 1024 символов, без пробелов.
+2. В настройках бота MAX (бизнес-платформа → Чаты → бот → ⋮ → Настройки) вставьте URL и выберите
+   тип кнопки (Открыть / Запустить / Играть).
+3. В `.env` задайте `AUTH_PROVIDER=max` и `MAX_BOT_TOKEN=<токен бота>`, пересоберите:
+   `VITE_AUTH_MODE=max docker compose up -d --build`.
+4. Диплинк с параметром: `https://max.ru/<botName>?startapp=<payload>` (латиница, цифры, `_`, `-`,
+   до 512 символов) — значение приходит в `bridge.getStartParam()`.
+
+Без токена бота приложение работает в dev-режиме входа (`VITE_AUTH_MODE=dev`): экран выбора
+демо-пользователя, подпись MAX не проверяется.
+
+## Хостинг
+
+Нужен один https-домен, за которым стоит `compose.yaml`. Минимум — сервер с Docker, доменом и
+TLS (caddy/nginx/traefik перед портом 8080) либо любой PaaS, умеющий compose.
+
+Для **временного** адреса (демо, проверка мини-аппа в MAX) хватит туннеля к локальному стенду:
+
+```bash
+docker compose up -d --build
+ssh -R 80:127.0.0.1:8080 nokey@localhost.run    # выдаст https://<...>.lhr.life
+```
+
+Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
+свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
+с `GIGACHAT_AUTH_KEY`. При `APP_ENV=production` api не стартует с dev-входом и дефолтным секретом.
+Для горизонтального масштабирования — `QUEUE_DRIVER=bullmq` с Redis (отдельный процесс
+`node dist/worker.js`, рецепт в комментарии `compose.yaml`) и `STORAGE_DRIVER=s3`.

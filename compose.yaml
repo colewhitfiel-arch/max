@@ -1,0 +1,99 @@
+# Production-стенд одной командой: docker compose up -d --build
+# Приложение доступно на http://localhost:8080 — один origin (требование мини-приложения MAX):
+# nginx отдаёт SPA и проксирует /api/ в сервис api.
+#
+# infra/docker-compose.yml — это dev-инфраструктура (postgres + redis + minio), она не связана
+# с этим файлом и продолжает работать отдельно.
+#
+# Переменные берутся из корневого .env (если его нет — `cp .env.example .env`); всё, что
+# зависит от окружения контейнеров (адрес БД, порты, пути), переопределено ниже явно.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-edu}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-edu}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    # Порт наружу не публикуется, чтобы не конфликтовать с локальным postgres и
+    # infra/docker-compose.yml. Для отладки: ports: ['5433:5432'].
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      # APP_ENV=production включает строгие проверки в apps/api/src/config/env.ts:
+      # запрещает AUTH_PROVIDER=dev и дефолтный JWT_SECRET, требует CORS_ORIGINS.
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      API_PORT: '3000'
+      # Публичный origin — через него api собирает ссылки на локальные файлы.
+      API_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      WEB_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-edu}?schema=public
+      # Redis не нужен: задачи выполняются в процессе api.
+      QUEUE_DRIVER: inline
+      REDIS_URL: ''
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /app/.data/storage
+    volumes:
+      - api-storage:/app/.data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/v1/health/live || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    # Порт 3000 наружу не публикуется: весь трафик идёт через web (один origin).
+    # Для отладки: ports: ['3000:3000'].
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-web
+      args:
+        # Vite инлайнит эти значения в бандл на этапе сборки.
+        VITE_API_URL: /api/v1
+        VITE_API_MODE: real
+        VITE_MAX_MODE: ${VITE_MAX_MODE:-real}
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-dev}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '8080:80'
+
+# Отдельный сервис worker не нужен при QUEUE_DRIVER=inline. Если понадобится bullmq:
+# поднять redis, задать QUEUE_DRIVER=bullmq и REDIS_URL=redis://redis:6379 у api и добавить
+#   worker:
+#     build: { context: ., dockerfile: Dockerfile, target: runtime-api }
+#     command: ['node', 'apps/api/dist/worker.js']
+#     depends_on: { postgres: { condition: service_healthy } }
+#     environment: <то же, что у api>
+#     volumes: ['api-storage:/app/.data']
+
+volumes:
+  pg-data:
+  api-storage:

@@ -100,6 +100,12 @@ export class MockMaxBridge implements MaxBridge {
     return this.launchParams;
   }
 
+  /** В браузере полезную нагрузку диплинка эмулируем параметром `?startapp=`. */
+  getStartParam(): string | null {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('startapp');
+  }
+
   getUser(): MaxUser | null {
     return this.user;
   }

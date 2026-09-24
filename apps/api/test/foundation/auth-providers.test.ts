@@ -26,7 +26,7 @@ describe('DevAuthProvider', () => {
 
 describe('MaxAuthProvider (схема подписи — проверить по dev.max.ru)', () => {
   const secret = 'max-app-secret';
-  const max = new MaxAuthProvider(testEnv({ AUTH_PROVIDER: 'max', MAX_APP_SECRET: secret }));
+  const max = new MaxAuthProvider(testEnv({ AUTH_PROVIDER: 'max', MAX_BOT_TOKEN: secret }));
 
   function sign(params: Record<string, string>): string {
     const dataCheckString = Object.entries(params)
