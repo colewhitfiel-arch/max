@@ -5,6 +5,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router';
 import { DevLoginForm } from '@/features/dev-login';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
+import { effectiveAuthMode } from '@/shared/auth/store';
 import { config } from '@/shared/config';
 import { useMaxBridge } from '@/shared/max';
 
@@ -27,6 +28,8 @@ export function LoginPage() {
   const bridge = useMaxBridge();
   const autoLoginRef = useRef(false);
   const target = returnPath(location.state);
+  // `auto`: внутри MAX — вход по подписи, в браузере — демо-вход (один адрес работает везде).
+  const authMode = effectiveAuthMode(bridge);
 
   const goToTarget = () => navigate(target, { replace: true });
 
@@ -45,7 +48,7 @@ export function LoginPage() {
   // max: после выхода (anonymous без ошибки) автовход сам не запустится — запускаем один раз.
   // Флаг защищает от двойного POST (StrictMode, повторные рендеры); ошибка его сбрасывает,
   // чтобы «Повторить» и следующий выход снова работали.
-  const shouldAutoLogin = config.authMode === 'max' && status === 'anonymous' && !error;
+  const shouldAutoLogin = authMode === 'max' && status === 'anonymous' && !error;
   useEffect(() => {
     if (error) autoLoginRef.current = false;
     if (!shouldAutoLogin || autoLoginRef.current) return;
@@ -61,13 +64,13 @@ export function LoginPage() {
       header={
         <PageHeader
           title={t('login.title')}
-          subtitle={config.authMode === 'dev' ? t('login.subtitle') : undefined}
+          subtitle={authMode === 'dev' ? t('login.subtitle') : undefined}
         />
       }
     >
       <AppLayout.Content>
         <Screen>
-          {config.authMode === 'max' ? (
+          {authMode === 'max' ? (
             error ? (
               <ErrorState
                 title={t('login.maxFailed')}
