@@ -28,10 +28,12 @@ scripts/            Утилиты: check-ownership, ensure-env
 Требования: Node ≥ 22, pnpm 10 (`npm i -g pnpm`). Docker не нужен.
 
 ```bash
-pnpm setup
+pnpm run setup
 ```
 
-`setup` = создать `.env` из `.env.example` → `pnpm install` → поднять локальный PostgreSQL → применить миграции → засеять демо-мир. Затем:
+Именно `pnpm run setup`: `pnpm setup` — встроенная команда самого pnpm (настраивает `PNPM_HOME`), скрипт репозитория она не запускает.
+
+`setup` = создать `.env` из `.env.example` → `pnpm install` → поднять локальный PostgreSQL → применить миграции (`pnpm db:deploy`) → засеять демо-мир. Затем:
 
 ```bash
 pnpm dev
@@ -98,7 +100,7 @@ Api не стартует при невалидном окружении и пе
 
 Локально используется embedded PostgreSQL без Docker (`packages/db/scripts/pg.mjs`). С Docker: `docker compose -f infra/docker-compose.yml up -d` (Postgres, Redis, MinIO) и те же `DATABASE_URL`.
 
-Схема — `packages/db/prisma/schema/*.prisma` (по файлу на модуль). Миграции — `packages/db/prisma/migrations`. Новая миграция: измени схему → `pnpm --filter @edu/db migrate:dev --name <name>` → `pnpm db:generate`. Без интерактивного терминала — см. `docs/AGENT_GUIDE.md` §16.
+Схема — `packages/db/prisma/schema/*.prisma` (по файлу на модуль). Миграции — `packages/db/prisma/schema/migrations` (Prisma ищет их рядом со схемой). Новая миграция: измени схему → `pnpm --filter @edu/db migrate:dev --name <name>` → `pnpm db:generate`. Без интерактивного терминала — см. `docs/AGENT_GUIDE.md` §16.
 
 Seed создаёт школу, 4 демо-пользователей (`max-student-1`, `max-student-2`, `max-parent-1`, `max-teacher-1`), кружки, группы, занятия, курс, задания, платёж. Данные лежат в `packages/contracts/src/fixtures` и используются также MSW-моками.
 
@@ -166,5 +168,6 @@ ssh -R 80:127.0.0.1:8080 nokey@localhost.run    # выдаст https://<...>.lhr
 Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
 свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
 с `GIGACHAT_AUTH_KEY`. При `APP_ENV=production` api не стартует с dev-входом и дефолтным секретом.
-Для горизонтального масштабирования — `QUEUE_DRIVER=bullmq` с Redis (отдельный процесс
-`node dist/worker.js`, рецепт в комментарии `compose.yaml`) и `STORAGE_DRIVER=s3`.
+Для горизонтального масштабирования — `QUEUE_DRIVER=bullmq` с Redis (ADR-012; отдельный процесс
+`node dist/worker.js`, рецепт в комментарии `compose.yaml`). `STORAGE_DRIVER=s3` валидацией env не
+проверяется и пока не готов: `S3Storage` — заглушка, рабочий драйвер — `local`.

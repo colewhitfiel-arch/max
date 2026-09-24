@@ -1,6 +1,6 @@
 # 3. Структура репозитория
 
-Актуализировано после foundation (2026-09-21). Отличия от первоначального плана: контракты разложены по `common/`, `entities/`, `blocks/`, `routes/`; `packages/config` содержит только ESLint; в `packages/db` появился `scripts/pg.mjs` (embedded PostgreSQL); в web shared-зоны `auth/`, `max/`, `store/`.
+Актуализировано после foundation (2026-09-21), дерево сверено с кодом 2026-09-23. Отличия от первоначального плана: контракты разложены по `common/`, `entities/`, `blocks/`, `routes/`; `packages/config` содержит только ESLint; в `packages/db` появился `scripts/pg.mjs` (embedded PostgreSQL); в web shared-зоны `auth/`, `max/`, `store/`.
 
 ```
 max/
@@ -19,18 +19,23 @@ max/
 │   │   ├── index.html · vite.config.ts · vitest.config.ts · eslint.config.js · tsconfig.json
 │   │   ├── public/mockServiceWorker.js   # MSW (VITE_API_MODE=mock)
 │   │   └── src/
-│   │       ├── app/              # main.tsx, App.tsx, providers.tsx, router.tsx, bottom-nav.config.ts,
-│   │       │                     # shells/{Student,Parent,Teacher}Shell.tsx, error-boundary, splash
+│   │       ├── app/              # main.tsx, App.tsx, providers.tsx, router.tsx, route-error.tsx (errorElement),
+│   │       │                     # bottom-nav.config.ts, shells/{Role,Student,Parent,Teacher}Shell.tsx,
+│   │       │                     # root-redirect, error-boundary, splash
 │   │       ├── pages/
-│   │       │   ├── auth/ · onboarding/ · notifications/ · not-found/ · forbidden/ · admin/
+│   │       │   ├── auth/ · onboarding/ · notifications/ · invite/ · not-found/ · forbidden/ · admin/
 │   │       │   ├── student/{home,tutor,courses,assignments,settings,profile}/
-│   │       │   ├── parent/{home,children,analytics,courses,payments,settings}/
-│   │       │   └── teacher/{home,groups,students,courses,course-builder,assignments,more}/
+│   │       │   ├── parent/{home,children,analytics,courses,payments,settings,profile,tutor,wallet}/
+│   │       │   └── teacher/{home,groups,students,courses,course-builder,assignments,more,
+│   │       │                club-demand,performance,profile,settings,wallet}/
 │   │       │       └── <feature>/{routes.tsx, ui/*Page.tsx}      # attendance/ появится в workstream H
-│   │       ├── widgets/          # account-section, stats-tiles, club-progress-list, ai-text-card
-│   │       ├── features/         # dev-login, switch-role, link-child, mark-notification-read
+│   │       ├── widgets/          # композиции экранов: foundation (account-section) + workstream'ы (student-home-*,
+│   │       │                     # student-profile-hero, parent-home-*, teacher-home-*, teacher-student-header,
+│   │       │                     # teacher-performance-*, homework-*, notification-settings, trajectory)
+│   │       ├── features/         # dev-login, switch-role, link-child, mark-notification-read, change-avatar,
+│   │       │                     # generate-course, upload-file, withdraw-wallet
 │   │       ├── entities/<x>/     # session, lesson, assignment, course, student, club, group, dashboard,
-│   │       │                     # payment, notification, ai — api.ts (хуки Query), keys.ts, ui/
+│   │       │                     # payment, notification, ai, file, generation — api.ts (хуки Query), keys.ts, ui/
 │   │       └── shared/
 │   │           ├── api/          # client.ts, errors.ts, query-keys.ts, query-client.ts, sse.ts,
 │   │           │                 # mocks/{lib,state,demo,browser}.ts + handlers/*.ts
@@ -38,7 +43,8 @@ max/
 │   │           ├── max/          # types.ts, mock-bridge.ts, sdk-bridge.ts, index.tsx (provider, hooks)
 │   │           ├── store/        # ui-store.ts (тема, выбранный ребёнок)
 │   │           ├── i18n/         # index.ts, <ns>.ru.json, <ns>.en.json
-│   │           ├── lib/          # dates.ts, money.ts, format.ts, lazy-route.ts
+│   │           ├── lib/          # dates.ts, money.ts, format.ts, lazy-route.ts, navigation.ts, parent-paths.ts,
+│   │           │                 # teacher-paths.ts
 │   │           ├── ui/           # AsyncState, ScreenHeader, SectionTitle — композиции над @edu/ui без стилей
 │   │           └── config.ts     # VITE_* переменные
 │   └── api/                      # NestJS (@edu/api): HTTP + worker
@@ -49,6 +55,7 @@ max/
 │       │   ├── app.module.ts     # сборка: core-модули + DOMAIN_MODULES
 │       │   ├── bootstrap.ts      # префикс /api/v1, CORS, request-id, логгер
 │       │   ├── config/           # env.ts (zod-схема), env.module.ts (@InjectEnv)
+│       │   ├── types/            # ambient-декларации (pdf-parse-lib.d.ts)
 │       │   ├── common/           # auth/, errors/, events/, kv/, logger/, pagination/, prisma/, queue/, time/, validation/
 │       │   └── modules/
 │       │       ├── index.ts      # DOMAIN_MODULES — реестр (одна строка на модуль)
@@ -59,8 +66,9 @@ max/
 │       │       ├── ai/           # ai.module (AiService через DI), ai.factory
 │       │       ├── files/storage/        # StorageProvider порт, LocalFsStorage, S3Storage (stub)
 │       │       ├── course-builder/pipeline/  # порты ContentExtractor, CourseTransformer, CoursePipeline + stubs
-│       │       └── (catalog, groups, schedule, attendance, courses, assignments, analytics,
-│       │            payments, notifications, support — создаются workstream'ами)
+│       │       ├── catalog/ · groups/ · courses/ · analytics/   # созданы workstream'ами D, E, B, A
+│       │       └── (schedule, attendance, assignments, payments, notifications, support —
+│       │            создаются workstream'ами)
 │       └── test/                 # helpers/{env,mini-app,test-app}.ts, foundation/*.test.ts, integration/*.test.ts
 ├── packages/
 │   ├── contracts/                # @edu/contracts — единственный источник типов API (tsup → dist esm+cjs)
@@ -75,7 +83,8 @@ max/
 │   │       └── fixtures/         # демо-мир (seed + MSW)
 │   ├── db/                       # @edu/db — Prisma (tsc → dist cjs)
 │   │   ├── prisma/schema/        # base.prisma + 15 файлов по модулям
-│   │   ├── prisma/migrations/    # 20260921000000_init
+│   │   │   └── migrations/       # 20260921130803_init, 20260921180000_course_builder_topic_knowledge,
+│   │   │                         # 20260922085338_onboarding_club_interests (Prisma берёт <папка схемы>/migrations)
 │   │   ├── scripts/pg.mjs        # embedded PostgreSQL: up | down | status
 │   │   ├── generated/client/     # prisma generate (gitignored)
 │   │   └── src/                  # index.ts, client.ts, testing.ts, seed/{index,identity,catalog-groups,learning,ai-payments-notifications}.ts

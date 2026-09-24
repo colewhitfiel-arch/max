@@ -6,11 +6,12 @@ import { formatDateTime } from '@/shared/lib/dates';
 
 export interface NotificationRowProps {
   notification: NotificationDto;
+  /** Действие справа (например, «Прочитано»); по умолчанию слот пуст. */
   right?: ReactNode;
   onClick?: () => void;
 }
 
-/** Уведомление в списке: тип, текст, время, метка «новое». */
+/** Уведомление в списке: текст, время, метка «новое». */
 export function NotificationRow({ notification, right, onClick }: NotificationRowProps) {
   const { t, i18n } = useTranslation('notifications');
   const unread = !notification.readAt;
@@ -20,8 +21,8 @@ export function NotificationRow({ notification, right, onClick }: NotificationRo
       subtitle={[notification.body, formatDateTime(notification.createdAt, i18n.language)]
         .filter(Boolean)
         .join(' · ')}
-      left={unread ? <Badge tone="info" dot aria-label={t('unread', { count: 1 })} /> : undefined}
-      right={right ?? <Badge>{t(`type.${notification.type}`)}</Badge>}
+      left={unread ? <Badge tone="info" dot role="img" aria-label={t('newLabel')} /> : undefined}
+      right={right}
       onClick={onClick}
     />
   );

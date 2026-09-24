@@ -1,5 +1,4 @@
-import { BLOCK_TYPE_META } from '@edu/contracts';
-import { Badge, Card, ListRow, Screen, Stack, Text } from '@edu/ui';
+import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useTeacherCourse } from '@/entities/course';
@@ -26,6 +25,12 @@ export function TeacherCoursePage() {
                 </Text>
                 {course.description && <Text tone="muted">{course.description}</Text>}
               </Stack>
+              {course.modules.length === 0 && (
+                <EmptyState
+                  title={t('courses.modulesEmpty')}
+                  description={t('courses.modulesEmptyHint')}
+                />
+              )}
               {course.modules.map((module) => (
                 <Stack key={module.id} gap={2}>
                   <SectionTitle>{module.title}</SectionTitle>
@@ -34,16 +39,22 @@ export function TeacherCoursePage() {
                       {module.summary}
                     </Text>
                   )}
-                  <Card padding="none">
-                    {module.blocks.map((block) => (
-                      <ListRow
-                        key={block.id}
-                        title={block.title}
-                        subtitle={BLOCK_TYPE_META[block.type].label}
-                        right={block.isRequired ? <Badge tone="info">!</Badge> : undefined}
-                      />
-                    ))}
-                  </Card>
+                  {module.blocks.length === 0 ? (
+                    <Text variant="caption" tone="muted">
+                      {t('courses.blocksEmpty')}
+                    </Text>
+                  ) : (
+                    <Card padding="none">
+                      {module.blocks.map((block) => (
+                        <ListRow
+                          key={block.id}
+                          title={block.title}
+                          subtitle={t(`common:blockType.${block.type}`)}
+                          right={block.isRequired ? <Badge tone="info">!</Badge> : undefined}
+                        />
+                      ))}
+                    </Card>
+                  )}
                 </Stack>
               ))}
             </>

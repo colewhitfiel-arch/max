@@ -8,7 +8,17 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles/index.css';
 
 // Тема и токены
-export { applyTheme, getTheme, resolveTheme, THEMES, type Theme } from './theme';
+export {
+  ACCENTS,
+  applyAccent,
+  applyTheme,
+  getAccent,
+  getTheme,
+  resolveTheme,
+  THEMES,
+  type Accent,
+  type Theme,
+} from './theme';
 export { breakpoints, contentMaxWidth, durations, tokens, zIndex, type Breakpoint } from './tokens';
 export type { Tone } from './types';
 
@@ -22,6 +32,8 @@ export * from './components/PageHeader';
 export * from './components/BottomNavigation';
 export * from './components/Modal';
 export * from './components/Sheet';
+export * from './components/Drawer';
+export * from './components/DockSheet';
 export * from './components/Tabs';
 export * from './components/SegmentedControl';
 
@@ -58,6 +70,8 @@ export * from './components/ProgressBar';
 export * from './components/ProgressRing';
 export * from './components/WeekArc';
 export * from './components/PlanetMap';
+export * from './components/MonthCalendar';
+export * from './components/IllustrationRow';
 
 // Раскладка и текст
 export * from './components/Stack';
@@ -66,3 +80,24 @@ export * from './components/Grid';
 export * from './components/Divider';
 export * from './components/Text';
 export * from './components/VisuallyHidden';
+
+// Режим родителя: аналитика и подробности заданий
+export * from './components/PieChart';
+export * from './components/SegmentBar';
+export * from './components/StatusGrid';
+export * from './components/CodeBlock';
+export * from './components/Band';
+
+// Режим родителя: главная (дети-сердца, кошелёк, прогресс по кружкам)
+export * from './components/HeartAvatar';
+export * from './components/HeartCarousel';
+export * from './components/WalletChip';
+export * from './components/ScoopPanel';
+export * from './components/ProgressBubble';
+
+// Режим репетитора: главная, кошелёк, успеваемость
+export * from './components/Illustration';
+export * from './components/WalletHero';
+export * from './components/LineChart';
+export * from './components/BarChart';
+export * from './components/DataTable';

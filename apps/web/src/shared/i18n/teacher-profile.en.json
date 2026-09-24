@@ -1,0 +1,43 @@
+{
+  "title": "Profile",
+  "hero": {
+    "groups_one": "{{count}} group",
+    "groups_few": "{{count}} groups",
+    "groups_many": "{{count}} groups",
+    "groups_other": "{{count}} groups",
+    "students_one": "{{count}} student",
+    "students_few": "{{count}} students",
+    "students_many": "{{count}} students",
+    "students_other": "{{count}} students"
+  },
+  "stats": {
+    "title": "Statistics",
+    "groups": "Groups",
+    "students": "Students",
+    "attendance": "Attendance",
+    "needsAttention": "Need attention"
+  },
+  "groups": {
+    "title": "My groups",
+    "code": "Group {{code}}",
+    "students_one": "{{count}} student",
+    "students_few": "{{count}} students",
+    "students_many": "{{count}} students",
+    "students_other": "{{count}} students",
+    "needsAttention": "Need attention: {{count}}",
+    "empty": "No groups yet",
+    "emptyHint": "Groups are assigned by the school — once they appear, their schedule will be on the home screen"
+  },
+  "settings": {
+    "title": "Settings",
+    "work": "Work",
+    "wallet": "Wallet",
+    "walletHint": "Balance, transactions and withdrawal",
+    "groups": "Groups",
+    "groupsHint": "Students, schedule and lessons",
+    "courses": "Courses",
+    "coursesHint": "Modules and materials for groups",
+    "clubDemand": "Club demand",
+    "clubDemandHint": "What students pick during onboarding and want to try later"
+  }
+}

@@ -57,3 +57,40 @@
   outline: 2px solid var(--ui-color-focus);
   outline-offset: -2px;
 }
+
+/* Макет родителя «1 день / 7 дней / 30 дней»: таблетка второго акцента радиусом 20,
+ * текст 12px чёрный; выбранный — белый сегмент с «ступенькой» тени вправо. */
+.ui-segmented[data-variant='accent'] {
+  gap: 0;
+  padding: 0;
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-accent-2);
+}
+
+.ui-segmented[data-variant='accent'] .ui-segmented__item {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: var(--ui-space-1) var(--ui-space-2);
+  border-radius: var(--ui-radius-lg);
+  color: #000000;
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-regular);
+  line-height: 1.2;
+}
+
+.ui-segmented[data-variant='accent'][data-full-width] .ui-segmented__item {
+  flex: 1;
+}
+
+.ui-segmented[data-variant='accent'] .ui-segmented__item[data-state='checked'] {
+  background: #ffffff;
+  color: #000000;
+  box-shadow:
+    2.5px 0 0 #e4e4e4,
+    5px 0 0 #c1c1c1;
+}
+
+/* Фокус всегда на белом выбранном сегменте (roving tabindex) — тёмная рамка заметнее зелёной. */
+.ui-segmented[data-variant='accent'] .ui-segmented__item:focus-visible {
+  outline-color: #0d0d0d;
+}

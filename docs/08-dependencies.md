@@ -16,11 +16,15 @@
 
 Стрелка = «использует публичный сервис». Запрещены зависимости вверх и циклы. Единственная горизонтальная связь в слое 3 — `courses → assignments` (создание/сдача заданий из блоков); обратной нет.
 
+**Известные исключения (техдолг, docs/12 «Ревью 2026-09-23»):**
+- `identity → family` (зависимость вверх, слой 1 → 2): `IdentityService` при сборке `MeDto` вызывает `FamilyService.countChildren(parentId)` — только чтение (`parent.childrenCount` в `/me`). Исправление — собирать `/me` выше identity (фасад на уровне app или family) и убрать `FamilyModule` из импортов `IdentityModule`; до этого новых вызовов из identity в модули выше не добавлять.
+- `ai` читает чужие таблицы напрямую (временно, до публикации read-методов в identity/groups/courses/assignments/attendance): `StudentContextBuilder` (`modules/ai/context-builder.ts`) — `student_profiles`, `enrollments`, `lessons` (+ `attendance`), `assignments` (+ `submissions`), `course_progress`, `block_progress`; `AiRepository.futureInterestsOfSchool` — `student_profiles`. Формулы при этом берутся из `modules/analytics/metrics.ts`. Когда модули опубликуют read-сервисы из §8.3, эти чтения переводятся на них.
+
 ## 8.2. Матрица «кто кого вызывает»
 
 | Модуль | Использует сервисы | Слушает события |
 |---|---|---|
-| identity | school (inviteCode) | — |
+| identity | school (inviteCode), family (`countChildren` — исключение, §8.1) | — |
 | school | — | — |
 | catalog | school, identity (TeacherBrief) | — |
 | groups | catalog, identity, school (tz) | — |
@@ -32,7 +36,7 @@
 | files | — | — |
 | analytics | identity, groups, attendance, assignments, courses, family, catalog | все учебные события, `app.opened`, `tutor.message.sent` |
 | notifications | identity, family, groups | все события |
-| ai | identity, catalog, groups, attendance, assignments, courses, analytics | `attendance.marked`, `submission.*`, `block.completed`, `student.profile.updated` (инвалидация) |
+| ai | identity, catalog, groups, attendance, assignments, courses, analytics (пока часть — прямыми чтениями в context-builder, §8.1) | `attendance.marked`, `submission.*`, `block.completed`, `student.profile.updated` (инвалидация) |
 | course-builder | ai (LlmProvider), files, courses, groups | — |
 | support | identity | — |
 
@@ -47,7 +51,7 @@
 | attendance | `listByStudent(studentId, period)`, `listByLesson(lessonId)`, `countable(studentId, period)` |
 | courses | `listPublishedByGroups(groupIds)`, `getProgress(studentId, courseId)`, `listCourseProgress(studentId)`, `blockBrief(id)` |
 | assignments | `listForStudent(studentId, filter)`, `listForGroup(groupId, filter)`, `createFromBlocks(event)`, `submitFromBlock(studentId, blockId, answers)`, `listSubmissions(studentId, period)` |
-| family | `listChildren(parentId)`, `assertParentLinked(parentId, studentId)`, `listParentsOf(studentId)` |
+| family | `listChildren(parentId)`, `assertParentLinked(parentId, studentId)`, `listParentsOf(studentId)`, `countChildren(parentId)` |
 | analytics | `getStudentStats(studentId, period)`, `getWeekly(studentId, period)`, `getClubProgress(studentId)`, `getNeedsAttention(groupId)`, `recordActivity(event)` |
 | ai | `getInsight(kind, studentId)`, `buildStudentContext(studentId)`, `enqueueInsightRefresh(studentId)`, `invalidate(studentId)` |
 | files | `createUploadUrl(...)`, `confirm(id)`, `getSignedUrl(id)`, `fileDtos(ids)`, `readExtractedText(id)`, `enqueueExtract(id)` |

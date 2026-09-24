@@ -76,4 +76,17 @@ describe('PlanetMap', () => {
     expect(planet.querySelector('.ui-planet-map__lock')).not.toBeNull();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
+
+  it('label-ReactNode без title: имя кнопки и картинки — из видимой подписи', () => {
+    render(
+      <PlanetMap
+        items={[
+          { key: 'a', image: 'a.png', label: <b>английский</b>, onClick: () => {} },
+          { key: 'b', image: 'b.png', label: <b>робототехника</b> },
+        ]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'английский' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'робототехника' })).toBeInTheDocument();
+  });
 });

@@ -35,7 +35,7 @@ export function AssignmentPage() {
                 <Stack gap={2}>
                   <SectionTitle>{t('assignments.description')}</SectionTitle>
                   <Card>
-                    <Text style={{ whiteSpace: 'pre-wrap' }}>{assignment.description}</Text>
+                    <Text preserveLines>{assignment.description}</Text>
                   </Card>
                 </Stack>
               )}

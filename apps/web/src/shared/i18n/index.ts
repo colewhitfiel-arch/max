@@ -14,7 +14,17 @@ export const NAMESPACES = [
   'auth',
   'student',
   'parent',
+  'parent-home',
+  'parent-analytics',
+  'parent-tutor',
+  'parent-profile',
+  'invite',
+  'performance',
   'teacher',
+  'teacher-home',
+  'teacher-wallet',
+  'teacher-performance',
+  'teacher-profile',
   'notifications',
 ] as const;
 
@@ -44,6 +54,7 @@ void i18n.use(initReactI18next).init({
   defaultNS: 'common',
   interpolation: { escapeValue: false },
   returnNull: false,
+  showSupportNotice: false,
 });
 
 export function setLanguage(lng: string): Promise<unknown> {

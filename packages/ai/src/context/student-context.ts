@@ -89,7 +89,10 @@ export interface StudentContext {
   laterClubs?: StudentContextLaterClub[];
   /** Ближайшие 7 дней. */
   upcomingLessons: StudentContextLesson[];
-  /** ≤ 10 */
+  /**
+   * Все открытые задания по сроку: сериализатор покажет не больше `maxItems`, а в заголовке —
+   * полное число и «…и ещё N».
+   */
   openAssignments: StudentContextAssignment[];
   /** ≤ 10 */
   recentResults: StudentContextResult[];
@@ -135,10 +138,11 @@ export function serializeStudentContext(
 ): string {
   const maxChars = options.maxChars ?? DEFAULT_CONTEXT_MAX_CHARS;
   const maxItems = options.maxItems ?? 10;
-  const formatDate = createDateFormatter(ctx.timezone);
+  const { format: formatDate, zone } = createDateFormatter(ctx.timezone);
 
   const head = renderStudent(ctx.student);
-  head.push(`Сейчас: ${formatDate(ctx.now, { year: true })} (${ctx.timezone}).`);
+  // Подписываем пояс, в котором реально отформатированы даты (при невалидном — UTC).
+  head.push(`Сейчас: ${formatDate(ctx.now, { year: true })} (${zone}).`);
 
   const lists: ListSection[] = [
     section(
@@ -284,10 +288,15 @@ function percent(rate: number | null): string {
 
 type DateFormatter = (iso: string, opts?: { year?: boolean }) => string;
 
-/** `дд.мм чч:мм` (или `дд.мм.гггг чч:мм`) в поясе ученика; при ошибке — исходная строка. */
-function createDateFormatter(timezone: string): DateFormatter {
-  const formatter = makeIntl(timezone) ?? makeIntl('UTC');
-  return (iso, opts = {}) => {
+/**
+ * `дд.мм чч:мм` (или `дд.мм.гггг чч:мм`) в поясе ученика; при ошибке — исходная строка.
+ * Невалидный пояс → UTC; `zone` — пояс, который реально применяется.
+ */
+function createDateFormatter(timezone: string): { format: DateFormatter; zone: string } {
+  const own = makeIntl(timezone);
+  const zone = own ? timezone : 'UTC';
+  const formatter = own ?? makeIntl('UTC');
+  const format: DateFormatter = (iso, opts = {}) => {
     const date = new Date(iso);
     if (!formatter || Number.isNaN(date.getTime())) return iso;
     const parts = new Map<string, string>();
@@ -301,6 +310,7 @@ function createDateFormatter(timezone: string): DateFormatter {
       ? `${day}.${month}.${year} ${hour}:${minute}`
       : `${day}.${month} ${hour}:${minute}`;
   };
+  return { format, zone };
 }
 
 function makeIntl(timezone: string): Intl.DateTimeFormat | undefined {

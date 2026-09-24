@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { useTeacherGroups } from '@/entities/group';
 import { formatDateTime } from '@/shared/lib/dates';
 import { formatRate } from '@/shared/lib/format';
+import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 
 /** `/teacher/groups` — `GET /teacher/groups`. */
@@ -13,7 +14,7 @@ export function GroupsPage() {
   const query = useTeacherGroups();
   return (
     <>
-      <ScreenHeader title={t('groups.title')} bell />
+      <ScreenHeader title={t('groups.title')} back="/teacher/settings" bell />
       <Screen>
         <AsyncState
           query={query}
@@ -42,7 +43,7 @@ export function GroupsPage() {
                       </Badge>
                     ) : undefined
                   }
-                  onClick={() => navigate(`/teacher/groups/${group.id}`)}
+                  onClick={() => navigate(`/teacher/groups/${group.id}`, { state: FROM_APP_STATE })}
                 />
               ))}
             </Card>

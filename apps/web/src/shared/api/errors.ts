@@ -1,4 +1,5 @@
 import { ApiErrorSchema, type ErrorCode } from '@edu/contracts';
+import { i18n } from '../i18n';
 
 /**
  * Единая ошибка API на фронте (ADR-013). Любой сбой — сетевой, парсинг, 4xx/5xx —
@@ -25,9 +26,13 @@ export class ApiClientError extends Error {
     this.requestId = init.requestId;
   }
 
-  /** Раздел ещё не реализован на сервере (404 без тела / 501). */
+  /**
+   * Раздел ещё не реализован на сервере: 501 NOT_IMPLEMENTED (API, MSW-заглушка незамоканных
+   * ручек) или голый 404 без тела ApiError (ручки нет за прокси). NOT_FOUND с телом ApiError —
+   * это «объект не найден» (удалённое задание, неизвестный преподаватель), а не «в разработке».
+   */
   get isNotImplemented(): boolean {
-    return this.code === 'NOT_FOUND' || this.code === 'NOT_IMPLEMENTED';
+    return this.code === 'NOT_IMPLEMENTED';
   }
 }
 
@@ -67,7 +72,11 @@ export function apiErrorFromResponse(
       requestId: error.requestId ?? requestId,
     });
   }
-  const code = STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION');
+  // 404 без тела ApiError — ответил не наш API (ручки нет за прокси): «раздел в разработке».
+  const code =
+    status === 404
+      ? 'NOT_IMPLEMENTED'
+      : (STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION'));
   return new ApiClientError({
     code,
     message: typeof body === 'string' && body ? body : `HTTP ${status}`,
@@ -83,32 +92,24 @@ export function apiErrorFromException(cause: unknown): ApiClientError {
   const isAbort = cause instanceof Error && cause.name === 'AbortError';
   return new ApiClientError({
     code: isAbort ? 'INTERNAL' : 'EXTERNAL_INTEGRATION',
-    message: isAbort ? 'Запрос отменён' : message || 'Ошибка сети',
+    message: isAbort ? i18n.t('common:errors.aborted') : message || i18n.t('common:errors.network'),
     status: 0,
     details: cause,
   });
 }
 
-const CODE_TEXT: Record<ErrorCode, string> = {
-  VALIDATION: 'Проверь введённые данные',
-  UNAUTHORIZED: 'Нужно войти заново',
-  FORBIDDEN: 'Нет доступа к этому разделу',
-  NOT_FOUND: 'Раздел в разработке',
-  CONFLICT: 'Данные уже изменились, обнови экран',
-  BUSINESS_RULE: 'Действие сейчас недоступно',
-  RATE_LIMITED: 'Слишком много запросов, попробуй позже',
-  NOT_IMPLEMENTED: 'Раздел в разработке',
-  EXTERNAL_INTEGRATION: 'Сервис временно недоступен, проверь соединение',
-  INTERNAL: 'Что-то пошло не так, попробуй ещё раз',
-};
+/** Текст по коду ошибки на текущем языке (`common:errors.codes.*`). */
+function codeText(code: ErrorCode): string {
+  return i18n.t(`common:errors.codes.${code}`);
+}
 
 /** Текст ошибки для пользователя (по коду). Для BUSINESS_RULE/VALIDATION — сообщение сервера. */
 export function describeApiError(error: unknown): string {
   if (!isApiClientError(error)) {
-    return error instanceof Error && error.message ? error.message : CODE_TEXT.INTERNAL;
+    return error instanceof Error && error.message ? error.message : codeText('INTERNAL');
   }
   if ((error.code === 'BUSINESS_RULE' || error.code === 'VALIDATION') && error.message) {
     return error.message;
   }
-  return CODE_TEXT[error.code];
+  return codeText(error.code);
 }

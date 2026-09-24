@@ -1,1 +1,0 @@
-export { AiTextCard } from './AiTextCard';

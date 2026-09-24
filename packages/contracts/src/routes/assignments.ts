@@ -45,6 +45,11 @@ export const TeacherAssignmentCardSchema = AssignmentBriefSchema.omit({ submissi
   description: z.string().nullable(),
   allowedAttempts: z.number().int().positive().nullable(),
   publishedAt: DateTimeSchema.nullable(),
+  /** Пустой массив — задание для всей группы; иначе адресаты внутри группы. */
+  studentIds: z.array(IdSchema),
+  /** Курс, к которому относится задание (блок курса); null — «простое» задание. */
+  courseId: IdSchema.nullable(),
+  /** Сколько учеников получили задание: вся группа или только адресаты. */
   studentsCount: z.number().int().nonnegative(),
   submittedCount: z.number().int().nonnegative(),
   gradedCount: z.number().int().nonnegative(),
@@ -95,9 +100,9 @@ export type HomeworkClub = z.infer<typeof HomeworkClubSchema>;
 export const StudentHomeworkDtoSchema = z.object({
   /** Кружки ученика: сначала с ближайшим дедлайном, без дедлайна — в конце. */
   clubs: z.array(HomeworkClubSchema),
-  /** Серия дней с активностью — как на главной; нет — пока не посчитано. */
+  /** Серия — как на главной (docs/04 §4.6); нет — пока не посчитано. */
   streakDays: z.number().int().nonnegative().optional(),
-  /** Баллы за активность. */
+  /** Кристаллы — как на главной (docs/04 §4.6). */
   points: z.number().int().nonnegative().optional(),
 });
 export type StudentHomeworkDto = z.infer<typeof StudentHomeworkDtoSchema>;
@@ -124,11 +129,28 @@ export type ListTeacherAssignmentsQuery = z.infer<typeof ListTeacherAssignmentsQ
 
 // ---------- Тела запросов ----------
 
-export const SubmitAssignmentBodySchema = z.object({
-  answers: BlockAnswersSchema.optional(),
-  text: z.string().optional(),
-  fileIds: z.array(IdSchema).optional(),
-});
+/** Есть ли в ответе на блок хоть что-то: выбранный вариант QUIZ, текст или файл. */
+function hasBlockAnswers(answers: z.infer<typeof BlockAnswersSchema> | undefined): boolean {
+  if (!answers) return false;
+  return Object.values(answers).some((value) =>
+    Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '',
+  );
+}
+
+/** Сдача задания: пустую (без ответов, текста и файлов) принять нельзя. */
+export const SubmitAssignmentBodySchema = z
+  .object({
+    answers: BlockAnswersSchema.optional(),
+    text: z.string().optional(),
+    fileIds: z.array(IdSchema).optional(),
+  })
+  .refine(
+    (body) =>
+      (body.text?.trim() ?? '') !== '' ||
+      (body.fileIds?.length ?? 0) > 0 ||
+      hasBlockAnswers(body.answers),
+    { message: 'Пустую работу сдать нельзя: добавь ответ, текст или файл' },
+  );
 export type SubmitAssignmentBody = z.infer<typeof SubmitAssignmentBodySchema>;
 
 export const CreateAssignmentBodySchema = z.object({
@@ -139,6 +161,11 @@ export const CreateAssignmentBodySchema = z.object({
   dueAt: DateTimeSchema.optional(),
   maxScore: z.number().int().positive().optional(),
   allowedAttempts: z.number().int().positive().optional(),
+  /**
+   * Кому задание: не задан или пустой — всей группе. Иначе только этим ученикам группы
+   * (чужой ученик — 422). Список фиксируется в момент создания.
+   */
+  studentIds: z.array(IdSchema).optional(),
   /** true — опубликовать сразу, иначе черновик (publishedAt = null). */
   publish: z.boolean(),
 });

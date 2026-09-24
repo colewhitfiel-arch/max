@@ -1,7 +1,8 @@
 /**
  * Стандартные состояния запроса поверх компонентов @edu/ui (без собственных стилей):
  * loading → Skeleton, error → ErrorState («Раздел в разработке» без кнопки повтора для
- * NOT_FOUND/NOT_IMPLEMENTED), empty → EmptyState, ready → children(data).
+ * NOT_IMPLEMENTED, «Не найдено» без повтора для NOT_FOUND), empty → EmptyState,
+ * ready → children(data).
  */
 import { Card, EmptyState, ErrorState, Skeleton, SkeletonText, Stack } from '@edu/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -29,9 +30,14 @@ export function AsyncState<T>({ query, isEmpty, empty, skeleton, children }: Asy
   return <>{children(data)}</>;
 }
 
-/** Ошибка запроса: для «в разработке» — без повтора. */
+/** Ошибка запроса: для «в разработке» и «не найдено» — без повтора (он ничего не изменит). */
 export function QueryError({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const { t } = useTranslation('common');
+  if (isApiClientError(error) && error.code === 'NOT_FOUND') {
+    return (
+      <ErrorState title={t('states.notFoundItem')} description={t('states.notFoundItemHint')} />
+    );
+  }
   const notImplemented = isApiClientError(error) && error.isNotImplemented;
   if (notImplemented) {
     return (

@@ -53,15 +53,21 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   const [activeKey, setActiveKey] = useControllable(value, defaultValue ?? firstEnabled, onChange);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  const activeIndex = Math.max(
-    0,
-    items.findIndex((item) => item.key === activeKey),
-  );
+  const activeIndex = items.findIndex((item) => item.key === activeKey);
+  // Roving tabindex: если value не совпал ни с одной вкладкой, в tab-order — первая доступная,
+  // иначе tablist недостижим с клавиатуры.
+  const focusIndex =
+    activeIndex >= 0
+      ? activeIndex
+      : Math.max(
+          0,
+          items.findIndex((item) => !item.disabled),
+        );
   const tabId = (index: number) => `${baseId}-tab-${index}`;
   const panelId = `${baseId}-panel`;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const next = getRovingIndex(event.key, activeIndex, items.length, (index) =>
+    const next = getRovingIndex(event.key, focusIndex, items.length, (index) =>
       Boolean(items[index]?.disabled),
     );
     if (next == null) return;
@@ -92,7 +98,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
               className="ui-tabs__tab"
               aria-selected={selected}
               aria-controls={panel != null ? panelId : undefined}
-              tabIndex={selected ? 0 : -1}
+              tabIndex={index === focusIndex ? 0 : -1}
               disabled={item.disabled}
               data-state={selected ? 'active' : 'inactive'}
               onClick={() => setActiveKey(item.key)}
@@ -108,7 +114,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
           className="ui-tabs__panel"
           role="tabpanel"
           id={panelId}
-          aria-labelledby={tabId(activeIndex)}
+          aria-labelledby={activeIndex >= 0 ? tabId(activeIndex) : undefined}
           tabIndex={0}
         >
           {panel}

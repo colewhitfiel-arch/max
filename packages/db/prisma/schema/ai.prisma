@@ -17,6 +17,7 @@ model AiConversation {
   messages AiMessage[]
 
   @@index([userId, kind, lastMessageAt])
+  @@index([studentId])
   @@map("ai_conversations")
 }
 

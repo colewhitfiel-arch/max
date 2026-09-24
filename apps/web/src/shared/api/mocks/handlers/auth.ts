@@ -1,6 +1,6 @@
 /**
  * Auth-моки: dev-вход выдаёт токены-заглушки и MeDto по демо-пользователям; refresh, me,
- * switch-role, roles, logout, settings, link-code.
+ * switch-role, roles, logout, settings, аватар (файл purpose AVATAR из files-моков), link-code.
  */
 import {
   AddRoleBodySchema,
@@ -13,6 +13,7 @@ import {
   RefreshBodySchema,
   SwitchRoleBodySchema,
   TokenPairSchema,
+  UpdateAvatarBodySchema,
   UpdateSettingsBodySchema,
 } from '@edu/contracts';
 import { demoUsers } from '@edu/contracts/fixtures';
@@ -28,8 +29,21 @@ import {
   parseToken,
   readBody,
 } from '../lib';
-import { createUser, db, findUserByMaxId, grantRole, type MockUser, studentOfUser } from '../state';
+import {
+  createUser,
+  db,
+  findUserByMaxId,
+  grantRole,
+  linkCode,
+  type MockUser,
+  studentOfUser,
+  teacherOfUser,
+} from '../state';
+import { fileDto } from './files';
 import type { Role } from '@edu/contracts';
+
+/** Код приглашения демо-школы (`School.inviteCode`, как в seed packages/db). */
+const DEMO_SCHOOL_INVITE_CODE = 'SCHOOL1';
 
 function authResult(user: MockUser, role: Role | null) {
   return json(AuthResultSchema, { ...issueTokens(user.id, role), me: buildMe(user, role) });
@@ -69,6 +83,15 @@ export const authHandlers = [
       if (!body.ok) return body.response;
       if (body.data.role === 'SCHOOL_ADMIN')
         return apiError('NOT_IMPLEMENTED', 'Роль администратора школы');
+      // Как IdentityService: без кода в dev — школа по умолчанию, неверный код — отказ.
+      if (
+        body.data.role === 'TEACHER' &&
+        body.data.inviteCode &&
+        body.data.inviteCode !== DEMO_SCHOOL_INVITE_CODE &&
+        !teacherOfUser(auth.user.id)
+      ) {
+        return apiError('BUSINESS_RULE', 'Код приглашения школы не найден');
+      }
       grantRole(auth.user, body.data.role);
       return authResult(auth.user, body.data.role);
     }),
@@ -113,13 +136,35 @@ export const authHandlers = [
     }),
   ),
 
+  http.put(
+    apiUrl('/me/avatar'),
+    authed(async ({ auth, request }) => {
+      const body = await readBody(request, UpdateAvatarBodySchema);
+      if (!body.ok) return body.response;
+      const { fileId } = body.data;
+      if (fileId === null) {
+        auth.user.avatarUrl = null;
+      } else {
+        const file = db.files.find((f) => f.id === fileId && f.ownerUserId === auth.user.id);
+        if (!file) return apiError('NOT_FOUND', 'Файл не найден');
+        if (!file.confirmed) return apiError('BUSINESS_RULE', 'Файл ещё не подтверждён');
+        if (file.purpose !== 'AVATAR' || !file.mime.startsWith('image/')) {
+          return apiError('VALIDATION', 'Для фото профиля нужна картинка с purpose AVATAR');
+        }
+        // В браузере — object URL на загруженные байты; иначе ссылка «скачивания» из FileDto.
+        auth.user.avatarUrl = file.objectUrl ?? fileDto(file).url;
+      }
+      return json(MeDtoSchema, buildMe(auth.user, auth.role));
+    }),
+  ),
+
   http.post(
     apiUrl('/student/link-code/rotate'),
     authed(
       ({ auth }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Только для ученика');
-        student.linkCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+        student.linkCode = linkCode();
         return json(LinkCodeSchema, { linkCode: student.linkCode });
       },
       ['STUDENT'],

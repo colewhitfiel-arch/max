@@ -4,21 +4,41 @@ import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
 import { lessonKeys } from './keys';
 
-/** `GET /student/calendar?from&to`. */
-export function useStudentCalendar(period: PeriodQuery) {
+/** `GET /student/calendar?from&to`; `enabled: false` — не запрашивать (календарь закрыт). */
+export function useStudentCalendar(period: PeriodQuery, { enabled = true } = {}) {
   return useQuery({
     queryKey: lessonKeys.studentCalendar(period),
     queryFn: () => call(api.groups.getStudentCalendar({ query: period })),
+    enabled,
   });
 }
 
-/** `GET /parent/children/:studentId/calendar`. */
-export function useChildCalendar(studentId: string | null, period: PeriodQuery) {
+/**
+ * `GET /parent/children/:studentId/calendar?from&to`; `enabled: false` — не запрашивать
+ * (на главной родителя — пока календарь закрыт и день в пределах недели главной).
+ */
+export function useChildCalendar(
+  studentId: string | null,
+  period: PeriodQuery,
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: lessonKeys.childCalendar(studentId ?? '', period),
     queryFn: () =>
       call(api.groups.getParentChildCalendar({ params: { studentId: studentId! }, query: period })),
-    enabled: !!studentId,
+    enabled: !!studentId && enabled,
+  });
+}
+
+/**
+ * `GET /teacher/calendar?from&to` — занятия всех групп преподавателя за период; `enabled: false` —
+ * не запрашивать (на главной — пока календарь закрыт и день в пределах недели главной).
+ */
+export function useTeacherCalendar(period: PeriodQuery, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: lessonKeys.teacherCalendar(period),
+    queryFn: () => call(api.groups.getTeacherCalendar({ query: period })),
+    enabled,
   });
 }
 

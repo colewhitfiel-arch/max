@@ -81,6 +81,7 @@ model BlockProgress {
   block   CourseBlock    @relation(fields: [blockId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, blockId])
+  @@index([blockId])
   @@map("block_progress")
 }
 
@@ -98,5 +99,6 @@ model CourseProgress {
   course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@id([studentId, courseId])
+  @@index([courseId])
   @@map("course_progress")
 }

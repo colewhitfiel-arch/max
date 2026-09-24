@@ -43,7 +43,7 @@ export class CatalogService {
     });
     return clubs.map((club) => {
       const teachers = new Map<string, ClubCard['teachers'][number]>();
-      const schedulePreview: string[] = [];
+      const schedulePreview = new Set<string>(); // одинаковые слоты разных групп — один раз
       for (const group of club.groups) {
         teachers.set(group.teacher.id, {
           id: group.teacher.id,
@@ -51,7 +51,7 @@ export class CatalogService {
           photoUrl: group.teacher.photoUrl,
         });
         for (const rule of group.scheduleRules) {
-          schedulePreview.push(`${WEEKDAYS[rule.weekday]} ${rule.startTime}–${rule.endTime}`);
+          schedulePreview.add(`${WEEKDAYS[rule.weekday]} ${rule.startTime}–${rule.endTime}`);
         }
       }
       return {
@@ -61,10 +61,10 @@ export class CatalogService {
         coverUrl: club.coverUrl,
         description: club.description,
         price: { amountKopecks: club.priceKopecks, currency: 'RUB' as const },
-        billingPeriod: 'MONTH' as const,
+        billingPeriod: club.billingPeriod,
         tags: club.tags,
         teachers: [...teachers.values()],
-        schedulePreview,
+        schedulePreview: [...schedulePreview],
       };
     });
   }

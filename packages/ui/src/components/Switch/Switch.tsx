@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import { useFieldControl } from '../Field/FieldContext';
 import './Switch.css';
@@ -18,6 +18,8 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
   { label, description, className, id, required, disabled, ...rest },
   ref,
 ) {
+  // Свой id, если его не дали ни пропсы, ни Field (в `Field group` у каждого контрола свой).
+  const ownId = useId();
   const control = useFieldControl({
     id,
     required,
@@ -39,6 +41,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
         role="switch"
         {...rest}
         {...control}
+        id={control.id ?? `ui-switch-${ownId}`}
       />
       <span className="ui-switch__track" aria-hidden="true">
         <span className="ui-switch__thumb" />

@@ -29,4 +29,19 @@ describe('UiPlayground', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Светлая' }));
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
+
+  it('режим репетитора: оранжевый акцент и «Вывести» в демо кошелька', async () => {
+    render(<UiPlayground />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Оранжевый — репетитор' }));
+    expect(document.documentElement.getAttribute('data-accent')).toBe('orange');
+
+    const withdraw = screen.getByRole('button', { name: 'Вывести' });
+    expect(screen.getByRole('img', { name: 'Баланс 6700 ₽' })).toBeInTheDocument();
+    await userEvent.click(withdraw);
+    expect(withdraw).toBeDisabled();
+    expect(screen.getByRole('img', { name: 'Баланс 0 ₽' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Синий — ученик' }));
+    expect(document.documentElement.hasAttribute('data-accent')).toBe(false);
+  });
 });

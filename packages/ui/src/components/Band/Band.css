@@ -1,0 +1,41 @@
+/* Макет: прямоугольник #1e1e1e с непрозрачностью 50% на всю ширину экрана. */
+.ui-band {
+  /* Боковой отступ экрана (Screen padding md); переопредели, если экран с другим отступом. */
+  --ui-band-gutter: var(--ui-space-4);
+  display: block;
+  min-width: 0;
+  padding: var(--ui-space-3) var(--ui-band-gutter);
+  /* Без color-mix (Safari < 16.2) — просто поверхность темы, без прозрачности (запасная строка
+   * перед color-mix с var() не работает — поэтому @supports ниже). */
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  /* scrollIntoView/якорь не прячет полосу под липкой шапкой экрана (PageHeader sticky, 56px). */
+  scroll-margin-top: var(--ui-band-scroll-margin, 64px);
+}
+
+.ui-band[data-bleed] {
+  margin-inline: calc(-1 * var(--ui-band-gutter));
+}
+
+/* Макет «Задания» (65:283): полоса курса — #1e1e1e на 30%, высота 38px (заголовок 20px × 1.25
+ * + 2 × 6.5px), до первого задания щель 1px — полосы не сливаются в один блок. */
+.ui-band[data-tone='subtle'] {
+  padding-block: 6.5px;
+  margin-bottom: 1px;
+  background: var(--ui-color-surface);
+}
+
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-band {
+    background: color-mix(in srgb, var(--ui-color-surface) 50%, transparent);
+  }
+
+  .ui-band[data-tone='subtle'] {
+    background: color-mix(in srgb, var(--ui-color-surface) 30%, transparent);
+  }
+}
+
+/* Вплотную к шапке: верхний отступ Screen равен боковому (`--ui-band-gutter`). */
+.ui-band[data-flush] {
+  margin-top: calc(-1 * var(--ui-band-gutter));
+}

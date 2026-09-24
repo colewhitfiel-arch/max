@@ -37,7 +37,22 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm ownership:check
+      # Каждый коммит диапазона проверяется отдельно: коммит, задевший зоны нескольких
+      # владельцев (OWNERS.yaml), должен содержать метку cross-owner в сообщении.
+      - name: Ownership check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            pnpm ownership:check --base="$PR_BASE" --head="$PR_HEAD"
+          elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            pnpm ownership:check --base="$PUSH_BEFORE" --head="$GITHUB_SHA"
+          else
+            pnpm ownership:check --base="$GITHUB_SHA~1" --head="$GITHUB_SHA"
+          fi
       - run: pnpm db:generate
       - run: pnpm db:deploy
       - run: pnpm lint

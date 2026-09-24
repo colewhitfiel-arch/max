@@ -1,6 +1,6 @@
 /**
- * ИИ: онбординг, диалоги тьютора, траектория. Стриминговые ручки отдают `text/event-stream`
- * из нескольких `data:`-строк через ReadableStream с задержкой — как настоящий SSE.
+ * ИИ: онбординг, диалоги тьютора (ученика и родителя), траектория. Стриминговые ручки отдают
+ * `text/event-stream` из нескольких `data:`-строк через ReadableStream с задержкой — как настоящий SSE.
  */
 import {
   AiMessageDtoSchema,
@@ -19,10 +19,42 @@ import {
   TutorMessageBodySchema,
   paginated,
 } from '@edu/contracts';
+import { demoClubs } from '@edu/contracts/fixtures';
 import { http, HttpResponse } from 'msw';
-import { buildMe, clubCard } from '../demo';
-import { apiError, apiUrl, authed, json, noContent, readBody } from '../lib';
+import { formatRelativeDay } from '../../../lib/dates';
+import { buildMe, clubCard, gamification, statsBrief, studentBrief } from '../demo';
+import { childHomework, homeworkCounts, type HomeworkEntry, sumCounts } from '../homework';
+import {
+  apiError,
+  apiUrl,
+  authed,
+  denyForeignChild,
+  json,
+  noContent,
+  paginate,
+  readBody,
+} from '../lib';
 import { db, studentOfUser, teacherOfUser } from '../state';
+
+/**
+ * Кружки, которые онбординг рекомендует: только фикстурные (робототехника, Python) — причины ниже
+ * написаны под них. Дополнительные кружки демо-мира (world-extras) в рекомендации не попадают.
+ */
+const onboardingClubs = () => db.clubs.filter((club) => demoClubs.some((d) => d.id === club.id));
+
+/**
+ * Вопросы онбординга после 1-го, 2-го и 3-го ответа (первый — в `/start`); 4-й ответ завершает
+ * диалог. Порядок — как в mock-правилах `packages/ai` (цели → время и формат → «на потом»), так
+ * что `futureInterests` берётся из 4-го ответа.
+ */
+const ONBOARDING_QUESTIONS = [
+  'Здорово! А какие у тебя цели на этот год?',
+  'Понятно. Сколько часов в неделю можно уделять кружкам и как тебе больше нравится заниматься — практика, проекты, теория?',
+  'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?',
+] as const;
+
+/** Диалог ученика (не родительский — у пользователя могут быть обе роли). */
+const isStudentConversation = (id: string) => !db.parentConversationIds.has(id);
 
 const conversationDto = (id: string) => {
   const c = db.conversations.find((x) => x.id === id)!;
@@ -44,6 +76,19 @@ function addMessage(conversationId: string, role: 'USER' | 'ASSISTANT', content:
     if (!conversation.title && role === 'USER') conversation.title = content.slice(0, 40);
   }
   return message;
+}
+
+/**
+ * История диалога с конца, как у API: первая страница — последние `limit` сообщений (по
+ * возрастанию времени), `nextCursor` ведёт к более старым.
+ */
+function messagesPage(request: Request, conversationId: string) {
+  const items = db.messages
+    .filter((m) => m.conversationId === conversationId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const result = paginate(request, items, { fromEnd: true });
+  if (!result.ok) return result.response;
+  return json(paginated(AiMessageDtoSchema), result.page);
 }
 
 /** SSE-ответ: токены по словам с задержкой, затем done. */
@@ -81,6 +126,115 @@ function tutorReply(question: string): string {
   return 'Хороший вопрос! Давай разберём по шагам: сначала сформулируй, что уже известно, потом — что нужно найти. Если хочешь, покажу пример из твоего курса по робототехнике.';
 }
 
+const taskLabel = (e: HomeworkEntry, club: string) => `«${e.title}» (${club}, задание ${e.number})`;
+
+const isOverdue = (e: HomeworkEntry) => e.status === 'FAILED' && !e.submittedAt;
+
+/**
+ * Ответ тьютора родителю (заглушка промпта `tutor.parent`): на «вы», о ребёнке, по цифрам
+ * демо-мира — посещаемость, задания по кружкам, просрочки, ближайшие дедлайны.
+ */
+function parentTutorReply(studentId: string, question: string): string {
+  const name = studentBrief(studentId).user.firstName;
+  const groups = childHomework(studentId);
+  if (groups.length === 0) {
+    return `${name} пока не занимается ни в одном кружке, поэтому данных об успеваемости нет. Подобрать кружок можно в профиле — раздел «Кружки для ваших детей».`;
+  }
+  // Кружки от лучшего к худшему по доле правильных среди проверенных/просроченных.
+  const clubs = groups
+    .map(({ group, entries }) => {
+      const counts = homeworkCounts(entries);
+      const graded = counts.correct + counts.wrong;
+      return {
+        title: group.club.title,
+        teacher: `${group.teacher.user.firstName} ${group.teacher.user.lastName ?? ''}`.trim(),
+        entries,
+        counts,
+        rate: graded ? counts.correct / graded : 1,
+      };
+    })
+    .sort((a, b) => b.rate - a.rate);
+  const best = clubs[0]!;
+  const worst = clubs[clubs.length - 1]!;
+  const total = sumCounts(clubs.map((c) => c.counts));
+  const lower = question.toLowerCase();
+
+  if (/просроч|долг|не сда/.test(lower)) {
+    const overdue = clubs.flatMap((c) =>
+      c.entries.filter(isOverdue).map((e) => ({ e, club: c.title })),
+    );
+    if (overdue.length === 0) {
+      return `Просроченных заданий сейчас нет — ${name} сдаёт всё вовремя. Впереди ещё заданий: ${total.upcoming}, ближайшие дедлайны видны в разделе «Успеваемость».`;
+    }
+    const top = [...clubs].sort(
+      (a, b) => b.entries.filter(isOverdue).length - a.entries.filter(isOverdue).length,
+    )[0]!;
+    const examples = overdue
+      .slice(-3)
+      .map(({ e, club }) => taskLabel(e, club))
+      .join(', ');
+    return `Сейчас просрочено заданий: ${overdue.length}. Больше всего — в кружке «${top.title}». Последние из них: ${examples}. Лучше не ругать, а спокойно спросить, что помешало, и вместе выбрать время, чтобы их доделать.`;
+  }
+
+  if (/помощ|помочь|трудн|сложн|слаб|ошиб/.test(lower)) {
+    if (worst.counts.wrong === 0) {
+      return `Серьёзных трудностей не видно: ошибок и просрочек нет. Попросите ребёнка рассказать вам о последнем решённом задании — это хорошо закрепляет тему.`;
+    }
+    const strong = clubs.length > 1 ? `Сильная сторона — «${best.title}». ` : '';
+    return `Больше всего ошибок в кружке «${worst.title}»: заданий, решённых меньше чем на 30% или не сданных вовремя, — ${worst.counts.wrong}. ${strong}Попросите ребёнка объяснить вам решение одного задания, а если трудности сохранятся — напишите преподавателю (${worst.teacher}).`;
+  }
+
+  if (/мотивац|поддерж|хвал|интерес/.test(lower)) {
+    const { streakDays, points } = gamification(studentId);
+    const streak =
+      streakDays > 0
+        ? `Серия активных дней — ${streakDays}`
+        : 'Серия активных дней пока не набрана';
+    return `${streak}, кристаллов на счету: ${points}. Хвалите за конкретные шаги: сданное задание, разобранную ошибку, занятие без опозданий. Договоритесь о небольшой награде за неделю без просрочек и чаще спрашивайте, что нового получилось в кружке «${best.title}».`;
+  }
+
+  if (/дедлайн|скоро|недел|ближайш|предстоит|срок/.test(lower)) {
+    const soon = clubs
+      .flatMap((c) =>
+        c.entries.filter((e) => e.status === 'SOON').map((e) => ({ e, club: c.title })),
+      )
+      .sort((a, b) => (a.e.dueAt ?? '').localeCompare(b.e.dueAt ?? ''));
+    if (soon.length === 0) {
+      return `В ближайшие 3 дня дедлайнов нет, всего впереди заданий: ${total.upcoming}. Хорошее время, чтобы закрыть долги.`;
+    }
+    const list = soon
+      .map(({ e, club }) => `${taskLabel(e, club)} — ${formatRelativeDay(e.dueAt!)}`)
+      .join('; ');
+    return `В ближайшие 3 дня нужно сдать: ${list}. Всего впереди заданий: ${total.upcoming}.`;
+  }
+
+  const stats = statsBrief(studentId);
+  const attendance =
+    stats.attendanceRate === null
+      ? 'Данных о посещениях пока нет.'
+      : `${name} посещает ${Math.round(stats.attendanceRate * 100)}% занятий за последний месяц.`;
+  const focus =
+    best !== worst
+      ? `Лучше всего дела идут в кружке «${best.title}», больше внимания стоит уделить кружку «${worst.title}».`
+      : `Основной кружок — «${best.title}».`;
+  return `Коротко о главном. ${attendance} Задания: выполнено ${total.correct}, с ошибками или просрочено ${total.wrong}, впереди ещё ${total.upcoming}. ${focus} Предлагаю вместе составить план на неделю и начать с ближайших дедлайнов.`;
+}
+
+/** Диалог родителя с тьютором: свой (иначе 404) и о привязанном ребёнке (иначе 403). */
+function parentConversation(
+  userId: string,
+  conversationId: string,
+): Response | { id: string; studentId: string } {
+  const conversation = db.conversations.find(
+    (c) => c.id === conversationId && db.parentConversationIds.has(c.id),
+  );
+  if (!conversation || conversation.userId !== userId || !conversation.studentId)
+    return apiError('NOT_FOUND', 'Диалог не найден');
+  const denied = denyForeignChild(userId, conversation.studentId);
+  if (denied) return denied;
+  return { id: conversation.id, studentId: conversation.studentId };
+}
+
 export const aiHandlers = [
   // ---------- Онбординг ----------
   http.post(
@@ -113,20 +267,26 @@ export const aiHandlers = [
   http.post(
     apiUrl('/student/onboarding/messages'),
     authed(
-      async ({ request }) => {
+      async ({ auth, request }) => {
         const body = await readBody(request, OnboardingMessageBodySchema);
         if (!body.ok) return body.response;
-        addMessage(body.data.conversationId, 'USER', body.data.text);
-        const userMessages = db.messages.filter(
-          (m) => m.conversationId === body.data.conversationId && m.role === 'USER',
+        // Только свой диалог онбординга (как requireOwnedOnboarding в API).
+        const conversation = db.conversations.find(
+          (c) =>
+            c.id === body.data.conversationId &&
+            c.kind === 'ONBOARDING' &&
+            c.userId === auth.user.id,
         );
-        const isComplete = userMessages.length >= 4;
+        if (!conversation) return apiError('NOT_FOUND', 'Диалог онбординга не найден');
+        addMessage(conversation.id, 'USER', body.data.text);
+        const userMessages = db.messages.filter(
+          (m) => m.conversationId === conversation.id && m.role === 'USER',
+        );
+        const isComplete = userMessages.length > ONBOARDING_QUESTIONS.length;
         const reply = isComplete
           ? 'Спасибо! Я понял твои интересы. Сейчас подберу кружки, которые тебе подойдут.'
-          : userMessages.length === 3
-            ? 'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?'
-            : 'Здорово! А какие цели ты бы хотел достичь за этот год?';
-        const message = addMessage(body.data.conversationId, 'ASSISTANT', reply);
+          : ONBOARDING_QUESTIONS[userMessages.length - 1]!;
+        const message = addMessage(conversation.id, 'ASSISTANT', reply);
         return sseResponse(reply, {
           type: 'done',
           messageId: message.id,
@@ -154,7 +314,7 @@ export const aiHandlers = [
     authed(
       () =>
         json(OnboardingRecommendationsSchema, {
-          items: db.clubs.map((club, index) => ({
+          items: onboardingClubs().map((club, index) => ({
             club: clubCard(club.id),
             reason:
               index === 0
@@ -186,7 +346,7 @@ export const aiHandlers = [
         const chosen = new Set(body.data.selectedClubIds);
         const later = new Set(body.data.laterClubIds.filter((id) => !chosen.has(id)));
         db.clubInterests = db.clubInterests.filter((i) => i.studentId !== student.id);
-        db.clubs.forEach((club, index) => {
+        onboardingClubs().forEach((club, index) => {
           const status = chosen.has(club.id) ? 'CHOSEN' : later.has(club.id) ? 'LATER' : 'SKIPPED';
           db.clubInterests.push({
             studentId: student.id,
@@ -273,7 +433,12 @@ export const aiHandlers = [
       ({ auth, request }) => {
         const kind = new URL(request.url).searchParams.get('kind');
         const items = db.conversations
-          .filter((c) => c.userId === auth.user.id && (!kind || c.kind === kind))
+          .filter(
+            (c) =>
+              c.userId === auth.user.id &&
+              isStudentConversation(c.id) &&
+              (!kind || c.kind === kind),
+          )
           .sort((a, b) =>
             (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt),
           )
@@ -309,14 +474,13 @@ export const aiHandlers = [
   http.get<{ conversationId: string }>(
     apiUrl('/ai/conversations/:conversationId/messages'),
     authed(
-      ({ auth, params }) => {
-        const conversation = db.conversations.find((c) => c.id === params.conversationId);
+      ({ auth, params, request }) => {
+        const conversation = db.conversations.find(
+          (c) => c.id === params.conversationId && isStudentConversation(c.id),
+        );
         if (!conversation || conversation.userId !== auth.user.id)
           return apiError('NOT_FOUND', 'Диалог не найден');
-        const items = db.messages
-          .filter((m) => m.conversationId === conversation.id)
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return json(paginated(AiMessageDtoSchema), { items });
+        return messagesPage(request, conversation.id);
       },
       ['STUDENT'],
     ),
@@ -326,7 +490,9 @@ export const aiHandlers = [
     apiUrl('/ai/conversations/:conversationId/messages'),
     authed(
       async ({ auth, params, request }) => {
-        const conversation = db.conversations.find((c) => c.id === params.conversationId);
+        const conversation = db.conversations.find(
+          (c) => c.id === params.conversationId && isStudentConversation(c.id),
+        );
         if (!conversation || conversation.userId !== auth.user.id)
           return apiError('NOT_FOUND', 'Диалог не найден');
         const body = await readBody(request, TutorMessageBodySchema);
@@ -345,7 +511,10 @@ export const aiHandlers = [
     authed(
       ({ auth, params }) => {
         const index = db.conversations.findIndex(
-          (c) => c.id === params.conversationId && c.userId === auth.user.id,
+          (c) =>
+            c.id === params.conversationId &&
+            c.userId === auth.user.id &&
+            isStudentConversation(c.id),
         );
         if (index < 0) return apiError('NOT_FOUND', 'Диалог не найден');
         db.conversations.splice(index, 1);
@@ -353,6 +522,82 @@ export const aiHandlers = [
         return noContent();
       },
       ['STUDENT'],
+    ),
+  ),
+
+  // ---------- Тьютор родителя (о ребёнке, docs/07 F15) ----------
+  http.get<{ studentId: string }>(
+    apiUrl('/parent/children/:studentId/ai/conversations'),
+    authed(
+      ({ auth, params }) => {
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
+        const items = db.conversations
+          .filter(
+            (c) =>
+              db.parentConversationIds.has(c.id) &&
+              c.userId === auth.user.id &&
+              c.studentId === params.studentId,
+          )
+          .sort((a, b) =>
+            (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt),
+          )
+          .map((c) => conversationDto(c.id));
+        return json(paginated(ConversationDtoSchema), { items });
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.post<{ studentId: string }>(
+    apiUrl('/parent/children/:studentId/ai/conversations'),
+    authed(
+      ({ auth, params }) => {
+        const denied = denyForeignChild(auth.user.id, params.studentId);
+        if (denied) return denied;
+        const conversation = {
+          id: crypto.randomUUID(),
+          userId: auth.user.id,
+          studentId: params.studentId,
+          kind: 'TUTOR' as const,
+          title: null,
+          lastMessageAt: null,
+          createdAt: new Date().toISOString(),
+        };
+        db.conversations.push(conversation);
+        db.parentConversationIds.add(conversation.id);
+        return json(ConversationDtoSchema, conversationDto(conversation.id));
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.get<{ conversationId: string }>(
+    apiUrl('/parent/ai/conversations/:conversationId/messages'),
+    authed(
+      ({ auth, params, request }) => {
+        const found = parentConversation(auth.user.id, params.conversationId);
+        if (found instanceof Response) return found;
+        return messagesPage(request, found.id);
+      },
+      ['PARENT'],
+    ),
+  ),
+
+  http.post<{ conversationId: string }>(
+    apiUrl('/parent/ai/conversations/:conversationId/messages'),
+    authed(
+      async ({ auth, params, request }) => {
+        const found = parentConversation(auth.user.id, params.conversationId);
+        if (found instanceof Response) return found;
+        const body = await readBody(request, TutorMessageBodySchema);
+        if (!body.ok) return body.response;
+        addMessage(found.id, 'USER', body.data.text);
+        const reply = parentTutorReply(found.studentId, body.data.text);
+        const message = addMessage(found.id, 'ASSISTANT', reply);
+        return sseResponse(reply, { type: 'done', messageId: message.id });
+      },
+      ['PARENT'],
     ),
   ),
 

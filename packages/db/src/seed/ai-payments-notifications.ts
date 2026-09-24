@@ -3,12 +3,12 @@ import {
   demoMessages,
   demoNotification,
   demoNotificationUserId,
-  demoPaidPeriod,
-  demoPayment,
+  materializeDemoPaidPeriod,
+  materializeDemoPayment,
 } from '@edu/contracts/fixtures';
 import type { Prisma, PrismaClient } from '../../generated/client';
 
-export async function seedAiPaymentsNotifications(prisma: PrismaClient): Promise<void> {
+export async function seedAiPaymentsNotifications(prisma: PrismaClient, now: Date): Promise<void> {
   await prisma.aiConversation.upsert({
     where: { id: demoConversation.id },
     create: {
@@ -36,6 +36,9 @@ export async function seedAiPaymentsNotifications(prisma: PrismaClient): Promise
     });
   }
 
+  // Даты оплаты — относительно `now`, как у занятий: оплаченный период не «протухает».
+  const demoPayment = materializeDemoPayment(now);
+  const demoPaidPeriod = materializeDemoPaidPeriod(now);
   await prisma.payment.upsert({
     where: { id: demoPayment.id },
     create: {
@@ -55,18 +58,25 @@ export async function seedAiPaymentsNotifications(prisma: PrismaClient): Promise
       failReason: demoPayment.failReason,
       createdAt: demoPayment.createdAt,
     },
-    update: { status: demoPayment.status },
+    update: {
+      status: demoPayment.status,
+      paidAt: demoPayment.paidAt,
+      createdAt: demoPayment.createdAt,
+    },
   });
+  const periodDates = {
+    periodStart: new Date(demoPaidPeriod.periodStart),
+    periodEnd: new Date(demoPaidPeriod.periodEnd),
+  };
   await prisma.paidPeriod.upsert({
     where: { id: demoPaidPeriod.id },
     create: {
       id: demoPaidPeriod.id,
       enrollmentId: demoPaidPeriod.enrollmentId,
-      periodStart: new Date(demoPaidPeriod.periodStart),
-      periodEnd: new Date(demoPaidPeriod.periodEnd),
+      ...periodDates,
       paymentId: demoPaidPeriod.paymentId,
     },
-    update: {},
+    update: periodDates,
   });
 
   await prisma.notification.upsert({

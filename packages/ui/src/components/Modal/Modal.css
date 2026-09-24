@@ -5,7 +5,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--ui-space-4);
+  /* Высокое окно не заходит под вырез и индикатор «домой» (как Sheet/Drawer). */
+  padding: calc(var(--ui-space-4) + env(safe-area-inset-top)) var(--ui-space-4)
+    calc(var(--ui-space-4) + env(safe-area-inset-bottom));
 }
 
 .ui-modal__backdrop {
@@ -61,15 +63,6 @@
   justify-content: flex-end;
   gap: var(--ui-space-2);
   padding: 0 var(--ui-space-4) var(--ui-space-4);
-}
-
-@keyframes ui-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes ui-modal-in {

@@ -11,7 +11,7 @@
  * Если у тебя есть Docker — используй infra/docker-compose.yml, этот скрипт не нужен.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,19 +55,29 @@ function up() {
   if (!existsSync(path.join(dataDir, 'PG_VERSION'))) {
     console.log(`pg: initdb → ${dataDir}`);
     const pwFile = path.join(path.dirname(dataDir), 'pg.pw');
-    writeFileSync(pwFile, password);
-    run('initdb', [
-      '-D',
-      dataDir,
-      '-U',
-      user,
-      '-A',
-      'password',
-      `--pwfile=${pwFile}`,
-      '-E',
-      'UTF8',
-      '--locale=C',
-    ]);
+    // Файл с паролем нужен только initdb: удаляем сразу после вызова, в том числе при ошибке.
+    writeFileSync(pwFile, password, { mode: 0o600 });
+    const init = run(
+      'initdb',
+      [
+        '-D',
+        dataDir,
+        '-U',
+        user,
+        '-A',
+        'password',
+        `--pwfile=${pwFile}`,
+        '-E',
+        'UTF8',
+        '--locale=C',
+      ],
+      { allowFail: true },
+    );
+    rmSync(pwFile, { force: true });
+    if (init.status !== 0) {
+      console.error(`pg: initdb завершился с кодом ${init.status}`);
+      process.exit(init.status ?? 1);
+    }
   }
   const status = spawnSync(exe('pg_ctl'), ['-D', dataDir, 'status'], { env, encoding: 'utf8' });
   if (status.status === 0) {
@@ -95,6 +105,13 @@ function up() {
 }
 
 function ensureDatabase(name) {
+  // Имя подставляется в SQL строкой — допускаем только безопасные символы.
+  if (!/^[A-Za-z0-9_]+$/.test(name)) {
+    console.error(
+      `pg: недопустимое имя базы «${name}» в DATABASE_URL (разрешены A-Z, a-z, 0-9, _)`,
+    );
+    process.exit(1);
+  }
   const check = spawnSync(
     exe('psql'),
     [
@@ -168,8 +185,12 @@ function resolveBinDir() {
 function loadDotEnv(file) {
   if (!existsSync(file)) return;
   for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
     if (!m || line.trim().startsWith('#')) continue;
-    if (process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^"(.*)"$/, '$1');
+    // Как dotenv: пробелы по краям, кавычки '...' / "...", комментарий ` # …` у значения без кавычек.
+    const raw = m[2].trim();
+    const quoted = /^(['"])(.*)\1$/.exec(raw);
+    const value = quoted ? quoted[2] : raw.replace(/\s+#.*$/, '');
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
   }
 }

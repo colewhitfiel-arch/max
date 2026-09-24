@@ -21,6 +21,7 @@ import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationSettings, useUpdateNotificationSettings } from '@/entities/notification';
 import { describeApiError, isApiClientError } from '@/shared/api/errors';
+import { QueryError } from '@/shared/ui';
 
 type SettingKey = keyof Settings;
 
@@ -87,21 +88,23 @@ export function NotificationSettings({ role }: NotificationSettingsProps) {
       <Text as="h2" variant="body" weight="bold">
         {t('settings.notifications')}
       </Text>
-      <Card padding={query.isPending ? 'md' : 'none'}>
+      <Card padding={query.isPending || (query.isError && !unavailable) ? 'md' : 'none'}>
         {query.isPending ? (
           <Stack gap={3} aria-busy="true">
             <Skeleton height={36} />
             <Skeleton height={36} />
             <Skeleton height={36} />
           </Stack>
-        ) : query.isError ? (
+        ) : unavailable ? (
           <ListRow
             title={
               <Text as="span" variant="small" tone="muted">
-                {unavailable ? t('settings.notificationsUnavailable') : t('states.error')}
+                {t('settings.notificationsUnavailable')}
               </Text>
             }
           />
+        ) : query.isError ? (
+          <QueryError error={query.error} onRetry={() => void query.refetch()} />
         ) : (
           items.map(({ key, icon: Icon, tone }) => (
             <ListRow

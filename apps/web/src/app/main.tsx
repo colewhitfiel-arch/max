@@ -1,9 +1,9 @@
 import '@edu/ui/styles.css';
-import '@/shared/i18n';
 import { AppLayout, ErrorState, Screen } from '@edu/ui';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { config } from '@/shared/config';
+import { i18n } from '@/shared/i18n';
 import { createMaxBridge, type MaxBridge } from '@/shared/max';
 import { App } from './App';
 import { Providers } from './providers';
@@ -22,7 +22,7 @@ function renderFatal(root: ReturnType<typeof createRoot>, error: unknown) {
     <AppLayout>
       <AppLayout.Content>
         <Screen>
-          <ErrorState title="Не удалось запустить приложение" description={message} />
+          <ErrorState title={i18n.t('common:errors.bootTitle')} description={message} />
         </Screen>
       </AppLayout.Content>
     </AppLayout>,
@@ -40,13 +40,7 @@ async function bootstrap(): Promise<void> {
     } catch (error) {
       // Без Service Worker mock-режим не работает (нет public/mockServiceWorker.js или SW запрещён).
       console.error('[msw] не удалось запустить мок-воркер', error);
-      renderFatal(
-        root,
-        new Error(
-          'MSW не запустился: проверь, что есть public/mockServiceWorker.js (`pnpm exec msw init public`) ' +
-            'и что браузер разрешает Service Worker. Либо переключи VITE_API_MODE=real.',
-        ),
-      );
+      renderFatal(root, new Error(i18n.t('common:errors.mswFailed')));
       return;
     }
   }

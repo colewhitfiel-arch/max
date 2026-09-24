@@ -9,7 +9,8 @@ export interface SseEvent {
 /**
  * Разбирает поток Server-Sent Events: строки `data:` одного события склеиваются через `\n`,
  * пустая строка завершает событие, `:`-строки (комментарии) пропускаются.
- * При отмене `signal` чтение прерывается и бросается причина отмены.
+ * При отмене `signal` чтение прерывается и бросается причина отмены. Если потребитель вышел из
+ * итерации раньше конца потока (`break`/`return`/ошибка), тело отменяется (`reader.cancel()`).
  */
 export async function* parseSse(
   body: ReadableStream<Uint8Array>,
@@ -27,6 +28,7 @@ export async function* parseSse(
   let event: string | undefined;
   let id: string | undefined;
   let dataLines: string[] = [];
+  let completed = false;
 
   const flush = (): SseEvent | undefined => {
     if (dataLines.length === 0) {
@@ -76,10 +78,12 @@ export async function* parseSse(
       const parsed = handleLine(buffer);
       if (parsed) yield parsed;
     }
+    completed = true;
     const last = flush();
     if (last) yield last;
   } finally {
     signal?.removeEventListener('abort', onAbort);
+    if (!completed) reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }

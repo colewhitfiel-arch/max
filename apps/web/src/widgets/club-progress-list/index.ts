@@ -1,1 +1,0 @@
-export { ClubProgressList } from './ClubProgressList';

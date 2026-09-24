@@ -3,7 +3,8 @@
  * Владелец — contracts. Данных намеренно мало: 1 школа, 2 кружка, 2 группы, 1 преподаватель
  * (он же родитель), 2 ученика, 1 родитель, курс с 4 блоками, 3 задания, сдача, посещаемость.
  *
- * Даты занятий задаются смещением в днях от «сейчас» — см. materializeDemoLessons().
+ * Даты занятий, посещаемости и оплаты задаются относительно «сейчас» — см. materializeDemoLessons(),
+ * materializeDemoAttendance(), materializeDemoPayment() и materializeDemoPaidPeriod().
  */
 import type {
   Assignment,
@@ -345,7 +346,8 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
   {
     id: DEMO_IDS.lessons.roboticsPast1,
     groupId: DEMO_IDS.groups.roboticsA,
-    ruleId: DEMO_IDS.scheduleRules.roboticsMon,
+    // Дата плавает относительно «сейчас» и с днём недели правила не совпадает — занятие разовое.
+    ruleId: null,
     dayOffset: -7,
     startTime: '15:00',
     durationMin: 90,
@@ -356,7 +358,7 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
   {
     id: DEMO_IDS.lessons.roboticsPast2,
     groupId: DEMO_IDS.groups.roboticsA,
-    ruleId: DEMO_IDS.scheduleRules.roboticsThu,
+    ruleId: null,
     dayOffset: -3,
     startTime: '15:00',
     durationMin: 90,
@@ -399,18 +401,40 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
   },
 ];
 
+const MINUTE_MS = 60_000;
+
+/**
+ * Момент `HH:mm` по часам школы в день `dayOffset` от сегодняшнего (тоже по часам школы).
+ * День берём по часам школы, а не по UTC: иначе с 00:00 до 03:00 МСК «сегодня» уезжает на вчера.
+ */
+function atSchoolTime(now: Date, tzOffsetMinutes: number, dayOffset: number, time: string): Date {
+  const [h, m] = time.split(':').map(Number) as [number, number];
+  const local = new Date(now.getTime() + tzOffsetMinutes * MINUTE_MS);
+  const base = Date.UTC(
+    local.getUTCFullYear(),
+    local.getUTCMonth(),
+    local.getUTCDate() + dayOffset,
+  );
+  return new Date(base + (h * 60 + m - tzOffsetMinutes) * MINUTE_MS);
+}
+
+/** Дата `YYYY-MM-DD` по часам школы. */
+function schoolDate(at: Date, tzOffsetMinutes: number): string {
+  return new Date(at.getTime() + tzOffsetMinutes * MINUTE_MS).toISOString().slice(0, 10);
+}
+
 /**
  * Превращает спецификации занятий в Lesson с абсолютными датами.
  * @param now — точка отсчёта; @param tzOffsetMinutes — смещение часового пояса школы от UTC (Москва: 180)
  */
-export function materializeDemoLessons(now: Date = new Date(), tzOffsetMinutes = 180): Lesson[] {
-  return demoLessonSpecs.map((spec) => {
-    const [h, m] = spec.startTime.split(':').map(Number) as [number, number];
-    const base = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + spec.dayOffset),
-    );
-    const startsAt = new Date(base.getTime() + (h * 60 + m - tzOffsetMinutes) * 60_000);
-    const endsAt = new Date(startsAt.getTime() + spec.durationMin * 60_000);
+export function materializeLessons(
+  specs: readonly DemoLessonSpec[],
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): Lesson[] {
+  return specs.map((spec) => {
+    const startsAt = atSchoolTime(now, tzOffsetMinutes, spec.dayOffset, spec.startTime);
+    const endsAt = new Date(startsAt.getTime() + spec.durationMin * MINUTE_MS);
     return {
       id: spec.id,
       groupId: spec.groupId,
@@ -425,6 +449,15 @@ export function materializeDemoLessons(now: Date = new Date(), tzOffsetMinutes =
   });
 }
 
+/** Занятия демо-мира (`demoLessonSpecs`) с абсолютными датами — см. `materializeLessons`. */
+export function materializeDemoLessons(now: Date = new Date(), tzOffsetMinutes = 180): Lesson[] {
+  return materializeLessons(demoLessonSpecs, now, tzOffsetMinutes);
+}
+
+/**
+ * Отметки посещаемости прошедших занятий. `markedAt` здесь — заглушка (занятия плавают
+ * относительно «сейчас»); настоящее время отметки — начало занятия, см. `materializeDemoAttendance`.
+ */
 export const demoAttendance: Attendance[] = [
   {
     id: DEMO_IDS.attendance.p1Alexey,
@@ -463,6 +496,20 @@ export const demoAttendance: Attendance[] = [
     markedAt: T0,
   },
 ];
+
+/** Посещаемость демо-мира: отметка поставлена в начале занятия (не раньше самого занятия). */
+export function materializeDemoAttendance(
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): Attendance[] {
+  const startsAt = new Map(
+    materializeDemoLessons(now, tzOffsetMinutes).map((lesson) => [lesson.id, lesson.startsAt]),
+  );
+  return demoAttendance.map((row) => ({
+    ...row,
+    markedAt: startsAt.get(row.lessonId) ?? row.markedAt,
+  }));
+}
 
 export const demoCourse: Course = {
   id: DEMO_IDS.course,
@@ -580,6 +627,7 @@ export const demoAssignments: Assignment[] = [
     teacherId: DEMO_IDS.teachers.maria,
     courseId: DEMO_IDS.course,
     blockId: DEMO_IDS.blocks.sensorsQuiz,
+    studentIds: [],
     title: 'Проверь себя: датчики',
     description: null,
     type: 'QUIZ',
@@ -594,6 +642,7 @@ export const demoAssignments: Assignment[] = [
     teacherId: DEMO_IDS.teachers.maria,
     courseId: DEMO_IDS.course,
     blockId: DEMO_IDS.blocks.sensorsHomework,
+    studentIds: [],
     title: 'Домашнее задание: схема с датчиком',
     description: 'Нарисуй схему подключения ультразвукового датчика и сфотографируй.',
     type: 'HOMEWORK',
@@ -608,6 +657,7 @@ export const demoAssignments: Assignment[] = [
     teacherId: DEMO_IDS.teachers.maria,
     courseId: null,
     blockId: null,
+    studentIds: [],
     title: 'Задачи 1–10, стр. 52',
     description: 'До пятницы решить задачи 1–10 на странице 52.',
     type: 'HOMEWORK',
@@ -671,28 +721,50 @@ export const demoMessages: AiMessage[] = [
   },
 ];
 
-export const demoPayment: Payment = {
-  id: DEMO_IDS.payment,
-  parentId: DEMO_IDS.parents.olga,
-  studentId: DEMO_IDS.students.alexey,
-  enrollmentId: DEMO_IDS.enrollments.alexeyRobotics,
-  amount: { amountKopecks: 350000, currency: 'RUB' },
-  status: 'SUCCEEDED',
-  provider: 'fake',
-  periodsCount: 1,
-  confirmationUrl: null,
-  createdAt: T0,
-  paidAt: T0,
-  failReason: null,
-};
+/** Демо-оплата Ольги за робототехнику Алексея: столько дней назад по часам школы, в 10:00. */
+const DEMO_PAYMENT_DAY_OFFSET = -22;
+/** Оплаченный период — 30 дней с дня оплаты (как у fake-провайдера). */
+const DEMO_PAID_PERIOD_DAYS = 30;
 
-export const demoPaidPeriod: PaidPeriod = {
-  id: DEMO_IDS.paidPeriod,
-  enrollmentId: DEMO_IDS.enrollments.alexeyRobotics,
-  periodStart: '2026-09-01',
-  periodEnd: '2026-09-30',
-  paymentId: DEMO_IDS.payment,
-};
+/** Демо-оплата с датой относительно `now` (как занятия демо-мира). */
+export function materializeDemoPayment(now: Date = new Date(), tzOffsetMinutes = 180): Payment {
+  const paidAt = atSchoolTime(now, tzOffsetMinutes, DEMO_PAYMENT_DAY_OFFSET, '10:00').toISOString();
+  return {
+    id: DEMO_IDS.payment,
+    parentId: DEMO_IDS.parents.olga,
+    studentId: DEMO_IDS.students.alexey,
+    enrollmentId: DEMO_IDS.enrollments.alexeyRobotics,
+    amount: { amountKopecks: 350000, currency: 'RUB' },
+    status: 'SUCCEEDED',
+    provider: 'fake',
+    periodsCount: 1,
+    confirmationUrl: null,
+    createdAt: paidAt,
+    paidAt,
+    failReason: null,
+  };
+}
+
+/** Период, оплаченный демо-оплатой: 30 дней начиная с дня оплаты (даты — по часам школы). */
+export function materializeDemoPaidPeriod(
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): PaidPeriod {
+  const start = atSchoolTime(now, tzOffsetMinutes, DEMO_PAYMENT_DAY_OFFSET, '00:00');
+  const end = atSchoolTime(
+    now,
+    tzOffsetMinutes,
+    DEMO_PAYMENT_DAY_OFFSET + DEMO_PAID_PERIOD_DAYS - 1,
+    '00:00',
+  );
+  return {
+    id: DEMO_IDS.paidPeriod,
+    enrollmentId: DEMO_IDS.enrollments.alexeyRobotics,
+    periodStart: schoolDate(start, tzOffsetMinutes),
+    periodEnd: schoolDate(end, tzOffsetMinutes),
+    paymentId: DEMO_IDS.payment,
+  };
+}
 
 export const demoNotification: Notification = {
   id: DEMO_IDS.notification,

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AiService,
@@ -19,6 +19,8 @@ import { AiRepository } from './ai.repository';
 import { StudentContextBuilder } from './context-builder';
 
 export const TRAJECTORY_JOB = 'trajectory.build';
+const REFRESH_TTL_SEC = 86_400;
+const refreshKey = (studentId: string) => `ai:trajectory:refresh:${studentId}`;
 
 /** Персональная траектория (F5): строится в фоне по StudentContext, кэш по sourceHash. */
 @Injectable()
@@ -53,15 +55,23 @@ export class TrajectoryService {
   /** Ручной пересчёт: не чаще раза в сутки, выполняется job'ом. */
   async refresh(user: AuthUser): Promise<{ queued: true }> {
     const studentId = this.requireStudent(user);
-    const used = await this.kv.incr(`ai:trajectory:refresh:${studentId}`, 86_400);
+    const key = refreshKey(studentId);
+    const used = await this.kv.incr(key, REFRESH_TTL_SEC);
     if (used > 1) throw Errors.rateLimited('Траекторию можно обновлять раз в сутки');
-    await this.contexts.invalidate(studentId);
-    await this.queue.enqueue(
-      'ai',
-      TRAJECTORY_JOB,
-      { studentId },
-      { jobId: `trajectory-${studentId}`, attempts: 2 },
-    );
+    try {
+      await this.contexts.invalidate(studentId);
+      // Свой jobId на каждый ручной пересчёт: от спама защищает суточная квота, а общий
+      // `trajectory-${studentId}` (его ставит онбординг) молча отбросил бы задачу
+      await this.queue.enqueue(
+        'ai',
+        TRAJECTORY_JOB,
+        { studentId },
+        { jobId: `trajectory-refresh-${studentId}-${randomUUID()}`, attempts: 2 },
+      );
+    } catch (error) {
+      await this.releaseRefreshQuota(studentId);
+      throw error;
+    }
     return { queued: true };
   }
 
@@ -92,7 +102,13 @@ export class TrajectoryService {
       { context: bundle.text, clubsText, coursesText },
       { metadata: { userId: bundle.userId } },
     );
-    const { data } = await this.ai.chatJson(request, TrajectoryResultSchema);
+    const { data } = await this.ai
+      .chatJson(request, TrajectoryResultSchema)
+      .catch(async (error: unknown) => {
+        // Сбой модели не должен сжигать суточную квоту ручного пересчёта
+        await this.releaseRefreshQuota(studentId);
+        throw error;
+      });
     const knownClubs = new Set(clubs.map((c) => c.id));
     const knownCourses = new Set(courses.map((c) => c.courseId));
     const content: TrajectoryContent = {
@@ -118,6 +134,10 @@ export class TrajectoryService {
       { studentId, recommendations: content.recommendations.length },
       'траектория обновлена',
     );
+  }
+
+  private async releaseRefreshQuota(studentId: string): Promise<void> {
+    await this.kv.del(refreshKey(studentId)).catch(() => undefined);
   }
 
   private requireStudent(user: AuthUser): string {

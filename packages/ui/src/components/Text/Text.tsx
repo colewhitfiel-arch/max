@@ -2,12 +2,15 @@ import { createElement, forwardRef, type ElementType, type HTMLAttributes } from
 import { cx } from '../../lib/cx';
 import './Text.css';
 
-export type TextVariant = 'body' | 'small' | 'caption' | 'title' | 'heading';
+export type TextVariant = 'body' | 'small' | 'caption' | 'micro' | 'title' | 'heading';
 export type TextTone = 'default' | 'muted' | 'primary' | 'success' | 'warning' | 'danger';
 export type TextWeight = 'regular' | 'medium' | 'bold';
 
 export interface TextProps extends HTMLAttributes<HTMLElement> {
-  /** Стиль: heading 24px, title 20px, body 16px, small 14px, caption 12px. По умолчанию `body`. */
+  /**
+   * Стиль: heading 24px, title 20px, body 16px, small 14px, caption 12px, micro 10px (подписи в
+   * узких карточках — занятия дня в `DockSheet`). По умолчанию `body`.
+   */
   variant?: TextVariant;
   /** Цвет. По умолчанию `default`. */
   tone?: TextTone;
@@ -17,7 +20,9 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
   align?: 'start' | 'center' | 'end';
   /** Обрезать одной строкой с многоточием. */
   truncate?: boolean;
-  /** HTML-тег. По умолчанию: heading → h1, title → h2, body/small → p, caption → span. */
+  /** Сохранять переносы строк и пробелы из текста (`white-space: pre-wrap`) — многострочный пользовательский ввод. */
+  preserveLines?: boolean;
+  /** HTML-тег. По умолчанию: heading → h1, title → h2, body/small → p, caption/micro → span. */
   as?: ElementType;
 }
 
@@ -27,11 +32,22 @@ const DEFAULT_TAG: Record<TextVariant, ElementType> = {
   body: 'p',
   small: 'p',
   caption: 'span',
+  micro: 'span',
 };
 
 /** Текст с типографическими вариантами из токенов. */
 export const Text = forwardRef<HTMLElement, TextProps>(function Text(
-  { variant = 'body', tone = 'default', weight, align, truncate = false, as, className, ...rest },
+  {
+    variant = 'body',
+    tone = 'default',
+    weight,
+    align,
+    truncate = false,
+    preserveLines = false,
+    as,
+    className,
+    ...rest
+  },
   ref,
 ) {
   return createElement(as ?? DEFAULT_TAG[variant], {
@@ -42,6 +58,7 @@ export const Text = forwardRef<HTMLElement, TextProps>(function Text(
     'data-weight': weight,
     'data-align': align,
     'data-truncate': truncate || undefined,
+    'data-preserve-lines': preserveLines || undefined,
     ...rest,
   });
 });

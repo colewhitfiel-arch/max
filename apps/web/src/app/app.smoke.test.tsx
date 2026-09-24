@@ -53,7 +53,7 @@ const renderApp = () =>
 
 const findText = (text: string | RegExp) => screen.findByText(text, {}, WAIT);
 /** Ждём заголовок экрана (h1 из PageHeader) — значит, lazy-страница загрузилась и роутер idle. */
-const expectPage = async (title: string) => {
+const expectPage = async (title: string | RegExp) => {
   await screen.findByRole('heading', { level: 1, name: title }, WAIT);
   await waitFor(() => expect(router.state.navigation.state).toBe('idle'), WAIT);
 };
@@ -110,7 +110,7 @@ describe('foundation smoke (mock API)', () => {
   );
 
   it(
-    'преподаватель: главная и группы → смена роли на родителя → шапка с ребёнком',
+    'преподаватель: главная → кошелёк → успеваемость → ученик → настройки → смена роли на родителя',
     { timeout: 40_000 },
     async () => {
       const user = userEvent.setup();
@@ -118,45 +118,96 @@ describe('foundation smoke (mock API)', () => {
       await expectPage('Вход');
       await user.click(await findText('Мария Иванова'));
 
+      // /teacher: главная по макету — оранжевый акцент, чип кошелька без плюса и расписание дня,
+      // где вторая колонка — номер группы (у Марии сегодня Python «012» и робототехника «001»).
       await expectPage('Главная');
       expect(router.state.location.pathname).toBe('/teacher');
-      await findText('Робототехника, группа А');
-      await findText('На проверку');
+      expect(useAuthStore.getState().me?.activeRole).toBe('TEACHER');
+      expect(document.documentElement).toHaveAttribute('data-accent', 'orange');
+      await findText('001');
+      // Нижнее меню: центральная кнопка — успеваемость; группы и «Ещё» переехали в настройки.
+      expect(nav().getByRole('button', { name: 'Задания' })).toBeInTheDocument();
+      expect(nav().queryByRole('button', { name: 'Группы' })).not.toBeInTheDocument();
+      expect(nav().queryByRole('button', { name: 'Ещё' })).not.toBeInTheDocument();
 
-      await user.click(nav().getByRole('button', { name: 'Группы' }));
-      await expectPage('Группы');
-      await user.click(await findText('Python, группа А'));
-      await expectPage('Python, группа А');
-      await findText('Алексей Смирнов');
-      expect(router.state.location.pathname).toMatch(/^\/teacher\/groups\//);
+      // Чип кошелька → кошелёк (баланс, транзакции, «Вам должны») → «Баланс ✕» → главная.
+      await user.click(
+        await screen.findByRole('button', { name: /^Баланс .+, открыть кошелёк$/ }, WAIT),
+      );
+      await expectPage(/^Кошелёк/);
+      expect(router.state.location.pathname).toBe('/teacher/wallet');
+      await screen.findByRole('heading', { level: 2, name: 'Транзакции' }, WAIT);
+      await screen.findByRole('heading', { level: 2, name: 'Вам должны' }, WAIT);
+      await user.click(screen.getByRole('button', { name: 'Закрыть баланс' }));
+      await expectPage('Главная');
+      expect(router.state.location.pathname).toBe('/teacher');
 
-      // Ещё → строка «Роль» открывает sheet → Родитель.
-      await user.click(nav().getByRole('button', { name: 'Ещё' }));
-      await expectPage('Ещё');
+      // Меню «Успеваемость» → «Общая успеваемость» → строка группы 001 → ученики → ученик.
+      await user.click(nav().getByRole('button', { name: 'Успеваемость' }));
+      await expectPage('Общая успеваемость');
+      expect(router.state.location.pathname).toBe('/teacher/performance');
+      await user.click(await screen.findByRole('button', { name: 'Группа 001: ученики' }, WAIT));
+      await expectPage('Группа 001');
+      await user.click(await findText('Алексей Смирнов'));
+      await expectPage(/Смирнов А\./);
+      expect(router.state.location.pathname).toMatch(/^\/teacher\/students\//);
+      await findText('Посещения');
+      // «Успеваемость ✕» — назад к ученикам группы.
+      await user.click(screen.getByRole('button', { name: 'Закрыть успеваемость' }));
+      await expectPage('Группа 001');
+
+      // Настройки → строка «Роль» открывает sheet → Родитель.
+      await user.click(nav().getByRole('button', { name: 'Настройки' }));
+      await expectPage('Настройки');
+      expect(router.state.location.pathname).toBe('/teacher/settings');
       await user.click(await screen.findByRole('button', { name: /^Роль/ }, WAIT));
       await user.click(await screen.findByRole('button', { name: 'Родитель' }, WAIT));
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
       expect(useAuthStore.getState().me?.activeRole).toBe('PARENT');
       await expectPage('Главная');
-      // В шапке — выбор ребёнка (Даша), на главной — её данные.
-      const switcher = await screen.findByRole('combobox', { name: 'Ребёнок' }, WAIT);
-      expect(within(switcher).getByRole('option', { name: 'Даша Иванова' })).toBeInTheDocument();
-      await findText('Пропущенные занятия');
+      // Режим родителя — зелёный акцент (у преподавателя был оранжевый).
+      expect(document.documentElement).toHaveAttribute('data-accent', 'green');
+      // Шапки shell больше нет: дети — сердца на главной (выбрана Даша), рядом кошелёк;
+      // под сердцами — расписание и «Выполненные задания» выбранного ребёнка.
+      expect(screen.queryByRole('combobox', { name: 'Ребёнок' })).not.toBeInTheDocument();
+      const hearts = await screen.findByRole('listbox', { name: 'Дети' }, WAIT);
+      expect(
+        await within(hearts).findByRole('option', { name: 'Иванова Д.', selected: true }, WAIT),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Добавить' })).toBeInTheDocument();
+      await screen.findByRole('button', { name: /^Баланс .+, пополнить$/ }, WAIT);
+      await screen.findByRole('heading', { level: 2, name: 'Выполненные задания' }, WAIT);
+      // Нижнее меню родителя: центральная кнопка — аналитика.
+      expect(nav().getByRole('button', { name: 'Аналитика' })).toBeInTheDocument();
+      expect(nav().getByRole('button', { name: 'ИИ-тьютор' })).toBeInTheDocument();
     },
   );
 
-  it('неизвестный маршрут → 404-страница приложения', { timeout: 40_000 }, async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await expectPage('Вход');
-    await user.click(await findText('Ольга Смирнова'));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
-    await expectPage('Главная');
-    // Имя ребёнка есть и в шапке (select), и в заголовке секции.
-    expect((await screen.findAllByText('Алексей Смирнов', {}, WAIT)).length).toBeGreaterThan(0);
+  it(
+    'родитель: кошелёк → пополнение (заглушка) → главная; неизвестный маршрут → 404',
+    { timeout: 40_000 },
+    async () => {
+      const user = userEvent.setup();
+      renderApp();
+      await expectPage('Вход');
+      await user.click(await findText('Ольга Смирнова'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+      await expectPage('Главная');
+      // Подпись выбранного сердца — краткое имя ребёнка.
+      await screen.findByRole('option', { name: 'Смирнов А.', selected: true }, WAIT);
 
-    await router.navigate('/parent/unknown-page');
-    await findText('Страница не найдена');
-  });
+      // Кошелёк в шапке → пополнение: быстрый выбор суммы → «Пополнить» → обратно на главную.
+      await user.click(await screen.findByRole('button', { name: /^Баланс .+, пополнить$/ }, WAIT));
+      await expectPage('Пополнение баланса');
+      expect(router.state.location.pathname).toBe('/parent/wallet');
+      await user.click(screen.getByRole('button', { name: /^1\s?000\s₽$/ }));
+      await user.click(screen.getByRole('button', { name: /^Пополнить на/ }));
+      await findText('Баланс пополнен (демо-режим)');
+      await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+
+      await router.navigate('/parent/unknown-page');
+      await findText('Страница не найдена');
+    },
+  );
 });

@@ -1,21 +1,12 @@
 {
   "title": "Уведомления",
   "empty": "Уведомлений нет",
-  "unread": "{{count}} непрочитанных",
+  "unread_one": "{{count}} непрочитанное",
+  "unread_few": "{{count}} непрочитанных",
+  "unread_many": "{{count}} непрочитанных",
+  "unread_other": "{{count}} непрочитанных",
+  "newLabel": "Новое",
+  "loadMore": "Показать ещё",
   "onlyUnread": "Только непрочитанные",
-  "all": "Все",
-  "type": {
-    "LESSON_SOON": "Скоро занятие",
-    "LESSON_CANCELLED": "Занятие отменено",
-    "ASSIGNMENT_NEW": "Новое задание",
-    "ASSIGNMENT_DUE": "Скоро дедлайн",
-    "ASSIGNMENT_GRADED": "Задание проверено",
-    "ATTENDANCE_ABSENT": "Пропуск занятия",
-    "SUBMISSION_RECEIVED": "Новая сдача",
-    "COURSE_PUBLISHED": "Курс опубликован",
-    "PAYMENT_DUE": "Пора оплатить",
-    "PAYMENT_SUCCEEDED": "Оплата прошла",
-    "GENERATION_DONE": "Курс сгенерирован",
-    "INSIGHT_READY": "Готов ИИ-отчёт"
-  }
+  "all": "Все"
 }

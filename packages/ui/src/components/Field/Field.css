@@ -16,7 +16,7 @@
 
 .ui-field__required {
   margin-left: var(--ui-space-1);
-  color: var(--ui-color-danger);
+  color: var(--ui-color-danger-text);
 }
 
 .ui-field__control {
@@ -35,5 +35,5 @@
 }
 
 .ui-field__error {
-  color: var(--ui-color-danger);
+  color: var(--ui-color-danger-text);
 }

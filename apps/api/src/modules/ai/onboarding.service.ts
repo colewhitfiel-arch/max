@@ -29,7 +29,6 @@ import { Errors } from '../../common/errors/app-error';
 import { DomainEventBus } from '../../common/events/domain-events';
 import { AppLogger } from '../../common/logger/logger.service';
 import { JOB_QUEUE, type JobQueue } from '../../common/queue/job-queue';
-import { PrismaService } from '../../common/prisma/prisma.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { GroupsService } from '../groups/groups.service';
 import { IdentityService } from '../identity/identity.service';
@@ -61,7 +60,6 @@ export class OnboardingService {
 
   constructor(
     private readonly repo: AiRepository,
-    private readonly prisma: PrismaService,
     private readonly ai: AiService,
     private readonly catalog: CatalogService,
     private readonly groups: GroupsService,
@@ -102,21 +100,19 @@ export class OnboardingService {
     const answer = text.trim().slice(0, 1000);
     if (!answer) throw Errors.validation('Пустое сообщение');
 
-    await this.repo.addMessage({ conversationId: conversation.id, role: 'USER', content: answer });
-    const rows = await this.repo.recentMessages(conversation.id, 30);
+    // Ответ ученика сохраняется только вместе с ответом модели: сбой не оставляет дублей
+    // в истории и не приближает принудительное завершение (answered)
+    const rows = await this.repo.recentMessages(conversation.id, 29);
     const history: AiChatMessage[] = rows.map((m) => ({
       role: m.role === 'ASSISTANT' ? 'assistant' : 'user',
       content: m.content,
     }));
-    const answered = rows.filter((m) => m.role === 'USER').length;
+    history.push({ role: 'user', content: answer });
+    const answered = rows.filter((m) => m.role === 'USER').length + 1;
+    const transcript = [...rows.map((m) => m.content), answer];
 
-    const [student, clubs] = await Promise.all([
-      this.prisma.studentProfile.findUnique({
-        where: { id: studentId },
-        select: { schoolId: true, user: { select: { firstName: true, nickname: true } } },
-      }),
-      this.catalog.listActiveClubCards(null),
-    ]);
+    const student = await this.identity.getStudentProfile(studentId);
+    const clubs = await this.clubPool(student?.schoolId ?? null);
     const request = buildRequest(
       onboardingTurnPrompt,
       {
@@ -131,6 +127,11 @@ export class OnboardingService {
     try {
       turn = (await this.ai.chatJson(request, OnboardingTurnSchema)).data;
     } catch (error) {
+      if (sink.signal.aborted) {
+        // Клиент ушёл сам — это не сбой модели, писать в закрытый поток нечего
+        this.log.debug({ conversationId: conversation.id }, 'онбординг: клиент отключился');
+        return;
+      }
       this.log.error(
         { conversationId: conversation.id, err: error },
         'онбординг: модель не ответила',
@@ -146,12 +147,12 @@ export class OnboardingService {
       turn = {
         ...turn,
         isComplete: true,
-        profileDraft: turn.profileDraft ?? this.fallbackProfile(rows.map((m) => m.content)),
+        profileDraft: turn.profileDraft ?? this.fallbackProfile(transcript),
       };
     }
-    if (turn.isComplete && !turn.profileDraft)
-      turn.profileDraft = this.fallbackProfile(rows.map((m) => m.content));
+    if (turn.isComplete && !turn.profileDraft) turn.profileDraft = this.fallbackProfile(transcript);
 
+    await this.repo.addMessage({ conversationId: conversation.id, role: 'USER', content: answer });
     const saved = await this.repo.addMessage({
       conversationId: conversation.id,
       role: 'ASSISTANT',
@@ -174,7 +175,7 @@ export class OnboardingService {
   /** Кружки школы, отранжированные моделью под профиль (черновик из диалога или сохранённый). */
   async recommendations(user: AuthUser): Promise<OnboardingRecommendations> {
     const studentId = this.requireStudent(user);
-    const student = await this.prisma.studentProfile.findUnique({ where: { id: studentId } });
+    const student = await this.identity.getStudentProfile(studentId);
     if (!student) throw Errors.forbidden('Нет профиля ученика');
     const latest = await this.repo.latestConversation(user.userId, 'ONBOARDING');
     const draft = (latest?.contextSnapshot as OnboardingSnapshot | null)?.profileDraft;
@@ -186,8 +187,7 @@ export class OnboardingService {
       futureInterests: student.futureInterests,
       summary: student.aiProfileSummary ?? '',
     };
-    const clubs = await this.catalog.listActiveClubCards(student.schoolId);
-    const pool = clubs.length > 0 ? clubs : await this.catalog.listActiveClubCards(null);
+    const pool = await this.clubPool(student.schoolId);
     if (pool.length === 0) return { items: [] };
 
     const request = buildRequest(
@@ -234,10 +234,16 @@ export class OnboardingService {
    */
   async complete(user: AuthUser, body: CompleteOnboardingBody): Promise<MeDto> {
     const studentId = this.requireStudent(user);
+    const student = await this.identity.getStudentProfile(studentId);
+    if (!student) throw Errors.forbidden('Нет профиля ученика');
     await this.identity.completeStudentOnboarding(studentId, body.profileDraft);
 
-    const chosen = new Set(body.selectedClubIds);
-    const later = new Set(body.laterClubIds.filter((id) => !chosen.has(id)));
+    // Записать и учесть спрос можно только по кружкам, доступным ученику (как в рекомендациях):
+    // чужой clubId из тела запроса не даёт зачисления в группу другой школы
+    const pool = await this.clubPool(student.schoolId);
+    const known = new Set(pool.map((c) => c.id));
+    const chosen = new Set(body.selectedClubIds.filter((id) => known.has(id)));
+    const later = new Set(body.laterClubIds.filter((id) => known.has(id) && !chosen.has(id)));
     for (const clubId of chosen) {
       const group = await this.groups.findFirstActiveGroupOfClub(clubId);
       if (!group) continue;
@@ -268,11 +274,10 @@ export class OnboardingService {
     for (const clubId of shown.keys()) put(clubId, 'SKIPPED');
     for (const clubId of later) put(clubId, 'LATER');
     for (const clubId of chosen) put(clubId, 'CHOSEN');
-    const known = new Set((await this.catalog.listActiveClubCards(null)).map((c) => c.id));
     const rows = [...interests.values()].filter((row) => known.has(row.clubId));
     if (rows.length > 0) await this.repo.replaceClubInterests(studentId, rows);
 
-    if (latest) await this.turnIntoTutorChat(latest, chosen, later, body.profileDraft);
+    if (latest) await this.turnIntoTutorChat(latest, chosen, later, body.profileDraft, pool);
 
     await this.contexts.invalidate(studentId);
     await this.events.emit('student.profile.updated', { studentId, at: new Date().toISOString() });
@@ -298,16 +303,13 @@ export class OnboardingService {
   async demand(user: AuthUser): Promise<ClubDemandReport> {
     if (user.activeRole !== 'TEACHER' || !user.profileId)
       throw Errors.forbidden('Нет профиля преподавателя');
-    const teacher = await this.prisma.teacherProfile.findUnique({
-      where: { id: user.profileId },
-      select: { schoolId: true },
-    });
-    if (!teacher) throw Errors.forbidden('Нет профиля преподавателя');
+    const schoolId = await this.identity.getTeacherSchoolId(user.profileId);
+    if (!schoolId) throw Errors.forbidden('Нет профиля преподавателя');
     const [clubs, rows, reasons, students] = await Promise.all([
-      this.catalog.listActiveClubCards(teacher.schoolId),
-      this.repo.clubDemandRows(teacher.schoolId),
-      this.repo.clubInterestReasons(teacher.schoolId),
-      this.repo.futureInterestsOfSchool(teacher.schoolId),
+      this.catalog.listActiveClubCards(schoolId),
+      this.repo.clubDemandRows(schoolId),
+      this.repo.clubInterestReasons(schoolId),
+      this.repo.futureInterestsOfSchool(schoolId),
     ]);
     const reasonsByClub = new Map<string, string[]>();
     for (const { clubId, reason } of reasons) {
@@ -366,10 +368,9 @@ export class OnboardingService {
     chosen: Set<string>,
     later: Set<string>,
     profile: OnboardingProfileDraft,
+    pool: ClubCard[],
   ): Promise<void> {
-    const titles = new Map(
-      (await this.catalog.listActiveClubCards(null)).map((c) => [c.id, c.title]),
-    );
+    const titles = new Map(pool.map((c) => [c.id, c.title]));
     const names = (ids: Set<string>) =>
       [...ids].map((id) => titles.get(id)).filter((t): t is string => !!t);
     const nowNames = names(chosen);
@@ -392,6 +393,16 @@ export class OnboardingService {
   }
 
   // ---------- внутреннее ----------
+
+  /**
+   * Кружки, из которых ученик выбирает: активные кружки его школы; если их нет (или школы нет) —
+   * все активные. Один пул для диалога, рекомендаций и записи.
+   */
+  private async clubPool(schoolId: string | null): Promise<ClubCard[]> {
+    const clubs = await this.catalog.listActiveClubCards(schoolId);
+    if (clubs.length > 0 || !schoolId) return clubs;
+    return this.catalog.listActiveClubCards(null);
+  }
 
   private requireStudent(user: AuthUser): string {
     if (user.activeRole !== 'STUDENT' || !user.profileId)

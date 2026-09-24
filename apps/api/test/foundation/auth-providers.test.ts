@@ -63,6 +63,16 @@ describe('MaxAuthProvider (схема подписи — проверить по
     });
   });
 
+  it('отклоняет параметры без auth_date и с датой из будущего', async () => {
+    await expect(max.verify({ kind: 'max', launchParams: sign({ user }) })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+    const future = sign({ user, auth_date: String(Math.floor(Date.now() / 1000) + 3600) });
+    await expect(max.verify({ kind: 'max', launchParams: future })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+
   it('отклоняет устаревшие параметры', async () => {
     const old = sign({ user, auth_date: String(Math.floor(Date.now() / 1000) - 3 * 86400) });
     await expect(max.verify({ kind: 'max', launchParams: old })).rejects.toMatchObject({

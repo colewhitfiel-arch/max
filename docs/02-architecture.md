@@ -67,7 +67,7 @@ modules/<name>/
 - **Логи.** pino, request-id; в логах ИИ-запросов — только ids и размеры, без текста.
 - **Время.** В БД UTC (`timestamptz`). Границы «сегодня/неделя» считаются в `School.timezone`. Клиент отображает в поясе устройства.
 - **Пагинация.** Cursor-based `{ items, nextCursor }`.
-- **Идемпотентность.** `Idempotency-Key` на сдаче задания и создании платежа; ключ хранится в Redis 24 ч.
+- **Идемпотентность.** `Idempotency-Key` (обязателен) на сдаче задания, создании платежа, пополнении и выводе кошелька (docs/05 §5.1); ключ хранится в Redis 24 ч.
 - **Rate limit.** ИИ-эндпоинты (по пользователю), вебхуки (по IP).
 
 ## 2.5. Распространение данных
@@ -142,13 +142,13 @@ apps/web/src
   widgets/    // крупные композиции (HomeToday, GroupStudentsTable, CourseStructureEditor)
   features/   // действия пользователя (submit-assignment, mark-attendance, link-child, pay, grade-submission)
   entities/   // модели домена для UI: lesson, assignment, course, student, club, payment, notification, ai
-  shared/     // api client, max-bridge, ui, i18n, lib (dates, money), config
+  shared/     // api client, max (MAX Bridge), ui, i18n, lib (dates, money), config
 ```
 
 - Роутинг: `/student/*`, `/parent/*`, `/teacher/*`, `/auth/*`, `/onboarding/*`. Корень редиректит по `activeRole`. Нижнее меню — в shell роли.
 - Данные: TanStack Query; префиксы ключей в `shared/api/query-keys.ts`, ключи сущностей — в `entities/<x>/keys.ts`. Клиент — `@ts-rest/react-query` от контракта.
 - Локальное состояние: Zustand только для UI (выбранный ребёнок, черновик чата). Серверное — в Query.
-- MAX Bridge: `shared/max-bridge/` — адаптер `{ getLaunchParams, getTheme, haptic, openLink, storage }`; вне MAX — mock.
+- MAX Bridge: `shared/max/` — адаптер `{ getLaunchParams, getTheme, haptic, openLink, storage }`; вне MAX — mock.
 - Тема: CSS-переменные, `data-theme` на `<html>`; по умолчанию из MAX, переопределяется в настройках.
 - i18n: `ru` по умолчанию, `en` — заготовка; словари по namespace на фичу.
 - Моки: MSW-хендлеры по домену + фикстуры из `packages/contracts/src/fixtures`. FE-агент работает с `VITE_API_MODE=mock`.

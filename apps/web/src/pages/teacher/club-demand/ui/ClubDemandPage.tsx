@@ -24,7 +24,7 @@ function DemandCard({ item }: { item: ClubDemand }) {
         <Stack gap={0}>
           <Text weight="medium">{item.club.title}</Text>
           <Text variant="caption" tone="muted">
-            {item.club.category}
+            {t(`common:clubCategory.${item.club.category}`)}
           </Text>
         </Stack>
         <Inline gap={3} wrap>
@@ -63,7 +63,7 @@ export function ClubDemandPage() {
   const query = useClubDemand();
   return (
     <>
-      <ScreenHeader title={t('clubDemand.title')} back />
+      <ScreenHeader title={t('clubDemand.title')} back="/teacher/settings" />
       <Screen>
         <Text variant="small" tone="muted">
           {t('clubDemand.description')}

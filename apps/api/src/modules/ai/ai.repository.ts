@@ -12,9 +12,43 @@ import {
   type StudentClubInterest,
   type Trajectory,
 } from '@edu/db';
+import { IdSchema } from '@edu/contracts';
+import { z } from 'zod';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
-export type MessageCursor = { createdAt: string; id: string };
+export const MessageCursorSchema = z.object({ createdAt: z.string().datetime(), id: IdSchema });
+export type MessageCursor = z.infer<typeof MessageCursorSchema>;
+
+/**
+ * Курсор списка диалогов — все ключи его сортировки: `lastMessageAt desc nulls last`,
+ * `createdAt desc`, `id desc`. `lastMessageAt: null` — диалог без сообщений (они в конце).
+ */
+export const ConversationCursorSchema = z.object({
+  lastMessageAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  id: IdSchema,
+});
+export type ConversationCursor = z.infer<typeof ConversationCursorSchema>;
+
+/** Строки строго после курсора в порядке `lastMessageAt desc nulls last, createdAt desc, id desc`. */
+function afterConversationCursor(cursor: ConversationCursor): Prisma.AiConversationWhereInput {
+  const createdAt = new Date(cursor.createdAt);
+  const sameOrOlder: Prisma.AiConversationWhereInput = {
+    OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: cursor.id } }],
+  };
+  if (!cursor.lastMessageAt) {
+    // Курсор среди диалогов без сообщений — дальше только они же.
+    return { AND: [{ lastMessageAt: null }, sameOrOlder] };
+  }
+  const lastMessageAt = new Date(cursor.lastMessageAt);
+  return {
+    OR: [
+      { lastMessageAt: { lt: lastMessageAt } },
+      { AND: [{ lastMessageAt }, sameOrOlder] },
+      { lastMessageAt: null },
+    ],
+  };
+}
 
 export interface ClubInterestInput {
   clubId: string;
@@ -50,24 +84,31 @@ export class AiRepository {
     return this.prisma.aiConversation.findUnique({ where: { id } });
   }
 
+  /**
+   * Диалоги пользователя. `student` сужает выборку до диалогов об этом ученике
+   * (`orUnbound` — плюс диалоги без ученика): так чаты родителя о детях не смешиваются
+   * с собственными чатами ученика у одного и того же пользователя.
+   */
   async listConversations(
     userId: string,
     kind: ConversationKind | undefined,
     limit: number,
-    cursor: MessageCursor | null,
+    cursor: ConversationCursor | null,
+    student?: { id: string; orUnbound?: boolean },
   ): Promise<AiConversation[]> {
     return this.prisma.aiConversation.findMany({
       where: {
         userId,
         ...(kind ? { kind } : {}),
-        ...(cursor
-          ? {
-              OR: [
-                { createdAt: { lt: new Date(cursor.createdAt) } },
-                { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } },
-              ],
-            }
-          : {}),
+        AND: [
+          student
+            ? student.orUnbound
+              ? { OR: [{ studentId: student.id }, { studentId: null }] }
+              : { studentId: student.id }
+            : {},
+          // Курсор — по тем же ключам, что и сортировка: иначе страницы теряют диалоги.
+          cursor ? afterConversationCursor(cursor) : {},
+        ],
       },
       orderBy: [
         { lastMessageAt: { sort: 'desc', nulls: 'last' } },
@@ -139,6 +180,10 @@ export class AiRepository {
     return rows.reverse();
   }
 
+  /**
+   * Лента с конца: от новых к старым (`createdAt desc, id desc`), курсор ведёт к более старым.
+   * Первая страница — самые свежие сообщения; хронологический порядок наводит сервис.
+   */
   async listMessages(
     conversationId: string,
     limit: number,
@@ -150,20 +195,32 @@ export class AiRepository {
         ...(cursor
           ? {
               OR: [
-                { createdAt: { gt: new Date(cursor.createdAt) } },
-                { createdAt: new Date(cursor.createdAt), id: { gt: cursor.id } },
+                { createdAt: { lt: new Date(cursor.createdAt) } },
+                { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } },
               ],
             }
           : {}),
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
     });
   }
 
-  async countUserMessagesSince(userId: string, since: Date): Promise<number> {
+  /**
+   * Вопросы ученика тьютору за период: только его собственные диалоги (о нём или без ученика).
+   * Диалоги того же пользователя в роли родителя — о других детях — активностью ученика не считаются.
+   */
+  async countUserMessagesSince(userId: string, studentId: string, since: Date): Promise<number> {
     return this.prisma.aiMessage.count({
-      where: { role: 'USER', createdAt: { gte: since }, conversation: { userId, kind: 'TUTOR' } },
+      where: {
+        role: 'USER',
+        createdAt: { gte: since },
+        conversation: {
+          userId,
+          kind: 'TUTOR',
+          OR: [{ studentId }, { studentId: null }],
+        },
+      },
     });
   }
 

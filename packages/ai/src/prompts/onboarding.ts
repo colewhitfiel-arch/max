@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AiChatRequest } from '../types';
 import type { MockResponseRule } from '../providers/mock';
+import { oneLine, safeName } from './data-fence';
 import { definePrompt } from './registry';
 
 /**
@@ -37,20 +38,22 @@ export interface OnboardingVars {
 
 export const ONBOARDING_MIN_ANSWERS = 4;
 export const ONBOARDING_MAX_ANSWERS = 7;
+const MAX_CLUBS_SUMMARY_LENGTH = 500;
 
 export const onboardingTurnPrompt = definePrompt({
   id: 'onboarding.turn',
-  version: 2,
+  version: 3,
   description: 'Реплика онбординга: следующий вопрос или завершение с черновиком профиля',
   system: (vars: OnboardingVars) =>
     [
-      `Ты — дружелюбный ИИ-тьютор, знакомишься с учеником по имени ${vars.studentName} (школьник).`,
+      // Имя (ник задаёт сам ученик) и список кружков — одной строкой: перевод строки не допишет «правил».
+      `Ты — дружелюбный ИИ-тьютор, знакомишься с учеником по имени ${safeName(vars.studentName, 'друг')} (школьник).`,
       'Цель — за 4–7 коротких вопросов узнать: чем интересуется, какие предметы нравятся, какие навыки хочет развить,',
       'какие цели, сколько часов в неделю готов заниматься, какие форматы подходят (практика, проекты, теория, игры, команда/один).',
       'Обязательно один из вопросов — про будущее: что хотел бы попробовать ПОЗЖЕ (через полгода-год), но не сейчас —',
       'потому что нет времени, страшно, «сначала подрасту» или просто любопытно. Это отдельно от того, куда идёт сейчас.',
       'Задавай по ОДНОМУ вопросу за раз, коротко, на «ты», с опорой на предыдущие ответы. Не перечисляй все вопросы сразу.',
-      `В школе есть кружки: ${vars.clubsSummary || 'разные направления'}.`,
+      `В школе есть кружки: ${oneLine(vars.clubsSummary, MAX_CLUBS_SUMMARY_LENGTH) || 'разные направления'}.`,
       `Ученик уже ответил на ${vars.answered} вопрос(ов). Минимум ${ONBOARDING_MIN_ANSWERS} ответа, максимум ${ONBOARDING_MAX_ANSWERS}.`,
       'Как только известны интересы, цели, время в неделю и «на потом» — СРАЗУ завершай, не задавай уточняющих и',
       'проверочных вопросов (не проси назвать проекты, жанры, элементы игры и т. п.).',
@@ -121,11 +124,14 @@ export interface PromptClub {
   tags: string[];
 }
 
+/** Поле строки кружка: без переводов строк и `|` — иначе ломается формат `- id: … | … |` и его разбор. */
+const clubField = (value: string) => value.replace(/[\s|]+/g, ' ').trim();
+
 export function renderClubsForPrompt(clubs: PromptClub[]): string {
   return clubs
     .map(
       (club) =>
-        `- id: ${club.id} | ${club.title} | ${club.category} | ${club.description.replace(/\s+/g, ' ').trim()} | ${club.tags.join(', ')}`,
+        `- id: ${clubField(club.id)} | ${clubField(club.title)} | ${clubField(club.category)} | ${clubField(club.description)} | ${club.tags.map(clubField).join(', ')}`,
     )
     .join('\n');
 }
@@ -146,10 +152,13 @@ export function parseClubsFromPrompt(text: string): Array<{ id: string; title: s
 const byPrompt = (id: string) => (req: AiChatRequest) =>
   req.metadata?.promptId?.startsWith(`${id}@`) ?? false;
 
+/**
+ * Вопросы mock-онбординга после приветствия (оно спрашивает об интересах): цели → часы/формат →
+ * «на потом». Порядок совпадает с web-моком; `ONBOARDING_OPENING` + вопросы = ONBOARDING_MIN_ANSWERS ответов.
+ */
 const MOCK_QUESTIONS = [
-  'Здорово! А какие школьные предметы тебе нравятся больше всего?',
-  'Понял. Какой навык ты хотел бы прокачать в этом году?',
-  'А сколько часов в неделю ты готов уделять кружкам?',
+  'Здорово! А какие у тебя цели на этот год?',
+  'Понятно. Сколько часов в неделю можно уделять кружкам и как тебе больше нравится заниматься — практика, проекты, теория?',
   'И последнее: есть что-то, что хочется попробовать не сейчас, а попозже — через полгода-год?',
 ];
 
@@ -159,15 +168,16 @@ export const onboardingMockRules: MockResponseRule[] = [
     content: (req) => {
       const answers = req.messages.filter((m) => m.role === 'user');
       const answered = answers.length;
-      if (answered < ONBOARDING_MIN_ANSWERS) {
+      // Ответ i (с 1) — на приветствие (i = 1) или на MOCK_QUESTIONS[i - 2]; пока вопросы есть — задаём следующий.
+      if (answered <= MOCK_QUESTIONS.length) {
         const turn: OnboardingTurn = {
-          reply:
-            MOCK_QUESTIONS[Math.min(answered - 1, MOCK_QUESTIONS.length - 1)] ?? MOCK_QUESTIONS[0]!,
+          reply: MOCK_QUESTIONS[Math.max(answered - 1, 0)] ?? MOCK_QUESTIONS[0]!,
           isComplete: false,
           profileDraft: null,
         };
         return JSON.stringify(turn);
       }
+      const futureAnswer = answers[answers.length - 1]?.content.trim();
       const words = answers
         .flatMap((m) => m.content.split(/[\s,.;!?]+/))
         .map((w) => w.toLowerCase())
@@ -181,9 +191,8 @@ export const onboardingMockRules: MockResponseRule[] = [
           goals: ['научиться новому и сделать свой проект'],
           weeklyHours: 4,
           preferredFormats: ['практика', 'проекты'],
-          futureInterests: answers[3]?.content.trim()
-            ? [answers[3].content.trim().slice(0, 60)]
-            : [],
+          // Последний ответ — на вопрос «на потом» (он задаётся последним).
+          futureInterests: futureAnswer ? [futureAnswer.slice(0, 60)] : [],
           summary: `Ученик рассказал о себе: ${answers[0]?.content.slice(0, 80) ?? ''}. Любит практику и проекты.`,
         },
       };

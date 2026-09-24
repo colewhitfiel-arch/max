@@ -1,10 +1,5 @@
-import {
-  CLUB_CATEGORIES,
-  CLUB_CATEGORY_LABELS,
-  type ClubCategory,
-  type HomeworkClub,
-} from '@edu/contracts';
-import { PlanetMap, type PlanetMapItem } from '@edu/ui';
+import { CLUB_CATEGORIES, type ClubCategory, type HomeworkClub } from '@edu/contracts';
+import { AppLayout, PlanetMap, type PlanetMapItem } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { diffCalendarDays, formatDate } from '@/shared/lib/dates';
 import planetArt from './assets/planet-art.png';
@@ -15,6 +10,23 @@ import planetProgramming from './assets/planet-programming.png';
 import planetRobotics from './assets/planet-robotics.png';
 import planetScience from './assets/planet-science.png';
 import stars from './assets/stars.png';
+
+/**
+ * Звёздное небо из макета на весь экран «Задания» — под шапкой, карточками и меню.
+ * Геометрия макета: картинка 1254px на экране 402px (312%), сдвиг −192px по x
+ * (22.5% свободного хода) и 61px сверху — над серией звёзд нет; 54% непрозрачности.
+ */
+export function HomeworkBackdrop() {
+  return (
+    <AppLayout.Backdrop
+      image={stars}
+      opacity={0.54}
+      size="312% auto"
+      position="22.5% 61px"
+      repeat="no-repeat"
+    />
+  );
+}
 
 /**
  * Планеты из макета по предмету (категории кружка). Предметы без своей планеты
@@ -71,7 +83,7 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
       marker,
       title: t('homework.planet', {
         club: item.club.title,
-        points: item.points,
+        points: t('homework.points', { count: item.points }),
         open: item.openCount,
       }),
       onClick: next ? () => onOpenAssignment(next.id) : undefined,
@@ -84,18 +96,10 @@ export function HomeworkMap({ clubs, onOpenAssignment }: HomeworkMapProps) {
   ).map((category) => ({
     key: `locked:${category}`,
     image: PLANETS[category]!,
-    label: CLUB_CATEGORY_LABELS[category],
-    title: t('homework.locked', { subject: CLUB_CATEGORY_LABELS[category] }),
+    label: t(`common:clubCategory.${category}`),
+    title: t('homework.locked', { subject: t(`common:clubCategory.${category}`) }),
     locked: true,
   }));
 
-  return (
-    <PlanetMap
-      items={[...enrolled, ...locked]}
-      backdrop={stars}
-      grow
-      bleed
-      aria-label={t('homework.map')}
-    />
-  );
+  return <PlanetMap items={[...enrolled, ...locked]} grow bleed aria-label={t('homework.map')} />;
 }

@@ -2,7 +2,15 @@
  * Утилиты MSW-хендлеров: адрес API, типизированный JSON-ответ (проверка схемой контракта),
  * единый формат ошибок, разбор Bearer-токена мока.
  */
-import { type ApiError, type ErrorCode, ERROR_HTTP_STATUS, type Role } from '@edu/contracts';
+import {
+  type ApiError,
+  type ErrorCode,
+  ERROR_HTTP_STATUS,
+  PAGINATION_DEFAULT_LIMIT,
+  PaginationQuerySchema,
+  PeriodQuerySchema,
+  type Role,
+} from '@edu/contracts';
 import {
   type DefaultBodyType,
   HttpResponse,
@@ -11,7 +19,7 @@ import {
 } from 'msw';
 import type { z } from 'zod';
 import { config } from '../../config';
-import { db, type MockUser } from './state';
+import { db, type MockUser, parentOfUser } from './state';
 
 export const apiUrl = (path: string) => `${config.apiUrl}${path}`;
 
@@ -90,6 +98,20 @@ export function authed<P extends PathParams = PathParams>(
   };
 }
 
+/**
+ * Политика связи родитель ↔ ребёнок: 403, если пользователь не родитель этого ученика
+ * (нет `ParentStudentLink` в статусе ACTIVE); иначе null.
+ */
+export function denyForeignChild(userId: string, studentId: string): Response | null {
+  const parent = parentOfUser(userId);
+  const linked =
+    !!parent &&
+    db.links.some(
+      (l) => l.parentId === parent.id && l.studentId === studentId && l.status === 'ACTIVE',
+    );
+  return linked ? null : apiError('FORBIDDEN', 'Ребёнок не привязан');
+}
+
 export async function readBody<S extends z.ZodTypeAny>(
   request: Request,
   schema: S,
@@ -111,5 +133,58 @@ export async function readBody<S extends z.ZodTypeAny>(
 }
 
 export const query = (request: Request) => new URL(request.url).searchParams;
+
+/** `?from=&to=` по `PeriodQuerySchema` (YYYY-MM-DD); неверный формат — VALIDATION, а не пустой список. */
+export function periodQuery(
+  request: Request,
+): { ok: true; data: z.output<typeof PeriodQuerySchema> } | { ok: false; response: Response } {
+  const parsed = PeriodQuerySchema.safeParse(Object.fromEntries(query(request)));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: apiError('VALIDATION', 'Неверные параметры запроса', parsed.error.flatten()),
+    };
+  }
+  return { ok: true, data: parsed.data };
+}
+
+/**
+ * Страница списка по `?limit&cursor` (`PaginationQuerySchema`, по умолчанию
+ * `PAGINATION_DEFAULT_LIMIT`). Курсор — id последнего отданного элемента (keyset: новые элементы
+ * между запросами не сдвигают следующие страницы). `items` — уже в порядке выдачи:
+ * - `fromEnd: false` — страница с начала списка, `nextCursor` ведёт дальше по списку;
+ * - `fromEnd: true` — лента с конца (чат): первая страница — последние `limit` элементов в том же
+ *   порядке, `nextCursor` (id самого раннего из них) ведёт к более ранним.
+ * Неизвестный курсор — пустая страница без `nextCursor`.
+ */
+export function paginate<T extends { id: string }>(
+  request: Request,
+  items: readonly T[],
+  { fromEnd = false }: { fromEnd?: boolean } = {},
+): { ok: true; page: { items: T[]; nextCursor?: string } } | { ok: false; response: Response } {
+  const parsed = PaginationQuerySchema.safeParse(Object.fromEntries(query(request)));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: apiError('VALIDATION', 'Неверные параметры запроса', parsed.error.flatten()),
+    };
+  }
+  const { cursor, limit = PAGINATION_DEFAULT_LIMIT } = parsed.data;
+  const at = cursor === undefined ? null : items.findIndex((item) => item.id === cursor);
+  if (at === -1) return { ok: true, page: { items: [] } };
+  if (fromEnd) {
+    const end = at ?? items.length;
+    const start = Math.max(0, end - limit);
+    const page = items.slice(start, end);
+    return {
+      ok: true,
+      page: start > 0 ? { items: page, nextCursor: page[0]!.id } : { items: page },
+    };
+  }
+  const start = at === null ? 0 : at + 1;
+  const page = items.slice(start, start + limit);
+  const more = start + limit < items.length;
+  return { ok: true, page: more ? { items: page, nextCursor: page.at(-1)!.id } : { items: page } };
+}
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

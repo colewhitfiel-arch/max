@@ -7,4 +7,9 @@ export const aiKeys = {
   trajectory: () => [...queryKeys.student, 'trajectory'] as const,
   recommendations: () => [...queryKeys.student, 'onboarding', 'recommendations'] as const,
   clubDemand: () => [...queryKeys.ai, 'club-demand'] as const,
+  /** Диалоги родителя о ребёнке — под префиксом ребёнка, чтобы отвязка чистила кэш. */
+  parentConversations: (studentId: string) =>
+    [...queryKeys.parent(studentId), 'ai', 'conversations'] as const,
+  parentMessages: (conversationId: string) =>
+    [...queryKeys.parentRoot, 'ai', 'conversations', conversationId, 'messages'] as const,
 };

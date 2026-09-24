@@ -1,0 +1,56 @@
+{
+  "title": "Кошелёк",
+  "close": "Баланс",
+  "closeLabel": "Закрыть баланс",
+  "balance": "Баланс {{amount}}",
+  "balanceLoading": "Баланс загружается",
+  "withdraw": "Вывести",
+  "periodLabel": "Период",
+  "periods": {
+    "day": "1 день",
+    "week": "7 дней",
+    "month": "30 дней"
+  },
+  "chart": {
+    "title": "Изменение баланса",
+    "label": "Изменение баланса за {{period}}: с {{from}} до {{to}}"
+  },
+  "columns": {
+    "group": "Группа",
+    "student": "ФИО ученика",
+    "amount": "Сумма",
+    "time": "Время",
+    "date": "Дата"
+  },
+  "transactions": {
+    "title": "Транзакции",
+    "today": "сегодня",
+    "yesterday": "вчера",
+    "dayLabel": "Транзакции: {{day}}",
+    "withdrawal": "Вывод",
+    "empty": "За этот период транзакций нет"
+  },
+  "debts": {
+    "title": "Вам должны",
+    "overdue": "просрочено",
+    "empty": "Никто не должен"
+  },
+  "withdrawSheet": {
+    "title": "Вывод средств",
+    "available": "Доступно для вывода: {{amount}}",
+    "amount": "Сумма, ₽",
+    "amountPlaceholder": "Например, 3000",
+    "limits": "От {{min}} до {{max}}",
+    "presets": "Быстрый выбор суммы",
+    "all": "Всё",
+    "allLabel": "Всё — {{amount}}",
+    "tooSmall": "Минимальная сумма — {{min}}",
+    "tooLarge": "Больше, чем на балансе: доступно {{max}}",
+    "invalid": "Введите сумму в рублях, без копеек",
+    "submit": "Вывести",
+    "submitAmount": "Вывести {{amount}}",
+    "success": "Вывод оформлен (демо-режим)",
+    "stubTitle": "Демо-режим",
+    "stub": "Деньги списываются с баланса сразу, реального перевода нет."
+  }
+}

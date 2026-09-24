@@ -1,0 +1,43 @@
+{
+  "title": "Профиль",
+  "hero": {
+    "groups_one": "{{count}} группа",
+    "groups_few": "{{count}} группы",
+    "groups_many": "{{count}} групп",
+    "groups_other": "{{count}} группы",
+    "students_one": "{{count}} ученик",
+    "students_few": "{{count}} ученика",
+    "students_many": "{{count}} учеников",
+    "students_other": "{{count}} ученика"
+  },
+  "stats": {
+    "title": "Статистика",
+    "groups": "Группы",
+    "students": "Ученики",
+    "attendance": "Посещаемость",
+    "needsAttention": "Требуют внимания"
+  },
+  "groups": {
+    "title": "Мои группы",
+    "code": "Группа {{code}}",
+    "students_one": "{{count}} ученик",
+    "students_few": "{{count}} ученика",
+    "students_many": "{{count}} учеников",
+    "students_other": "{{count}} ученика",
+    "needsAttention": "Требуют внимания: {{count}}",
+    "empty": "Групп пока нет",
+    "emptyHint": "Группы назначает школа — как только они появятся, их расписание будет на главной"
+  },
+  "settings": {
+    "title": "Настройки",
+    "work": "Работа",
+    "wallet": "Кошелёк",
+    "walletHint": "Баланс, транзакции и вывод",
+    "groups": "Группы",
+    "groupsHint": "Ученики, расписание и занятия",
+    "courses": "Курсы",
+    "coursesHint": "Модули и материалы для групп",
+    "clubDemand": "Спрос на кружки",
+    "clubDemandHint": "Что выбирают ученики в онбординге и что хотят попробовать позже"
+  }
+}

@@ -4,6 +4,20 @@ import { z } from 'zod';
 export const IdSchema = z.string().uuid();
 export type Id = z.infer<typeof IdSchema>;
 
+/**
+ * true — строка — абсолютная ссылка со схемой http: или https: и непустым хостом. Проверяется
+ * префикс сырой строки (без trim): так `javascript:`/`data:` и ссылки с мусором впереди не проходят.
+ */
+export function isHttpUrl(value: string): boolean {
+  return /^https?:\/\/[^\s/?#]+/i.test(value);
+}
+
+/** Абсолютный URL только со схемой http/https (без `javascript:`, `data:` и т.п.). */
+export const HttpUrlSchema = z
+  .string()
+  .url()
+  .refine(isHttpUrl, { message: 'Ожидается ссылка http(s)' });
+
 /** ISO 8601 с временем, UTC: `2026-09-21T10:00:00.000Z`. */
 export const DateTimeSchema = z.string().datetime({ offset: true });
 /** Дата без времени: `2026-09-21`. */

@@ -1,4 +1,3 @@
-import { ROLE_LABELS } from '@edu/contracts';
 import { Avatar, Card, ListRow } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -21,8 +20,8 @@ export function ProfileCard({ to }: ProfileCardProps) {
     <Card padding="none">
       <ListRow
         left={<Avatar name={name} src={me.user.avatarUrl} size="lg" />}
-        title={name}
-        subtitle={me.activeRole ? ROLE_LABELS[me.activeRole] : undefined}
+        title={name || t('user.noName')}
+        subtitle={me.activeRole ? t(`roles.${me.activeRole}`) : undefined}
         onClick={to ? () => navigate(to) : undefined}
         aria-label={to ? t('settings.openProfile') : undefined}
       />

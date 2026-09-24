@@ -1,24 +1,57 @@
 #!/usr/bin/env node
 /**
- * Проверка владения: изменённые файлы (git diff относительно базовой ветки или staged)
- * не должны принадлежать двум разным владельцам из OWNERS.yaml, если в сообщении
- * последнего коммита нет метки `cross-owner`.
+ * Проверка владения по OWNERS.yaml: коммит не должен трогать зоны двух владельцев,
+ * если в его сообщении нет метки `cross-owner`.
  *
- *   node scripts/check-ownership.mjs            # сравнить с origin/main (или main)
- *   node scripts/check-ownership.mjs --staged   # только staged-изменения
- *   node scripts/check-ownership.mjs --base=HEAD~3
+ * У файла ровно один владелец — зона с самым конкретным совпавшим глобом (длиннее
+ * литеральный префикс до первого `*`, затем длиннее глоб, затем объявленная ниже в файле).
+ * Поэтому вложенные зоны (`packages/ai/**` ⊃ `packages/ai/src/prompts/**`) не считаются
+ * пересечением.
+ *
+ *   node scripts/check-ownership.mjs                      # коммиты origin/main..HEAD (или main..HEAD)
+ *                                                         # + предупреждение по незакоммиченным правкам
+ *   node scripts/check-ownership.mjs --base=<rev> [--head=<rev>]   # коммиты base..head (CI)
+ *   node scripts/check-ownership.mjs --staged [--cross-owner]      # staged-изменения (метку коммита
+ *                                                         # ещё не видно — подтверждается флагом)
+ *
+ * Каждый коммит диапазона (без merge-коммитов) проверяется отдельно: в этом репозитории
+ * коммиты идут прямо в main, и метка `cross-owner` ставится в сообщении коммита.
  */
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
+const flagValue = (name) =>
+  args.find((a) => a.startsWith(`--${name}=`))?.slice(`--${name}=`.length) || undefined;
 const staged = args.includes('--staged');
-const baseArg = args.find((a) => a.startsWith('--base='))?.slice('--base='.length);
+const crossOwnerFlag = args.includes('--cross-owner');
+const baseArg = flagValue('base');
+const headArg = flagValue('head') ?? 'HEAD';
+const LABEL = /cross-owner/i;
 
-function sh(cmd) {
-  return execSync(cmd, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+function git(...gitArgs) {
+  return execFileSync('git', gitArgs, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    maxBuffer: 64 * 1024 * 1024,
+  }).trim();
+}
+
+function lines(output) {
+  return output.split('\n').filter(Boolean);
+}
+
+function refExists(ref) {
+  try {
+    git('rev-parse', '--verify', '--quiet', `${ref}^{commit}`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseOwners(yaml) {
@@ -57,52 +90,145 @@ function globToRegExp(glob) {
 }
 
 const owners = parseOwners(readFileSync(path.join(root, 'OWNERS.yaml'), 'utf8'));
-const matchers = Object.entries(owners).map(([name, globs]) => ({
-  name,
-  regs: globs.map(globToRegExp),
-}));
+const rules = Object.entries(owners).flatMap(([name, globs]) =>
+  globs.map((glob) => {
+    const star = glob.indexOf('*');
+    return {
+      name,
+      glob,
+      re: globToRegExp(glob),
+      prefix: star === -1 ? glob.length : star,
+    };
+  }),
+);
 
-let files = [];
-try {
-  if (staged) files = sh('git diff --cached --name-only').split('\n');
-  else {
-    const base =
-      baseArg ?? (sh('git rev-parse --verify --quiet origin/main') ? 'origin/main' : 'main');
-    files = sh(`git diff --name-only ${base}...HEAD`).split('\n');
-    if (files.length === 1 && files[0] === '') files = sh('git diff --name-only HEAD').split('\n');
+/** Владелец файла: самый конкретный совпавший глоб; при равенстве — объявленный позже. */
+function ownerOf(file) {
+  let best = null;
+  for (const rule of rules) {
+    if (!rule.re.test(file)) continue;
+    if (
+      !best ||
+      rule.prefix > best.prefix ||
+      (rule.prefix === best.prefix && rule.glob.length >= best.glob.length)
+    )
+      best = rule;
   }
-} catch {
-  console.log('ownership: git diff недоступен (нет базовой ветки?) — пропускаю проверку');
-  process.exit(0);
+  return best?.name ?? null;
 }
-files = files.filter(Boolean);
 
-const touched = new Map();
-for (const f of files) {
-  for (const m of matchers) {
-    if (m.regs.some((r) => r.test(f))) {
-      if (!touched.has(m.name)) touched.set(m.name, []);
-      touched.get(m.name).push(f);
-    }
+function groupByOwner(files) {
+  const touched = new Map();
+  for (const f of files) {
+    const owner = ownerOf(f);
+    if (!owner) continue;
+    if (!touched.has(owner)) touched.set(owner, []);
+    touched.get(owner).push(f);
   }
+  return touched;
 }
 
-let lastMessage = '';
-try {
-  lastMessage = sh('git log -1 --pretty=%B');
-} catch {
-  /* пустой репозиторий */
+function printZones(touched, log = console.error) {
+  for (const [name, list] of touched) log(`  [${name}]\n    ${list.join('\n    ')}`);
 }
 
-if (touched.size > 1 && !/cross-owner/i.test(lastMessage)) {
-  console.error('ownership: изменения затрагивают зоны нескольких владельцев:');
-  for (const [name, list] of touched) console.error(`  [${name}]\n    ${list.join('\n    ')}`);
+/** Проверяет каждый не-merge коммит диапазона base..head. Возвращает число нарушений. */
+function checkCommits(base, head) {
+  const shas = lines(git('rev-list', '--no-merges', '--reverse', `${base}..${head}`));
+  let violations = 0;
+  const allOwners = new Set();
+  for (const sha of shas) {
+    const files = lines(git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha));
+    const touched = groupByOwner(files);
+    for (const name of touched.keys()) allOwners.add(name);
+    if (touched.size <= 1) continue;
+    const message = git('log', '-1', '--format=%B', sha);
+    if (LABEL.test(message)) continue;
+    violations += 1;
+    console.error(
+      `ownership: коммит ${sha.slice(0, 7)} «${message.split('\n')[0]}» затрагивает зоны нескольких владельцев без метки cross-owner:`,
+    );
+    printZones(touched);
+  }
+  console.log(
+    `ownership: ${base}..${head} — ${shas.length} коммит(ов), владельцы: ${[...allOwners].join(', ') || 'нет'}`,
+  );
+  return violations;
+}
+
+function fail() {
   console.error(
     'Разбей изменения по владельцам или добавь метку `cross-owner` в сообщение коммита.',
   );
   process.exit(1);
 }
 
-console.log(
-  `ownership: ok (${files.length} файлов, владельцы: ${[...touched.keys()].join(', ') || 'нет'})`,
-);
+if (staged) {
+  let files;
+  try {
+    files = lines(git('diff', '--cached', '--name-only'));
+  } catch {
+    console.log('ownership: git недоступен — пропускаю проверку');
+    process.exit(0);
+  }
+  const touched = groupByOwner(files);
+  if (touched.size > 1 && !crossOwnerFlag) {
+    console.error('ownership: staged-изменения затрагивают зоны нескольких владельцев:');
+    printZones(touched);
+    console.error('Если коммит будет с меткой `cross-owner`, запусти с флагом --cross-owner.');
+    fail();
+  }
+  console.log(
+    `ownership: ok (staged: ${files.length} файлов, владельцы: ${[...touched.keys()].join(', ') || 'нет'})`,
+  );
+  process.exit(0);
+}
+
+let base = baseArg;
+if (base && !refExists(base)) {
+  console.warn(
+    `ownership: ревизия --base=${base} не найдена (shallow clone или force-push?) — пропускаю проверку`,
+  );
+  process.exit(0);
+}
+if (!refExists(headArg)) {
+  console.warn(`ownership: ревизия --head=${headArg} не найдена — пропускаю проверку`);
+  process.exit(0);
+}
+if (!base) {
+  base = refExists('origin/main') ? 'origin/main' : refExists('main') ? 'main' : null;
+  if (!base)
+    console.warn('ownership: базовая ветка (origin/main, main) не найдена — укажи --base=<rev>');
+}
+
+let violations = 0;
+try {
+  if (base) violations = checkCommits(base, headArg);
+} catch (error) {
+  console.warn(
+    `ownership: git log недоступен (${error.message.split('\n')[0]}) — пропускаю проверку коммитов`,
+  );
+}
+
+// Локальный запуск без --base: незакоммиченные правки. Метки коммита ещё нет — только предупреждение.
+if (!baseArg) {
+  try {
+    const files = [
+      ...new Set([
+        ...lines(git('diff', '--name-only', 'HEAD')),
+        ...lines(git('ls-files', '--others', '--exclude-standard')),
+      ]),
+    ];
+    const touched = groupByOwner(files);
+    if (touched.size > 1)
+      console.warn(
+        `ownership: незакоммиченные правки (${files.length} файлов) затрагивают зоны ${[...touched.keys()].join(', ')} — в сообщении коммита понадобится метка cross-owner`,
+      );
+    else console.log(`ownership: незакоммиченных файлов — ${files.length}`);
+  } catch {
+    /* пустой репозиторий или нет HEAD */
+  }
+}
+
+if (violations > 0) fail();
+console.log('ownership: ok');

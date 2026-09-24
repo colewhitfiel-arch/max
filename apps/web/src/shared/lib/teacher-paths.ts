@@ -1,0 +1,27 @@
+/**
+ * Пути экранов преподавателя, на которые ссылаются страницы разных фич (главная, настройки,
+ * профиль, группы → кошелёк, успеваемость, ученик). Живут в shared, чтобы страницы одной роли
+ * не импортировали модули друг друга (AGENT_GUIDE §3); схема URL — docs/FOUNDATION.
+ */
+
+/** Главная преподавателя — куда закрываются экраны, открытые не из приложения. */
+export const TEACHER_HOME_PATH = '/teacher';
+
+/** Кошелёк преподавателя (макет 59:16). */
+export const TEACHER_WALLET_PATH = '/teacher/wallet';
+
+/** «Общая успеваемость» и ученики группы. */
+export const teacherPerformancePaths = {
+  overview: '/teacher/performance',
+  /** Ученики группы — выбор ученика для подробной успеваемости. */
+  group: (groupId: string) => `/teacher/performance/groups/${groupId}`,
+};
+
+/** Успеваемость и задания ученика. */
+export const teacherStudentPaths = {
+  /** `club` — какой курс (группу) раскрыть (возврат с заданий). */
+  student: (studentId: string, club?: string) =>
+    `/teacher/students/${studentId}${club ? `?club=${encodeURIComponent(club)}` : ''}`,
+  tasks: (studentId: string, groupId: string, task?: string) =>
+    `/teacher/students/${studentId}/groups/${groupId}/tasks${task ? `?task=${encodeURIComponent(task)}` : ''}`,
+};

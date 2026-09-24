@@ -1,7 +1,7 @@
 import { Badge, Card, EmptyState, ListRow, Screen, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { isGenerationRunning, useGenerationJobs } from '@/entities/generation';
+import { generationStageTone, useGenerationJobs } from '@/entities/generation';
 import { GenerateCourseForm } from '@/features/generate-course';
 import { formatDateTime } from '@/shared/lib/dates';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
@@ -14,7 +14,7 @@ export function CourseBuilderPage() {
 
   return (
     <>
-      <ScreenHeader title={t('courseBuilder.title')} back="/teacher/courses" />
+      <ScreenHeader title={t('courseBuilder.title')} back="/teacher/assignments" />
       <Screen>
         <Card>
           <Stack gap={3}>
@@ -45,17 +45,7 @@ export function CourseBuilderPage() {
                     subtitle={`${t(`courseBuilder.source.${job.sourceKind ?? 'MATERIALS'}`)} · ${formatDateTime(job.createdAt, i18n.language)}`}
                     onClick={() => navigate(`/teacher/course-builder/${job.id}`)}
                     right={
-                      <Badge
-                        tone={
-                          job.stage === 'FAILED'
-                            ? 'danger'
-                            : job.stage === 'READY' || job.stage === 'ACCEPTED'
-                              ? 'success'
-                              : isGenerationRunning(job.stage)
-                                ? 'info'
-                                : 'neutral'
-                        }
-                      >
+                      <Badge tone={generationStageTone(job.stage)}>
                         {t(`courseBuilder.stage.${job.stage}`)}
                       </Badge>
                     }

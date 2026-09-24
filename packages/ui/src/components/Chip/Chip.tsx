@@ -3,15 +3,21 @@ import { cx } from '../../lib/cx';
 import './Chip.css';
 
 export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Выбран (`aria-pressed`). */
+  /**
+   * Выбран (`aria-pressed`). Передавай (в том числе `false`) только у переключателей — фильтров,
+   * сегментов, пресетов. Без пропа чип — обычная кнопка (подсказка-стартер) без `aria-pressed`.
+   */
   selected?: boolean;
   /** Иконка слева. */
   leftIcon?: ReactNode;
 }
 
-/** Выбираемая «таблетка» для фильтров и списков интересов. Это `<button>` с `aria-pressed`. */
+/**
+ * «Таблетка» для фильтров, списков интересов и подсказок. Это `<button>`; `aria-pressed` —
+ * только когда передан `selected`.
+ */
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
-  { selected = false, leftIcon, type = 'button', className, children, ...rest },
+  { selected, leftIcon, type = 'button', className, children, ...rest },
   ref,
 ) {
   return (
@@ -20,7 +26,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
       type={type}
       className={cx('ui-chip', className)}
       aria-pressed={selected}
-      data-selected={selected || undefined}
+      data-selected={selected === true || undefined}
       {...rest}
     >
       {leftIcon != null && <span className="ui-chip__icon">{leftIcon}</span>}

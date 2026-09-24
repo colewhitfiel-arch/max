@@ -1,10 +1,11 @@
 import type { LessonDto } from '@edu/contracts';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import '@/shared/i18n';
-import { addDays } from '@/shared/lib/dates';
-import { DaySchedule } from './DaySchedule';
+import { addDays, startOfDay } from '@/shared/lib/dates';
+import { DaySchedule, type DayScheduleProps } from './DaySchedule';
 
 const group = {
   id: 'g1',
@@ -17,7 +18,12 @@ const group = {
   },
 };
 
-function lesson(id: string, dayOffset: number, hour: number): LessonDto {
+function lesson(
+  id: string,
+  dayOffset: number,
+  hour: number,
+  extra: Partial<LessonDto> = {},
+): LessonDto {
   const startsAt = addDays(new Date(), dayOffset);
   startsAt.setHours(hour, 0, 0, 0);
   const endsAt = new Date(startsAt.getTime() + 90 * 60_000);
@@ -33,16 +39,22 @@ function lesson(id: string, dayOffset: number, hour: number): LessonDto {
     cancelReason: null,
     group,
     attendance: null,
+    ...extra,
   };
 }
 
+/** Расписание со своим состоянием дня — как на главной. */
+function Harness(props: Partial<DayScheduleProps> & { lessons: LessonDto[] }) {
+  const [date, setDate] = useState(() => startOfDay());
+  return <DaySchedule date={date} onDateChange={setDate} {...props} />;
+}
+
 describe('DaySchedule', () => {
-  it('показывает занятия сегодня и листает дни вперёд/назад в пределах недели', async () => {
+  it('показывает занятия сегодня и листает дни вперёд (назад — не раньше сегодня)', async () => {
     const user = userEvent.setup();
     render(
-      <DaySchedule
-        today={[lesson('l1', 0, 23)]}
-        upcoming={[lesson('l2', 1, 10)]}
+      <Harness
+        lessons={[lesson('l1', 0, 23), lesson('l2', 1, 10)]}
         unreadCount={5}
         onOpenNotifications={vi.fn()}
       />,
@@ -59,16 +71,116 @@ describe('DaySchedule', () => {
     await user.click(screen.getByRole('button', { name: 'Следующий день' }));
     expect(screen.getByText('В этот день занятий нет')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Календарь/ }));
+    await user.click(screen.getByRole('button', { name: 'Предыдущий день' }));
+    await user.click(screen.getByRole('button', { name: 'Предыдущий день' }));
     expect(screen.getByText('Сегодня')).toBeInTheDocument();
   });
 
-  it('открывает уведомления по колокольчику', async () => {
+  it('колокольчик открывает уведомления, иконка календаря — шторку', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
-    render(<DaySchedule today={[]} upcoming={[]} onOpenNotifications={onOpen} />);
+    const onToggle = vi.fn();
+    const { rerender } = render(
+      <Harness lessons={[]} onOpenNotifications={onOpen} onToggleCalendar={onToggle} />,
+    );
     expect(screen.getByText('Сегодня занятий нет')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Уведомления' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
+
+    const calendar = screen.getByRole('button', { name: 'Открыть календарь' });
+    expect(calendar).toHaveAttribute('aria-expanded', 'false');
+    await user.click(calendar);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness lessons={[]} calendarOpen onToggleCalendar={onToggle} />);
+    expect(screen.getByRole('button', { name: 'Закрыть календарь' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('режим родителя: колонка «Репетитор» и «Добавить кружок» (в пустой день — кнопкой)', async () => {
+    const user = userEvent.setup();
+    const onAddClub = vi.fn();
+    render(
+      <Harness
+        lessons={[lesson('l1', 0, 23)]}
+        secondColumn={{ header: 'Репетитор', cell: (item) => item.group.teacher.user.lastName }}
+        nameAction={{ label: 'Добавить кружок', onClick: onAddClub }}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Сегодня' });
+    expect(table).toHaveTextContent('Репетитор');
+    expect(table).toHaveTextContent('Иванова');
+    expect(table).not.toHaveTextContent('Группа');
+    await user.click(screen.getByRole('button', { name: 'Добавить кружок' }));
+    expect(onAddClub).toHaveBeenCalledTimes(1);
+
+    // Завтра занятий нет — действие остаётся кнопкой в пустом состоянии.
+    await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    expect(screen.getByText('В этот день занятий нет')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Добавить кружок' }));
+    expect(onAddClub).toHaveBeenCalledTimes(2);
+  });
+
+  it('сбой загрузки дня: ошибка с повтором вместо «нет занятий», листать дни можно', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(<Harness lessons={[lesson('l1', 0, 23)]} error={new Error('сеть')} onRetry={onRetry} />);
+    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByText('Сегодня занятий нет')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    expect(screen.getByText('Завтра')).toBeInTheDocument();
+  });
+
+  it('колонка «Группа»: код группы, без кода — название', () => {
+    const coded = { ...group, title: 'Робототехника, группа А', code: '001' };
+    const { unmount } = render(<Harness lessons={[lesson('l1', 0, 23, { group: coded })]} />);
+    expect(screen.getByRole('table')).toHaveTextContent('001');
+    expect(screen.getByRole('table')).not.toHaveTextContent('Робототехника, группа А');
+    unmount();
+
+    const plain = { ...group, title: 'Робототехника, группа Б', code: null };
+    render(<Harness lessons={[lesson('l1', 0, 23, { group: plain })]} />);
+    expect(screen.getByRole('table')).toHaveTextContent('Робототехника, группа Б');
+  });
+
+  it('отменённое занятие — с бейджем «Отменено», приглушено и не подсвечивается', () => {
+    render(
+      <Harness lessons={[lesson('l1', 0, 22, { status: 'CANCELLED' }), lesson('l2', 0, 23)]} />,
+    );
+    const table = screen.getByRole('table', { name: 'Сегодня' });
+    expect(table).toHaveTextContent('Отменено');
+    const times = Array.from(table.querySelectorAll('[data-tone]')).filter((node) =>
+      /^\d{2}:\d{2}/.test(node.textContent ?? ''),
+    );
+    expect(times.map((time) => time.getAttribute('data-tone'))).toEqual(['muted', 'primary']);
+    // Название отменённого — в размер ячейки (small), а не body 16px: не шире соседних строк.
+    const cancelledTitle = within(table)
+      .getAllByText('Робототехника')
+      .find((node) => node.getAttribute('data-tone') === 'muted');
+    expect(cancelledTitle).toHaveAttribute('data-variant', 'small');
+  });
+
+  it('прошедший день из календаря листается в обе стороны', async () => {
+    const user = userEvent.setup();
+    function PastHarness() {
+      const [date, setDate] = useState(() => addDays(startOfDay(), -3));
+      return <DaySchedule date={date} onDateChange={setDate} lessons={[]} />;
+    }
+    render(<PastHarness />);
+    const prev = screen.getByRole('button', { name: 'Предыдущий день' });
+    expect(prev).toBeEnabled();
+    await user.click(prev);
+    expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeEnabled();
+    // −4 → сегодня.
+    for (let i = 0; i < 4; i += 1) {
+      await user.click(screen.getByRole('button', { name: 'Следующий день' }));
+    }
+    expect(screen.getByText('Сегодня занятий нет')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Предыдущий день' })).toBeDisabled();
   });
 });

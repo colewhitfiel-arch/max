@@ -1,24 +1,55 @@
-import { BLOCK_TYPE_META, type StudentBlockDetail } from '@edu/contracts';
-import { Badge, Button, Card, Screen, Stack, Text, useToast } from '@edu/ui';
+import { isHttpUrl, type StudentBlockDetail, type VideoContent } from '@edu/contracts';
+import { Badge, Button, Card, LinkIcon, ListRow, Screen, Stack, Text, useToast } from '@edu/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useCompleteBlock, useOpenBlock, useStudentBlock } from '@/entities/course';
 import { describeApiError } from '@/shared/api/errors';
+import { formatDue } from '@/shared/lib/dates';
+import { useMaxBridge } from '@/shared/max';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Видео-блок: ссылка на внешний плеер открывается через MaxBridge (в MAX — `openLink` SDK).
+ * Без ссылки (provider `file` до модуля файлов) или со ссылкой не http(s) — «видео недоступно»:
+ * контракт такие ссылки не пропускает, проверка здесь — защита в глубину перед openLink.
+ */
+function VideoBlock({ content }: { content: VideoContent }) {
+  const { t } = useTranslation('student');
+  const bridge = useMaxBridge();
+  const { url } = content;
+  if (!url || !isHttpUrl(url)) return <Text tone="muted">{t('courses.videoUnavailable')}</Text>;
+  const host = hostOf(url);
+  return (
+    <Stack gap={1} align="start">
+      <Button variant="link" rightIcon={<LinkIcon />} onClick={() => bridge.openLink(url)}>
+        {t('courses.openVideo')}
+      </Button>
+      {host && (
+        <Text variant="caption" tone="muted">
+          {host}
+        </Text>
+      )}
+    </Stack>
+  );
+}
 
 /** Минимальный рендер содержимого блока по типу (полные рендереры — задача W2). */
 function BlockContent({ block }: { block: StudentBlockDetail }) {
   const { t } = useTranslation('student');
   switch (block.type) {
     case 'TEXT':
-      return <Text style={{ whiteSpace: 'pre-wrap' }}>{block.content.markdown}</Text>;
+      return <Text preserveLines>{block.content.markdown}</Text>;
     case 'VIDEO':
-      return (
-        <Text>
-          {block.content.url ?? `${block.content.provider} · ${block.content.fileId ?? ''}`}
-        </Text>
-      );
+      return <VideoBlock content={block.content} />;
     case 'QUIZ':
       return (
         <Stack gap={2}>
@@ -42,7 +73,8 @@ function BlockContent({ block }: { block: StudentBlockDetail }) {
 /** `/student/blocks/:blockId` — блок курса: open при заходе, complete кнопкой (F3). */
 export function BlockPage() {
   const { blockId = '' } = useParams();
-  const { t } = useTranslation('student');
+  const { t, i18n } = useTranslation('student');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const toast = useToast();
   const query = useStudentBlock(blockId);
@@ -76,18 +108,23 @@ export function BlockPage() {
         <AsyncState query={query}>
           {(block) => (
             <>
-              <Badge tone="info">{BLOCK_TYPE_META[block.type].label}</Badge>
+              <Badge tone="info">{tc(`blockType.${block.type}`)}</Badge>
               <Card>
                 <BlockContent block={block} />
               </Card>
               {block.assignment && (
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  onClick={() => navigate(`/student/assignments/${block.assignment!.id}`)}
-                >
-                  {block.assignment.title}
-                </Button>
+                // Строка, а не кнопка: длинное название переносится, а не режется многоточием.
+                <Card padding="none">
+                  <ListRow
+                    title={block.assignment.title}
+                    subtitle={`${tc(`assignment.type.${block.assignment.type}`)} · ${
+                      block.assignment.dueAt
+                        ? formatDue(block.assignment.dueAt, i18n.language)
+                        : tc('assignment.noDue')
+                    }`}
+                    onClick={() => navigate(`/student/assignments/${block.assignment!.id}`)}
+                  />
+                </Card>
               )}
               {block.progress?.status === 'COMPLETED' ? (
                 <Badge tone="success">{t('courses.completed')}</Badge>

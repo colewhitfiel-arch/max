@@ -1,13 +1,12 @@
-import { ROLE_LABELS, type Role } from '@edu/contracts';
+import type { Role } from '@edu/contracts';
 import { Badge, Card, ListRow, useToast } from '@edu/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
-import { roleHomePath } from '@/shared/auth/role-routes';
 
-/** Список ролей пользователя; тап по неактивной — `POST /auth/switch-role` и переход на её главную (F11). */
+/** Список ролей пользователя; тап по неактивной — `POST /auth/switch-role` и переход в корень (онбординг/главная роли, F11). */
 export function SwitchRole() {
   const { t } = useTranslation('auth');
   const { me, switchRole } = useAuth();
@@ -23,7 +22,8 @@ export function SwitchRole() {
     try {
       await switchRole(role);
       toast.show({ tone: 'success', title: t('switch.switched') });
-      navigate(roleHomePath(role), { replace: true });
+      // Корень сам решит: онбординг ученика, выбор роли или главная роли.
+      navigate('/', { replace: true });
     } catch (error) {
       toast.show({ tone: 'danger', title: describeApiError(error) });
     } finally {
@@ -38,7 +38,7 @@ export function SwitchRole() {
         return (
           <ListRow
             key={role}
-            title={ROLE_LABELS[role]}
+            title={t(`common:roles.${role}`)}
             right={active ? <Badge tone="success">{t('switch.active')}</Badge> : undefined}
             onClick={active ? undefined : () => void onSelect(role)}
             disabled={pending !== null}

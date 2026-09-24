@@ -1,4 +1,5 @@
 import { PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT, type Paginated } from '@edu/contracts';
+import type { z } from 'zod';
 import { Errors } from '../errors/app-error';
 
 /** Курсор — base64url от JSON с ключами сортировки. */
@@ -6,15 +7,25 @@ export function encodeCursor(value: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
+/**
+ * Разбирает курсор. `schema` проверяет форму: валидный base64-JSON без нужных ключей иначе
+ * дошёл бы до Prisma (Invalid Date → 500). Без схемы — только разбор JSON.
+ */
 export function decodeCursor<T extends Record<string, unknown>>(
   cursor: string | undefined,
+  schema?: z.ZodType<T, z.ZodTypeDef, unknown>,
 ): T | null {
   if (!cursor) return null;
+  let value: unknown;
   try {
-    return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as T;
+    value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   } catch {
     throw Errors.validation('Некорректный cursor');
   }
+  if (!schema) return value as T;
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw Errors.validation('Некорректный cursor');
+  return parsed.data;
 }
 
 export function normalizeLimit(limit: number | undefined): number {

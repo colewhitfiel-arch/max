@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { RoleSchema } from '@edu/contracts';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { type Env } from '../../config/env';
 import { InjectEnv } from '../../config/env.module';
 import { Errors } from '../errors/app-error';
 import type { AuthUser } from './auth-user';
+import { safeEqual } from './safe-equal';
 
 const claimsSchema = z.object({
   sub: z.string(),
@@ -75,10 +76,7 @@ export class JwtService {
     if (parts.length !== 3) throw Errors.unauthorized('Токен повреждён');
     const [header, payload, signature] = parts as [string, string, string];
     const expected = this.sign(`${header}.${payload}`);
-    if (
-      expected.length !== signature.length ||
-      !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
-    ) {
+    if (!safeEqual(expected, signature)) {
       throw Errors.unauthorized('Токен недействителен');
     }
     let claims: unknown;

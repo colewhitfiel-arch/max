@@ -17,12 +17,17 @@ export type LessonsList = z.infer<typeof LessonsListSchema>;
 
 // ---------- Тела запросов ----------
 
-export const CreateLessonBodySchema = z.object({
-  startsAt: DateTimeSchema,
-  endsAt: DateTimeSchema,
-  topic: z.string().min(1).optional(),
-  room: z.string().min(1).optional(),
-});
+export const CreateLessonBodySchema = z
+  .object({
+    startsAt: DateTimeSchema,
+    endsAt: DateTimeSchema,
+    topic: z.string().min(1).optional(),
+    room: z.string().min(1).optional(),
+  })
+  .refine((body) => Date.parse(body.endsAt) > Date.parse(body.startsAt), {
+    message: 'Занятие должно заканчиваться позже начала',
+    path: ['endsAt'],
+  });
 export type CreateLessonBody = z.infer<typeof CreateLessonBodySchema>;
 
 /** null в topic/room — очистить поле. Отмена — `status: 'CANCELLED'` (+ причина). */
@@ -54,6 +59,14 @@ export const groupsContract = c.router(
       responses: { 200: LessonsListSchema },
       summary: 'Календарь ребёнка за период',
       metadata: userRoute('parent:child.calendar.view'),
+    },
+    getTeacherCalendar: {
+      method: 'GET',
+      path: '/teacher/calendar',
+      query: PeriodQuerySchema,
+      responses: { 200: LessonsListSchema },
+      summary: 'Календарь преподавателя за период: занятия всех его групп',
+      metadata: userRoute('teacher:groups.view'),
     },
     listGroupLessons: {
       method: 'GET',

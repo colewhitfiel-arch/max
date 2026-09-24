@@ -16,15 +16,17 @@ export interface AssignmentCardProps {
   onClick?: () => void;
   /** Слот справа вместо статуса сдачи (для преподавателя). */
   right?: React.ReactNode;
+  /** Хвост подписи через «·» — например, кому адресовано задание (для преподавателя). */
+  subtitleExtra?: string;
 }
 
 /** Задание в списке: название, кружок, срок, статус сдачи. Вкладывать в `Card padding="none"`. */
-export function AssignmentCard({ assignment, onClick, right }: AssignmentCardProps) {
+export function AssignmentCard({ assignment, onClick, right, subtitleExtra }: AssignmentCardProps) {
   const { t, i18n } = useTranslation('common');
   const due = assignment.dueAt
     ? `${t('assignment.due')}: ${formatDue(assignment.dueAt, i18n.language)}`
     : t('assignment.noDue');
-  const subtitle = `${assignment.group.club.title} · ${due}`;
+  const subtitle = [assignment.group.club.title, due, subtitleExtra].filter(Boolean).join(' · ');
   const submission = assignment.submission;
   const status = submission?.status ?? 'NOT_STARTED';
   const badge = (

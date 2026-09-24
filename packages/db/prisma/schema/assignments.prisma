@@ -6,6 +6,8 @@ model Assignment {
   teacherId       String         @map("teacher_id") @db.Uuid
   courseId        String?        @map("course_id") @db.Uuid
   blockId         String?        @unique @map("block_id") @db.Uuid
+  /// Адресаты внутри группы: пусто — всей группе. Список фиксируется при создании.
+  studentIds      String[]       @default([]) @map("student_ids") @db.Uuid
   title           String
   description     String?
   type            AssignmentType @default(HOMEWORK)
@@ -26,6 +28,7 @@ model Assignment {
 
   @@index([groupId, dueAt])
   @@index([courseId])
+  @@index([teacherId])
   @@map("assignments")
 }
 

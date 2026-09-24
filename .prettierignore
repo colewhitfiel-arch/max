@@ -5,6 +5,6 @@ build
 coverage
 .data
 packages/db/generated
-packages/db/prisma/migrations
+packages/db/prisma/schema/migrations
 pnpm-lock.yaml
 *.md

@@ -1,0 +1,41 @@
+{
+  "homework": {
+    "title": "Homework",
+    "pieLabel": "Homework: correct {{correct}}, wrong {{wrong}}, upcoming {{upcoming}}"
+  },
+  "counts": {
+    "correct": "Correct",
+    "wrong": "Wrong",
+    "upcoming": "Upcoming"
+  },
+  "club": {
+    "barLabel": "Homework in «{{club}}»",
+    "gridLabel": "Homework in «{{club}}»: choose a task to see details",
+    "more": "Details",
+    "hide": "Hide"
+  },
+  "status": {
+    "DONE": "done",
+    "FAILED_SCORE": "less than {{percent}}% correct",
+    "FAILED_OVERDUE": "overdue, not submitted",
+    "SOON": "due soon",
+    "LATER": "due later"
+  },
+  "task": {
+    "cell": "Task {{number}} — {{status}}"
+  },
+  "taskDetail": {
+    "title": "Task {{number}}",
+    "answer": "Answer: {{answer}}",
+    "correctAnswer": "Correct answer: {{answer}}",
+    "score": "Score: {{score}} of {{max}}",
+    "pendingReview": "Submitted, awaiting review",
+    "notSubmitted": "Not submitted, deadline passed {{date}}",
+    "upcoming": "To be done",
+    "due": "Due: {{date}}",
+    "noDue": "No deadline",
+    "copy": "copy",
+    "copied": "copied",
+    "copyFailed": "Could not copy the code"
+  }
+}

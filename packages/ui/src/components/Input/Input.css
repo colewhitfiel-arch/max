@@ -22,7 +22,14 @@
 .ui-input:focus {
   outline: none;
   border-color: var(--ui-color-focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-focus) 25%, transparent);
+}
+
+/* Мягкое кольцо фокуса — только с color-mix (с var() запасную строку не задать);
+ * без него фокус виден по цвету рамки. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-input:focus {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-focus) 25%, transparent);
+  }
 }
 
 .ui-input[aria-invalid='true'] {

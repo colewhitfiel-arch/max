@@ -1,5 +1,7 @@
 # Карта владельцев. Проверяется `pnpm ownership:check` (scripts/check-ownership.mjs):
-# один коммит/PR не должен трогать зоны двух владельцев без метки cross-owner в сообщении.
+# коммит не должен трогать зоны двух владельцев без метки cross-owner в сообщении.
+# У файла один владелец — зона с самым конкретным совпавшим глобом (вложенные зоны,
+# например packages/ai/** и packages/ai/src/prompts/**, не пересекаются).
 # Подробности и правила — docs/10-ownership.md и docs/AGENT_GUIDE.md.
 
 owners:
@@ -17,6 +19,11 @@ owners:
     - .prettierrc
     - .npmrc
     - .env.example
+    - .editorconfig
+    - .gitattributes
+    - .gitignore
+    - .prettierignore
+    - .claude/**
     - .github/**
     - infra/**
     - scripts/**
@@ -30,24 +37,48 @@ owners:
     - packages/contracts/src/events.ts
     - packages/contracts/src/permissions.ts
     - packages/contracts/src/fixtures/**
+    # Сущности всех доменов (точка синхронизации); course.ts — у B вместе с blocks/**.
+    - packages/contracts/src/entities/**
+    - packages/contracts/src/routes/index.ts
+    - packages/contracts/src/routes/meta.ts
+    - packages/contracts/src/routes/routes.test.ts
+    # Конфиги пакета (tsup, vitest, eslint, tsconfig, package.json).
+    - packages/contracts/*
 
   db:
     - packages/db/prisma/schema/base.prisma
-    - packages/db/prisma/migrations/**
+    - packages/db/prisma/schema/migrations/**
     - packages/db/src/client.ts
     - packages/db/src/index.ts
-    - packages/db/src/seed/index.ts
+    - packages/db/src/testing.ts
+    - packages/db/src/*
+    # Модульный фрагмент seed/<module>.ts, объявленный в зоне модуля, принадлежит ей.
+    - packages/db/src/seed/**
     - packages/db/scripts/**
     - packages/db/package.json
+    # Конфиги пакета (eslint, tsconfig, vitest).
+    - packages/db/*
 
   api-shell:
     - apps/api/src/main.ts
     - apps/api/src/worker.ts
     - apps/api/src/app.module.ts
+    - apps/api/src/bootstrap.ts
+    - apps/api/src/modules/index.ts
+    - apps/api/src/modules/identity/**
     - apps/api/src/common/**
     - apps/api/src/config/**
     - apps/api/test/**
     - apps/api/package.json
+    # Конфиги пакета (nest-cli, tsconfig, vitest, eslint).
+    - apps/api/*
+    - apps/api/src/types/**
+    - apps/api/src/modules/school/**
+    - apps/api/src/modules/health/**
+    - packages/contracts/src/routes/auth.ts
+    - packages/contracts/src/routes/health.ts
+    - packages/db/prisma/schema/identity.prisma
+    - packages/db/prisma/schema/school.prisma
 
   web-shell:
     - apps/web/src/app/**
@@ -59,6 +90,24 @@ owners:
     - apps/web/src/shared/config.ts
     - apps/web/vite.config.ts
     - apps/web/package.json
+    # Конфиги пакета (vitest, eslint, tsconfig, index.html), MSW worker, setup тестов.
+    - apps/web/*
+    - apps/web/public/**
+    - apps/web/src/*
+    - apps/web/src/test/**
+    - apps/web/src/shared/store/**
+    - apps/web/src/shared/ui/**
+    # Словари: namespace фичи — у её владельца (ниже), общие (common, auth, student, teacher) и тесты — здесь.
+    - apps/web/src/shared/i18n/**
+    # Вход, выбор и смена роли, служебные страницы, настройки аккаунта (foundation).
+    - apps/web/src/pages/auth/**
+    - apps/web/src/pages/admin/**
+    - apps/web/src/pages/forbidden/**
+    - apps/web/src/pages/not-found/**
+    - apps/web/src/entities/session/**
+    - apps/web/src/features/dev-login/**
+    - apps/web/src/features/switch-role/**
+    - apps/web/src/widgets/account-section/**
 
   ui:
     - packages/ui/**
@@ -72,11 +121,13 @@ owners:
     - apps/api/src/modules/analytics/**
     - packages/contracts/src/routes/dashboards.ts
     - packages/db/prisma/schema/analytics.prisma
-    - packages/db/src/seed/analytics.ts
+    - packages/db/src/seed/analytics.ts # файла ещё нет — зарезервировано
     - apps/web/src/pages/student/home/**
     - apps/web/src/pages/student/profile/**
     - apps/web/src/entities/dashboard/**
     - apps/web/src/widgets/student-home-*/**
+    - apps/web/src/widgets/student-profile-hero/**
+    - apps/api/test/analytics/**
   ws-B-courses-assignments:
     - apps/api/src/modules/courses/**
     - apps/api/src/modules/assignments/**
@@ -94,6 +145,10 @@ owners:
     - apps/web/src/features/complete-block/**
     - apps/web/src/features/create-assignment/**
     - apps/web/src/features/grade-submission/**
+    - packages/contracts/src/entities/course.ts
+    # Карта кружков и рекомендации на экране «Задания» ученика.
+    - apps/web/src/widgets/homework-map/**
+    - apps/web/src/widgets/homework-recommendations/**
   ws-C-ai:
     - apps/api/src/modules/ai/**
     - packages/contracts/src/routes/ai.ts
@@ -101,11 +156,14 @@ owners:
     - packages/ai/src/prompts/**
     - packages/db/prisma/schema/ai.prisma
     - apps/web/src/pages/student/tutor/**
+    - apps/web/src/pages/parent/tutor/**
     - apps/web/src/pages/onboarding/**
     - apps/web/src/entities/ai/**
     - apps/web/src/widgets/trajectory/**
     - apps/web/src/pages/teacher/club-demand/**
     - apps/api/test/ai/**
+    - apps/web/src/shared/i18n/parent-tutor.ru.json
+    - apps/web/src/shared/i18n/parent-tutor.en.json
   ws-D-parent-family-catalog:
     - apps/api/src/modules/family/**
     - apps/api/src/modules/catalog/**
@@ -117,21 +175,53 @@ owners:
     - apps/web/src/pages/parent/children/**
     - apps/web/src/pages/parent/analytics/**
     - apps/web/src/pages/parent/courses/**
+    - apps/web/src/pages/parent/wallet/**
+    - apps/web/src/pages/parent/profile/**
+    - apps/web/src/pages/parent/settings/**
+    - apps/web/src/pages/invite/**
     - apps/web/src/entities/student/**
     - apps/web/src/entities/club/**
     - apps/web/src/features/link-child/**
+    - apps/web/src/features/change-avatar/**
     - apps/web/src/widgets/parent-*/**
+    - apps/web/src/widgets/homework-performance/**
+    - apps/web/src/shared/i18n/parent.ru.json
+    - apps/web/src/shared/i18n/parent.en.json
+    - apps/web/src/shared/i18n/parent-home.ru.json
+    - apps/web/src/shared/i18n/parent-home.en.json
+    - apps/web/src/shared/i18n/parent-analytics.ru.json
+    - apps/web/src/shared/i18n/parent-analytics.en.json
+    - apps/web/src/shared/i18n/parent-profile.ru.json
+    - apps/web/src/shared/i18n/parent-profile.en.json
+    - apps/web/src/shared/i18n/invite.ru.json
+    - apps/web/src/shared/i18n/invite.en.json
+    # Namespace виджета homework-performance.
+    - apps/web/src/shared/i18n/performance.ru.json
+    - apps/web/src/shared/i18n/performance.en.json
   ws-E-groups:
     - apps/api/src/modules/groups/**
     - packages/contracts/src/routes/groups.ts
     - packages/db/prisma/schema/groups.prisma
     - apps/web/src/pages/teacher/home/**
     - apps/web/src/pages/teacher/groups/**
+    - apps/web/src/pages/teacher/settings/**
+    - apps/web/src/pages/teacher/profile/**
+    - apps/web/src/pages/teacher/more/**
     - apps/web/src/entities/group/**
-    - apps/web/src/widgets/teacher-*/**
+    # Виджеты главной и групп; teacher-student-*/teacher-performance-* — зона F.
+    - apps/web/src/widgets/teacher-home-*/**
+    - apps/web/src/widgets/teacher-group-*/**
+    - apps/web/src/shared/i18n/teacher-home.ru.json
+    - apps/web/src/shared/i18n/teacher-home.en.json
+    - apps/web/src/shared/i18n/teacher-profile.ru.json
+    - apps/web/src/shared/i18n/teacher-profile.en.json
   ws-F-teacher-student-analytics:
     - apps/web/src/pages/teacher/students/**
+    - apps/web/src/pages/teacher/performance/**
     - apps/web/src/widgets/teacher-student-*/**
+    - apps/web/src/widgets/teacher-performance-*/**
+    - apps/web/src/shared/i18n/teacher-performance.ru.json
+    - apps/web/src/shared/i18n/teacher-performance.en.json
   ws-G-course-builder-files:
     - apps/api/src/modules/files/**
     - apps/api/src/modules/course-builder/**
@@ -165,15 +255,21 @@ owners:
     - packages/contracts/src/routes/payments.ts
     - packages/db/prisma/schema/payments.prisma
     - apps/web/src/pages/parent/payments/**
+    - apps/web/src/pages/teacher/wallet/**
     - apps/web/src/entities/payment/**
     - apps/web/src/features/pay/**
+    - apps/web/src/features/withdraw-wallet/**
+    - apps/web/src/shared/i18n/teacher-wallet.ru.json
+    - apps/web/src/shared/i18n/teacher-wallet.en.json
+  # shared/max/** объявлен и у web-shell: на время workstream J владелец — J
+  # (при равной конкретности глоба побеждает зона, объявленная ниже).
   ws-J-max:
     - apps/web/src/shared/max/**
     - apps/api/src/common/auth/providers/max-auth.provider.ts
   ws-K-gigachat:
     - packages/ai/src/providers/gigachat/**
     - packages/ai/README.md
-    - scripts/smoke-gigachat.mjs
+    - scripts/smoke-gigachat.mjs # файла ещё нет — зарезервировано
   ws-L-notifications-support:
     - apps/api/src/modules/notifications/**
     - apps/api/src/modules/support/**
@@ -185,3 +281,7 @@ owners:
     - apps/web/src/entities/notification/**
     - apps/web/src/features/mark-notification-read/**
     - apps/web/src/features/support/**
+    - apps/web/src/pages/student/settings/**
+    - apps/web/src/widgets/notification-settings/**
+    - apps/web/src/shared/i18n/notifications.ru.json
+    - apps/web/src/shared/i18n/notifications.en.json

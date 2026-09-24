@@ -10,6 +10,7 @@
  *  - `ready()` / `close()`: сплэш скрывается сам, окно закрывает пользователь — заглушки;
  *  - облачного хранилища: используем `DeviceStorage` (на устройстве), fallback — localStorage.
  */
+import { i18n } from '@/shared/i18n';
 import { createMockStorage } from './mock-bridge';
 import type {
   HapticKind,
@@ -75,7 +76,7 @@ interface MaxWebAppSdk {
 /** Оставлена для обратной совместимости: мост больше не падает без SDK, а работает «вне MAX». */
 export class MaxSdkUnavailableError extends Error {
   constructor() {
-    super('SDK MAX не найден: приложение открыто вне MAX или не загрузился max-web-app.js.');
+    super(i18n.t('common:errors.sdkUnavailable'));
     this.name = 'MaxSdkUnavailableError';
   }
 }

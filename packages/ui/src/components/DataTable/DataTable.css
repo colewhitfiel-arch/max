@@ -1,0 +1,150 @@
+/*
+ * Макет «Общая успеваемость»: заголовки колонок 11px medium приглушённые над карточкой (в 8px
+ * от неё, без фона); тело — одна карточка поверхности с радиусом 20, строки 44px, значения
+ * 12px medium, поля 16px по краям карточки.
+ */
+.ui-data-table {
+  --ui-data-table-radius: var(--ui-radius-lg);
+  --ui-data-table-edge: var(--ui-space-4);
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--ui-color-text);
+}
+
+.ui-data-table__header {
+  padding: 0 var(--ui-space-1) var(--ui-space-2);
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+  text-align: start;
+  vertical-align: bottom;
+  /* Заголовок переносится только между словами («Групп/а» недопустимо), строки — поровну. */
+  overflow-wrap: normal;
+  hyphens: manual;
+  text-wrap: balance;
+}
+
+.ui-data-table__cell {
+  height: 44px;
+  padding: 0 var(--ui-space-2);
+  background: var(--ui-color-surface);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.25;
+  text-align: start;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--ui-duration-fast) var(--ui-easing);
+}
+
+.ui-data-table__header:first-child,
+.ui-data-table__cell:first-child {
+  padding-left: var(--ui-data-table-edge);
+}
+
+.ui-data-table__header:last-child,
+.ui-data-table__cell:last-child {
+  padding-right: var(--ui-data-table-edge);
+}
+
+.ui-data-table__header[data-align='center'],
+.ui-data-table__cell[data-align='center'] {
+  text-align: center;
+}
+
+.ui-data-table__header[data-align='end'],
+.ui-data-table__cell[data-align='end'] {
+  text-align: end;
+}
+
+/* Скругления карточки — на угловых ячейках (у tbody радиуса нет). */
+.ui-data-table tbody > tr:first-child > .ui-data-table__cell:first-child {
+  border-top-left-radius: var(--ui-data-table-radius);
+}
+.ui-data-table tbody > tr:first-child > .ui-data-table__cell:last-child {
+  border-top-right-radius: var(--ui-data-table-radius);
+}
+.ui-data-table tbody > tr:last-child > .ui-data-table__cell:first-child {
+  border-bottom-left-radius: var(--ui-data-table-radius);
+}
+.ui-data-table tbody > tr:last-child > .ui-data-table__cell:last-child {
+  border-bottom-right-radius: var(--ui-data-table-radius);
+}
+
+.ui-data-table__cell[data-tone='muted'] {
+  color: var(--ui-color-text-muted);
+}
+.ui-data-table__cell[data-tone='primary'] {
+  color: var(--ui-color-primary-text);
+}
+.ui-data-table__cell[data-tone='success'] {
+  color: var(--ui-color-success-text);
+}
+.ui-data-table__cell[data-tone='warning'] {
+  color: var(--ui-color-warning-text);
+}
+.ui-data-table__cell[data-tone='danger'] {
+  color: var(--ui-color-danger-text);
+}
+
+/* Кликабельная строка: нажатие подсвечивает всю строку. */
+.ui-data-table__row[data-clickable] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ui-data-table__row[data-clickable]:active > .ui-data-table__cell {
+  background: var(--ui-color-surface-2);
+}
+
+.ui-data-table__row-button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.ui-data-table__row-button:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-sm);
+}
+
+/* Где есть :has — фокус кнопки рисуется рамкой вокруг всей строки. */
+@supports selector(:has(*)) {
+  .ui-data-table__row-button:focus-visible {
+    outline: none;
+  }
+
+  .ui-data-table__row:has(.ui-data-table__row-button:focus-visible) > .ui-data-table__cell {
+    box-shadow:
+      inset 0 2px 0 var(--ui-color-focus),
+      inset 0 -2px 0 var(--ui-color-focus);
+  }
+
+  .ui-data-table__row:has(.ui-data-table__row-button:focus-visible)
+    > .ui-data-table__cell:first-child {
+    box-shadow:
+      inset 2px 0 0 var(--ui-color-focus),
+      inset 0 2px 0 var(--ui-color-focus),
+      inset 0 -2px 0 var(--ui-color-focus);
+  }
+
+  .ui-data-table__row:has(.ui-data-table__row-button:focus-visible)
+    > .ui-data-table__cell:last-child {
+    box-shadow:
+      inset -2px 0 0 var(--ui-color-focus),
+      inset 0 2px 0 var(--ui-color-focus),
+      inset 0 -2px 0 var(--ui-color-focus);
+  }
+}

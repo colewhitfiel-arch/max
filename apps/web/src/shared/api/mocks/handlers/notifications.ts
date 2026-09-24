@@ -8,10 +8,9 @@ import {
   type NotificationSettings,
 } from '@edu/contracts';
 import { http } from 'msw';
-import { apiUrl, authed, json, query, readBody } from '../lib';
+import { apiUrl, authed, json, paginate, query, readBody } from '../lib';
 import { db } from '../state';
 
-const settings = new Map<string, NotificationSettings>();
 const defaultSettings: NotificationSettings = {
   lessons: true,
   assignments: true,
@@ -32,11 +31,12 @@ export const notificationsHandlers = [
     authed(({ auth, request }) => {
       const unreadOnly = query(request).get('unreadOnly') === 'true';
       const all = mine(auth.user.id);
-      const items = (unreadOnly ? all.filter((n) => !n.readAt) : all).map(
-        ({ userId: _u, ...n }) => n,
-      );
+      // Страница по `?limit&cursor` (новые сверху), счётчик — по всей выборке пользователя.
+      const result = paginate(request, unreadOnly ? all.filter((n) => !n.readAt) : all);
+      if (!result.ok) return result.response;
       return json(NotificationsPageSchema, {
-        items,
+        ...result.page,
+        items: result.page.items.map(({ userId: _u, ...n }) => n),
         unreadCount: all.filter((n) => !n.readAt).length,
       });
     }),
@@ -60,7 +60,10 @@ export const notificationsHandlers = [
   http.get(
     apiUrl('/me/notification-settings'),
     authed(({ auth }) =>
-      json(NotificationSettingsDtoSchema, settings.get(auth.user.id) ?? defaultSettings),
+      json(
+        NotificationSettingsDtoSchema,
+        db.notificationSettings.get(auth.user.id) ?? defaultSettings,
+      ),
     ),
   ),
 
@@ -69,7 +72,7 @@ export const notificationsHandlers = [
     authed(async ({ auth, request }) => {
       const body = await readBody(request, UpdateNotificationSettingsBodySchema);
       if (!body.ok) return body.response;
-      settings.set(auth.user.id, body.data);
+      db.notificationSettings.set(auth.user.id, body.data);
       return json(NotificationSettingsDtoSchema, body.data);
     }),
   ),

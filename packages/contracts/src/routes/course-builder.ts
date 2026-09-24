@@ -4,8 +4,8 @@
  */
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import { IdSchema, PaginationQuerySchema, paginated } from '../common';
-import { CourseDraftSchema, CourseGenerationJobSchema } from '../entities';
+import { DateTimeSchema, IdSchema, PaginationQuerySchema, paginated } from '../common';
+import { CourseDraftSchema, CourseGenerationJobSchema, GenerationTargetSchema } from '../entities';
 import { contractRouterOptions, userRoute } from './meta';
 
 const c = initContract();
@@ -22,7 +22,14 @@ export const GenerationJobListItemSchema = CourseGenerationJobSchema.omit({
 });
 export type GenerationJobListItem = z.infer<typeof GenerationJobListItemSchema>;
 
-export const AcceptGenerationJobResultSchema = z.object({ courseId: IdSchema });
+export const AcceptGenerationJobResultSchema = z.object({
+  courseId: IdSchema,
+  /**
+   * Сколько заданий создано при принятии. В режиме `HOMEWORK` модуль публикуется сразу — ученики
+   * получают задания без отдельной публикации курса; в режиме `COURSE` всегда 0.
+   */
+  assignmentsCreated: z.number().int().nonnegative().default(0),
+});
 export type AcceptGenerationJobResult = z.infer<typeof AcceptGenerationJobResultSchema>;
 
 // ---------- Тела запросов ----------
@@ -31,9 +38,13 @@ export const TOPIC_MIN_LENGTH = 10;
 export const TOPIC_MAX_LENGTH = 4000;
 
 /**
- * Два режима: из файлов (`materialIds`) или по теме без конспекта (`topic` — тема, программа
+ * Источник: из файлов (`materialIds`) или по теме без конспекта (`topic` — тема, программа
  * занятия или описание практики; ИИ сам пишет конспект-атомы и прогоняет его по пайплайну).
  * Нужно задать хотя бы одно из двух.
+ *
+ * Цель (`target`): `COURSE` — целый курс из нескольких модулей; `HOMEWORK` — одно ДЗ, ровно один
+ * модуль. И то и другое можно положить в уже существующий курс группы (`targetCourseId`) —
+ * тогда курс дополняется, а ученик продолжает проходить его же.
  */
 export const CreateGenerationJobBodySchema = z
   .object({
@@ -44,6 +55,14 @@ export const CreateGenerationJobBodySchema = z
     topic: z.string().trim().min(TOPIC_MIN_LENGTH).max(TOPIC_MAX_LENGTH).optional(),
     instructions: z.string().max(2000).optional(),
     targetTitle: z.string().min(1).max(200).optional(),
+    /** По умолчанию COURSE. */
+    target: GenerationTargetSchema.optional(),
+    /** Курс той же группы, который нужно дополнить; не задан — будет создан новый. */
+    targetCourseId: IdSchema.optional(),
+    /** Кому адресовать задания модуля: не задан или пустой — всей группе. */
+    studentIds: z.array(IdSchema).optional(),
+    /** Дедлайн заданий модуля. */
+    dueAt: DateTimeSchema.optional(),
   })
   .refine((body) => (body.materialIds?.length ?? 0) > 0 || !!body.topic, {
     message: 'Укажи файлы материалов или опиши тему',
@@ -99,7 +118,8 @@ export const courseBuilderContract = c.router(
       pathParams: z.object({ jobId: IdSchema }),
       body: c.noBody(),
       responses: { 200: AcceptGenerationJobResultSchema },
-      summary: 'Принять черновик: создать Course (DRAFT), stage → ACCEPTED',
+      summary:
+        'Принять черновик: создать Course (DRAFT) или дополнить существующий; HOMEWORK публикуется сразу',
       metadata: userRoute('teacher:course-builder.use'),
     },
     cancelGenerationJob: {

@@ -1,5 +1,5 @@
 /**
- * ИИ-слой: онбординг, чат-тьютор, траектория. Владелец — B10 (секции A1/A2/A4).
+ * ИИ-слой: онбординг, чат-тьютор (ученика и родителя), траектория. Владелец — B10 (секции A1/A2/A4).
  * docs/05-api-contracts.md §5.3 `ai.ts`. Стриминговые ручки (SSE) — в `streaming.ts`.
  */
 import { initContract } from '@ts-rest/core';
@@ -61,9 +61,8 @@ export const OnboardingRecommendationsSchema = z.object({
 });
 export type OnboardingRecommendations = z.infer<typeof OnboardingRecommendationsSchema>;
 
-/** Отношение ученика к кружку по итогам онбординга. */
-export const ClubInterestStatusSchema = z.enum(['CHOSEN', 'LATER', 'SKIPPED']);
-export type ClubInterestStatus = z.infer<typeof ClubInterestStatusSchema>;
+/** Отношение ученика к кружку по итогам онбординга — enum живёт в `enums.ts`, здесь реэкспорт. */
+export { ClubInterestStatusSchema, type ClubInterestStatus } from '../enums';
 
 /** Спрос на кружок: сколько учеников записалось, хотят позже, и кому он был показан. */
 export const ClubDemandSchema = z.object({
@@ -167,7 +166,12 @@ export const aiContract = c.router(
       pathParams: z.object({ conversationId: IdSchema }),
       query: PaginationQuerySchema,
       responses: { 200: paginated(AiMessageDtoSchema) },
-      summary: 'История сообщений диалога',
+      /**
+       * Лента с конца: первая страница — последние сообщения (внутри страницы — по возрастанию
+       * времени), `nextCursor` ведёт к более старым.
+       */
+      summary:
+        'История сообщений диалога: первая страница — последние сообщения (внутри — по возрастанию времени), nextCursor ведёт к более старым',
       metadata: userRoute('student:tutor.chat'),
     },
     deleteConversation: {
@@ -178,6 +182,35 @@ export const aiContract = c.router(
       responses: { 204: c.noBody() },
       summary: 'Удалить диалог',
       metadata: userRoute('student:tutor.chat'),
+    },
+    listParentConversations: {
+      method: 'GET',
+      path: '/parent/children/:studentId/ai/conversations',
+      pathParams: z.object({ studentId: IdSchema }),
+      query: PaginationQuerySchema,
+      responses: { 200: paginated(ConversationDtoSchema) },
+      summary: 'Диалоги родителя с тьютором о ребёнке',
+      metadata: userRoute('parent:tutor.chat'),
+    },
+    createParentConversation: {
+      method: 'POST',
+      path: '/parent/children/:studentId/ai/conversations',
+      pathParams: z.object({ studentId: IdSchema }),
+      body: c.noBody(),
+      responses: { 200: ConversationDtoSchema },
+      summary: 'Создать диалог родителя с тьютором о ребёнке (kind TUTOR)',
+      metadata: userRoute('parent:tutor.chat'),
+    },
+    listParentConversationMessages: {
+      method: 'GET',
+      path: '/parent/ai/conversations/:conversationId/messages',
+      pathParams: z.object({ conversationId: IdSchema }),
+      query: PaginationQuerySchema,
+      responses: { 200: paginated(AiMessageDtoSchema) },
+      /** Пагинация — как у `listConversationMessages`: с конца, `nextCursor` — к более старым. */
+      summary:
+        'История сообщений диалога родителя: первая страница — последние сообщения (внутри — по возрастанию времени), nextCursor ведёт к более старым',
+      metadata: userRoute('parent:tutor.chat'),
     },
     getTrajectory: {
       method: 'GET',

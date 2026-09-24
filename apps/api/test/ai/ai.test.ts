@@ -38,6 +38,41 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
     await app.close();
   });
 
+  it('тьютор: история отдаётся с конца, курсор ведёт к старым; мусорный курсор и id → 400', async () => {
+    const token = await login('max-student-1');
+    const created = await http()
+      .post(`${base}/ai/conversations`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ kind: 'TUTOR' })
+      .expect(200);
+    await http()
+      .post(`${base}/ai/conversations/${created.body.id}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ text: 'Привет' })
+      .expect(200);
+
+    const url = `${base}/ai/conversations/${created.body.id}/messages`;
+    const first = await http()
+      .get(`${url}?limit=1`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(first.body.items.map((m: { role: string }) => m.role)).toEqual(['ASSISTANT']);
+    expect(first.body.nextCursor).toBeTypeOf('string');
+    const older = await http()
+      .get(`${url}?limit=1&cursor=${first.body.nextCursor}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(older.body.items.map((m: { role: string }) => m.role)).toEqual(['USER']);
+
+    const junk = Buffer.from(JSON.stringify({ x: 1 })).toString('base64url');
+    await http().get(`${url}?cursor=${junk}`).set('Authorization', `Bearer ${token}`).expect(400);
+    await http()
+      .post(`${base}/ai/conversations/not-a-uuid/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ text: 'Привет' })
+      .expect(400);
+  });
+
   it('тьютор: диалог, SSE-ответ с контекстом, история', async () => {
     const token = await login('max-student-1');
     const created = await http()

@@ -1,9 +1,4 @@
-import {
-  BLOCK_TYPE_META,
-  type CourseDraftBlock,
-  type GenerationJobDto,
-  KNOWLEDGE_NODE_TYPE_LABELS,
-} from '@edu/contracts';
+import type { CourseDraftBlock, GenerationJobDto } from '@edu/contracts';
 import {
   Badge,
   Button,
@@ -17,10 +12,12 @@ import {
   Text,
   useToast,
 } from '@edu/ui';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import {
+  generationStageTone,
   isGenerationRunning,
   useAcceptGenerationJob,
   useCancelGenerationJob,
@@ -30,18 +27,18 @@ import { describeApiError } from '@/shared/api/errors';
 import { formatRate } from '@/shared/lib/format';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
-function blockPreview(block: CourseDraftBlock): string | undefined {
+function blockPreview(block: CourseDraftBlock, t: TFunction<'teacher'>): string | undefined {
   switch (block.type) {
     case 'TEXT':
       return block.content.markdown.replace(/^#+\s*/gm, '').slice(0, 160);
     case 'QUIZ':
-      return `${block.content.questions.length} вопр.`;
+      return t('courseBuilder.job.preview.quiz', { count: block.content.questions.length });
     case 'INTERACTIVE':
       return block.content.kind === 'FLASHCARDS'
-        ? `${block.content.data.cards.length} карточек`
+        ? t('courseBuilder.job.preview.flashcards', { count: block.content.data.cards.length })
         : block.content.kind === 'FILL_GAPS'
-          ? 'пропуски в тексте'
-          : 'сопоставление';
+          ? t('courseBuilder.job.preview.fillGaps')
+          : t('courseBuilder.job.preview.matching');
     case 'PRACTICE':
     case 'HOMEWORK':
       return block.content.instructions.slice(0, 160);
@@ -75,19 +72,21 @@ export function GenerationJobPage() {
   const renderJob = (job: GenerationJobDto) => {
     const running = isGenerationRunning(job.stage);
     const knowledge = job.knowledge ?? null;
+    // Пока черновика нет (стадии до READY), показываем базу знаний — вкладка «Черновик» недоступна.
+    const activeTab = job.draft ? tab : 'knowledge';
     return (
       <Stack gap={4}>
         <Card>
           <Stack gap={2}>
             <Inline justify="between" align="center" wrap={false}>
               <Text weight="medium">{t(`courseBuilder.stage.${job.stage}`)}</Text>
-              <Badge tone={job.stage === 'FAILED' ? 'danger' : running ? 'info' : 'success'}>
-                {job.progress}%
-              </Badge>
+              <Badge tone={generationStageTone(job.stage)}>{job.progress}%</Badge>
             </Inline>
             <ProgressBar
               value={job.progress}
-              tone={job.stage === 'FAILED' ? 'danger' : 'info'}
+              tone={
+                job.stage === 'FAILED' ? 'danger' : job.stage === 'CANCELLED' ? 'neutral' : 'info'
+              }
               label={t('courseBuilder.job.progress')}
             />
             <Text variant="caption" tone="muted">
@@ -139,7 +138,7 @@ export function GenerationJobPage() {
         {(job.draft || knowledge) && (
           <Tabs
             fitted
-            value={tab}
+            value={activeTab}
             onChange={setTab}
             items={[
               { key: 'draft', label: t('courseBuilder.job.tabDraft'), disabled: !job.draft },
@@ -152,7 +151,7 @@ export function GenerationJobPage() {
           />
         )}
 
-        {tab === 'draft' && job.draft && (
+        {activeTab === 'draft' && job.draft && (
           <Stack gap={3}>
             <Stack gap={1}>
               <Text variant="title">{job.draft.title}</Text>
@@ -173,8 +172,8 @@ export function GenerationJobPage() {
                     <ListRow
                       key={`${block.title}-${blockIndex}`}
                       title={block.title}
-                      subtitle={blockPreview(block)}
-                      right={<Badge tone="neutral">{BLOCK_TYPE_META[block.type].label}</Badge>}
+                      subtitle={blockPreview(block, t)}
+                      right={<Badge tone="neutral">{t(`common:blockType.${block.type}`)}</Badge>}
                     />
                   ))}
                 </Card>
@@ -183,7 +182,7 @@ export function GenerationJobPage() {
           </Stack>
         )}
 
-        {tab === 'knowledge' && knowledge && (
+        {activeTab === 'knowledge' && knowledge && (
           <Stack gap={3}>
             <Card>
               <Stack gap={1}>
@@ -213,7 +212,7 @@ export function GenerationJobPage() {
                         title={node.title}
                         subtitle={`${node.statement} · [${node.atomIds.join(', ')}]`}
                         right={
-                          <Badge tone="neutral">{KNOWLEDGE_NODE_TYPE_LABELS[node.type]}</Badge>
+                          <Badge tone="neutral">{t(`common:knowledgeNodeType.${node.type}`)}</Badge>
                         }
                       />
                     ))}

@@ -84,15 +84,32 @@ describe('api client', () => {
     }
   });
 
-  it('404 без тела → NOT_FOUND (раздел в разработке)', async () => {
+  it('404 без тела (ручки нет за прокси) → NOT_IMPLEMENTED (раздел в разработке)', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
     const result = await api.dashboards.getStudentHome();
     try {
       unwrap(result);
       expect.unreachable();
     } catch (error) {
-      expect((error as ApiClientError).code).toBe('NOT_FOUND');
+      expect((error as ApiClientError).code).toBe('NOT_IMPLEMENTED');
+      expect((error as ApiClientError).status).toBe(404);
       expect((error as ApiClientError).isNotImplemented).toBe(true);
+    }
+  });
+
+  it('404 с телом ApiError → NOT_FOUND («не найдено», не «раздел в разработке»)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(404, {
+        error: { code: 'NOT_FOUND', message: 'Задание не найдено', requestId: 'req-2' },
+      }),
+    );
+    const result = await api.dashboards.getStudentHome();
+    try {
+      unwrap(result);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as ApiClientError).code).toBe('NOT_FOUND');
+      expect((error as ApiClientError).isNotImplemented).toBe(false);
     }
   });
 
@@ -144,6 +161,37 @@ describe('api client', () => {
     expect(result.status).toBe(401);
     expect(adapter.onUnauthorized).toHaveBeenCalledTimes(1);
     expect(() => unwrap(result)).toThrow(ApiClientError);
+  });
+
+  it('401 и сетевой сбой refresh → сессию не трогаем, ошибка EXTERNAL_INTEGRATION', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { code: 'UNAUTHORIZED', message: 'expired' } }),
+      )
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await expect(api.auth.getMe()).rejects.toMatchObject({
+      code: 'EXTERNAL_INTEGRATION',
+      status: 0,
+    });
+    expect(adapter.onUnauthorized).not.toHaveBeenCalled();
+    expect(adapter.onTokensRefreshed).not.toHaveBeenCalled();
+    expect(adapter.refresh).toBe('refresh-1');
+  });
+
+  it('401 и 503 на refresh → ответ 503 (TanStack ретраит), без onUnauthorized', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { code: 'UNAUTHORIZED', message: 'expired' } }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const result = await api.auth.getMe();
+    expect(result.status).toBe(503);
+    expect(adapter.onUnauthorized).not.toHaveBeenCalled();
+    expect(() => unwrap(result)).toThrow(
+      expect.objectContaining({ code: 'EXTERNAL_INTEGRATION', status: 503 }),
+    );
   });
 
   it('сетевая ошибка → ApiClientError EXTERNAL_INTEGRATION', async () => {

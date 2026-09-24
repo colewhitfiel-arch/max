@@ -1,0 +1,48 @@
+{
+  "title": "Home",
+  "header": {
+    "wallet": "Balance {{amount}}, top up",
+    "walletUnknown": "Top up balance",
+    "walletError": "Balance failed to load, top up"
+  },
+  "children": {
+    "label": "Children",
+    "add": "Add",
+    "empty": "Add your child",
+    "emptyHint": "Tap “+” above: send your child an invite link in MAX or enter the code from their profile. Their schedule and completed tasks will appear here."
+  },
+  "schedule": {
+    "teacher": "Tutor",
+    "addClub": "Add a club"
+  },
+  "homework": {
+    "title": "Completed tasks",
+    "period": "Period",
+    "days": {
+      "1": "1 day",
+      "7": "7 days",
+      "30": "30 days"
+    },
+    "footnote": "* — number of recommended tasks",
+    "list": "Completed tasks by club",
+    "bubble": "{{club}}: {{done}} done, {{recommended}} recommended",
+    "empty": "No clubs with tasks yet"
+  },
+  "wallet": {
+    "title": "Top up balance",
+    "balance": "Current balance",
+    "question": "How much would you like to add?",
+    "amount": "Amount, ₽",
+    "amountPlaceholder": "e.g. 1000",
+    "limits": "From {{min}} to {{max}}",
+    "presets": "Quick amounts",
+    "tooSmall": "Minimum amount is {{min}}",
+    "tooLarge": "Maximum amount is {{max}}",
+    "invalid": "Enter a whole number of rubles",
+    "submit": "Top up",
+    "submitAmount": "Top up {{amount}}",
+    "success": "Balance topped up (demo mode)",
+    "stubTitle": "Demo mode",
+    "stub": "Payments are not connected yet: no money is charged, the balance is credited instantly."
+  }
+}

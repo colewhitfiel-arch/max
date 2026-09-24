@@ -5,6 +5,7 @@ import {
   CourseDraftSchema,
   type GenerationSourceKind,
   type GenerationStage,
+  type GenerationTarget,
   type KnowledgeAtom,
   type KnowledgeBase,
   type KnowledgeNode,
@@ -25,6 +26,8 @@ export interface PipelineJob {
   /** User.id преподавателя — для меты запросов к модели. */
   userId: string;
   sourceKind: GenerationSourceKind;
+  /** COURSE — несколько модулей; HOMEWORK — ровно один (одно занятие/одно ДЗ). */
+  target: GenerationTarget;
   topic: string | null;
   materialIds: string[];
   instructions: string | null;
@@ -51,13 +54,25 @@ export class PipelineCancelledError extends Error {
 
 const MIN_NODES = 2;
 
+/** Отчёты по одному: запись в БД с меньшим прогрессом не обгонит запись с большим. */
+function serialize<T>(fn: (value: T) => Promise<void>): (value: T) => Promise<void> {
+  let chain: Promise<void> = Promise.resolve();
+  return (value) => {
+    const next = chain.then(() => fn(value));
+    chain = next.catch(() => undefined);
+    return next;
+  };
+}
+
 /**
  * Оркестратор стадий (docs/02 §2.7, переработано под атомы):
  *   EXTRACTING  файлы → текст (или конспект по теме от модели) → атомы
  *   OUTLINING   окна атомов → survey (параллельно) → проверка цитат → детерминированный план
  *   GENERATING  по модулю — урок от модели (параллельно), маппинг в блоки контракта
  *   ASSEMBLING  сборка CourseDraft и валидация схемой
- * Между стадиями проверяется отмена. Прогресс отдаётся наружу через `report`.
+ * Отмена проверяется между стадиями и перед каждым окном/уроком; при отмене текущие запросы
+ * к модели прерываются через AbortSignal. Прогресс отдаётся наружу через `report`
+ * (последовательно — значения не «прыгают назад» из-за параллельных воркеров).
  */
 @Injectable()
 export class CoursePipelineRunner {
@@ -74,18 +89,41 @@ export class CoursePipelineRunner {
 
   async run(
     job: PipelineJob,
+    rawReport: (p: PipelineProgress) => Promise<void>,
+    isCancelled: () => Promise<boolean>,
+  ): Promise<PipelineResult> {
+    const controller = new AbortController();
+    try {
+      return await this.runStages(job, serialize(rawReport), isCancelled, controller);
+    } catch (error) {
+      // AbortError летящих запросов после отмены — это отмена, а не сбой
+      if (controller.signal.aborted) throw new PipelineCancelledError();
+      throw error;
+    } finally {
+      // Не даём долететь параллельным запросам после первой ошибки
+      if (!controller.signal.aborted) controller.abort();
+    }
+  }
+
+  private async runStages(
+    job: PipelineJob,
     report: (p: PipelineProgress) => Promise<void>,
     isCancelled: () => Promise<boolean>,
+    controller: AbortController,
   ): Promise<PipelineResult> {
     const parallel = this.env.COURSE_BUILDER_MAX_PARALLEL;
     const instructions = job.instructions ?? undefined;
+    const { signal } = controller;
     const guard = async () => {
-      if (await isCancelled()) throw new PipelineCancelledError();
+      if (signal.aborted || (await isCancelled())) {
+        controller.abort();
+        throw new PipelineCancelledError();
+      }
     };
 
     // ---- EXTRACTING ----
     await report({ stage: 'EXTRACTING', progress: 5 });
-    const { atoms, materialTitle } = await this.extract(job);
+    const { atoms, materialTitle } = await this.extract(job, signal);
     if (atoms.length === 0) throw Errors.businessRule('Из материалов не получилось выделить текст');
     this.log.info({ jobId: job.id, atoms: atoms.length }, 'атомы готовы');
     await guard();
@@ -95,7 +133,8 @@ export class CoursePipelineRunner {
     const windows = windowAtoms(atoms);
     let done = 0;
     const surveyed = await mapLimit(windows, parallel, async (window) => {
-      const nodes = await this.generator.surveyWindow(window, instructions, job.userId);
+      await guard();
+      const nodes = await this.generator.surveyWindow(window, instructions, job.userId, signal);
       done += 1;
       await report({ stage: 'OUTLINING', progress: 25 + Math.round((done / windows.length) * 25) });
       return nodes;
@@ -106,7 +145,11 @@ export class CoursePipelineRunner {
         'Модель не нашла в материале достаточно узлов знаний с подтверждёнными цитатами',
       );
     }
-    const plan = planModules(verified.nodes);
+    // Одно ДЗ — ровно один модуль: ученику это одно занятие в курсе, а не новый курс.
+    const plan = planModules(
+      verified.nodes,
+      job.target === 'HOMEWORK' ? { maxModules: 1, minPerModule: 1 } : {},
+    );
     const knowledge: KnowledgeBase = {
       atoms,
       nodes: verified.nodes,
@@ -131,6 +174,7 @@ export class CoursePipelineRunner {
     const atomById = new Map(atoms.map((a) => [a.id, a]));
     let written = 0;
     const modules = await mapLimit(plan, parallel, async (module, index) => {
+      await guard();
       const nodes = module.nodeIds.map((id) => nodeById.get(id)!).filter(Boolean);
       const promptNodes = nodes.map((n) => this.toPromptNode(n, atomById));
       const lesson = await this.generator.writeLesson(
@@ -141,6 +185,7 @@ export class CoursePipelineRunner {
           position: { index, total: plan.length },
         },
         job.userId,
+        signal,
       );
       written += 1;
       await report({
@@ -168,6 +213,7 @@ export class CoursePipelineRunner {
 
   private async extract(
     job: PipelineJob,
+    signal: AbortSignal,
   ): Promise<{ atoms: KnowledgeAtom[]; materialTitle: string | null }> {
     if (job.sourceKind === 'TOPIC') {
       if (!job.topic) throw Errors.validation('Для режима «по теме» нужна тема');
@@ -178,6 +224,7 @@ export class CoursePipelineRunner {
           ...(job.targetTitle ? { targetTitle: job.targetTitle } : {}),
         },
         job.userId,
+        signal,
       );
       return {
         atoms: atomize(renderTopicMaterial(material), 'topic'),

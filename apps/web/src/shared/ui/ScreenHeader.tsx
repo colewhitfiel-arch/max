@@ -9,7 +9,7 @@ import { queryKeys } from '../api/query-keys';
 export interface ScreenHeaderProps {
   title: ReactNode;
   subtitle?: ReactNode;
-  /** true — `navigate(-1)`; строка — путь назад. */
+  /** true — `navigate(-1)`; строка — замена экрана на родительский путь (replace). */
   back?: boolean | string;
   /** Колокольчик со счётчиком непрочитанных → /notifications. */
   bell?: boolean;
@@ -56,8 +56,9 @@ export function ScreenHeader({
   sticky,
 }: ScreenHeaderProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
   const onBack = back
-    ? () => (typeof back === 'string' ? navigate(back) : navigate(-1))
+    ? () => (typeof back === 'string' ? navigate(back, { replace: true }) : navigate(-1))
     : undefined;
   return (
     <PageHeader
@@ -66,6 +67,7 @@ export function ScreenHeader({
       title={title}
       subtitle={subtitle}
       onBack={onBack}
+      backLabel={t('actions.back')}
       actions={
         actions || bell ? (
           <>

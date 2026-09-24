@@ -5,6 +5,7 @@ import { type Env } from '../../config/env';
 import { ENV } from '../../config/env.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { CoursesModule } from '../courses/courses.module';
+import { FamilyModule } from '../family/family.module';
 import { GroupsModule } from '../groups/groups.module';
 import { IdentityModule } from '../identity/identity.module';
 import { AiStreamController } from './ai-stream.controller';
@@ -15,17 +16,19 @@ import { AiJobs } from './ai.jobs';
 import { AiRepository } from './ai.repository';
 import { StudentContextBuilder } from './context-builder';
 import { OnboardingService } from './onboarding.service';
+import { ParentTutorService } from './parent-tutor.service';
 import { TrajectoryService } from './trajectory.service';
 import { TutorService } from './tutor.service';
 
 /**
  * Модуль ai (M09): AiService (mock | gigachat по AI_PROVIDER) — глобально; поверх него —
- * онбординг с подбором кружков, тьютор (SSE) и персональная траектория (workstream C).
+ * онбординг с подбором кружков, тьютор ученика и родителя (SSE) и персональная траектория
+ * (workstream C).
  * Никакой модуль не импортирует GigaChat напрямую — только AiService.
  */
 @Global()
 @Module({
-  imports: [IdentityModule, GroupsModule, CatalogModule, CoursesModule],
+  imports: [IdentityModule, GroupsModule, CatalogModule, CoursesModule, FamilyModule],
   controllers: [AiController, AiStreamController],
   providers: [
     {
@@ -37,6 +40,7 @@ import { TutorService } from './tutor.service';
     AiRepository,
     StudentContextBuilder,
     TutorService,
+    ParentTutorService,
     OnboardingService,
     TrajectoryService,
     AiJobs,

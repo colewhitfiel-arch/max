@@ -21,6 +21,12 @@ export interface SegmentedControlProps extends Omit<HTMLAttributes<HTMLDivElemen
   onChange?: (value: string) => void;
   /** Размер: sm 32px, md 40px. По умолчанию `md`. */
   size?: 'sm' | 'md';
+  /**
+   * Вид: `default` — сегменты на поверхности; `accent` — «таблетка» цвета
+   * `--ui-color-accent-2` с белым выбранным сегментом и объёмной тенью справа
+   * (переключатель периода на главной родителя; размер задан макетом, `size` не влияет).
+   */
+  variant?: 'default' | 'accent';
   /** Растянуть на всю ширину. */
   fullWidth?: boolean;
   /** Отключить все сегменты. */
@@ -36,6 +42,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
       defaultValue,
       onChange,
       size = 'md',
+      variant = 'default',
       fullWidth = false,
       disabled = false,
       className,
@@ -46,10 +53,16 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
     const firstEnabled = options.find((o) => !o.disabled)?.value ?? options[0]?.value ?? '';
     const [current, setCurrent] = useControllable(value, defaultValue ?? firstEnabled, onChange);
     const refs = useRef(new Map<string, HTMLButtonElement>());
-    const currentIndex = Math.max(
-      0,
-      options.findIndex((o) => o.value === current),
-    );
+    const matchedIndex = options.findIndex((o) => o.value === current);
+    // Roving tabindex: если value не совпал ни с одной опцией, в tab-order — первая доступная,
+    // иначе группа недостижима с клавиатуры.
+    const currentIndex =
+      matchedIndex >= 0
+        ? matchedIndex
+        : Math.max(
+            0,
+            options.findIndex((o) => !o.disabled),
+          );
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
       if (disabled) return;
@@ -70,12 +83,13 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
         className={cx('ui-segmented', className)}
         role="radiogroup"
         data-size={size}
+        data-variant={variant}
         data-full-width={fullWidth || undefined}
         data-disabled={disabled || undefined}
         onKeyDown={handleKeyDown}
         {...rest}
       >
-        {options.map((option) => {
+        {options.map((option, index) => {
           const checked = option.value === current;
           return (
             <button
@@ -88,7 +102,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
               role="radio"
               className="ui-segmented__item"
               aria-checked={checked}
-              tabIndex={checked ? 0 : -1}
+              tabIndex={index === currentIndex ? 0 : -1}
               disabled={disabled || option.disabled}
               data-state={checked ? 'checked' : 'unchecked'}
               onClick={() => setCurrent(option.value)}

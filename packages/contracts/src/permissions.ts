@@ -24,6 +24,7 @@ export const PERMISSIONS = [
   'student:assignments.submit',
   'student:tutor.chat',
   'student:trajectory.view',
+  'student:parents.link',
   // родитель
   'parent:children.manage',
   'parent:child.home.view',
@@ -32,6 +33,7 @@ export const PERMISSIONS = [
   'parent:child.calendar.view',
   'parent:payments.view',
   'parent:payments.pay',
+  'parent:tutor.chat',
   // преподаватель
   'teacher:home.view',
   'teacher:groups.view',
@@ -42,6 +44,8 @@ export const PERMISSIONS = [
   'teacher:submissions.grade',
   'teacher:courses.manage',
   'teacher:course-builder.use',
+  'teacher:wallet.view',
+  'teacher:wallet.withdraw',
   // администратор школы (зарезервировано)
   'admin:school.manage',
 ] as const;
@@ -70,6 +74,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'student:assignments.submit',
     'student:tutor.chat',
     'student:trajectory.view',
+    'student:parents.link',
   ],
   PARENT: [
     ...COMMON,
@@ -80,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'parent:child.calendar.view',
     'parent:payments.view',
     'parent:payments.pay',
+    'parent:tutor.chat',
   ],
   TEACHER: [
     ...COMMON,
@@ -92,6 +98,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'teacher:submissions.grade',
     'teacher:courses.manage',
     'teacher:course-builder.use',
+    'teacher:wallet.view',
+    'teacher:wallet.withdraw',
   ],
   SCHOOL_ADMIN: [...COMMON, 'admin:school.manage'],
 };

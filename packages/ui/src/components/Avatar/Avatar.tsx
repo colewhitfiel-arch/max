@@ -32,8 +32,9 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
   { src, name, size = 'md', ring = false, className, ...rest },
   ref,
 ) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
+  // Запоминаем, какой именно src не загрузился: новый src снова пробуем показать.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = Boolean(src) && failedSrc !== src;
   const initials = name ? getInitials(name) : '';
 
   return (
@@ -52,7 +53,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(function Avatar(
           className="ui-avatar__image"
           src={src ?? undefined}
           alt=""
-          onError={() => setFailed(true)}
+          onError={() => setFailedSrc(src ?? null)}
         />
       ) : initials ? (
         <span className="ui-avatar__initials" aria-hidden="true">

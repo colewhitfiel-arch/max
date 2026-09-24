@@ -1,6 +1,7 @@
 import type { AuthResult, MeDto } from '@edu/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ClientModule from '../api/client';
+import { ApiClientError } from '../api/errors';
 import { MockMaxBridge } from '../max/mock-bridge';
 
 const mocks = vi.hoisted(() => ({
@@ -99,6 +100,26 @@ describe('auth store', () => {
     expect(await bridge.storage.get(AUTH_STORAGE_KEYS.refresh)).toBeNull();
   });
 
+  it('logout: если во время запроса пара ротировалась (протухший access) — отзывает и свежий refresh', async () => {
+    mocks.loginDev.mockResolvedValueOnce(
+      ok({ accessToken: 'a1', refreshToken: 'r1', me: me('TEACHER') }),
+    );
+    await useAuthStore.getState().loginDev('max-teacher-1', ['TEACHER']);
+    mocks.logout.mockImplementationOnce(async () => {
+      // Клиент по 401 обновил пару и повторил logout со старым r1 в теле.
+      useAuthStore.getState().setTokens({ accessToken: 'a2', refreshToken: 'r2' });
+      return { status: 204, body: undefined, headers: new Headers() };
+    });
+    mocks.logout.mockResolvedValueOnce({ status: 204, body: undefined, headers: new Headers() });
+
+    await useAuthStore.getState().logout();
+
+    expect(mocks.logout).toHaveBeenNthCalledWith(1, { body: { refreshToken: 'r1' } });
+    expect(mocks.logout).toHaveBeenNthCalledWith(2, { body: { refreshToken: 'r2' } });
+    expect(useAuthStore.getState().status).toBe('anonymous');
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.refresh)).toBeNull();
+  });
+
   it('switchRole меняет me.activeRole и токены', async () => {
     mocks.loginDev.mockResolvedValueOnce(
       ok({ accessToken: 'a1', refreshToken: 'r1', me: me('TEACHER') }),
@@ -126,6 +147,51 @@ describe('auth store', () => {
     expect(mocks.refresh).toHaveBeenCalledWith({ body: { refreshToken: 'r-stored' } });
     expect(useAuthStore.getState().status).toBe('authenticated');
     expect(useAuthStore.getState().me?.activeRole).toBe('PARENT');
+  });
+
+  it('bootstrapAuth: сетевая ошибка refresh → anonymous, но токены в storage остаются', async () => {
+    memory.set(AUTH_STORAGE_KEYS.refresh, 'r-stored');
+    memory.set(AUTH_STORAGE_KEYS.access, 'a-stored');
+    mocks.refresh.mockRejectedValueOnce(
+      new ApiClientError({ code: 'EXTERNAL_INTEGRATION', message: 'Failed to fetch', status: 0 }),
+    );
+
+    await bootstrapAuth(bridge);
+
+    const state = useAuthStore.getState();
+    expect(state.status).toBe('anonymous');
+    expect(state.error?.code).toBe('EXTERNAL_INTEGRATION');
+    expect(state.refreshToken).toBeNull();
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.refresh)).toBe('r-stored');
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.access)).toBe('a-stored');
+  });
+
+  it('bootstrapAuth: 503 на GET /me → токены в storage остаются', async () => {
+    memory.set(AUTH_STORAGE_KEYS.refresh, 'r-stored');
+    mocks.refresh.mockResolvedValueOnce(ok({ accessToken: 'a-new', refreshToken: 'r-new' }));
+    mocks.getMe.mockResolvedValueOnce({ status: 503, body: undefined, headers: new Headers() });
+
+    await bootstrapAuth(bridge);
+
+    expect(useAuthStore.getState().status).toBe('anonymous');
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.refresh)).toBe('r-new');
+  });
+
+  it('bootstrapAuth: сервер отверг refresh (401) → storage очищен', async () => {
+    memory.set(AUTH_STORAGE_KEYS.refresh, 'r-stored');
+    memory.set(AUTH_STORAGE_KEYS.access, 'a-stored');
+    mocks.refresh.mockResolvedValueOnce({
+      status: 401,
+      body: { error: { code: 'UNAUTHORIZED', message: 'bad refresh' } },
+      headers: new Headers(),
+    });
+
+    await bootstrapAuth(bridge);
+
+    expect(useAuthStore.getState().status).toBe('anonymous');
+    expect(useAuthStore.getState().error?.code).toBe('UNAUTHORIZED');
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.refresh)).toBeNull();
+    expect(await bridge.storage.get(AUTH_STORAGE_KEYS.access)).toBeNull();
   });
 
   it('bootstrapAuth: без refresh в dev-режиме → anonymous', async () => {

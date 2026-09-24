@@ -1,0 +1,134 @@
+/* Макет «календарь»: панель #1e1e1e от строки «календарь · дата · колокольчик» до низа экрана.
+ * Вкладка 238/402 ширины с радиусом 26 и вогнутыми углами 26px, тело с радиусом 30,
+ * внутри — карточки #323131 с радиусом 40: квадрат 192 и узкая 136 через 14px, поля 30px. */
+.ui-dock-sheet {
+  --ui-dock-sheet-concave: 26px;
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: var(--ui-z-sheet);
+  display: flex;
+  flex-direction: column;
+  width: min(100%, var(--ui-content-max-width));
+  min-height: 291px;
+  color: var(--ui-color-text);
+  transform: translateX(-50%);
+  /* Вырезы по бокам вкладки пропускают тапы к кнопкам строки-якоря. */
+  pointer-events: none;
+  outline: none;
+  animation: ui-dock-sheet-in var(--ui-duration-normal) var(--ui-easing);
+}
+
+.ui-dock-sheet__tab {
+  position: relative;
+  flex: none;
+  align-self: center;
+  width: 59.2%;
+  height: 52px;
+  border-radius: var(--ui-dock-sheet-concave) var(--ui-dock-sheet-concave) 0 0;
+  background: var(--ui-color-surface);
+  pointer-events: auto;
+}
+
+/* Вогнутые углы между вкладкой и телом панели. */
+.ui-dock-sheet__tab::before,
+.ui-dock-sheet__tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: var(--ui-dock-sheet-concave);
+  height: var(--ui-dock-sheet-concave);
+  pointer-events: none;
+}
+
+.ui-dock-sheet__tab::before {
+  right: 100%;
+  background: radial-gradient(
+    circle at 0 0,
+    transparent var(--ui-dock-sheet-concave),
+    var(--ui-color-surface) calc(var(--ui-dock-sheet-concave) + 0.5px)
+  );
+}
+
+.ui-dock-sheet__tab::after {
+  left: 100%;
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent var(--ui-dock-sheet-concave),
+    var(--ui-color-surface) calc(var(--ui-dock-sheet-concave) + 0.5px)
+  );
+}
+
+.ui-dock-sheet__tab-label {
+  padding: 8px var(--ui-space-2) 0;
+  overflow: hidden;
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 24px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-dock-sheet__body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 14px;
+  padding: 25px clamp(16px, 7.46%, 30px) calc(22px + env(safe-area-inset-bottom));
+  border-radius: var(--ui-radius-xl) var(--ui-radius-xl) 0 0;
+  background: var(--ui-color-surface);
+  pointer-events: auto;
+}
+
+.ui-dock-sheet__body[data-aside] {
+  grid-template-columns: minmax(0, 192fr) minmax(0, 136fr);
+}
+
+.ui-dock-sheet__card {
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 14px;
+  border-radius: 40px;
+  background: var(--ui-color-surface-3);
+  overflow: hidden;
+}
+
+.ui-dock-sheet__body:not([data-aside]) .ui-dock-sheet__card {
+  aspect-ratio: auto;
+}
+
+/* Узкая карточка не растит строку: высота — как у квадрата, лишнее прокручивается.
+ * Боковые поля держат под текст ≈110px: карточка 136px на 402px, 126px на 375px, 121px на 360px
+ * (доли 136/328 тела). 50% − 55px от ширины карточки: 13px на 402px (в макете 14px), 8px на
+ * 375px, 6px на 360px — «Программирование» подписью micro (10px, ≈106.5px) влезает целиком.
+ * Уже 360px слово, не влезающее целиком в строку, переносится (последний шанс вместо обрезки). */
+.ui-dock-sheet__aside {
+  aspect-ratio: auto;
+  contain: size;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px clamp(6px, calc(50% - 55px), 14px);
+  scrollbar-width: none;
+  overflow-wrap: break-word;
+}
+
+.ui-dock-sheet__aside::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes ui-dock-sheet-in {
+  from {
+    transform: translate(-50%, 100%);
+  }
+  to {
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dock-sheet {
+    animation: none;
+  }
+}

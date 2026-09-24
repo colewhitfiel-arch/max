@@ -2,7 +2,7 @@ import { Button, Field, Input, Stack, useToast } from '@edu/ui';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLinkChild } from '@/entities/student';
-import { describeApiError } from '@/shared/api/errors';
+import { describeApiError, isApiClientError } from '@/shared/api/errors';
 
 export interface LinkChildFormProps {
   onLinked?: (studentId: string) => void;
@@ -15,10 +15,17 @@ export function LinkChildForm({ onLinked }: LinkChildFormProps) {
   const [code, setCode] = useState('');
   const link = useLinkChild();
 
+  // Неизвестный код и уже привязанный ребёнок — ожидаемые ответы, а не «раздел в разработке».
+  const errorText = (error: unknown) => {
+    if (isApiClientError(error) && error.code === 'NOT_FOUND') return t('children.codeNotFound');
+    if (isApiClientError(error) && error.code === 'CONFLICT') return t('children.alreadyLinked');
+    return describeApiError(error);
+  };
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = code.trim().toUpperCase();
-    if (!trimmed) return;
+    if (!trimmed || link.isPending) return;
     link.mutate(trimmed, {
       onSuccess: (result) => {
         toast.show({ tone: 'success', title: t('children.linked') });
@@ -34,11 +41,15 @@ export function LinkChildForm({ onLinked }: LinkChildFormProps) {
         <Field
           label={t('children.code')}
           required
-          error={link.isError ? describeApiError(link.error) : undefined}
+          error={link.isError ? errorText(link.error) : undefined}
         >
           <Input
             value={code}
-            onChange={(event) => setCode(event.target.value)}
+            onChange={(event) => {
+              setCode(event.target.value);
+              // Код исправляют — прежняя ошибка уже не про него.
+              if (link.isError) link.reset();
+            }}
             placeholder={t('children.codePlaceholder')}
             autoCapitalize="characters"
             autoComplete="off"

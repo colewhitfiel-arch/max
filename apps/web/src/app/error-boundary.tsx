@@ -1,5 +1,6 @@
 import { AppLayout, Button, ErrorState, Screen } from '@edu/ui';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { i18n } from '@/shared/i18n';
 
 interface Props {
   children: ReactNode;
@@ -9,7 +10,11 @@ interface State {
   error: Error | null;
 }
 
-/** Последний рубеж: необработанная ошибка рендера → экран с перезагрузкой. */
+/**
+ * Последний рубеж вне роутера (Splash, bootstrap, сам RouterProvider): необработанная ошибка
+ * рендера → экран с перезагрузкой. Ошибки страниц ловит `errorElement` роутера (route-error.tsx).
+ * Тексты — на языке момента падения (классовый компонент не подписан на смену языка).
+ */
 export class ErrorBoundary extends Component<Props, State> {
   override state: State = { error: null };
 
@@ -28,13 +33,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <AppLayout.Content>
           <Screen>
             <ErrorState
-              title="Что-то сломалось"
+              title={i18n.t('common:errors.crashTitle')}
               description={this.state.error.message}
               onRetry={() => window.location.reload()}
-              retryLabel="Перезагрузить"
+              retryLabel={i18n.t('common:errors.reload')}
             />
             <Button variant="ghost" onClick={() => this.setState({ error: null })}>
-              Попробовать продолжить
+              {i18n.t('common:errors.tryContinue')}
             </Button>
           </Screen>
         </AppLayout.Content>

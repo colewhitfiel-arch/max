@@ -21,7 +21,10 @@ export interface RetryOptions {
    * Лимиты провайдера обычно посекундные, короткий джиттер их не переживает.
    */
   rateLimitDelayMs?: number;
-  /** По умолчанию — `AiProviderError.retryable`; отмена никогда не повторяется. */
+  /**
+   * По умолчанию — `AiProviderError.retryable`; отмена никогда не повторяется.
+   * `attempt` — индекс неудачной попытки с 0 (в отличие от `RetryInfo.attempt`, который с 1).
+   */
   shouldRetry?: (error: unknown, attempt: number) => boolean;
   onRetry?: (info: RetryInfo) => void;
   signal?: AbortSignal;
@@ -53,7 +56,8 @@ export interface BackoffParams {
 
 /**
  * Экспоненциальная задержка с джиттером: `base * 2^attempt`, умноженная на случайный
- * коэффициент из [0.5, 1], не меньше `retryAfterMs` и не больше `maxDelayMs`.
+ * коэффициент из [0.5, 1]. Подсказка `retryAfterMs` поднимает задержку до себя, но итог всегда
+ * не больше `maxDelayMs` (серверный `Retry-After` больше `maxDelayMs` `withRetry` не ретраит).
  */
 export function computeBackoff(attempt: number, params: BackoffParams): number {
   const random = params.random ?? Math.random;
@@ -67,6 +71,8 @@ export function computeBackoff(attempt: number, params: BackoffParams): number {
 /**
  * Выполняет `fn`, повторяя при ошибках, для которых `shouldRetry` вернул `true`.
  * `fn` получает номер попытки (с 0). Последняя ошибка пробрасывается как есть.
+ * Если сервер просит подождать (`Retry-After`) дольше `maxDelayMs`, повтора нет: ошибка сразу уходит
+ * вызывающему со своим `retryAfterMs` — иначе повтор пришёл бы раньше срока и снова получил 429.
  */
 export async function withRetry<T>(
   fn: (attempt: number) => Promise<T>,
@@ -85,6 +91,7 @@ export async function withRetry<T>(
       return await fn(attempt);
     } catch (error) {
       if (attempt >= maxRetries || signal?.aborted || !shouldRetry(error, attempt)) throw error;
+      if (isAiProviderError(error) && (error.retryAfterMs ?? 0) > maxDelayMs) throw error;
       const delayMs = computeBackoff(attempt, {
         baseDelayMs,
         maxDelayMs,

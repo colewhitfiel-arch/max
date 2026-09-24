@@ -6,6 +6,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { adminRoutes } from '@/pages/admin/routes';
 import { authRoutes } from '@/pages/auth/routes';
 import { forbiddenRoute } from '@/pages/forbidden/routes';
+import { inviteRoutes } from '@/pages/invite/routes';
 import { notFoundRoute } from '@/pages/not-found/routes';
 import { notificationsRoutes } from '@/pages/notifications/routes';
 import { onboardingRoutes } from '@/pages/onboarding/routes';
@@ -14,7 +15,10 @@ import { parentChildrenRoutes } from '@/pages/parent/children/routes';
 import { parentCoursesRoutes } from '@/pages/parent/courses/routes';
 import { parentHomeRoutes } from '@/pages/parent/home/routes';
 import { parentPaymentsRoutes } from '@/pages/parent/payments/routes';
+import { parentProfileRoutes } from '@/pages/parent/profile/routes';
 import { parentSettingsRoutes } from '@/pages/parent/settings/routes';
+import { parentTutorRoutes } from '@/pages/parent/tutor/routes';
+import { parentWalletRoutes } from '@/pages/parent/wallet/routes';
 import { studentAssignmentsRoutes } from '@/pages/student/assignments/routes';
 import { studentCoursesRoutes } from '@/pages/student/courses/routes';
 import { studentHomeRoutes } from '@/pages/student/home/routes';
@@ -22,16 +26,22 @@ import { studentProfileRoutes } from '@/pages/student/profile/routes';
 import { studentSettingsRoutes } from '@/pages/student/settings/routes';
 import { studentTutorRoutes } from '@/pages/student/tutor/routes';
 import { teacherAssignmentsRoutes } from '@/pages/teacher/assignments/routes';
+import { teacherAttendanceRoutes } from '@/pages/teacher/attendance/routes';
 import { teacherClubDemandRoutes } from '@/pages/teacher/club-demand/routes';
 import { teacherCourseBuilderRoutes } from '@/pages/teacher/course-builder/routes';
 import { teacherCoursesRoutes } from '@/pages/teacher/courses/routes';
 import { teacherGroupsRoutes } from '@/pages/teacher/groups/routes';
 import { teacherHomeRoutes } from '@/pages/teacher/home/routes';
 import { teacherMoreRoutes } from '@/pages/teacher/more/routes';
+import { teacherPerformanceRoutes } from '@/pages/teacher/performance/routes';
+import { teacherProfileRoutes } from '@/pages/teacher/profile/routes';
+import { teacherSettingsRoutes } from '@/pages/teacher/settings/routes';
 import { teacherStudentsRoutes } from '@/pages/teacher/students/routes';
+import { teacherWalletRoutes } from '@/pages/teacher/wallet/routes';
 import { RequireAuth } from '@/shared/auth/guards';
 import { config } from '@/shared/config';
 import { RootRedirect } from './root-redirect';
+import { RouteErrorScreen } from './route-error';
 import { ParentShell, StudentShell, TeacherShell } from './shells';
 
 const devRoutes: RouteObject[] = config.isDev
@@ -64,11 +74,14 @@ export const routes: RouteObject[] = [
     element: <ParentShell />,
     children: [
       ...parentHomeRoutes,
+      ...parentWalletRoutes,
       ...parentChildrenRoutes,
+      ...parentTutorRoutes,
       ...parentAnalyticsRoutes,
       ...parentCoursesRoutes,
       ...parentPaymentsRoutes,
       ...parentSettingsRoutes,
+      ...parentProfileRoutes,
     ],
   },
   {
@@ -76,20 +89,34 @@ export const routes: RouteObject[] = [
     element: <TeacherShell />,
     children: [
       ...teacherHomeRoutes,
-      ...teacherGroupsRoutes,
+      ...teacherWalletRoutes,
+      ...teacherPerformanceRoutes,
       ...teacherStudentsRoutes,
+      ...teacherGroupsRoutes,
       ...teacherCoursesRoutes,
       ...teacherCourseBuilderRoutes,
       ...teacherClubDemandRoutes,
       ...teacherAssignmentsRoutes,
+      ...teacherAttendanceRoutes,
+      ...teacherSettingsRoutes,
+      ...teacherProfileRoutes,
+      // `/teacher/more` — старый адрес «Ещё»: редирект на настройки.
       ...teacherMoreRoutes,
     ],
   },
   { path: '/notifications', element: <RequireAuth />, children: notificationsRoutes },
+  // Ссылка-приглашение родителя (F14): открывает ученик, роль проверяет сама страница.
+  { path: '/invite', element: <RequireAuth />, children: inviteRoutes },
   { path: '/admin', element: <RequireAuth />, children: adminRoutes },
   ...devRoutes,
   { path: '/403', ...forbiddenRoute },
   { path: '*', ...notFoundRoute },
 ];
 
-export const router = createBrowserRouter(routes);
+/**
+ * Pathless-корень с `errorElement`: ошибки рендера страниц и падения `lazy()` показывают наш экран,
+ * а не встроенный «Unexpected Application Error!» (ErrorBoundary в providers их не видит).
+ */
+export const rootRoutes: RouteObject[] = [{ errorElement: <RouteErrorScreen />, children: routes }];
+
+export const router = createBrowserRouter(rootRoutes);

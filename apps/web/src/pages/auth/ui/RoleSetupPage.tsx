@@ -1,4 +1,4 @@
-import { ROLE_LABELS, type Role } from '@edu/contracts';
+import type { Role } from '@edu/contracts';
 import {
   AppLayout,
   Badge,
@@ -17,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
-
-const OPTIONS: Role[] = ['STUDENT', 'PARENT', 'TEACHER'];
+import { ADDABLE_ROLES } from '../model';
 
 /** `/auth/role`: выбор первой роли (F1) или добавление новой (`POST /auth/roles`). */
 export function RoleSetupPage() {
@@ -31,6 +30,8 @@ export function RoleSetupPage() {
   const [error, setError] = useState<string | null>(null);
 
   const existing = me?.roles ?? [];
+  /** Уже есть роли — экран открыт как «Добавить роль» (из настроек аккаунта). */
+  const isAdding = existing.length > 0;
   const canContinue = selected !== null && !existing.includes(selected);
 
   const onContinue = async () => {
@@ -51,15 +52,15 @@ export function RoleSetupPage() {
     <AppLayout
       header={
         <PageHeader
-          title={t('roleSetup.title')}
-          subtitle={t('roleSetup.subtitle')}
-          onBack={existing.length > 0 ? () => navigate(-1) : undefined}
+          title={isAdding ? t('roleSetup.addTitle') : t('roleSetup.title')}
+          subtitle={isAdding ? t('roleSetup.addSubtitle') : t('roleSetup.subtitle')}
+          onBack={isAdding ? () => navigate(-1) : undefined}
         />
       }
     >
       <AppLayout.Content>
         <Screen>
-          {existing.length > 0 && (
+          {isAdding && (
             <Stack gap={2}>
               <Text variant="caption" tone="muted">
                 {t('roleSetup.current')}
@@ -68,7 +69,7 @@ export function RoleSetupPage() {
                 {existing.map((role) => (
                   <ListRow
                     key={role}
-                    title={ROLE_LABELS[role]}
+                    title={t(`common:roles.${role}`)}
                     right={
                       role === me?.activeRole ? (
                         <Badge tone="success">{t('switch.active')}</Badge>
@@ -85,7 +86,7 @@ export function RoleSetupPage() {
               {t('roleSetup.add')}
             </Text>
             <Card padding="none">
-              {OPTIONS.map((role) => (
+              {ADDABLE_ROLES.map((role) => (
                 <ListRow
                   key={role}
                   title={t(`roleSetup.${role}`)}

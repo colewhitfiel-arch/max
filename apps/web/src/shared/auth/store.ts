@@ -8,6 +8,7 @@ import { api, call, setApiAuthAdapter } from '../api/client';
 import { ApiClientError, apiErrorFromException } from '../api/errors';
 import { queryClient } from '../api/query-client';
 import { config } from '../config';
+import { i18n } from '../i18n';
 import type { MaxBridge, MaxStorage } from '../max/types';
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous';
@@ -102,7 +103,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       if (!launchParams) {
         const error = new ApiClientError({
           code: 'UNAUTHORIZED',
-          message: 'Нет launch-параметров MAX: открой приложение из мессенджера',
+          message: i18n.t('common:errors.noLaunchParams'),
           status: 0,
         });
         set({ status: 'anonymous', error });
@@ -139,6 +140,12 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       if (refreshToken) {
         try {
           await api.auth.logout({ body: { refreshToken } });
+          // Access протух → клиент обновил пару во время logout и повторил его со старым refresh:
+          // отзываем и свежий, иначе он останется жить на сервере.
+          const rotated = get().refreshToken;
+          if (rotated && rotated !== refreshToken) {
+            await api.auth.logout({ body: { refreshToken: rotated } });
+          }
         } catch {
           /* сервер недоступен — локально всё равно выходим */
         }
@@ -183,6 +190,12 @@ setApiAuthAdapter({
   onUnauthorized: () => useAuthStore.getState().invalidate(),
 });
 
+/** Сервер отверг сессию (401/403/прочие 4xx), а не «моргнула сеть» (status 0, 408, 429, 5xx). */
+function isSessionRejected(error: ApiClientError): boolean {
+  if (error.code === 'UNAUTHORIZED' || error.code === 'FORBIDDEN') return true;
+  return error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429;
+}
+
 /**
  * Старт приложения: есть refresh-токен → обновить пару и загрузить `GET /me`;
  * нет и `VITE_AUTH_MODE=max` → вход по launch-параметрам; иначе — anonymous.
@@ -210,13 +223,16 @@ export async function bootstrapAuth(bridge: MaxBridge): Promise<void> {
       useAuthStore.setState({ status: 'authenticated', me, error: null });
       return;
     } catch (cause) {
-      await persistTokens(null);
+      const error = apiErrorFromException(cause);
+      // Стираем сохранённую сессию, только если сервер её отверг. Сеть/5xx при старте — не повод
+      // разлогинивать: токены остаются в storage, следующий запуск повторит bootstrap.
+      if (isSessionRejected(error)) await persistTokens(null);
       useAuthStore.setState({
         status: 'anonymous',
         accessToken: null,
         refreshToken: null,
         me: null,
-        error: apiErrorFromException(cause),
+        error,
       });
       if (config.authMode !== 'max') return;
     }

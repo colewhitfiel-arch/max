@@ -4,6 +4,7 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { type ApiError, type ErrorCode } from '@edu/contracts';
 import { Prisma } from '@edu/db';
@@ -13,12 +14,15 @@ import { ZodError } from 'zod';
 import { AppLogger } from '../logger/logger.service';
 import { getRequestId } from '../logger/request-context';
 import { AppError } from './app-error';
+import { isContractRoute } from './contract-routes';
 
 interface Normalized {
   status: number;
   code: ErrorCode;
   message: string;
   details?: unknown;
+  /** Только для лога (внутренние подробности, которые клиенту не отдаются). */
+  logMeta?: Record<string, unknown>;
   logLevel: 'warn' | 'error' | 'debug';
 }
 
@@ -38,7 +42,28 @@ function zodIssues(error: ZodError): unknown {
   return error.issues.map((i) => ({ path: i.path.join('.'), message: i.message, code: i.code }));
 }
 
-export function normalizeException(exception: unknown): Normalized {
+/** Запрос, на который ответил сам роутер Nest («Cannot GET /x») — у пути нет обработчика. */
+function isUnhandledRoute(exception: unknown): exception is NotFoundException {
+  return exception instanceof NotFoundException && /^Cannot [A-Z]+ /.test(exception.message);
+}
+
+export interface RequestInfo {
+  method: string;
+  /** Путь с префиксом API; query отбрасывается. */
+  path: string;
+}
+
+export function normalizeException(exception: unknown, request?: RequestInfo): Normalized {
+  // Ручка есть в контракте, но модуль её ещё не реализовал: 501, а не 404 (docs/12, фронт
+  // показывает «раздел в разработке»). Неизвестный путь остаётся 404.
+  if (request && isUnhandledRoute(exception) && isContractRoute(request.method, request.path)) {
+    return {
+      status: 501,
+      code: 'NOT_IMPLEMENTED',
+      message: 'Раздел ещё не реализован',
+      logLevel: 'debug',
+    };
+  }
   if (exception instanceof AppError) {
     return {
       status: exception.status,
@@ -88,20 +113,28 @@ export function normalizeException(exception: unknown): Normalized {
   if (exception instanceof Prisma.PrismaClientKnownRequestError) {
     if (exception.code === 'P2025')
       return { status: 404, code: 'NOT_FOUND', message: 'Объект не найден', logLevel: 'debug' };
-    if (exception.code === 'P2002')
+    // meta Prisma (модель, констрейнт, колонки) наружу не уходит — только в лог
+    const logMeta = { prismaCode: exception.code, meta: exception.meta };
+    if (exception.code === 'P2002') {
+      const target = exception.meta?.target;
+      const fields = Array.isArray(target)
+        ? target.filter((x): x is string => typeof x === 'string')
+        : [];
       return {
         status: 409,
         code: 'CONFLICT',
         message: 'Нарушение уникальности',
-        details: exception.meta,
+        ...(fields.length > 0 ? { details: { fields } } : {}),
+        logMeta,
         logLevel: 'warn',
       };
+    }
     if (exception.code === 'P2003')
       return {
         status: 409,
         code: 'CONFLICT',
         message: 'Нарушение ссылочной целостности',
-        details: exception.meta,
+        logMeta,
         logLevel: 'warn',
       };
     return { status: 500, code: 'INTERNAL', message: 'Ошибка базы данных', logLevel: 'error' };
@@ -126,7 +159,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
     const requestId = getRequestId();
-    const n = normalizeException(exception);
+    const n = normalizeException(exception, {
+      method: req.method,
+      path: req.originalUrl ?? req.url,
+    });
 
     const entry = {
       method: req.method,
@@ -135,7 +171,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       code: n.code,
     };
     if (n.logLevel === 'error') this.log.error({ ...entry, err: exception }, n.message);
-    else if (n.logLevel === 'warn') this.log.warn(entry, n.message);
+    else if (n.logLevel === 'warn') this.log.warn({ ...entry, ...n.logMeta }, n.message);
     else this.log.debug(entry, n.message);
 
     const body: ApiError = {

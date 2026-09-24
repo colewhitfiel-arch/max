@@ -198,6 +198,23 @@ describe('GigaChatProvider: OAuth', () => {
     expect(entries.some((e) => e.msg === 'gigachat.auth.expired')).toBe(true);
   });
 
+  it('поздний 401 со старым токеном не выбрасывает уже обновлённый (один лишний OAuth не делается)', async () => {
+    let tokens = 0;
+    let staleChats = 0;
+    const { fetchImpl, requests } = mockFetch(async (req) => {
+      if (isOauth(req)) return oauthOk(`tok-${++tokens}`);
+      if (req.headers.Authorization !== 'Bearer tok-1') return chatOk('ок');
+      staleChats += 1;
+      // Второй запрос со старым токеном получает 401 уже после того, как первый обновил токен.
+      if (staleChats === 2) await new Promise((r) => setTimeout(r, 20));
+      return json({ message: 'expired' }, { status: 401 });
+    });
+    const { provider } = makeProvider(fetchImpl, { maxConcurrency: 2 });
+    const results = await Promise.all([provider.chat(userMessage()), provider.chat(userMessage())]);
+    expect(results.map((r) => r.content)).toEqual(['ок', 'ок']);
+    expect(requests.filter(isOauth)).toHaveLength(2);
+  });
+
   it('повторный 401 — ошибка AUTH без зацикливания', async () => {
     const { fetchImpl, requests } = mockFetch((req) =>
       isOauth(req) ? oauthOk() : json({ message: 'nope' }, { status: 401 }),
@@ -325,8 +342,51 @@ describe('GigaChatProvider: chat', () => {
     const { provider } = makeProvider(fetchImpl);
     const controller = new AbortController();
     const promise = provider.chat({ ...userMessage(), signal: controller.signal });
-    setTimeout(() => controller.abort(new Error('user left')), 5);
-    await expect(promise).rejects.toThrow('user left');
+    const reason = new Error('user left');
+    setTimeout(() => controller.abort(reason), 5);
+    await expect(promise).rejects.toBe(reason);
+  });
+
+  it('таймаут действует и на чтение тела: заголовки пришли, тело зависло → TIMEOUT', async () => {
+    const { fetchImpl } = mockFetch((req) =>
+      isOauth(req) ? oauthOk() : new Response(new ReadableStream<Uint8Array>(), { status: 200 }),
+    );
+    const { provider } = makeProvider(fetchImpl, { timeoutMs: 20, maxRetries: 0 });
+    await expect(provider.chat(userMessage())).rejects.toMatchObject({ code: 'TIMEOUT' });
+  });
+
+  it('отмена вызывающим прерывает чтение зависшего тела исходной причиной', async () => {
+    const { fetchImpl, requests } = mockFetch((req) =>
+      isOauth(req) ? oauthOk() : new Response(new ReadableStream<Uint8Array>(), { status: 200 }),
+    );
+    const { provider } = makeProvider(fetchImpl);
+    const controller = new AbortController();
+    const promise = provider.chat({ ...userMessage(), signal: controller.signal });
+    const reason = new Error('user left');
+    setTimeout(() => controller.abort(reason), 10);
+    await expect(promise).rejects.toBe(reason);
+    expect(requests.at(-1)?.signal?.aborted).toBe(true);
+  });
+
+  it('обрыв соединения при чтении тела ретраится как NETWORK', async () => {
+    let chats = 0;
+    const { fetchImpl, requests } = mockFetch((req) => {
+      if (isOauth(req)) return oauthOk();
+      chats += 1;
+      if (chats > 1) return chatOk('со второй попытки');
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new TypeError('terminated'));
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+    const { provider, entries } = makeProvider(fetchImpl);
+    const res = await provider.chat(userMessage());
+    expect(res.content).toBe('со второй попытки');
+    expect(requests.filter((r) => !isOauth(r))).toHaveLength(2);
+    const retry = entries.find((e) => e.msg === 'gigachat.retry');
+    expect(retry?.meta).toMatchObject({ op: 'chat', errorCode: 'NETWORK' });
   });
 
   it('в логах нет ключа, токена и текста сообщений', async () => {
@@ -501,6 +561,41 @@ describe('GigaChatProvider: stream', () => {
       controller.abort();
     }
     expect(chunks).toEqual([{ type: 'token', text: 'a' }]);
+  });
+
+  it('досрочный break потребителя закрывает соединение и отпускает signal вызывающего', async () => {
+    const { fetchImpl, requests } = mockFetch((req) => {
+      if (isOauth(req)) return oauthOk();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode('data: {"choices":[{"delta":{"content":"a"}}]}\n\n'),
+          );
+          // дальше сервер молчит — соединение открыто
+        },
+      });
+      return new Response(stream, { status: 200 });
+    });
+    const { provider } = makeProvider(fetchImpl, { streamIdleTimeoutMs: 60_000 });
+    const controller = new AbortController();
+    const listeners = { added: 0, removed: 0 };
+    const add = controller.signal.addEventListener.bind(controller.signal);
+    const remove = controller.signal.removeEventListener.bind(controller.signal);
+    controller.signal.addEventListener = ((...args: Parameters<typeof add>) => {
+      listeners.added += 1;
+      add(...args);
+    }) as typeof add;
+    controller.signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
+      listeners.removed += 1;
+      remove(...args);
+    }) as typeof remove;
+
+    for await (const chunk of provider.stream({ ...userMessage(), signal: controller.signal })) {
+      expect(chunk).toEqual({ type: 'token', text: 'a' });
+      break;
+    }
+    expect(requests.at(-1)?.signal?.aborted).toBe(true);
+    expect(listeners.removed).toBe(listeners.added);
   });
 
   it('таймаут до заголовков → error TIMEOUT', async () => {

@@ -17,6 +17,11 @@ export function supportsExtraction(mime: string): boolean {
   return TEXT_MIMES.has(mime) || mime === PDF_MIME || mime === DOCX_MIME || mime === PPTX_MIME;
 }
 
+/** Форматы, из которых текст реально извлекается уже сейчас (pptx — ещё нет). */
+export function canExtractNow(mime: string): boolean {
+  return TEXT_MIMES.has(mime) || mime === PDF_MIME || mime === DOCX_MIME;
+}
+
 /** Заголовки markdown/структуры — для меты файла. */
 function collectHeadings(text: string): string[] {
   const headings: string[] = [];

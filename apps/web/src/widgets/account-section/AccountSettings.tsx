@@ -1,4 +1,3 @@
-import { ROLE_LABELS } from '@edu/contracts';
 import {
   Button,
   Card,
@@ -41,7 +40,7 @@ export function AccountSettings() {
             </IconTile>
           }
           title={t('settings.role')}
-          right={me.activeRole ? ROLE_LABELS[me.activeRole] : '—'}
+          right={me.activeRole ? t(`roles.${me.activeRole}`) : '—'}
           chevron
           onClick={() => setRoleOpen(true)}
         />
@@ -61,6 +60,7 @@ export function AccountSettings() {
         open={roleOpen}
         onClose={() => setRoleOpen(false)}
         title={t('settings.roleSheet')}
+        closeLabel={t('actions.close')}
         footer={
           <Button
             variant="secondary"

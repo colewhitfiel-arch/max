@@ -1,6 +1,7 @@
 export { notificationKeys } from './keys';
 export {
   useNotifications,
+  useNotificationsInfinite,
   useMarkRead,
   useNotificationSettings,
   useUpdateNotificationSettings,

@@ -1,0 +1,59 @@
+/* Макет: «Union» 402×604, заливка #1e1e1e с прозрачностью 20%; верх — кривая
+ * M0 0 C0 0 31.43 43 116 52 H286 C370.57 43 402 0 402 0 (глубина 52 при ширине 402). */
+.ui-scoop-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.ui-scoop-panel[data-bleed] {
+  margin-inline: calc(-1 * var(--ui-space-4));
+}
+
+.ui-scoop-panel[data-grow] {
+  flex: 1 0 auto;
+}
+
+.ui-scoop-panel__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  flex-direction: column;
+  color: var(--ui-color-surface);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* Высота кривой пропорциональна ширине (aspect-ratio 402/52). */
+.ui-scoop-panel__cap {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 402 / 52;
+  fill: currentColor;
+}
+
+.ui-scoop-panel__fill {
+  flex: 1;
+  margin-top: -1px;
+  background: currentColor;
+}
+
+/* Контент начинается на 12px ниже ровной середины кривой (как строка расписания в макете). */
+.ui-scoop-panel__body {
+  flex: 1 0 auto;
+  min-width: 0;
+  padding: 0 var(--ui-space-4) var(--ui-space-4);
+}
+
+/* Распорка на всю ширину панели: её высота — глубина кривой при текущей ширине. */
+.ui-scoop-panel__body::before {
+  content: '';
+  display: block;
+  margin: 0 calc(-1 * var(--ui-space-4)) var(--ui-space-3);
+  aspect-ratio: 402 / 52;
+}

@@ -1,4 +1,4 @@
-import { ROLE_LABELS, ROLES, type Role } from '@edu/contracts';
+import { ROLES, type Role } from '@edu/contracts';
 import { demoLoginUsers } from '@edu/contracts/fixtures';
 import {
   Button,
@@ -65,7 +65,7 @@ export function DevLoginForm({ onLoggedIn }: DevLoginFormProps) {
             <ListRow
               key={user.maxUserId}
               title={user.name}
-              subtitle={`${user.maxUserId} · ${user.roles.map((r) => ROLE_LABELS[r]).join(', ')}`}
+              subtitle={`${user.maxUserId} · ${user.roles.map((r) => t(`common:roles.${r}`)).join(', ')}`}
               onClick={() => void login(user.maxUserId, user.roles)}
               disabled={pending !== null}
               aria-busy={pending === user.maxUserId || undefined}
@@ -89,7 +89,9 @@ export function DevLoginForm({ onLoggedIn }: DevLoginFormProps) {
               autoComplete="off"
             />
           </Field>
+          {/* Группа чекбоксов: имя группы — «Роли», у каждого чекбокса свой id и своя подпись. */}
           <Field
+            group
             label={t('login.roles')}
             error={roles.length === 0 ? t('login.rolesRequired') : undefined}
           >
@@ -97,7 +99,7 @@ export function DevLoginForm({ onLoggedIn }: DevLoginFormProps) {
               {SELECTABLE_ROLES.map((role) => (
                 <Checkbox
                   key={role}
-                  label={ROLE_LABELS[role]}
+                  label={t(`common:roles.${role}`)}
                   checked={roles.includes(role)}
                   onChange={(event) => toggleRole(role, event.target.checked)}
                 />

@@ -1,0 +1,41 @@
+{
+  "homework": {
+    "title": "Домашние задачи",
+    "pieLabel": "Домашние задачи: правильно {{correct}}, неправильно {{wrong}}, предстоят {{upcoming}}"
+  },
+  "counts": {
+    "correct": "Правильно",
+    "wrong": "Неправильно",
+    "upcoming": "Предстоят"
+  },
+  "club": {
+    "barLabel": "Задания по кружку «{{club}}»",
+    "gridLabel": "Задания по кружку «{{club}}»: выберите задание, чтобы открыть подробности",
+    "more": "Подробнее",
+    "hide": "Скрыть"
+  },
+  "status": {
+    "DONE": "выполнено",
+    "FAILED_SCORE": "правильно меньше {{percent}}%",
+    "FAILED_OVERDUE": "срок прошёл, не сдано",
+    "SOON": "скоро дедлайн",
+    "LATER": "дедлайн не скоро"
+  },
+  "task": {
+    "cell": "Задание {{number}} — {{status}}"
+  },
+  "taskDetail": {
+    "title": "Задание {{number}}",
+    "answer": "Ответ: {{answer}}",
+    "correctAnswer": "Правильный ответ: {{answer}}",
+    "score": "Баллы: {{score}} из {{max}}",
+    "pendingReview": "Сдано, ждёт проверки",
+    "notSubmitted": "Не сдано, срок истёк {{date}}",
+    "upcoming": "Предстоит выполнить",
+    "due": "Срок: {{date}}",
+    "noDue": "Без срока",
+    "copy": "копировать",
+    "copied": "скопировано",
+    "copyFailed": "Не удалось скопировать код"
+  }
+}

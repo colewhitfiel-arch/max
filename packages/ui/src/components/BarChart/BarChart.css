@@ -1,0 +1,212 @@
+/*
+ * Макет успеваемости «Посещения»: карточка 342×159 с радиусом 35, заголовок 14px semibold
+ * по центру в 7px от верха; легенда слева (название курса 12px semibold, строки — квадрат 14px
+ * с радиусом 2 + подпись 12px); справа область ~65px: подписи оси Y 8px над линиями сетки,
+ * столбцы 28px через 12px по центру, скругление сверху 10px, итог над столбцом 7px semibold.
+ */
+.ui-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  min-width: 0;
+  padding: 7px var(--ui-space-8) var(--ui-space-3) var(--ui-space-4);
+  border-radius: 35px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-bar-chart__title {
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.ui-bar-chart__body {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-6);
+  min-width: 0;
+}
+
+/* Тона → цвет (общий для столбца, итога, подписи и квадратов легенды). */
+.ui-bar-chart [data-tone='primary'] {
+  --ui-bar-chart-tone: var(--ui-color-primary);
+}
+.ui-bar-chart [data-tone='neutral'] {
+  --ui-bar-chart-tone: var(--ui-color-text-muted);
+}
+.ui-bar-chart [data-tone='info'] {
+  --ui-bar-chart-tone: var(--ui-color-info);
+}
+.ui-bar-chart [data-tone='success'] {
+  --ui-bar-chart-tone: var(--ui-color-success);
+}
+.ui-bar-chart [data-tone='warning'] {
+  --ui-bar-chart-tone: var(--ui-color-warning);
+}
+.ui-bar-chart [data-tone='danger'] {
+  --ui-bar-chart-tone: var(--ui-color-danger);
+}
+
+/* Легенда */
+.ui-bar-chart__legend,
+.ui-bar-chart__legend-items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-bar-chart__legend {
+  flex: none;
+  gap: 7px;
+  max-width: 50%;
+}
+
+.ui-bar-chart__legend-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+}
+
+.ui-bar-chart__legend-title {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.2;
+  overflow-wrap: break-word;
+}
+
+.ui-bar-chart__legend-items {
+  gap: var(--ui-space-1);
+}
+
+.ui-bar-chart__legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.2;
+}
+
+.ui-bar-chart__swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--ui-bar-chart-tone);
+}
+
+/* «Темнее ≈72%» (#ffa600 → #b87700, #2cda00 → #1f9d00): яркость каналов × 0.72 — то же, что
+ * смешать цвет с чёрным, без color-mix. */
+.ui-bar-chart__swatch[data-dim],
+.ui-bar-chart__segment[data-dim] {
+  filter: brightness(0.72);
+}
+
+/*
+ * Область диаграммы: сверху место под подпись верхнего деления и итог, снизу — под подписи.
+ * Много групп не помещается — область прокручивается по горизонтали, а не наезжает на легенду
+ * и подписи оси (всё, что выступает, лежит в её отступах).
+ */
+.ui-bar-chart__figure {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 0 0 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.ui-bar-chart__figure[data-labels] {
+  padding-bottom: 18px;
+}
+
+/* Шаг столбцов не меньше 22px — под подпись «001» 11px (столбец ≥ 10px + зазор 12px). */
+.ui-bar-chart__plot {
+  position: relative;
+  min-width: calc(var(--ui-bar-chart-count, 0) * 22px);
+  height: 65px;
+}
+
+.ui-bar-chart__tick {
+  position: absolute;
+  right: 0;
+  bottom: var(--ui-bar-chart-at);
+  left: 0;
+  height: 0;
+}
+
+.ui-bar-chart__tick::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ui-color-text-muted);
+  opacity: 0.2;
+}
+
+.ui-bar-chart__tick-label {
+  position: absolute;
+  bottom: 2px;
+  left: -10px;
+  color: var(--ui-color-text-muted);
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-bar-chart__bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  /* Не помещается — прижать к началу, а не вылезать в обе стороны. */
+  justify-content: safe center;
+  gap: var(--ui-space-3);
+}
+
+/* Столбец: полная высота области, части — от основания вверх; при нехватке места ужимается. */
+.ui-bar-chart__bar {
+  position: relative;
+  flex: 0 1 28px;
+  min-width: 6px;
+}
+
+.ui-bar-chart__segment {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--ui-bar-chart-h);
+  border-radius: 10px 10px 0 0;
+  background: var(--ui-bar-chart-tone);
+}
+
+.ui-bar-chart__total,
+.ui-bar-chart__label {
+  position: absolute;
+  left: 50%;
+  color: var(--ui-bar-chart-tone);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-bar-chart__total {
+  bottom: calc(var(--ui-bar-chart-h) + 1px);
+  font-size: 7px;
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.2;
+}
+
+.ui-bar-chart__label {
+  top: calc(100% + var(--ui-space-1));
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.2;
+}

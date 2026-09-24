@@ -3,40 +3,37 @@
     "name": "Кружки",
     "loading": "Загрузка…"
   },
+  "notifications": "Уведомления",
+  "chat": {
+    "inputLabel": "Сообщение",
+    "loadOlder": "Показать раньше"
+  },
   "nav": {
     "home": "Главная",
     "tutor": "ИИ-тьютор",
-    "courses": "Курсы",
     "settings": "Настройки",
     "profile": "Профиль",
-    "children": "Дети",
     "analytics": "Аналитика",
-    "clubs": "Кружки",
-    "payments": "Оплата",
-    "groups": "Группы",
     "assignments": "Задания",
-    "more": "Ещё",
+    "performance": "Успеваемость",
     "notifications": "Уведомления",
-    "notificationsUnread": "Уведомления: {{count}} непрочитанных"
+    "notificationsUnread_one": "Уведомления: {{count}} непрочитанное",
+    "notificationsUnread_few": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_many": "Уведомления: {{count}} непрочитанных",
+    "notificationsUnread_other": "Уведомления: {{count}} непрочитанного"
   },
   "actions": {
     "retry": "Повторить",
     "back": "Назад",
-    "save": "Сохранить",
-    "cancel": "Отмена",
-    "open": "Открыть",
-    "logout": "Выйти",
     "switchRole": "Сменить роль",
     "addRole": "Добавить роль",
     "goHome": "На главную",
     "markRead": "Прочитано",
     "markAllRead": "Прочитать все",
     "refresh": "Обновить",
-    "send": "Отправить",
-    "create": "Создать",
     "copy": "Скопировать",
-    "delete": "Удалить",
-    "done": "Готово"
+    "close": "Закрыть",
+    "next": "Далее"
   },
   "states": {
     "loading": "Загрузка…",
@@ -46,15 +43,83 @@
     "inDevelopmentHint": "Эта часть приложения ещё не готова на сервере",
     "notFound": "Страница не найдена",
     "notFoundHint": "Возможно, ссылка устарела",
+    "notFoundItem": "Не найдено",
+    "notFoundItemHint": "Возможно, это удалили или ссылка устарела",
     "forbidden": "Нет доступа",
-    "forbiddenHint": "У твоей роли нет прав на этот раздел",
-    "aiPending": "ИИ-комментарий готовится"
+    "forbiddenHint": "У этой роли нет прав на этот раздел"
+  },
+  "dates": {
+    "today": "сегодня",
+    "yesterday": "вчера",
+    "tomorrow": "завтра",
+    "todayAt": "сегодня, {{time}}",
+    "inDays": "через {{days}} дн.",
+    "overdue": "просрочено"
+  },
+  "errors": {
+    "crashTitle": "Что-то сломалось",
+    "reload": "Перезагрузить",
+    "tryContinue": "Попробовать продолжить",
+    "bootTitle": "Не удалось запустить приложение",
+    "network": "Ошибка сети",
+    "aborted": "Запрос отменён",
+    "emptyStream": "Пустой поток",
+    "noLaunchParams": "Нет launch-параметров MAX: приложение нужно открыть из мессенджера",
+    "sdkUnavailable": "SDK MAX не найден: приложение открыто вне MAX или не загрузился max-web-app.js.",
+    "mswFailed": "MSW не запустился: нужен public/mockServiceWorker.js (`pnpm exec msw init public`) и разрешённый в браузере Service Worker. Либо VITE_API_MODE=real.",
+    "codes": {
+      "VALIDATION": "Введённые данные не прошли проверку",
+      "UNAUTHORIZED": "Нужно войти заново",
+      "FORBIDDEN": "Нет доступа к этому разделу",
+      "NOT_FOUND": "Не найдено: возможно, это удалили или ссылка устарела",
+      "CONFLICT": "Данные уже изменились, нужно обновить экран",
+      "BUSINESS_RULE": "Действие сейчас недоступно",
+      "RATE_LIMITED": "Слишком много запросов, повтор возможен чуть позже",
+      "NOT_IMPLEMENTED": "Раздел в разработке",
+      "EXTERNAL_INTEGRATION": "Сервис временно недоступен, возможно, нет соединения",
+      "INTERNAL": "Что-то пошло не так, стоит попробовать ещё раз"
+    }
   },
   "roles": {
     "STUDENT": "Ученик",
     "PARENT": "Родитель",
     "TEACHER": "Преподаватель",
     "SCHOOL_ADMIN": "Администратор школы"
+  },
+  "clubCategory": {
+    "ROBOTICS": "Робототехника",
+    "PROGRAMMING": "Программирование",
+    "LANGUAGES": "Иностранные языки",
+    "CHESS": "Шахматы",
+    "MATH": "Математика",
+    "ART": "Искусство",
+    "MUSIC": "Музыка",
+    "SPORT": "Спорт",
+    "SCIENCE": "Наука",
+    "OTHER": "Другое"
+  },
+  "blockType": {
+    "TEXT": "Текст",
+    "VIDEO": "Видео",
+    "IMAGE": "Изображение",
+    "FILE": "Файл",
+    "QUIZ": "Тест",
+    "QUESTION": "Вопрос",
+    "PRACTICE": "Практика",
+    "HOMEWORK": "Домашнее задание",
+    "INTERACTIVE": "Интерактив"
+  },
+  "knowledgeNodeType": {
+    "CONCEPT": "Понятие",
+    "FACT": "Факт",
+    "PROCEDURE": "Порядок действий",
+    "SKILL": "Навык",
+    "EXAMPLE": "Пример"
+  },
+  "billing": {
+    "period": {
+      "MONTH": "{{price}} / мес."
+    }
   },
   "theme": {
     "label": "Тема",
@@ -68,16 +133,11 @@
     "en": "English"
   },
   "account": {
-    "title": "Аккаунт",
-    "role": "Роль",
-    "support": "Написать в поддержку",
-    "settingsSaved": "Настройки сохранены",
     "settingsError": "Не удалось сохранить настройки"
   },
   "lesson": {
     "cancelled": "Отменено",
     "done": "Прошло",
-    "room": "каб.",
     "attendance": {
       "PRESENT": "Был",
       "ABSENT": "Пропуск",
@@ -104,15 +164,7 @@
   },
   "stats": {
     "attendance": "Посещаемость",
-    "completion": "Выполнение",
-    "activity": "Активность",
-    "absences": "Пропуски",
-    "late": "Опоздания",
-    "period30": "за 30 дней",
     "progress": "Прогресс"
-  },
-  "dev": {
-    "playground": "UI Playground"
   },
   "settings": {
     "appearance": "Внешний вид",
@@ -155,5 +207,8 @@
     "openProfile": "Открыть профиль",
     "logout": "Выйти из аккаунта",
     "about": "Мини-приложение «Кружки» для MAX"
+  },
+  "user": {
+    "noName": "Без имени"
   }
 }

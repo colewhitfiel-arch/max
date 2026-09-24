@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -9,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   envDir: '../../',
   resolve: {
-    alias: { '@': new URL('./src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1') },
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     // Симлинк-пакеты (@edu/ui) должны брать React из apps/web, иначе будет два экземпляра React.
     dedupe: ['react', 'react-dom'],
   },

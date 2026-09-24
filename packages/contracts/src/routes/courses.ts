@@ -101,7 +101,10 @@ export const BlockProgressBriefSchema = z.object({
 });
 export type BlockProgressBrief = z.infer<typeof BlockProgressBriefSchema>;
 
-/** Блок для ученика: содержимое по типу (QUIZ без ответов) + задание и прогресс. */
+/**
+ * Блок для ученика: содержимое по типу без ответов (QUIZ — без правильных вариантов и пояснений,
+ * QUESTION — без эталона и критериев; см. `toStudentBlock`) + задание и прогресс.
+ */
 export const StudentBlockDetailSchema = z.intersection(
   CourseBlockForStudentSchema,
   z.object({
@@ -231,6 +234,8 @@ export const PublishBlockAssignmentSchema = z.object({
   dueAt: DateTimeSchema.optional(),
   maxScore: z.number().int().positive().optional(),
   allowedAttempts: z.number().int().positive().optional(),
+  /** Кому задание внутри группы: не задан или пустой — всей группе. */
+  studentIds: z.array(IdSchema).optional(),
 });
 export type PublishBlockAssignment = z.infer<typeof PublishBlockAssignmentSchema>;
 

@@ -1,6 +1,5 @@
 import type { AiLogger } from '../../logger';
 import type { GigaChatHttp } from './http';
-import { readJson } from './http';
 import { OAuthResponseSchema } from './schemas';
 
 export interface TokenManagerConfig {
@@ -22,7 +21,7 @@ interface CachedToken {
 /**
  * OAuth GigaChat: `POST {oauthUrl}` с `Authorization: Basic {authKey}`, `RqUID`, `scope=...`.
  * Токен кэшируется и обновляется за `refreshSkewMs` до истечения; параллельные запросы
- * ждут одно и то же обновление. `invalidate()` — при 401 от API.
+ * ждут одно и то же обновление. `invalidate(token)` — при 401 от API.
  */
 export class GigaChatTokenManager {
   private token?: CachedToken;
@@ -47,7 +46,12 @@ export class GigaChatTokenManager {
     return this.pending;
   }
 
-  invalidate(): void {
+  /**
+   * Сбрасывает кэш после 401. С `staleToken` сбрасывает, только если в кэше всё ещё этот токен:
+   * параллельные 401 со старым токеном не выбрасывают уже полученный свежий и не запускают второй OAuth.
+   */
+  invalidate(staleToken?: string): void {
+    if (staleToken !== undefined && this.token?.value !== staleToken) return;
     this.token = undefined;
   }
 
@@ -62,20 +66,22 @@ export class GigaChatTokenManager {
   private async refresh(): Promise<string> {
     const started = this.config.now();
     // Внешний signal сюда намеренно не передаётся: обновление общее для всех запросов.
-    const response = await this.http.request({
-      url: this.config.oauthUrl,
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${this.config.authKey}`,
-        RqUID: this.config.uuid(),
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
+    const data = await this.http.requestJson(
+      {
+        url: this.config.oauthUrl,
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${this.config.authKey}`,
+          RqUID: this.config.uuid(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: `scope=${encodeURIComponent(this.config.scope)}`,
+        timeoutMs: this.config.timeoutMs,
+        op: 'oauth',
       },
-      body: `scope=${encodeURIComponent(this.config.scope)}`,
-      timeoutMs: this.config.timeoutMs,
-      op: 'oauth',
-    });
-    const data = await readJson(response, OAuthResponseSchema, 'oauth');
+      OAuthResponseSchema,
+    );
     const expiresAt = normalizeExpiresAt(data.expires_at);
     this.token = { value: data.access_token, expiresAt };
     this.logger.info('gigachat.oauth.refreshed', {

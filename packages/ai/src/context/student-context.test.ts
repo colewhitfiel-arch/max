@@ -115,14 +115,15 @@ describe('serializeStudentContext', () => {
     expect(text).toContain('посещаемость нет данных');
   });
 
-  it('невалидный часовой пояс — fallback на UTC, битая дата — как есть', () => {
+  it('невалидный часовой пояс — fallback на UTC (и подпись UTC), битая дата — как есть', () => {
     const text = serializeStudentContext(
       makeContext({
         timezone: 'Nowhere/Land',
         upcomingLessons: [{ club: 'X', startsAt: 'не дата' }],
       }),
     );
-    expect(text).toContain('Сейчас: 21.09.2026 12:30 (Nowhere/Land).');
+    expect(text).toContain('Сейчас: 21.09.2026 12:30 (UTC).');
+    expect(text).not.toContain('Nowhere/Land');
     expect(text).toContain('- не дата — X');
   });
 

@@ -7,8 +7,8 @@ export function Splash() {
   return (
     <AppLayout>
       <AppLayout.Content>
-        <Screen>
-          <Stack gap={3} align="center" style={{ paddingTop: '30vh' }}>
+        <Screen fill>
+          <Stack gap={3} align="center" justify="center" grow>
             <Spinner size="lg" label={t('app.loading')} />
             <Text tone="muted">{t('app.name')}</Text>
           </Stack>

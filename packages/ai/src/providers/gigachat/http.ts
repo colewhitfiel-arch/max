@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import tls from 'node:tls';
 import { Agent, fetch as undiciFetch, type Dispatcher } from 'undici';
 import type { ZodTypeAny, z } from 'zod';
+import { abortReason } from '../../abort';
 import { withTimeout } from '../../timeout';
 import { AiProviderError, isAbortError } from '../../types';
 import { mapFetchError, mapHttpError } from './errors';
@@ -23,31 +24,56 @@ export interface HttpRequestOptions {
   op: string;
 }
 
-/** Тонкая обёртка над fetch: таймаут, маппинг сетевых и HTTP-ошибок, TLS-агент с кастомным CA. */
+/**
+ * Тонкая обёртка над fetch: таймаут, маппинг сетевых и HTTP-ошибок, TLS-агент с кастомным CA.
+ * Отмена вызывающим (`opts.signal`) пробрасывается исходной причиной отмены.
+ */
 export class GigaChatHttp {
   constructor(
     private readonly fetchImpl: FetchLike,
     private readonly dispatcher?: Dispatcher,
   ) {}
 
-  async request(opts: HttpRequestOptions): Promise<Response> {
+  /**
+   * Запрос без чтения тела (для стрима): таймаут — только до заголовков, тело остаётся
+   * привязанным к `opts.signal`. Не-2xx → `AiProviderError`.
+   */
+  request(opts: HttpRequestOptions): Promise<Response> {
+    return this.execute(opts, (signal) => this.fetchChecked(opts, signal));
+  }
+
+  /**
+   * Запрос с JSON-ответом: fetch, проверка статуса и чтение тела идут внутри одного таймаута
+   * и одного сигнала отмены — зависшее после заголовков тело тоже прерывается по `timeoutMs`.
+   * Проблемы с телом → `INVALID_RESPONSE`, обрыв при чтении → `NETWORK`.
+   */
+  async requestJson<S extends ZodTypeAny>(
+    opts: HttpRequestOptions,
+    schema: S,
+  ): Promise<z.output<S>> {
+    const text = await this.execute(opts, async (signal) => {
+      const response = await this.fetchChecked(opts, signal);
+      try {
+        return await response.text();
+      } catch (error) {
+        if (signal?.aborted || isAbortError(error)) throw error;
+        throw new AiProviderError('NETWORK', `GigaChat ${opts.op}: не удалось прочитать ответ`, {
+          cause: error,
+        });
+      }
+    });
+    return parseJsonBody(text, schema, opts.op);
+  }
+
+  async close(): Promise<void> {
+    await this.dispatcher?.close();
+  }
+
+  private async fetchChecked(opts: HttpRequestOptions, signal?: AbortSignal): Promise<Response> {
     const init: InitWithDispatcher = { method: opts.method, headers: opts.headers };
     if (opts.body !== undefined) init.body = opts.body;
     if (this.dispatcher) init.dispatcher = this.dispatcher;
-    const doFetch = (signal?: AbortSignal) =>
-      this.fetchImpl(opts.url, { ...init, signal } as RequestInit);
-
-    let response: Response;
-    try {
-      response =
-        opts.timeoutMs > 0
-          ? await withTimeout(doFetch, opts.timeoutMs, opts.signal)
-          : await doFetch(opts.signal);
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      throw mapFetchError(error, opts.op);
-    }
-
+    const response = await this.fetchImpl(opts.url, { ...init, signal } as RequestInit);
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       throw mapHttpError(response.status, text, response.headers, opts.op);
@@ -55,32 +81,38 @@ export class GigaChatHttp {
     return response;
   }
 
-  async close(): Promise<void> {
-    await this.dispatcher?.close();
+  private async execute<T>(
+    opts: HttpRequestOptions,
+    task: (signal?: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return opts.timeoutMs > 0
+        ? await withTimeout(task, opts.timeoutMs, opts.signal)
+        : await task(opts.signal);
+    } catch (error) {
+      // Отмена вызывающим — исходной причиной (не UNKNOWN), даже если это кастомная ошибка.
+      if (opts.signal?.aborted) throw abortReason(opts.signal);
+      if (isAbortError(error)) throw error;
+      throw mapFetchError(error, opts.op);
+    }
   }
 }
 
-/** Читает JSON-тело и валидирует схемой; проблемы → `INVALID_RESPONSE`. */
-export async function readJson<S extends ZodTypeAny>(
-  response: Response,
+/**
+ * Парсит JSON-тело и валидирует схемой; проблемы → `INVALID_RESPONSE`.
+ * Текст `SyntaxError` не прикладывается: V8 кладёт в него фрагмент тела, а ошибки попадают в логи.
+ */
+export function parseJsonBody<S extends ZodTypeAny>(
+  text: string,
   schema: S,
   op: string,
-): Promise<z.output<S>> {
-  let text: string;
-  try {
-    text = await response.text();
-  } catch (error) {
-    throw new AiProviderError('NETWORK', `GigaChat ${op}: не удалось прочитать ответ`, {
-      cause: error,
-    });
-  }
+): z.output<S> {
   let json: unknown;
   try {
     json = JSON.parse(text);
-  } catch (error) {
+  } catch {
     throw new AiProviderError('INVALID_RESPONSE', `GigaChat ${op}: ответ не является JSON`, {
       retryable: false,
-      cause: error,
     });
   }
   const parsed = schema.safeParse(json);

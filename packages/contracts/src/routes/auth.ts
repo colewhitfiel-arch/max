@@ -94,6 +94,12 @@ export type LogoutBody = z.infer<typeof LogoutBodySchema>;
 export const UpdateSettingsBodySchema = UserSettingsSchema.partial();
 export type UpdateSettingsBody = z.infer<typeof UpdateSettingsBodySchema>;
 
+export const UpdateAvatarBodySchema = z.object({
+  /** Файл с purpose `AVATAR` (после `POST /files/:fileId/confirm`); null — убрать фото. */
+  fileId: IdSchema.nullable(),
+});
+export type UpdateAvatarBody = z.infer<typeof UpdateAvatarBodySchema>;
+
 // ---------- Роуты ----------
 
 export const authContract = c.router(
@@ -160,6 +166,14 @@ export const authContract = c.router(
       responses: { 200: MeDtoSchema },
       summary: 'Изменить тему и язык',
       metadata: userRoute('common:settings.edit'),
+    },
+    updateAvatar: {
+      method: 'PUT',
+      path: '/me/avatar',
+      body: UpdateAvatarBodySchema,
+      responses: { 200: MeDtoSchema },
+      summary: 'Сменить или убрать фото профиля',
+      metadata: userRoute('common:profile.edit'),
     },
     rotateLinkCode: {
       method: 'POST',

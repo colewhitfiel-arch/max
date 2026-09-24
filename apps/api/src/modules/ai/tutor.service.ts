@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AiService, type AiChatMessage, buildRequest, tutorPrompt } from '@edu/ai';
+import { AiService, type AiChatMessage, buildRequest, type Prompt, tutorPrompt } from '@edu/ai';
 import type {
   AiMessageDto,
   ConversationDto,
+  ConversationKind,
   ListConversationsQuery,
   Paginated,
   PaginationQuery,
@@ -14,14 +15,26 @@ import { DomainEventBus } from '../../common/events/domain-events';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
+import { toDateOnly } from '../../common/time/time';
 import { type Env } from '../../config/env';
 import { InjectEnv } from '../../config/env.module';
-import { type MessageCursor, AiRepository } from './ai.repository';
+import {
+  type ConversationCursor,
+  ConversationCursorSchema,
+  MessageCursorSchema,
+  AiRepository,
+} from './ai.repository';
 import { StudentContextBuilder } from './context-builder';
 import type { SseSink } from './sse';
 
 const HISTORY_LIMIT = 20;
 const MAX_MESSAGE_CHARS = 2000;
+/**
+ * Пояс, в котором считается «сегодня» для дневного лимита. Пока одна зона на всех (как дефолт
+ * SchoolService/context-builder); пояс конкретной школы — когда лимит переедет на schoolId.
+ */
+const LIMIT_TIMEZONE = 'Europe/Moscow';
+const LIMIT_TTL_SEC = 86_400;
 
 export const toConversationDto = (c: AiConversation): ConversationDto => ({
   id: c.id,
@@ -37,6 +50,24 @@ export const toMessageDto = (m: AiMessage): AiMessageDto => ({
   content: m.content,
   createdAt: m.createdAt.toISOString(),
 });
+
+/** Ход диалога с тьютором: общий для ученика и родителя (`TutorService.runTurn`). */
+export interface TutorTurn<TVars> {
+  userId: string;
+  conversation: AiConversation;
+  text: string;
+  sink: SseSink;
+  prompt: Prompt<TVars>;
+  /** Переменные промпта (контекст ученика); вызывается после проверки дневного лимита. */
+  vars: () => Promise<TVars>;
+  /** Текст события `error`, если модель недоступна (тон зависит от собеседника). */
+  unavailableMessage: string;
+}
+
+export interface TutorTurnResult {
+  chars: number;
+  failed: boolean;
+}
 
 /** Диалоги с ИИ-тьютором (F4): CRUD и стриминг ответа с учётом контекста ученика. */
 @Injectable()
@@ -59,14 +90,32 @@ export class TutorService {
     user: AuthUser,
     query: ListConversationsQuery,
   ): Promise<Paginated<ConversationDto>> {
-    const limit = normalizeLimit(query.limit);
-    const rows = await this.repo.listConversations(
+    // Чаты родителя о детях (studentId ребёнка) в список ученика не попадают.
+    return this.conversationsPage(
       user.userId,
       query.kind,
-      limit,
-      decodeCursor<MessageCursor>(query.cursor),
+      query,
+      user.profileId ? { id: user.profileId, orUnbound: true } : undefined,
     );
-    const page = toPage(rows, limit, (last) => ({
+  }
+
+  /** Страница диалогов пользователя (общая для ученика и родителя). */
+  async conversationsPage(
+    userId: string,
+    kind: ConversationKind | undefined,
+    query: PaginationQuery,
+    student?: { id: string; orUnbound?: boolean },
+  ): Promise<Paginated<ConversationDto>> {
+    const limit = normalizeLimit(query.limit);
+    const rows = await this.repo.listConversations(
+      userId,
+      kind,
+      limit,
+      decodeCursor(query.cursor, ConversationCursorSchema),
+      student,
+    );
+    const page = toPage(rows, limit, (last): ConversationCursor => ({
+      lastMessageAt: last.lastMessageAt?.toISOString() ?? null,
       createdAt: last.createdAt.toISOString(),
       id: last.id,
     }));
@@ -92,18 +141,29 @@ export class TutorService {
     query: PaginationQuery,
   ): Promise<Paginated<AiMessageDto>> {
     const conversation = await this.requireOwned(user, conversationId);
+    return this.messagesPage(conversation.id, query);
+  }
+
+  /**
+   * Страница сообщений диалога; доступ проверяет вызывающий. Первая страница — последние
+   * `limit` сообщений, `nextCursor` ведёт к более старым; внутри страницы — хронологический порядок.
+   */
+  async messagesPage(
+    conversationId: string,
+    query: PaginationQuery,
+  ): Promise<Paginated<AiMessageDto>> {
     const limit = normalizeLimit(query.limit);
     const rows = await this.repo.listMessages(
-      conversation.id,
+      conversationId,
       limit,
-      decodeCursor<MessageCursor>(query.cursor),
+      decodeCursor(query.cursor, MessageCursorSchema),
     );
     const page = toPage(rows, limit, (last) => ({
       createdAt: last.createdAt.toISOString(),
       id: last.id,
     }));
     return {
-      items: page.items.map(toMessageDto),
+      items: [...page.items].reverse().map(toMessageDto),
       ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
     };
   }
@@ -114,19 +174,51 @@ export class TutorService {
   }
 
   /**
-   * Ход диалога: лимит → сохранить вопрос → контекст (кэш 5 мин) → стрим модели → сохранить ответ.
+   * Ход диалога ученика: проверки → общий ход (`runTurn`) → событие для аналитики.
    * Проверки до первого `sink.write` бросают обычные ошибки API (429/404).
    */
   async reply(user: AuthUser, conversationId: string, text: string, sink: SseSink): Promise<void> {
     const conversation = await this.requireOwned(user, conversationId);
     if (conversation.kind !== 'TUTOR') throw Errors.businessRule('Это не диалог с тьютором');
-    const question = text.trim().slice(0, MAX_MESSAGE_CHARS);
-    if (!question) throw Errors.validation('Пустое сообщение');
-    await this.enforceDailyLimit(user.userId);
 
     const studentId =
       conversation.studentId ?? (user.activeRole === 'STUDENT' ? user.profileId : null);
-    const bundle = studentId ? await this.contexts.get(studentId) : null;
+    const result = await this.runTurn({
+      userId: user.userId,
+      conversation,
+      text,
+      sink,
+      prompt: tutorPrompt,
+      vars: async () => {
+        const bundle = studentId ? await this.contexts.get(studentId) : null;
+        return { context: bundle?.text ?? 'Данных об ученике пока нет.' };
+      },
+      unavailableMessage: 'Тьютор сейчас недоступен, попробуй позже',
+    });
+    // Без ответа модели диалога не было — активностью ученика это не считается
+    if (!result || (result.failed && result.chars === 0)) return;
+    if (studentId) {
+      await this.events.emit('tutor.message.sent', {
+        studentId,
+        conversationId: conversation.id,
+        at: new Date().toISOString(),
+      });
+    }
+    this.log.info({ conversationId: conversation.id, ...result }, 'ответ тьютора');
+  }
+
+  /**
+   * Общий ход диалога (ученик и родитель): лимит → контекст (кэш 5 мин) → сохранить вопрос →
+   * стрим модели → сохранить ответ. Проверки до первого `sink.write` бросают обычные ошибки API
+   * (400/429). `null` — клиент ушёл до первого токена, ответ не сохранён.
+   */
+  async runTurn<TVars>(turn: TutorTurn<TVars>): Promise<TutorTurnResult | null> {
+    const { conversation, sink, prompt } = turn;
+    const question = turn.text.trim().slice(0, MAX_MESSAGE_CHARS);
+    if (!question) throw Errors.validation('Пустое сообщение');
+    const limitKey = await this.enforceDailyLimit(turn.userId);
+
+    const vars = await turn.vars();
     const history: AiChatMessage[] = (
       await this.repo.recentMessages(conversation.id, HISTORY_LIMIT)
     ).map((m) => ({ role: m.role === 'ASSISTANT' ? 'assistant' : 'user', content: m.content }));
@@ -138,11 +230,11 @@ export class TutorService {
     });
     history.push({ role: 'user', content: question });
 
-    const request = buildRequest(
-      tutorPrompt,
-      { context: bundle?.text ?? 'Данных об ученике пока нет.' },
-      { history, metadata: { userId: user.userId }, signal: sink.signal },
-    );
+    const request = buildRequest(prompt, vars, {
+      history,
+      metadata: { userId: turn.userId },
+      signal: sink.signal,
+    });
 
     let answer = '';
     let failed = false;
@@ -155,44 +247,46 @@ export class TutorService {
         sink.write({
           type: 'error',
           code: 'EXTERNAL_INTEGRATION',
-          message: 'Тьютор сейчас недоступен, попробуй позже',
+          message: turn.unavailableMessage,
         });
       }
     }
-    if (sink.signal.aborted && !answer) return;
+    if (sink.signal.aborted && !answer) return null;
     if (!failed || answer) {
+      // Попытка списывается только за состоявшийся ответ: сбой модели лимит не тратит
+      await this.kv.incr(limitKey, LIMIT_TTL_SEC);
       const saved = await this.repo.addMessage({
         conversationId: conversation.id,
         role: 'ASSISTANT',
         content: answer || '…',
-        promptId: tutorPrompt.key,
+        promptId: prompt.key,
       });
       if (!failed) sink.write({ type: 'done', messageId: saved.id });
     }
-    if (studentId) {
-      await this.events.emit('tutor.message.sent', {
-        studentId,
-        conversationId: conversation.id,
-        at: new Date().toISOString(),
-      });
-    }
-    this.log.info(
-      { conversationId: conversation.id, chars: answer.length, failed },
-      'ответ тьютора',
-    );
+    return { chars: answer.length, failed };
   }
 
-  private async enforceDailyLimit(userId: string): Promise<void> {
-    const day = new Date().toISOString().slice(0, 10);
-    const used = await this.kv.incr(`ai:tutor:${userId}:${day}`, 86_400);
-    if (used > this.env.AI_TUTOR_DAILY_LIMIT) {
+  /**
+   * Проверка дневного лимита (день — по LIMIT_TIMEZONE). Сам учёт — после ответа модели
+   * (`kv.incr` в runTurn); параллельные запросы могут чуть превысить лимит — для дневного
+   * бюджета это допустимо. Возвращает ключ счётчика.
+   */
+  private async enforceDailyLimit(userId: string): Promise<string> {
+    const key = `ai:tutor:${userId}:${toDateOnly(LIMIT_TIMEZONE)}`;
+    const used = Number((await this.kv.get<number | string>(key)) ?? 0);
+    if (used >= this.env.AI_TUTOR_DAILY_LIMIT) {
       throw Errors.rateLimited('Лимит сообщений тьютору на сегодня исчерпан — продолжим завтра');
     }
+    return key;
   }
 
+  /** Свой диалог ученика; чат родителя о ребёнке (studentId чужого профиля) — не его. */
   private async requireOwned(user: AuthUser, conversationId: string): Promise<AiConversation> {
     const row = await this.repo.findConversation(conversationId);
     if (!row || row.userId !== user.userId) throw Errors.notFound('Диалог');
+    if (row.studentId && user.profileId && row.studentId !== user.profileId) {
+      throw Errors.notFound('Диалог');
+    }
     return row;
   }
 }

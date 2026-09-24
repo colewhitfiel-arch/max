@@ -6,7 +6,7 @@
   min-height: 22px;
   padding: 0 var(--ui-space-2);
   border-radius: var(--ui-radius-full);
-  background: color-mix(in srgb, var(--ui-badge-color) 14%, transparent);
+  background: var(--ui-color-surface-2);
   color: var(--ui-badge-color);
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-medium);
@@ -14,20 +14,28 @@
   white-space: nowrap;
 }
 
+/* color-mix с var() нельзя «подстраховать» второй строкой (невалидность видна только при
+ * вычислении), поэтому — через @supports; без него (Safari < 16.2) — запасной вариант выше. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-badge {
+    background: color-mix(in srgb, var(--ui-badge-color) 14%, transparent);
+  }
+}
+
 .ui-badge[data-tone='info'] {
-  --ui-badge-color: var(--ui-color-primary);
+  --ui-badge-color: var(--ui-color-primary-text);
 }
 
 .ui-badge[data-tone='success'] {
-  --ui-badge-color: var(--ui-color-success);
+  --ui-badge-color: var(--ui-color-success-text);
 }
 
 .ui-badge[data-tone='warning'] {
-  --ui-badge-color: var(--ui-color-warning);
+  --ui-badge-color: var(--ui-color-warning-text);
 }
 
 .ui-badge[data-tone='danger'] {
-  --ui-badge-color: var(--ui-color-danger);
+  --ui-badge-color: var(--ui-color-danger-text);
 }
 
 .ui-badge__dot {

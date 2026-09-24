@@ -15,24 +15,28 @@
   max-width: 100%;
 }
 
-.ui-tag:not([data-tone='neutral']) {
-  background: color-mix(in srgb, var(--ui-tag-color) 14%, transparent);
+/* color-mix с var() нельзя «подстраховать» второй строкой (невалидность видна только при
+ * вычислении), поэтому — через @supports; без него (Safari < 16.2) — запасной вариант выше. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ui-tag:not([data-tone='neutral']) {
+    background: color-mix(in srgb, var(--ui-tag-color) 14%, transparent);
+  }
 }
 
 .ui-tag[data-tone='info'] {
-  --ui-tag-color: var(--ui-color-primary);
+  --ui-tag-color: var(--ui-color-primary-text);
 }
 
 .ui-tag[data-tone='success'] {
-  --ui-tag-color: var(--ui-color-success);
+  --ui-tag-color: var(--ui-color-success-text);
 }
 
 .ui-tag[data-tone='warning'] {
-  --ui-tag-color: var(--ui-color-warning);
+  --ui-tag-color: var(--ui-color-warning-text);
 }
 
 .ui-tag[data-tone='danger'] {
-  --ui-tag-color: var(--ui-color-danger);
+  --ui-tag-color: var(--ui-color-danger-text);
 }
 
 .ui-tag__icon {

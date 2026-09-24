@@ -1,4 +1,5 @@
 .ui-app-layout {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -14,6 +15,19 @@
     radial-gradient(ellipse 240px 460px at 108% 106%, var(--ui-color-bg-glow) 0%, transparent 70%);
   background-repeat: no-repeat;
   color: var(--ui-color-text);
+}
+
+/* Фон экрана (AppLayout.Backdrop): под шапкой, контентом и меню, поверх свечения. */
+.ui-app-layout__backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ui-app-layout__header,
+.ui-app-layout__content,
+.ui-app-layout__nav {
+  position: relative;
 }
 
 .ui-app-layout__header {

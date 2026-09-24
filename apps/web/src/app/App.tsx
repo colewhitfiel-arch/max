@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { applyAccent } from '@edu/ui';
+import { useEffect, useLayoutEffect } from 'react';
 import { RouterProvider } from 'react-router';
 import { bootstrapAuth, useAuthStore } from '@/shared/auth/store';
 import { setLanguage } from '@/shared/i18n';
@@ -13,6 +14,7 @@ export function App() {
   const status = useAuthStore((s) => s.status);
   const theme = useAuthStore((s) => s.me?.settings.theme);
   const locale = useAuthStore((s) => s.me?.settings.locale);
+  const activeRole = useAuthStore((s) => s.me?.activeRole);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -41,6 +43,13 @@ export function App() {
   useEffect(() => {
     if (locale) void setLanguage(locale);
   }, [locale]);
+
+  // Акцент роли (макеты): у родителя зелёный, у преподавателя оранжевый — на всех экранах роли,
+  // и в `/<role>/*`, и на общих (`/notifications`); у ученика и до входа — синий. До отрисовки,
+  // без вспышки.
+  useLayoutEffect(() => {
+    applyAccent(activeRole === 'PARENT' ? 'green' : activeRole === 'TEACHER' ? 'orange' : 'blue');
+  }, [activeRole]);
 
   // Системная кнопка «назад» в MAX → история роутера (в браузере её обрабатывает сам роутер).
   useEffect(() => {

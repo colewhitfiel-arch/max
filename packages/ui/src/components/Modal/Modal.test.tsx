@@ -70,4 +70,13 @@ describe('Modal', () => {
     await userEvent.tab({ shift: true });
     expect(second).toHaveFocus();
   });
+
+  it('closeLabel переопределяет имя кнопки закрытия (i18n)', () => {
+    render(
+      <Modal open onClose={() => {}} title="Window" closeLabel="Close">
+        Text
+      </Modal>,
+    );
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
 });

@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { chatJson, extractJson, parseJsonResponse } from './json';
+import { chatJson, extractJson, parseJsonResponse, TRUNCATED_JSON_ERROR } from './json';
+import type { AiProvider } from './provider';
 import { MockAiProvider } from './providers/mock';
+import type { AiChatRequest, AiChatResponse } from './types';
+
+/** Провайдер с заранее заданными ответами (включая finishReason) и записью запросов. */
+function scriptedProvider(replies: Array<Pick<AiChatResponse, 'content' | 'finishReason'>>) {
+  const calls: AiChatRequest[] = [];
+  const provider: AiProvider = {
+    name: 'scripted',
+    chat: async (req) => {
+      calls.push(req);
+      const reply = replies[Math.min(calls.length - 1, replies.length - 1)]!;
+      return { model: 'test', ...reply };
+    },
+    stream: () => {
+      throw new Error('not used');
+    },
+    embed: () => {
+      throw new Error('not used');
+    },
+  };
+  return { provider, calls };
+}
 
 describe('extractJson', () => {
   it('возвращает чистый JSON как есть', () => {
@@ -55,6 +77,28 @@ describe('parseJsonResponse', () => {
     const result = parseJsonResponse('нет данных', schema);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('не найден');
+  });
+
+  it('текст ошибки синтаксиса не содержит фрагментов ответа модели', () => {
+    // V8 цитирует вход: `Unexpected token ']', "{"a": ] Привет с"... is not valid JSON`
+    const result = parseJsonResponse('{"a": ] Привет секрет}', schema);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('Невалидный JSON');
+      expect(result.error).not.toMatch(/Привет|секрет/);
+    }
+  });
+
+  it('ошибка схемы не цитирует полученное значение enum', () => {
+    const result = parseJsonResponse(
+      '{"kind": "секретный текст"}',
+      z.object({ kind: z.enum(['A', 'B']) }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('kind');
+      expect(result.error).not.toContain('секрет');
+    }
   });
 
   it('синтаксически битый JSON чинится и дальше проверяется схемой', () => {
@@ -138,6 +182,49 @@ describe('chatJson', () => {
       }),
     ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', retryable: false });
     expect(provider.calls).toHaveLength(2);
+  });
+
+  it('обрезанный по лимиту токенов ответ не «чинится»: повтор с просьбой ответить короче', async () => {
+    const { provider, calls } = scriptedProvider([
+      { content: '{"answer": 1, "extra": [1, 2', finishReason: 'length' },
+      { content: '{"answer": 2}', finishReason: 'stop' },
+    ]);
+    const invalid: string[] = [];
+    const result = await chatJson(
+      provider,
+      { messages: [{ role: 'user', content: 'q' }] },
+      schema,
+      {
+        onInvalid: (info) => invalid.push(info.error),
+      },
+    );
+    expect(result.data).toEqual({ answer: 2 });
+    expect(result.attempts).toBe(2);
+    expect(invalid).toEqual([TRUNCATED_JSON_ERROR]);
+    // Обрезанный ответ в историю не добавляется — только просьба ответить короче.
+    expect(calls[1]?.messages.map((m) => m.role)).toEqual(['user', 'user']);
+    expect(calls[1]?.messages[1]?.content).toContain('короче');
+  });
+
+  it('полный JSON при finishReason=length принимается', async () => {
+    const { provider } = scriptedProvider([{ content: '{"answer": 5}', finishReason: 'length' }]);
+    const result = await chatJson(provider, { messages: [{ role: 'user', content: 'q' }] }, schema);
+    expect(result).toMatchObject({ data: { answer: 5 }, attempts: 1, repaired: false });
+  });
+
+  it('обрезанный ответ во всех попытках — INVALID_RESPONSE', async () => {
+    const { provider, calls } = scriptedProvider([
+      { content: '{"answer": 1, "extra": [', finishReason: 'length' },
+    ]);
+    await expect(
+      chatJson(provider, { messages: [{ role: 'user', content: 'q' }] }, schema, {
+        maxRetries: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+      message: expect.stringContaining('обрезан'),
+    });
+    expect(calls).toHaveLength(2);
   });
 
   it('пробрасывает ошибку провайдера без ретраев', async () => {

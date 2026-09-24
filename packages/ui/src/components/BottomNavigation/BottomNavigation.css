@@ -66,16 +66,19 @@
   outline-offset: 2px;
 }
 
-/* Акцентный пункт: круг primary, иконка белая; активность подсвечивается кольцом. */
+/* Акцентный пункт: круг primary, иконка белая (`--ui-color-prominent-fg`; у репетитора белая,
+ * хотя текст на оранжевом тёмный); активный — иконка и обводка внутри круга тёмные (#0d0d0d,
+ * как в макете, не зависит от темы). */
 .ui-bottom-nav__item[data-prominent] {
   width: var(--ui-bottom-nav-prominent-size);
   height: var(--ui-bottom-nav-prominent-size);
   background: var(--ui-color-primary);
-  color: var(--ui-color-primary-contrast);
+  color: var(--ui-color-prominent-fg);
 }
 
 .ui-bottom-nav__item[data-prominent][data-active] {
-  box-shadow: 0 0 0 3px var(--ui-color-primary-contrast) inset;
+  color: var(--ui-color-on-bright);
+  box-shadow: 0 0 0 3px var(--ui-color-on-bright) inset;
 }
 
 .ui-bottom-nav__icon {
@@ -107,7 +110,7 @@
   padding: 0 4px;
   border-radius: var(--ui-radius-full);
   background: var(--ui-color-danger);
-  color: #ffffff;
+  color: var(--ui-color-on-danger);
   font-size: 10px;
   font-weight: var(--ui-font-weight-bold);
   line-height: 16px;

@@ -1,5 +1,7 @@
 /** Курсы и блоки: ученик (просмотр/прогресс), преподаватель (список/создание/структура), course-builder. */
 import {
+  type BlockAnswers,
+  type Course,
   type CourseBlock,
   CompleteBlockBodySchema,
   CompleteBlockResultSchema,
@@ -10,6 +12,7 @@ import {
   StudentCoursesListSchema,
   TeacherCourseDetailSchema,
   TeacherCoursesListSchema,
+  toStudentBlock,
 } from '@edu/contracts';
 import { http } from 'msw';
 import {
@@ -18,6 +21,7 @@ import {
   groupBrief,
   groupIdsOfStudent,
   groupsOfTeacher,
+  studentIdsOfGroup,
 } from '../demo';
 import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
 import { db, studentOfUser, teacherOfUser } from '../state';
@@ -31,18 +35,48 @@ const allBlocksOf = (courseId: string) => modulesOf(courseId).flatMap((m) => blo
 const progressOf = (studentId: string, blockId: string) =>
   db.blockProgress.find((p) => p.studentId === studentId && p.blockId === blockId);
 
-/** QUIZ без правильных ответов и пояснений. */
-function forStudent(block: CourseBlock) {
-  if (block.type !== 'QUIZ') return block;
-  return {
-    ...block,
-    content: {
-      passScore: block.content.passScore,
-      questions: block.content.questions.map(
-        ({ correctOptionIds: _c, explanation: _e, ...q }) => q,
-      ),
-    },
-  };
+/**
+ * Курс для ученика: черновик — как несуществующий (404), курс чужой группы — 403. Как
+ * `/student/courses`, который показывает только опубликованные курсы групп ученика.
+ */
+function studentCourse(studentId: string, courseId: string | undefined): Course | Response {
+  const course = db.courses.find((c) => c.id === courseId);
+  if (!course || course.status !== 'PUBLISHED') return apiError('NOT_FOUND', 'Курс не найден');
+  if (!groupIdsOfStudent(studentId).includes(course.groupId)) {
+    return apiError('FORBIDDEN', 'Курс не твоей группы');
+  }
+  return course;
+}
+
+/** Блок доступного ученику курса (иначе 404/403) и id его курса. */
+function studentBlock(
+  studentId: string,
+  blockId: string,
+): { block: CourseBlock; courseId: string } | Response {
+  const block = db.blocks.find((b) => b.id === blockId);
+  if (!block) return apiError('NOT_FOUND', 'Блок не найден');
+  const courseId = db.modules.find((m) => m.id === block.moduleId)?.courseId;
+  const course = studentCourse(studentId, courseId);
+  if (course instanceof Response) return course;
+  return { block, courseId: course.id };
+}
+
+/**
+ * Балл QUIZ в процентах: вопрос засчитан, если выбранные варианты совпали с правильными как
+ * множества. Ответов нет (UI пока шлёт `{}`) — прежнее поведение, 100.
+ */
+function quizScore(block: CourseBlock, answers: BlockAnswers | undefined): number | null {
+  if (block.type !== 'QUIZ') return null;
+  if (!answers) return 100;
+  const chosen = answers as Record<string, unknown>;
+  const { questions } = block.content;
+  const correct = questions.filter((q) => {
+    const picked = chosen[q.id];
+    if (!Array.isArray(picked)) return false;
+    const set = new Set(picked);
+    return set.size === q.correctOptionIds.length && q.correctOptionIds.every((id) => set.has(id));
+  }).length;
+  return Math.round((correct / questions.length) * 100);
 }
 
 function teacherCourseDetail(courseId: string) {
@@ -104,11 +138,9 @@ export const coursesHandlers = [
     authed(
       ({ auth, params }) => {
         const student = studentOfUser(auth.user.id);
-        const course = db.courses.find((c) => c.id === params.courseId);
-        if (!course) return apiError('NOT_FOUND', 'Курс не найден');
-        if (!student || !groupIdsOfStudent(student.id).includes(course.groupId)) {
-          return apiError('FORBIDDEN', 'Курс не твоей группы');
-        }
+        if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
+        const course = studentCourse(student.id, params.courseId);
+        if (course instanceof Response) return course;
         return json(StudentCourseDetailSchema, {
           id: course.id,
           title: course.title,
@@ -139,15 +171,15 @@ export const coursesHandlers = [
     authed(
       ({ auth, params }) => {
         const student = studentOfUser(auth.user.id);
-        const block = db.blocks.find((b) => b.id === params.blockId);
-        if (!block) return apiError('NOT_FOUND', 'Блок не найден');
-        const module = db.modules.find((m) => m.id === block.moduleId)!;
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
+        const found = studentBlock(student.id, params.blockId);
+        if (found instanceof Response) return found;
+        const { block, courseId } = found;
         const assignment = db.assignments.find((a) => a.blockId === block.id);
         const progress = progressOf(student.id, block.id);
         return json(StudentBlockDetailSchema, {
-          ...forStudent(block),
-          courseId: module.courseId,
+          ...toStudentBlock(block),
+          courseId,
           assignment: assignment ? assignmentBrief(assignment.id, student.id) : null,
           progress: progress
             ? { status: progress.status, attempts: progress.attempts, score: progress.score }
@@ -164,8 +196,8 @@ export const coursesHandlers = [
       ({ auth, params }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
-        if (!db.blocks.some((b) => b.id === params.blockId))
-          return apiError('NOT_FOUND', 'Блок не найден');
+        const found = studentBlock(student.id, params.blockId);
+        if (found instanceof Response) return found;
         let progress = progressOf(student.id, params.blockId);
         if (!progress) {
           progress = {
@@ -193,11 +225,11 @@ export const coursesHandlers = [
       async ({ auth, params, request }) => {
         const student = studentOfUser(auth.user.id);
         if (!student) return apiError('FORBIDDEN', 'Нет профиля ученика');
-        const block = db.blocks.find((b) => b.id === params.blockId);
-        if (!block) return apiError('NOT_FOUND', 'Блок не найден');
+        const found = studentBlock(student.id, params.blockId);
+        if (found instanceof Response) return found;
+        const { block, courseId } = found;
         const body = await readBody(request, CompleteBlockBodySchema);
         if (!body.ok) return body.response;
-        const module = db.modules.find((m) => m.id === block.moduleId)!;
         let progress = progressOf(student.id, block.id);
         if (!progress) {
           progress = {
@@ -214,14 +246,14 @@ export const coursesHandlers = [
         progress.status = 'COMPLETED';
         progress.completedAt = new Date().toISOString();
         progress.attempts += 1;
-        const score = block.type === 'QUIZ' ? 100 : null;
+        const score = quizScore(block, body.data.answers);
         progress.score = score;
-        const blocks = allBlocksOf(module.courseId);
+        const blocks = allBlocksOf(courseId);
         return json(CompleteBlockResultSchema, {
           progress: { status: progress.status, attempts: progress.attempts, score: progress.score },
           score,
           courseProgress: {
-            percent: courseProgressPercent(module.courseId, student.id),
+            percent: courseProgressPercent(courseId, student.id),
             completedBlocks: blocks.filter(
               (b) => progressOf(student.id, b.id)?.status === 'COMPLETED',
             ).length,
@@ -245,9 +277,8 @@ export const coursesHandlers = [
           .filter((c) => groupIds.includes(c.groupId) && (!groupId || c.groupId === groupId))
           .map((c) => {
             const blocks = allBlocksOf(c.id);
-            const studentIds = db.enrollments
-              .filter((e) => e.groupId === c.groupId)
-              .map((e) => e.studentId);
+            // Средний прогресс — по активным ученикам группы (ушедшие не занижают процент).
+            const studentIds = studentIdsOfGroup(c.groupId);
             const avg = studentIds.length
               ? Math.round(
                   studentIds.reduce((sum, id) => sum + courseProgressPercent(c.id, id), 0) /

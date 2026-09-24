@@ -17,3 +17,13 @@ export function formatMoney(money: Money | number, locale = 'ru'): string {
 export function rublesToKopecks(rubles: number): number {
   return Math.round(rubles * 100);
 }
+
+/**
+ * Баланс целыми рублями, как в макетах кошелька («6700»): копейки не показываем, разряды
+ * отделяем только от 10 000 («16 700») — четырёхзначная сумма читается и так.
+ */
+export function wholeRubles(money: Money | number, locale = 'ru'): string {
+  const kopecks = typeof money === 'number' ? money : money.amountKopecks;
+  const rubles = Math.floor(kopecks / 100);
+  return new Intl.NumberFormat(locale, { useGrouping: Math.abs(rubles) >= 10_000 }).format(rubles);
+}

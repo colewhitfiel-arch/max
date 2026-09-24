@@ -1,1 +1,1 @@
-export { HomeworkMap, type HomeworkMapProps } from './HomeworkMap';
+export { HomeworkBackdrop, HomeworkMap, type HomeworkMapProps } from './HomeworkMap';

@@ -3,6 +3,7 @@
  * задания со сдачами, статистика. Цифры статистики — правдоподобные заглушки, не формулы analytics.
  */
 import type {
+  Assignment,
   AssignmentBrief,
   ClubBrief,
   ClubCard,
@@ -21,7 +22,7 @@ import type {
   WeeklyPoint,
 } from '@edu/contracts';
 import { demoAssignmentDueOffsets, demoSchool, demoTeacherContacts } from '@edu/contracts/fixtures';
-import { addDays, isSameDay, toDateOnly } from '../../lib/dates';
+import { addDays, isSameDay, startOfDay, toDateOnly } from '../../lib/dates';
 import { db, type MockUser, parentOfUser, studentOfUser, teacherOfUser } from './state';
 
 const DAY_MS = 86_400_000;
@@ -63,6 +64,8 @@ export function groupBrief(groupId: string): GroupBrief {
   return {
     id: group.id,
     title: group.title,
+    // Короткий номер («001») — только в моках (`MOCK_GROUP_CODES`), везде, где есть GroupBrief.
+    code: group.code,
     club: clubBrief(group.clubId),
     teacher: teacherBrief(group.teacherId),
   };
@@ -126,6 +129,12 @@ export const studentIdsOfGroup = (groupId: string) =>
 export const groupsOfTeacher = (teacherId: string) =>
   db.groups.filter((g) => g.teacherId === teacherId);
 
+/** Группы преподавателя, в которых занимается ученик (политика доступа `teacher:students.view`). */
+export const sharedGroupIds = (teacherId: string, studentId: string) => {
+  const own = new Set(groupsOfTeacher(teacherId).map((g) => g.id));
+  return groupIdsOfStudent(studentId).filter((groupId) => own.has(groupId));
+};
+
 export const childrenIdsOfParent = (parentId: string) =>
   db.links.filter((l) => l.parentId === parentId && l.status === 'ACTIVE').map((l) => l.studentId);
 
@@ -168,8 +177,13 @@ export function splitLessons(lessons: Lesson[], now = new Date()) {
 
 // ---------- Задания ----------
 
-export function dueAtOf(assignmentId: string): string | null {
-  const offset = demoAssignmentDueOffsets[assignmentId];
+/**
+ * Срок задания: сохранённый `dueAt` (создание/PATCH преподавателем), иначе — смещение демо-задания
+ * от «сегодня» (у фикстур `dueAt: null`, срок относительный).
+ */
+export function dueAtOf(assignment: Pick<Assignment, 'id' | 'dueAt'>): string | null {
+  if (assignment.dueAt) return assignment.dueAt;
+  const offset = demoAssignmentDueOffsets[assignment.id];
   if (offset === undefined) return null;
   const due = addDays(new Date(), offset);
   due.setHours(23, 59, 0, 0);
@@ -186,7 +200,7 @@ export function assignmentBrief(assignmentId: string, studentId?: string): Assig
     id: assignment.id,
     title: assignment.title,
     type: assignment.type,
-    dueAt: dueAtOf(assignment.id),
+    dueAt: dueAtOf(assignment),
     maxScore: assignment.maxScore,
     group: groupBrief(assignment.groupId),
     submission: submission
@@ -200,9 +214,28 @@ export function assignmentBrief(assignmentId: string, studentId?: string): Assig
   };
 }
 
+/**
+ * Задания, доступные ученику: опубликованные задания его групп, адресованные всей группе
+ * (пустой `studentIds`) или лично ему.
+ */
 export const assignmentsOfStudent = (studentId: string) => {
   const groupIds = groupIdsOfStudent(studentId);
-  return db.assignments.filter((a) => groupIds.includes(a.groupId) && a.publishedAt);
+  return db.assignments.filter(
+    (a) =>
+      groupIds.includes(a.groupId) &&
+      a.publishedAt &&
+      (a.studentIds.length === 0 || a.studentIds.includes(studentId)),
+  );
+};
+
+/** Кому адресовано задание: перечисленные ученики или весь состав группы. */
+export const targetIdsOfAssignment = (assignmentId: string): string[] => {
+  const assignment = db.assignments.find((a) => a.id === assignmentId);
+  if (!assignment) return [];
+  const roster = studentIdsOfGroup(assignment.groupId);
+  return assignment.studentIds.length === 0
+    ? roster
+    : roster.filter((id) => assignment.studentIds.includes(id));
 };
 
 export const isDone = (assignmentId: string, studentId: string) => {
@@ -214,11 +247,21 @@ export const isDone = (assignmentId: string, studentId: string) => {
 
 // ---------- Статистика (заглушки) ----------
 
-export function statsBrief(studentId: string, days = 30): StatsBrief {
-  const records = db.attendance.filter((a) => a.studentId === studentId);
+/**
+ * Статистика ученика; с `groupId` — только по занятиям и заданиям этой группы (карточки кружков
+ * и групп), без него — по всем группам ученика.
+ */
+export function statsBrief(studentId: string, days = 30, groupId?: string): StatsBrief {
+  const records = db.attendance.filter(
+    (a) =>
+      a.studentId === studentId &&
+      (groupId === undefined || db.lessons.find((l) => l.id === a.lessonId)?.groupId === groupId),
+  );
   const countable = records.length;
   const present = records.filter((a) => a.status === 'PRESENT' || a.status === 'LATE').length;
-  const assignments = assignmentsOfStudent(studentId);
+  const assignments = assignmentsOfStudent(studentId).filter(
+    (a) => groupId === undefined || a.groupId === groupId,
+  );
   const done = assignments.filter((a) => isDone(a.id, studentId)).length;
   return {
     attendanceRate: countable ? present / countable : null,
@@ -230,11 +273,51 @@ export function statsBrief(studentId: string, days = 30): StatsBrief {
   };
 }
 
+/**
+ * Серия и кристаллы ученика — фейковый сервер повторяет правила analytics
+ * (`apps/api/src/modules/analytics/gamification.ts`, docs/04 §4.6):
+ * серия — дни от начала до последнего действия (посещение или сданное задание), действие
+ * нужно хотя бы раз в 2 дня; кристаллы — 50 за посещение + 20 за задание больше 75%.
+ */
+export function gamification(studentId: string): { streakDays: number; points: number } {
+  const attended = db.attendance.filter(
+    (a) => a.studentId === studentId && (a.status === 'PRESENT' || a.status === 'LATE'),
+  );
+  const submissions = db.submissions.filter((s) => s.studentId === studentId && s.submittedAt);
+  const activeDays = [
+    ...attended.flatMap((a) => {
+      const lesson = db.lessons.find((l) => l.id === a.lessonId);
+      return lesson ? [toDateOnly(lesson.startsAt)] : [];
+    }),
+    ...submissions.map((s) => toDateOnly(s.submittedAt!)),
+  ];
+  const today = startOfDay();
+  const days = [...new Set(activeDays)]
+    .map((day) => Math.round((startOfDay(day).getTime() - today.getTime()) / 86_400_000))
+    .filter((offset) => offset <= 0)
+    .sort((a, b) => b - a);
+  let streakDays = 0;
+  const last = days[0];
+  if (last !== undefined && -last <= 2) {
+    let start = last;
+    for (const day of days.slice(1)) {
+      if (start - day > 2) break;
+      start = day;
+    }
+    streakDays = last - start + 1;
+  }
+  const passed = submissions.filter((s) => {
+    const assignment = db.assignments.find((a) => a.id === s.assignmentId);
+    return assignment && s.score !== null && s.score / assignment.maxScore > 0.75;
+  }).length;
+  return { streakDays, points: attended.length * 50 + passed * 20 };
+}
+
 export function clubProgress(studentId: string, groupId: string): ClubProgress {
   const group = groupBrief(groupId);
   const course = db.courses.find((c) => c.groupId === groupId && c.status === 'PUBLISHED');
   const percent = course ? courseProgressPercent(course.id, studentId) : 0;
-  const stats = statsBrief(studentId);
+  const stats = statsBrief(studentId, 30, groupId);
   return {
     club: group.club,
     group,
@@ -273,7 +356,7 @@ export function weeklyPoints(weeks = 4): WeeklyPoint[] {
 export function groupCard(groupId: string): GroupCard {
   const brief = groupBrief(groupId);
   const studentIds = studentIdsOfGroup(groupId);
-  const stats = studentIds.map((id) => statsBrief(id));
+  const stats = studentIds.map((id) => statsBrief(id, 30, groupId));
   const avg = (values: (number | null)[]) => {
     const nums = values.filter((v): v is number => v !== null);
     return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
@@ -288,14 +371,15 @@ export function groupCard(groupId: string): GroupCard {
     studentsCount: studentIds.length,
     attendanceRate: avg(stats.map((s) => s.attendanceRate)),
     completionRate: avg(stats.map((s) => s.completionRate)),
-    needsAttentionCount: studentIds.filter((id) => needsAttention(id).length > 0).length,
+    needsAttentionCount: studentIds.filter((id) => needsAttention(id, groupId).length > 0).length,
     nextLesson: nextLesson ? lessonDto(nextLesson) : null,
   };
 }
 
-export function needsAttention(studentId: string): string[] {
+/** Причины внимания к ученику; с `groupId` — только по этой группе. */
+export function needsAttention(studentId: string, groupId?: string): string[] {
   const reasons: string[] = [];
-  const stats = statsBrief(studentId);
+  const stats = statsBrief(studentId, 30, groupId);
   if (stats.absences > 0) reasons.push('Пропуски');
   if (stats.completionRate !== null && stats.completionRate < 0.5) reasons.push('Не сдаёт задания');
   return reasons;
