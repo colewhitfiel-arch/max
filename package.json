@@ -23,6 +23,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ownership:check": "node scripts/check-ownership.mjs",
+    "smoke:gigachat": "node scripts/smoke-gigachat.mjs",
     "db:up": "pnpm --filter @edu/db db:up",
     "db:down": "pnpm --filter @edu/db db:down",
     "db:generate": "pnpm --filter @edu/db generate",
