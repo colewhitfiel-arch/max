@@ -47,7 +47,8 @@ export const envSchema = z
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),
     MAX_APP_ID: optionalString,
-    MAX_APP_SECRET: optionalString,
+    /** Токен бота MAX: им подписаны launch-параметры мини-приложения (dev.max.ru/docs/webapps). */
+    MAX_BOT_TOKEN: optionalString,
 
     AI_PROVIDER: z.enum(['mock', 'gigachat']).default('mock'),
     GIGACHAT_AUTH_KEY: optionalString,
@@ -91,8 +92,8 @@ export const envSchema = z
       'обязателен при QUEUE_DRIVER=bullmq',
     );
     need(
-      env.AUTH_PROVIDER === 'max' && !env.MAX_APP_SECRET,
-      'MAX_APP_SECRET',
+      env.AUTH_PROVIDER === 'max' && !env.MAX_BOT_TOKEN,
+      'MAX_BOT_TOKEN',
       'обязателен при AUTH_PROVIDER=max',
     );
     need(

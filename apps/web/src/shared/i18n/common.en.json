@@ -63,7 +63,7 @@
     "aborted": "Request cancelled",
     "emptyStream": "Empty stream",
     "noLaunchParams": "No MAX launch parameters: open the app from the messenger",
-    "sdkUnavailable": "MAX SDK not found: the app is opened outside MAX or the SDK is not connected. For browser development use VITE_MAX_MODE=mock.",
+    "sdkUnavailable": "MAX SDK not found: opened outside MAX or max-web-app.js failed to load.",
     "codes": {
       "VALIDATION": "Check the entered data",
       "UNAUTHORIZED": "Please sign in again",

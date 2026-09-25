@@ -234,11 +234,11 @@ export async function bootstrapAuth(bridge: MaxBridge): Promise<void> {
         me: null,
         error,
       });
-      if (config.authMode !== 'max') return;
+      if (effectiveAuthMode(bridge) !== 'max') return;
     }
   }
 
-  if (config.authMode === 'max') {
+  if (effectiveAuthMode(bridge) === 'max') {
     let launchParams: string | null = null;
     try {
       launchParams = bridge.getLaunchParams();
@@ -254,6 +254,19 @@ export async function bootstrapAuth(bridge: MaxBridge): Promise<void> {
   }
 
   useAuthStore.setState({ status: 'anonymous' });
+}
+
+/**
+ * Режим входа с учётом контекста запуска: `auto` внутри MAX (есть launch-параметры) работает
+ * как `max`, а в обычном браузере — как `dev`. Это позволяет одной сборке открываться и там, и там.
+ */
+export function effectiveAuthMode(bridge: MaxBridge): 'dev' | 'max' {
+  if (config.authMode !== 'auto') return config.authMode;
+  try {
+    return bridge.getLaunchParams() ? 'max' : 'dev';
+  } catch {
+    return 'dev';
+  }
 }
 
 /** Сброс для тестов. */

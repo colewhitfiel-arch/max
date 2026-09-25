@@ -8,13 +8,14 @@ import { safeEqual } from '../safe-equal';
 import type { ExternalIdentity } from '../auth-user';
 
 /**
- * Проверка launch-параметров мини-приложения MAX.
+ * Проверка launch-параметров мини-приложения MAX (`WebApp.initData`).
  *
- * ВНИМАНИЕ: точный формат подписи и полей нужно сверить с dev.max.ru (задача I2/Agent J).
- * Здесь реализована распространённая схема «query-string + HMAC-SHA256 от секрета приложения»
- * (как у Telegram initData / VK sign): все параметры, кроме `hash`, сортируются по ключу,
- * склеиваются `key=value` через `\n`, подписываются ключом `HMAC_SHA256("WebAppData", secret)`.
- * Если MAX использует другой алгоритм — меняется только этот файл.
+ * Алгоритм по dev.max.ru/docs/webapps/validation (сверено 2026-09-24):
+ *  1. из параметров вынуть `hash` (он должен быть ровно один);
+ *  2. остальные URL-декодировать, отсортировать по ключу и склеить `key=value` через `\n`;
+ *  3. `secret_key = HMAC_SHA256(key: "WebAppData", data: токен бота)`;
+ *  4. `HMAC_SHA256(key: secret_key, data: строка из п.2)` в hex сравнить с `hash`.
+ * Секрет — именно токен бота MAX (`MAX_BOT_TOKEN`), а не отдельный секрет приложения.
  */
 @Injectable()
 export class MaxAuthProvider implements AuthProvider {
@@ -27,19 +28,20 @@ export class MaxAuthProvider implements AuthProvider {
   async verify(input: AuthProviderInput): Promise<ExternalIdentity> {
     if (input.kind !== 'max')
       throw Errors.unauthorized('MAX-провайдер принимает только launch-параметры');
-    const secret = this.env.MAX_APP_SECRET;
-    if (!secret) throw Errors.internal('MAX_APP_SECRET не задан');
+    const botToken = this.env.MAX_BOT_TOKEN;
+    if (!botToken) throw Errors.internal('MAX_BOT_TOKEN не задан');
 
     const params = new URLSearchParams(input.launchParams);
-    const hash = params.get('hash');
-    if (!hash) throw Errors.unauthorized('Нет подписи launch-параметров');
+    const hashes = params.getAll('hash');
+    if (hashes.length !== 1) throw Errors.unauthorized('Нет подписи launch-параметров');
+    const hash = hashes[0]!;
     params.delete('hash');
 
     const dataCheckString = [...params.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
-    const secretKey = createHmac('sha256', 'WebAppData').update(secret).digest();
+    const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expected = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
     if (!safeEqual(expected, hash)) {
       throw Errors.unauthorized('Подпись launch-параметров неверна');

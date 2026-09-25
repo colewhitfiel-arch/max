@@ -21,9 +21,11 @@ import {
   AUTH_STORAGE_KEYS,
   bootstrapAuth,
   configureAuthStorage,
+  effectiveAuthMode,
   resetAuthStore,
   useAuthStore,
 } from './store';
+import { config } from '../config';
 
 const me = (activeRole: MeDto['activeRole']): MeDto => ({
   user: {
@@ -198,5 +200,40 @@ describe('auth store', () => {
     await bootstrapAuth(bridge);
     expect(useAuthStore.getState().status).toBe('anonymous');
     expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('effectiveAuthMode', () => {
+  const withMode = (mode: 'dev' | 'max' | 'auto', fn: () => void) => {
+    const original = config.authMode;
+    Object.defineProperty(config, 'authMode', { value: mode, configurable: true });
+    try {
+      fn();
+    } finally {
+      Object.defineProperty(config, 'authMode', { value: original, configurable: true });
+    }
+  };
+
+  it('dev и max возвращаются как есть', () => {
+    const bridge = new MockMaxBridge({ launchParams: 'hash=abc' });
+    withMode('dev', () => expect(effectiveAuthMode(bridge)).toBe('dev'));
+    withMode('max', () => expect(effectiveAuthMode(bridge)).toBe('max'));
+  });
+
+  it('auto: с launch-параметрами — max, без них — dev', () => {
+    withMode('auto', () => {
+      expect(effectiveAuthMode(new MockMaxBridge({ launchParams: 'hash=abc' }))).toBe('max');
+      expect(effectiveAuthMode(new MockMaxBridge({ launchParams: null }))).toBe('dev');
+    });
+  });
+
+  it('auto: падение моста при чтении параметров — dev, а не ошибка', () => {
+    withMode('auto', () => {
+      const broken = new MockMaxBridge();
+      broken.getLaunchParams = () => {
+        throw new Error('нет SDK');
+      };
+      expect(effectiveAuthMode(broken)).toBe('dev');
+    });
   });
 });

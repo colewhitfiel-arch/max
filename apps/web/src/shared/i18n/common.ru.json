@@ -65,7 +65,7 @@
     "aborted": "Запрос отменён",
     "emptyStream": "Пустой поток",
     "noLaunchParams": "Нет launch-параметров MAX: приложение нужно открыть из мессенджера",
-    "sdkUnavailable": "SDK MAX не найден: приложение открыто вне MAX или SDK не подключён. Для разработки в браузере — VITE_MAX_MODE=mock.",
+    "sdkUnavailable": "SDK MAX не найден: приложение открыто вне MAX или не загрузился max-web-app.js.",
     "codes": {
       "VALIDATION": "Введённые данные не прошли проверку",
       "UNAUTHORIZED": "Нужно войти заново",

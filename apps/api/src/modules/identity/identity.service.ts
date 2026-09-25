@@ -12,6 +12,7 @@ import type {
 import { AUTH_PROVIDER, type AuthProvider } from '../../common/auth/auth-provider';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { JwtService } from '../../common/auth/jwt.service';
+import { DevAuthProvider } from '../../common/auth/providers/dev-auth.provider';
 import { Errors } from '../../common/errors/app-error';
 import { AppLogger } from '../../common/logger/logger.service';
 import { type Env } from '../../config/env';
@@ -36,6 +37,9 @@ export class IdentityService {
     private readonly school: SchoolService,
     private readonly family: FamilyService,
     @Inject(AUTH_PROVIDER) private readonly authProvider: AuthProvider,
+    // Dev-вход не зависит от того, какой провайдер обслуживает launch-параметры MAX:
+    // демо-стенд должен принимать и подпись MAX, и вход демо-пользователем.
+    private readonly devAuthProvider: DevAuthProvider,
     @InjectEnv() private readonly env: Env,
     logger: AppLogger,
   ) {
@@ -52,11 +56,13 @@ export class IdentityService {
     return this.issueSession(user, this.pickActiveRole(user, null));
   }
 
+  /**
+   * Вход демо-пользователем. Разрешён везде, кроме production: на демо-стенде `AUTH_PROVIDER=max`
+   * (нужен для подписи мини-приложения), но открыть стенд в обычном браузере тоже надо.
+   */
   async loginDev(maxUserId: string, roles: Role[]): Promise<AuthResult> {
-    if (this.env.APP_ENV === 'production' || this.authProvider.name !== 'dev') {
-      throw Errors.forbidden('Dev-вход недоступен');
-    }
-    const identity = await this.authProvider.verify({ kind: 'dev', maxUserId });
+    if (this.env.APP_ENV === 'production') throw Errors.forbidden('Dev-вход недоступен');
+    const identity = await this.devAuthProvider.verify({ kind: 'dev', maxUserId });
     let user = await this.repo.upsertByIdentity(identity);
     for (const role of roles) {
       if (!this.hasRoleWithProfile(user, role)) await this.grantRole(user, role, undefined);

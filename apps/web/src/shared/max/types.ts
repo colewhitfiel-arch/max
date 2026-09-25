@@ -42,6 +42,8 @@ export interface MaxBridge {
   isInsideMax(): boolean;
   /** Сырые launch-параметры для `POST /auth/max`; null — их нет. */
   getLaunchParams(): string | null;
+  /** Полезная нагрузка диплинка `https://max.ru/<bot>?startapp=<payload>`; null — запуск без неё. */
+  getStartParam(): string | null;
   getUser(): MaxUser | null;
   getTheme(): MaxTheme;
   getViewport(): MaxViewport;
