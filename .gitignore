@@ -32,3 +32,6 @@ Thumbs.db
 # tests
 playwright-report/
 test-results/
+
+# Vercel CLI (привязка проекта)
+.vercel

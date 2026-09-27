@@ -47,8 +47,9 @@ apps/web  (React SPA, Vite)  ──HTTP JSON / SSE──▶  apps/api (NestJS, H
 - `common/errors` — `AppError`/`Errors.*`, `ApiExceptionFilter` (единый формат, маппинг Zod/ts-rest/HttpException/Prisma).
 - `common/logger` — pino, request-id (AsyncLocalStorage, заголовок `X-Request-Id`), redaction секретов и контента ИИ, интерсептор HTTP-логов.
 - `common/events` — `DomainEventBus.emit(name, payload)` с валидацией, `@OnDomainEvent`.
-- `common/queue` — `JobQueue` порт, `InlineJobQueue`, `BullMqJobQueue`, `QueueModule.forRoot('api'|'worker')`.
-- `common/kv` — `KeyValueStore` порт, `MemoryKeyValueStore`.
+- `common/queue` — `JobQueue` порт, `InlineJobQueue` (хук `keepAlive` для serverless — `waitUntil`), `BullMqJobQueue`, `QueueModule.forRoot('api'|'worker', options)`.
+- `common/kv` — `KeyValueStore` порт, `MemoryKeyValueStore` (dev), `PostgresKeyValueStore` (таблица `kv_entries`, `KV_DRIVER=postgres` — общий стор для нескольких инстансов).
+- `vercel.ts` — вход для Vercel Functions (ADR-014): Nest поднимается один раз на инстанс через `ExpressAdapter`; `main.ts`/`worker.ts` — обычные процессы.
 - `common/prisma` — `PrismaService` (глобальный), `ping()`.
 - `common/pagination`, `common/time`, `common/validation`.
 - `modules/index.ts` — реестр модулей (`DOMAIN_MODULES`), `app.module.ts` собирает всё, `bootstrap.ts` — префикс `/api/v1`, CORS, middleware.
@@ -92,7 +93,7 @@ Enum'ы, сущности (`entities/`), схемы блоков (`blocks/`), п
 
 ## 13. Storage abstraction
 
-`StorageProvider` порт + `LocalFsStorage` (dev, подписанные ссылки через api) + `S3Storage` (заглушка). Порты пайплайна курса: `ContentExtractor`, `CourseTransformer`, `CoursePipeline` (`modules/course-builder/pipeline`), сущности `File` и `CourseGenerationJob` в БД, enum `GenerationStage`.
+`StorageProvider` порт + `LocalFsStorage` (dev, подписанные ссылки через api) + `S3Storage` (`@aws-sdk/client-s3`, presigned PUT/GET напрямую в бакет — любое S3-совместимое хранилище; бакету нужен CORS). Порты пайплайна курса: `ContentExtractor`, `CourseTransformer`, `CoursePipeline` (`modules/course-builder/pipeline`), сущности `File` и `CourseGenerationJob` в БД, enum `GenerationStage`.
 
 ## 14. Configuration
 
@@ -133,8 +134,8 @@ apps/api ──▶ @edu/contracts, @edu/db, @edu/ai
 | `DevAuthProvider`, экран `/auth` dev | только dev, запрещён в production | остаётся для dev |
 | `MockMaxBridge`, `MaxSdkBridge` (каркас), схема подписи в `MaxAuthProvider` | mock / допущение | workstream J |
 | `MockAiProvider` с `productMockRules`, промпты онбординга/тьютора/траектории/course-builder | mock отвечает по каждому промпту детерминированно | workstream K (реальный GigaChat) |
-| `InlineJobQueue`, `MemoryKeyValueStore` | dev-реализации | production: bullmq + Redis (I4) |
-| `LocalFsStorage`, `S3Storage`-заглушка | dev / stub | workstream G |
+| `InlineJobQueue`, `MemoryKeyValueStore` | dev-реализации; на Vercel — inline + `waitUntil` и `PostgresKeyValueStore` (ADR-014) | горизонтальный масштаб: bullmq + Redis (I4) |
+| `LocalFsStorage` | dev | `S3Storage` реализован; на стенде нужен S3-совместимый бакет |
 | Извлечение текста (txt/md/pdf/docx) и пайплайн course-builder | реализовано (docs/13); pptx/OCR — нет | workstream G |
 | `FakePaymentProvider` (ещё не создан) | — | workstream I |
 | MSW-моки | dev-инструмент | остаются, обновляются вместе с контрактами |

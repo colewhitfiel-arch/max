@@ -2,6 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Logger } from 'pino';
 import { type EnqueueOptions, type JobHandler, type JobQueue, type QueueName } from './job-queue';
 
+export interface InlineJobQueueOptions {
+  /**
+   * Куда отдать промис фоновой задачи, чтобы среда дождалась его после ответа клиенту
+   * (Vercel: `waitUntil` из `@vercel/functions`). В обычном процессе не нужен.
+   */
+  keepAlive?: (task: Promise<unknown>) => void;
+}
+
 /**
  * Очередь «в процессе»: задачи выполняются асинхронно в том же процессе после ответа клиенту.
  * Для dev/test без Redis и для inline-режима api. Не переживает рестарт — это осознанно.
@@ -13,7 +21,10 @@ export class InlineJobQueue implements JobQueue {
   private readonly activeIds = new Set<string>();
   private stopped = false;
 
-  constructor(private readonly log: Logger) {}
+  constructor(
+    private readonly log: Logger,
+    private readonly options: InlineJobQueueOptions = {},
+  ) {}
 
   process<T>(queue: QueueName, name: string, handler: JobHandler<T>): void {
     this.handlers.set(`${queue}:${name}`, handler as JobHandler);
@@ -56,6 +67,8 @@ export class InlineJobQueue implements JobQueue {
       this.activeIds.delete(dedupeKey);
     });
     this.pending.add(p);
+    // Serverless: не дать платформе заморозить инстанс, пока задача не доработала
+    this.options.keepAlive?.(p);
   }
 
   async start(): Promise<void> {

@@ -16,6 +16,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/s3-request-presigner": "^3.1141.0",
     "@edu/ai": "workspace:*",
     "@edu/contracts": "workspace:*",
     "@edu/db": "workspace:*",
@@ -25,6 +27,7 @@
     "@nestjs/platform-express": "^11.1.0",
     "@ts-rest/core": "~3.52.1",
     "@ts-rest/nest": "~3.52.1",
+    "@vercel/functions": "^2.2.13",
     "bullmq": "^5.56.0",
     "dotenv": "^16.5.0",
     "mammoth": "1.9.1",
@@ -45,6 +48,7 @@
     "@types/node": "^22.15.0",
     "@types/pdf-parse": "1.1.5",
     "@types/supertest": "^6.0.3",
+    "@vercel/node": "^5.10.2",
     "dotenv-cli": "^8.0.0",
     "eslint": "^9.30.0",
     "rimraf": "^6.0.1",

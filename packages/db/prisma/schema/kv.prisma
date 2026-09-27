@@ -1,0 +1,12 @@
+// kv: key-value с TTL (идемпотентность, дневные лимиты, кэш контекста) для serverless,
+// где память процесса не разделяется между инстансами. Владелец — core (KV_DRIVER=postgres).
+
+model KvEntry {
+  key       String    @id
+  value     Json
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([expiresAt])
+  @@map("kv_entries")
+}

@@ -8,18 +8,29 @@ import { KvModule } from './common/kv/kv.module';
 import { HttpLoggingInterceptor } from './common/logger/http-logging.interceptor';
 import { LoggerModule } from './common/logger/logger.module';
 import { PrismaModule } from './common/prisma/prisma.module';
-import { type ProcessMode, QueueModule } from './common/queue/queue.module';
+import {
+  type ProcessMode,
+  QueueModule,
+  type QueueModuleOptions,
+} from './common/queue/queue.module';
 import { type Env } from './config/env';
 import { EnvModule } from './config/env.module';
 import { DOMAIN_MODULES } from './modules';
 
+export type AppModuleOptions = QueueModuleOptions;
+
 /**
- * Корневой модуль. Один и тот же для HTTP-процесса (mode='api') и worker'а (mode='worker'):
- * различается только поведение очереди. Доменные модули — в modules/index.ts.
+ * Корневой модуль. Один и тот же для HTTP-процесса (mode='api'), worker'а (mode='worker')
+ * и serverless-функции (vercel.ts): различается только поведение очереди.
+ * Доменные модули — в modules/index.ts.
  */
 @Module({})
 export class AppModule {
-  static forRoot(env: Env, mode: ProcessMode = 'api'): DynamicModule {
+  static forRoot(
+    env: Env,
+    mode: ProcessMode = 'api',
+    options: AppModuleOptions = {},
+  ): DynamicModule {
     return {
       module: AppModule,
       imports: [
@@ -28,7 +39,7 @@ export class AppModule {
         PrismaModule,
         DomainEventsModule,
         KvModule,
-        QueueModule.forRoot(mode),
+        QueueModule.forRoot(mode, options),
         AuthCoreModule,
         TsRestModule.register({
           isGlobal: true,

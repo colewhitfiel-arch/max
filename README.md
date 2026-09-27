@@ -154,6 +154,24 @@ docker compose up -d --build
 Без токена бота приложение работает в dev-режиме входа (`VITE_AUTH_MODE=dev`): экран выбора
 демо-пользователя, подпись MAX не проверяется.
 
+## Vercel (живой стенд)
+
+Docker-путь ниже — эталон для сдачи; для постоянного https-адреса мини-приложения стенд
+живёт на Vercel (ADR-014): статика `apps/web/dist` + одна функция `api/index.js`, в которую
+`vercel.json` переписывает весь `/api/*` — один origin, как требует MAX.
+
+- Вход функции — `apps/api/src/vercel.ts` (Nest поднимается один раз на инстанс). Фоновые
+  задачи inline-очереди удерживают инстанс через `waitUntil` до конца (лимит функции — 300 с).
+- Сборка — `scripts/vercel-build.mjs`: turbo build → `prisma migrate deploy` → seed при
+  `SEED_ON_DEPLOY=1`. Миграции идут по `DATABASE_URL_UNPOOLED`, если провайдер БД его даёт.
+- Обязательные переменные проекта: всё из `.env.example` без dev-значений плюс
+  `KV_DRIVER=postgres`, `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
+  `VITE_API_URL=/api/v1`, `VITE_MAX_MODE=real`, `ENABLE_EXPERIMENTAL_COREPACK=1`.
+  `APP_ENV=staging` (production-guard требует настоящий провайдер оплаты).
+- Файлы: `STORAGE_DRIVER=s3` с любым S3-совместимым хранилищем (presigned URL, бакету нужен
+  CORS на PUT/GET с origin стенда). Без S3 загрузка материалов не работает, режим «по теме» — работает.
+- Деплой: `vercel deploy --prod` из корня (проект привязан через `.vercel/`, он в .gitignore).
+
 ## Хостинг
 
 Нужен один https-домен, за которым стоит `compose.yaml`. Минимум — сервер с Docker, доменом и
