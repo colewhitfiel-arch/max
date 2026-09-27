@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { Injectable, Optional } from '@nestjs/common';
 import pino, { type Logger } from 'pino';
 import { type Env } from '../../../config/env';
@@ -36,7 +36,7 @@ export class MaxAuthProvider implements AuthProvider {
   async verify(input: AuthProviderInput): Promise<ExternalIdentity> {
     if (input.kind !== 'max')
       throw Errors.unauthorized('MAX-провайдер принимает только launch-параметры');
-    const botToken = this.env.MAX_BOT_TOKEN;
+    const botToken = this.env.MAX_BOT_TOKEN?.trim();
     if (!botToken) throw Errors.internal('MAX_BOT_TOKEN не задан');
 
     // Разбор — один в один с референсом dev.max.ru: split по '&', ключ до первого '=',
@@ -61,7 +61,20 @@ export class MaxAuthProvider implements AuthProvider {
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expected = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
     if (!safeEqual(expected, hash.toLowerCase())) {
-      fail('bad_signature', 'Подпись launch-параметров неверна');
+      // Диагностика без утечки секретов: какой из альтернативных вариантов схемы совпал бы,
+      // длина токена и его необратимый отпечаток (чтобы сверить с ожидаемым значением).
+      this.log.warn(
+        {
+          reason: 'bad_signature',
+          keys,
+          length: input.launchParams.length,
+          tokenLen: botToken.length,
+          tokenSha8: createHash('sha256').update(botToken).digest('hex').slice(0, 8),
+          variantsMatched: signatureVariants(input.launchParams, pairs, botToken, hash),
+        },
+        'вход через MAX отклонён',
+      );
+      throw Errors.unauthorized('Подпись launch-параметров неверна');
     }
 
     const get = (key: string): string | undefined => pairs.find(([k]) => k === key)?.[1];
@@ -106,6 +119,52 @@ export class MaxAuthProvider implements AuthProvider {
       locale: user.language_code === 'en' ? 'en' : 'ru',
     };
   }
+}
+
+/**
+ * Какие альтернативные схемы подписи дали бы совпадение с `hash`. Только для диагностики
+ * в логах: по результату понятно, ошибка в токене (ни один вариант) или в схеме (какой-то совпал).
+ */
+export function signatureVariants(
+  raw: string,
+  pairs: [string, string][],
+  botToken: string,
+  hash: string,
+): string[] {
+  const target = hash.toLowerCase();
+  const join = (entries: [string, string][]): string =>
+    entries
+      .filter(([k]) => k !== 'hash')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+  const rawPairs: [string, string][] = raw.split('&').map((p) => {
+    const i = p.indexOf('=');
+    return i === -1 ? [p, ''] : [p.slice(0, i), p.slice(i + 1)];
+  });
+  const decoded = join(pairs);
+  const undecoded = join(rawPairs);
+  const byteSorted = pairs
+    .filter(([k]) => k !== 'hash')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n');
+  const hmac = (key: Buffer | string, data: string): string =>
+    createHmac('sha256', key).update(data).digest('hex');
+  const derived = createHmac('sha256', 'WebAppData').update(botToken).digest();
+  const swapped = createHmac('sha256', botToken).update('WebAppData').digest();
+  const candidates: Record<string, string> = {
+    'undecoded-values': hmac(derived, undecoded),
+    'byte-order-sort': hmac(derived, byteSorted),
+    'secret-swapped': hmac(swapped, decoded),
+    'secret-swapped-undecoded': hmac(swapped, undecoded),
+    'plain-token-key': hmac(botToken, decoded),
+    'plain-token-key-undecoded': hmac(botToken, undecoded),
+    'sha256-token-key': hmac(createHash('sha256').update(botToken).digest(), decoded),
+  };
+  return Object.entries(candidates)
+    .filter(([, value]) => value === target)
+    .map(([name]) => name);
 }
 
 /**
