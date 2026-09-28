@@ -14,7 +14,14 @@ function routerAt(path: string) {
   return createMemoryRouter(
     [
       { path: '/', element: null },
-      { path: '/invite/:token', element: null },
+      {
+        path: '/invite/:token',
+        // Как в приложении: экран приглашения — lazy-маршрут, его чанк грузится не сразу.
+        lazy: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return { element: null };
+        },
+      },
       { path: '/student/tutor', element: null },
     ],
     { initialEntries: [path] },
@@ -37,36 +44,42 @@ describe('startParamPath', () => {
 describe('applyStartParam', () => {
   it('запуск на корне с приглашением — переход на экран приглашения, один раз', async () => {
     const router = routerAt('/');
-    expect(applyStartParam(bridgeWith(`invite_${TOKEN}`), router)).toBe(true);
-    await Promise.resolve();
+    const started = applyStartParam(bridgeWith(`invite_${TOKEN}`), router);
+    // Пока грузится lazy-экран, роутер ещё на корне.
+    expect(router.state.location.pathname).toBe('/');
+    expect(await started).toBe(true);
+    // Промис разрешается, когда переход завершён: вход, начатый после него, переход не отменит.
     expect(router.state.location.pathname).toBe(`/invite/${TOKEN}`);
+    expect(router.state.navigation.state).toBe('idle');
 
-    // Возврат на корень после принятия (или StrictMode-повтор эффекта) не уводит обратно.
+    // Возврат на корень после принятия (или StrictMode-повтор эффекта) не уводит обратно:
+    // повторный вызов отдаёт тот же промис и не переходит снова.
     await router.navigate('/');
-    expect(applyStartParam(bridgeWith(`invite_${TOKEN}`), router)).toBe(false);
+    expect(applyStartParam(bridgeWith(`invite_${TOKEN}`), router)).toBe(started);
+    await started;
     expect(router.state.location.pathname).toBe('/');
   });
 
-  it('перезагрузка внутреннего экрана с тем же start_param — остаёмся на месте', () => {
+  it('перезагрузка внутреннего экрана с тем же start_param — остаёмся на месте', async () => {
     const router = routerAt('/student/tutor');
-    expect(applyStartParam(bridgeWith(`invite_${TOKEN}`), router)).toBe(false);
+    expect(await applyStartParam(bridgeWith(`invite_${TOKEN}`), router)).toBe(false);
     expect(router.state.location.pathname).toBe('/student/tutor');
   });
 
-  it('без start_param или с чужим — ничего не делает', () => {
+  it('без start_param или с чужим — ничего не делает', async () => {
     const router = routerAt('/');
-    expect(applyStartParam(bridgeWith(null), router)).toBe(false);
+    expect(await applyStartParam(bridgeWith(null), router)).toBe(false);
     resetStartParamForTests();
-    expect(applyStartParam(bridgeWith('club-42'), router)).toBe(false);
+    expect(await applyStartParam(bridgeWith('club-42'), router)).toBe(false);
     expect(router.state.location.pathname).toBe('/');
   });
 
-  it('SDK бросил исключение — запуск продолжается как обычно', () => {
+  it('SDK бросил исключение — запуск продолжается как обычно', async () => {
     const bridge = {
       getStartParam: () => {
         throw new Error('sdk');
       },
     } as unknown as MaxBridge;
-    expect(applyStartParam(bridge, routerAt('/'))).toBe(false);
+    expect(await applyStartParam(bridge, routerAt('/'))).toBe(false);
   });
 });
