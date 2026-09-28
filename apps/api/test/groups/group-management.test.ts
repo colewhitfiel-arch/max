@@ -12,6 +12,8 @@ import { InlineJobQueue } from '../../src/common/queue/inline-job-queue';
 import { JOB_QUEUE } from '../../src/common/queue/job-queue';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
+const DAY_MS = 86_400_000;
+
 describe.skipIf(!hasTestDatabase)('группы преподавателя (integration)', () => {
   let app: INestApplication;
   let teacher = '';
@@ -263,6 +265,59 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .set(auth(teacher))
       .send({ studentId: DEMO_IDS.students.alexey })
       .expect(200);
+  });
+
+  it('оплата: вернувшемуся в группу следующий платёж — не раньше нового зачисления', async () => {
+    const prisma = app.get(PrismaService);
+    const where = { studentId_groupId: { studentId: DEMO_IDS.students.alexey, groupId } };
+    const { id: enrollmentId } = await prisma.enrollment.findUniqueOrThrow({
+      where,
+      select: { id: true },
+    });
+    // Прошлое пребывание в группе было оплачено; период закончился два месяца назад.
+    const payment = await prisma.payment.create({
+      data: {
+        parentId: DEMO_IDS.parents.olga,
+        studentId: DEMO_IDS.students.alexey,
+        enrollmentId,
+        amountKopecks: 100_00,
+        provider: 'fake',
+        idempotencyKey: `groups-old-${run}`,
+        status: 'SUCCEEDED',
+        paidAt: new Date(Date.now() - 90 * DAY_MS),
+      },
+    });
+    await prisma.paidPeriod.create({
+      data: {
+        enrollmentId,
+        paymentId: payment.id,
+        periodStart: new Date(Date.now() - 90 * DAY_MS),
+        periodEnd: new Date(Date.now() - 60 * DAY_MS),
+      },
+    });
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.alexey}`)
+      .set(auth(teacher))
+      .expect(200);
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.alexey })
+      .expect(200);
+    const { enrolledAt } = await prisma.enrollment.findUniqueOrThrow({
+      where,
+      select: { enrolledAt: true },
+    });
+
+    const parent = await loginAs('max-parent-1', 'PARENT');
+    const res = await http()
+      .get(`${base}/parent/children/${DEMO_IDS.students.alexey}/payments`)
+      .set(auth(parent.accessToken))
+      .expect(200);
+    const period = res.body.periods.find(
+      (item: { enrollmentId: string }) => item.enrollmentId === enrollmentId,
+    );
+    expect(period.nextPaymentAt).toBe(enrolledAt.toISOString().slice(0, 10));
   });
 
   it('ученика не из школы и не из своих групп добавить нельзя — 404', async () => {
