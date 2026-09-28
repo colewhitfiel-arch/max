@@ -18,7 +18,8 @@ import { KV_STORE, type KeyValueStore } from '../kv/key-value-store';
 /**
  * Группы ручек с общим счётчиком: вход и обновление сессии (по IP), привязка ребёнка по коду
  * и приглашению (по пользователю и IP — 6-символьный код иначе перебирается, а общий
- * демо-родитель публичного стенда у разных посетителей не должен делить один счётчик), вызовы
+ * демо-родитель публичного стенда у разных посетителей не должен делить один счётчик; плюс
+ * общий потолок на пользователя — смена IP перебор не открывает), вызовы
  * GigaChat (по пользователю) и запуск генерации курса — отдельно и в час: одна задача
  * course-builder делает много вызовов GigaChat (по пользователю).
  */
@@ -29,11 +30,18 @@ interface BucketPolicy {
   by: 'ip' | 'user' | 'user+ip';
   windowSec: number;
   limit: (env: Env) => number;
+  /** Дополнительный потолок на пользователя за то же окно (для `user+ip`: с любых адресов). */
+  userCeiling?: (env: Env) => number;
 }
 
 export const RATE_LIMIT_POLICIES: Record<RateLimitBucket, BucketPolicy> = {
   auth: { by: 'ip', windowSec: 60, limit: (env) => env.RATE_LIMIT_AUTH_PER_MIN },
-  link: { by: 'user+ip', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
+  link: {
+    by: 'user+ip',
+    windowSec: 60 * 60,
+    limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR,
+    userCeiling: (env) => env.RATE_LIMIT_LINK_USER_PER_HOUR,
+  },
   ai: { by: 'user', windowSec: 60, limit: (env) => env.RATE_LIMIT_AI_PER_MIN },
   generation: {
     by: 'user',
@@ -100,7 +108,13 @@ export class RateLimitGuard implements CanActivate {
     const nowSec = Math.floor(Date.now() / 1000);
     const window = Math.floor(nowSec / policy.windowSec);
     const count = await this.kv.incr(`rl:${bucket}:${subject}:${window}`, policy.windowSec);
-    if (count <= policy.limit(this.env)) return true;
+    // Потолок на пользователя считается с любых адресов: новый IP не даёт новых попыток сверх него.
+    const userCount =
+      policy.userCeiling && req.user
+        ? await this.kv.incr(`rl:${bucket}:user:${req.user.userId}:${window}`, policy.windowSec)
+        : 0;
+    const overCeiling = policy.userCeiling ? userCount > policy.userCeiling(this.env) : false;
+    if (count <= policy.limit(this.env) && !overCeiling) return true;
     const retryAfterSec = (window + 1) * policy.windowSec - nowSec;
     http.getResponse<Response>().setHeader('Retry-After', String(retryAfterSec));
     throw Errors.rateLimited('Слишком много запросов — попробуйте чуть позже');

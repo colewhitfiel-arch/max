@@ -142,6 +142,29 @@ describe('RateLimitGuard', () => {
     await link(other, '198.51.100.7').expect(200);
   });
 
+  it('привязка ребёнка: потолок на пользователя — смена IP не даёт новых попыток', async () => {
+    app = await createApp({
+      RATE_LIMIT_ENABLED: '1',
+      RATE_LIMIT_LINK_PER_HOUR: '1',
+      RATE_LIMIT_LINK_USER_PER_HOUR: '3',
+    });
+    const parent = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000a1' });
+    const other = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000b2' });
+    const link = (auth: string, ip: string) =>
+      request(app!.getHttpServer())
+        .get('/rl/link')
+        .set('Authorization', auth)
+        .set('X-Forwarded-For', ip);
+
+    await link(parent, '198.51.100.1').expect(200);
+    await link(parent, '198.51.100.2').expect(200);
+    await link(parent, '198.51.100.3').expect(200);
+    const limited = await link(parent, '198.51.100.4').expect(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+    // Потолок — на пользователя: другой пользователь с того же адреса не задет
+    await link(other, '198.51.100.4').expect(200);
+  });
+
   it('запуск генерации курса: свой часовой счётчик, отдельный от вызовов ИИ', async () => {
     app = await createApp({
       RATE_LIMIT_ENABLED: '1',
