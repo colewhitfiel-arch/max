@@ -248,6 +248,25 @@ describe('ManageGroupPage', () => {
     );
   });
 
+  it('переименование: сохранённое название, пока не пришёл перезапрос, повторно не сохраняется', async () => {
+    // PATCH прошёл, а перезапрос группы ещё не вернул новое название в карточку.
+    hooks.update = {
+      ...mutation(),
+      isSuccess: true,
+      variables: { title: 'Робототехника, 7 класс' },
+    };
+    const user = userEvent.setup();
+    renderAt(`/teacher/groups/${GROUP_ID}/edit`);
+
+    const name = screen.getByLabelText(/Название/);
+    await user.clear(name);
+    await user.type(name, 'Робототехника, 7 класс');
+    expect(screen.queryByRole('button', { name: 'Сохранить название' })).not.toBeInTheDocument();
+    // Другое название — снова можно сохранить.
+    await user.type(name, '!');
+    expect(screen.getByRole('button', { name: 'Сохранить название' })).toBeInTheDocument();
+  });
+
   it('чужая группа (403) — «Группа не найдена»', () => {
     hooks.group = failed(new ApiClientError({ code: 'FORBIDDEN', message: 'Нет', status: 403 }));
     renderAt(`/teacher/groups/${GROUP_ID}/edit`);

@@ -91,7 +91,9 @@ function GroupTitleForm({ groupId, title }: { groupId: string; title: string }) 
   const update = useUpdateGroup(groupId);
   const [value, setValue] = useState(title);
   const trimmed = value.trim();
-  const canSave = trimmed.length > 0 && trimmed !== title;
+  // Сохранённое название, пока перезапрос не принёс его в `title`, снова сохранять незачем.
+  const justSaved = update.isSuccess && update.variables?.title === trimmed;
+  const canSave = trimmed.length > 0 && trimmed !== title && !justSaved;
 
   const onSave = () => {
     if (!canSave || update.isPending) return;
