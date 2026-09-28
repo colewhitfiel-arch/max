@@ -41,7 +41,7 @@ ClubInterestStatus   CHOSEN | LATER | SKIPPED                         // в cont
 
 Обозначения: `PK` — id (uuid v7), `FK` — ссылка, `?` — nullable, `[]` — массив, `json` — jsonb со схемой в contracts. У всех таблиц есть `createdAt`, `updatedAt`, если не сказано иное. Исключения (как в схеме):
 - только `createdAt` — `UserRole`, `RefreshToken`, `AiMessage`, `PaidPeriod`, `Notification`, `AuditLog`;
-- только `updatedAt` — `CourseProgress`, `StudentStatsDaily`, `NotificationSettings`, `ParentStudentLink` (время создания — `requestedAt`);
+- только `updatedAt` — `CourseProgress`, `StudentStatsDaily`, `NotificationSettings`, `ParentStudentLink` (время создания — `requestedAt`), `KvEntry`;
 - без обоих — `ActivityEvent` (`occurredAt`), `SubmissionAttempt` (`submittedAt`), `AiInsight`, `Trajectory` (`generatedAt`).
 
 Индексы, кроме PK и `unique`, перечислены в §4.2.1.
@@ -208,6 +208,12 @@ SupportTicket   id PK, userId FK, subject, message, status TicketStatus=OPEN
 AuditLog        id PK, actorUserId FK, action, entityType, entityId, diff json?
 ```
 
+### kv (`kv.prisma`) — владелец core
+```
+KvEntry         key PK (строка, не uuid), value json, expiresAt?, updatedAt
+```
+Хранилище порта `KeyValueStore` (`apps/api/src/common/kv`) при `KV_DRIVER=postgres`: идемпотентность, дневные лимиты, кэш контекста, общие для всех инстансов serverless (ADR-014). Запись с прошедшим `expiresAt` не читается; протухшие удаляются по случаю при записи. При `KV_DRIVER=memory` таблица пустует. Ни один модуль не читает её напрямую — только через порт.
+
 ### 4.2.1. Индексы
 
 Неуникальные индексы (`@@index` в схеме). Колонки — в порядке индекса; FK покрыт индексом, если он первая колонка.
@@ -240,6 +246,7 @@ paid_periods            (enrollmentId, periodEnd); (paymentId)
 notifications           (userId, createdAt); (userId, readAt)
 support_tickets         (userId, createdAt)
 audit_logs              (entityType, entityId); (actorUserId, createdAt)
+kv_entries              (expiresAt)                       // key — PK
 ```
 FK покрыт, если он первая колонка индекса, `unique` или PK. Сейчас не покрыты: `Attendance.markedById`, `Submission.gradedById`, `CourseGenerationJob.groupId`, `AiInsight.studentId` (в `unique(kind, studentId, …)` он второй) — выборок «все строки по этому FK» нет; индекс добавляется вместе с первой такой выборкой.
 
