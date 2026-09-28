@@ -20,11 +20,16 @@ import { setLanguage } from '@/shared/i18n';
 import { useUiStore } from '@/shared/store/ui-store';
 import { SettingsGroup } from './SettingsGroup';
 
+export interface AppearanceSettingsProps {
+  /** Строка «Язык» (по умолчанию есть). Ученику не показывается — только тема. */
+  showLanguage?: boolean;
+}
+
 /**
  * «Внешний вид»: тема (`SegmentedControl` внутри строки) и язык (строка → bottom sheet со списком).
  * Сохраняет через `PATCH /me/settings`; тема и язык применяются сразу и откатываются при ошибке.
  */
-export function AppearanceSettings() {
+export function AppearanceSettings({ showLanguage = true }: AppearanceSettingsProps = {}) {
   const { t } = useTranslation('common');
   const { me } = useAuth();
   const toast = useToast();
@@ -94,17 +99,19 @@ export function AppearanceSettings() {
             />
           }
         />
-        <ListRow
-          left={
-            <IconTile tone="success">
-              <GlobeIcon />
-            </IconTile>
-          }
-          title={t('settings.language')}
-          right={t(`locale.${me.settings.locale}`)}
-          chevron
-          onClick={() => setLanguageOpen(true)}
-        />
+        {showLanguage && (
+          <ListRow
+            left={
+              <IconTile tone="success">
+                <GlobeIcon />
+              </IconTile>
+            }
+            title={t('settings.language')}
+            right={t(`locale.${me.settings.locale}`)}
+            chevron
+            onClick={() => setLanguageOpen(true)}
+          />
+        )}
       </Card>
 
       <Sheet

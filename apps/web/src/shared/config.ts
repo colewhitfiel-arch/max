@@ -20,6 +20,11 @@ export const config = {
    * `auto` нужен, чтобы один и тот же адрес открывался и в мессенджере, и в браузере.
    */
   authMode: oneOf<AuthMode>(import.meta.env.VITE_AUTH_MODE, ['dev', 'max', 'auto'], 'dev'),
+  /**
+   * Чат поддержки в MAX (`https://max.ru/<ник>`): кнопка «Поддержка» у ученика. Пустая строка —
+   * чат не настроен (кнопка честно об этом говорит).
+   */
+  supportUrl: (import.meta.env.VITE_SUPPORT_URL ?? '').trim(),
   /** Dev-сборка Vite (playground, dev-кнопки). */
   isDev: import.meta.env.DEV,
 } as const;

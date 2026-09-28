@@ -48,10 +48,12 @@ ARG VITE_API_URL=/api/v1
 ARG VITE_API_MODE=real
 ARG VITE_MAX_MODE=real
 ARG VITE_AUTH_MODE=auto
+ARG VITE_SUPPORT_URL=
 ENV VITE_API_URL=${VITE_API_URL} \
     VITE_API_MODE=${VITE_API_MODE} \
     VITE_MAX_MODE=${VITE_MAX_MODE} \
-    VITE_AUTH_MODE=${VITE_AUTH_MODE}
+    VITE_AUTH_MODE=${VITE_AUTH_MODE} \
+    VITE_SUPPORT_URL=${VITE_SUPPORT_URL}
 
 # prisma generate читает datasource и требует переменную; к БД не подключается.
 # Реальный DATABASE_URL приходит в runtime из окружения compose.

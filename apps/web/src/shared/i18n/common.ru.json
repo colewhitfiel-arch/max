@@ -203,6 +203,7 @@
     "roleSheet": "Сменить роль",
     "support": "Поддержка",
     "supportHint": "Напишем в чате MAX",
+    "supportUnavailable": "Чат поддержки в MAX пока не подключён",
     "openProfile": "Открыть профиль",
     "logout": "Выйти из аккаунта",
     "about": "Мини-приложение «Кружки» для MAX"

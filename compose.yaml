@@ -78,6 +78,8 @@ services:
         VITE_API_MODE: real
         VITE_MAX_MODE: ${VITE_MAX_MODE:-real}
         VITE_AUTH_MODE: ${VITE_AUTH_MODE:-auto}
+        # Чат поддержки в MAX (https://max.ru/<ник>) для кнопки «Поддержка» ученика.
+        VITE_SUPPORT_URL: ${VITE_SUPPORT_URL:-}
     restart: unless-stopped
     depends_on:
       api:

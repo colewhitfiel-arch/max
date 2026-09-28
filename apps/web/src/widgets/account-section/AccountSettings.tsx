@@ -7,6 +7,7 @@ import {
   PlusIcon,
   Sheet,
   Stack,
+  useToast,
   UsersIcon,
 } from '@edu/ui';
 import { useState } from 'react';
@@ -20,15 +21,31 @@ import { SettingsGroup } from './SettingsGroup';
 
 const SUPPORT_URL = 'https://t.me/edu_support';
 
+export interface AccountSettingsProps {
+  /**
+   * Чат поддержки в MAX (`https://max.ru/<ник>`) вместо ссылки по умолчанию — у ученика
+   * (`config.supportUrl`). Пустая строка — чат не настроен: вместо перехода подсказка-тост.
+   */
+  supportUrl?: string;
+}
+
 /** «Аккаунт»: текущая роль (строка → sheet со сменой/добавлением роли) и поддержка. */
-export function AccountSettings() {
+export function AccountSettings({ supportUrl }: AccountSettingsProps = {}) {
   const { t } = useTranslation('common');
   const { me } = useAuth();
   const navigate = useNavigate();
   const bridge = useMaxBridge();
+  const toast = useToast();
   const [roleOpen, setRoleOpen] = useState(false);
 
   if (!me) return null;
+
+  // Ссылки max.ru мост открывает внутри MAX (openMaxLink) — чат, а не браузер.
+  const openSupport = () => {
+    const url = supportUrl ?? SUPPORT_URL;
+    if (url) bridge.openLink(url);
+    else toast.show({ tone: 'warning', title: t('settings.supportUnavailable') });
+  };
 
   return (
     <SettingsGroup title={t('settings.account')}>
@@ -52,7 +69,7 @@ export function AccountSettings() {
           }
           title={t('settings.support')}
           subtitle={t('settings.supportHint')}
-          onClick={() => bridge.openLink(SUPPORT_URL)}
+          onClick={openSupport}
         />
       </Card>
 
