@@ -29,6 +29,19 @@ export class PostgresKeyValueStore implements KeyValueStore {
     }
   }
 
+  /** Атомарно: вставка или перезапись только протухшей записи; живую не трогает. */
+  async setIfAbsent<T = unknown>(key: string, value: T, ttlSec?: number): Promise<boolean> {
+    const expiresAt = ttlSec ? new Date(Date.now() + ttlSec * 1000) : null;
+    const rows = await this.prisma.$queryRaw<{ key: string }[]>`
+      INSERT INTO kv_entries (key, value, expires_at, updated_at)
+      VALUES (${key}, ${JSON.stringify(value)}::jsonb, ${expiresAt}::timestamptz, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()
+        WHERE kv_entries.expires_at IS NOT NULL AND kv_entries.expires_at <= now()
+      RETURNING key`;
+    return rows.length > 0;
+  }
+
   async del(key: string): Promise<void> {
     await this.prisma.$executeRaw`DELETE FROM kv_entries WHERE key = ${key}`;
   }
@@ -51,5 +64,15 @@ export class PostgresKeyValueStore implements KeyValueStore {
         updated_at = now()
       RETURNING (value #>> '{}')::int AS value`;
     return Number(rows[0]?.value ?? 1);
+  }
+
+  /** Атомарно: только живой счётчик, не ниже нуля, срок жизни прежний. */
+  async decr(key: string): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ value: number }[]>`
+      UPDATE kv_entries
+      SET value = to_jsonb(GREATEST((value #>> '{}')::bigint - 1, 0)), updated_at = now()
+      WHERE key = ${key} AND (expires_at IS NULL OR expires_at > now())
+      RETURNING (value #>> '{}')::int AS value`;
+    return Number(rows[0]?.value ?? 0);
   }
 }
