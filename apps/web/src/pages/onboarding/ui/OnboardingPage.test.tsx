@@ -82,6 +82,7 @@ describe('OnboardingPage', () => {
   beforeEach(() => {
     // jsdom не реализует прокрутку — лента скроллится к последнему сообщению.
     Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.scrollTo = vi.fn();
     hooks.start.isError = false;
     hooks.start.error = null;
     hooks.start.mutate.mockReset();
@@ -170,6 +171,44 @@ describe('OnboardingPage', () => {
       expect(screen.queryByRole('group', { name: 'Кружки на выбор' })).not.toBeInTheDocument(),
     );
     expect(screen.getByText('Робототехника', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('новая реплика с кнопками кружков: скролл-область прокручена до конца, не под поле ввода', async () => {
+    const robotics = { id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' };
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Тебе может подойти Робототехника. Что ближе?',
+      messageId: '0190a000-0000-7000-8000-000000000002',
+      done: {
+        type: 'done',
+        messageId: '0190a000-0000-7000-8000-000000000002',
+        isComplete: false,
+        clubOptions: [robotics],
+      },
+    });
+    const user = userEvent.setup();
+    // Скролл-область раскладки (в приложении — AppLayout.Content).
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <div data-testid="scroller" style={{ overflowY: 'auto' }}>
+            <OnboardingPage />
+          </div>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    const scroller = screen.getByTestId('scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 900 });
+    const scrollTo = vi.mocked(Element.prototype.scrollTo);
+    scrollTo.mockClear();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('group', { name: 'Кружки на выбор' });
+
+    // Прокручена сама область до полной высоты: конец реплики и кнопки над «пилюлей» ввода.
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 900 });
+    expect(scrollTo.mock.contexts.at(-1)).toBe(scroller);
   });
 
   it('незавершённое знакомство продолжается: лента и кнопки кружков восстановлены', async () => {

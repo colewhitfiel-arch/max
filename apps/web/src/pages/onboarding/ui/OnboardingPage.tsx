@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import {
   ChatMessage,
+  scrollFeedToEnd,
   TutorAvatar,
   useCompleteOnboarding,
   useOnboardingRecommendations,
@@ -115,8 +116,10 @@ function ChatStage({
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Прокручиваем скролл-область, а не маркер: иначе конец реплики и кнопки кружков остаются
+  // под липкой «пилюлей» ввода.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    scrollFeedToEnd(bottomRef.current);
   }, [messages.length, pendingUserText, streamText, clubOptions.length]);
 
   const submit = (text: string) =>

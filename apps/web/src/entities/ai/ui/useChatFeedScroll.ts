@@ -15,6 +15,16 @@ function scrollParent(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/**
+ * Прокрутить до самого низа скролл-область ленты — ближайшего скроллируемого предка `marker`.
+ * Не `marker.scrollIntoView`: тот ставит маркер к нижнему краю области, то есть под липкое поле
+ * ввода, и конец последней реплики остаётся под ним.
+ */
+export function scrollFeedToEnd(marker: HTMLElement | null): void {
+  const scroller = scrollParent(marker);
+  scroller?.scrollTo({ top: scroller.scrollHeight });
+}
+
 export interface ChatFeedScrollOptions {
   /** Сообщения ленты по возрастанию времени (`useMessages().data.items`). */
   items: readonly AiMessageDto[] | undefined;
