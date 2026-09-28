@@ -5,12 +5,21 @@ import { queryKeys } from '@/shared/api/query-keys';
 import { useAuthStore } from '@/shared/auth/store';
 import { studentKeys } from './keys';
 
+export interface UseChildrenOptions {
+  /**
+   * Перечитывать список с этим интервалом, мс (пока ждём, что ребёнок примет приглашение).
+   * По умолчанию не перечитывается сам — только по фокусу окна и инвалидации.
+   */
+  refetchInterval?: number | false;
+}
+
 /** `GET /parent/children`. */
-export function useChildren(enabled = true) {
+export function useChildren(enabled = true, { refetchInterval = false }: UseChildrenOptions = {}) {
   return useQuery({
     queryKey: studentKeys.children(),
     queryFn: () => call(api.family.listChildren()),
     enabled,
+    refetchInterval,
   });
 }
 

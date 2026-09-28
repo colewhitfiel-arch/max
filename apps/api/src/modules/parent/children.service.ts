@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  AcceptParentInviteResult,
-  ChildClub,
-  ChildClubsList,
-  ChildrenList,
-  LinkChildBody,
-  LinkChildResult,
-  ParentInvite,
-  ChildInvite,
+import {
+  childInviteStartParam,
+  type AcceptParentInviteResult,
+  type ChildClub,
+  type ChildClubsList,
+  type ChildrenList,
+  type LinkChildBody,
+  type LinkChildResult,
+  type ParentInvite,
+  type ChildInvite,
 } from '@edu/contracts';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
@@ -81,12 +82,31 @@ export class ChildrenService {
   async createInvite(user: AuthUser): Promise<ChildInvite> {
     const parentId = requireParent(user);
     const invite = await this.family.createInvite(parentId);
+    this.log.info({ parentId }, 'создана ссылка-приглашение ребёнка');
     return {
       token: invite.token,
-      // Deep link MAX появится вместе с production-интеграцией (workstream J).
-      url: `${this.env.WEB_URL}/invite/${invite.token}`,
+      url: this.inviteUrl(invite.token),
       expiresAt: invite.expiresAt.toISOString(),
     };
+  }
+
+  /**
+   * Куда ведёт приглашение. С именем бота — диплинк мини-приложения MAX: ребёнок открывает его
+   * в мессенджере, мини-апп стартует с `start_param=invite_<token>` и сам уходит на
+   * `/invite/<token>` (вход по подписи MAX). Без имени бота — веб-адрес экрана приглашения.
+   */
+  private inviteUrl(token: string): string {
+    const bot = this.env.MAX_BOT_NAME;
+    if (bot) {
+      const url = new URL(`https://max.ru/${encodeURIComponent(bot)}`);
+      url.searchParams.set('startapp', childInviteStartParam(token));
+      return url.toString();
+    }
+    if (this.env.AUTH_PROVIDER === 'max') {
+      // Внутри MAX веб-ссылка откроется в браузере, где нет подписи MAX и войти нельзя.
+      this.log.warn('MAX_BOT_NAME не задан: приглашение ведёт на WEB_URL, а не в мини-приложение');
+    }
+    return `${this.env.WEB_URL.replace(/\/+$/, '')}/invite/${encodeURIComponent(token)}`;
   }
 
   async unlinkChild(user: AuthUser, studentId: string): Promise<void> {
@@ -96,7 +116,7 @@ export class ChildrenService {
   }
 
   async getInvite(user: AuthUser, token: string): Promise<ParentInvite> {
-    requireStudent(user);
+    const studentId = requireStudent(user);
     const invite = await this.family.findInvite(token);
     if (!invite) throw Errors.notFound('Приглашение');
     const parent = await this.identity.parentUserBrief(invite.parentId);
@@ -107,14 +127,23 @@ export class ChildrenService {
       expiresAt: invite.expiresAt.toISOString(),
       status: invite.acceptedAt
         ? 'ACCEPTED'
-        : invite.expiresAt.getTime() < Date.now()
+        : invite.expiresAt.getTime() <= Date.now()
           ? 'EXPIRED'
           : 'PENDING',
+      alreadyLinked: await this.family.isLinked(invite.parentId, studentId),
     };
   }
 
   async acceptInvite(user: AuthUser, token: string): Promise<AcceptParentInviteResult> {
     const studentId = requireStudent(user);
+    const invite = await this.family.findInvite(token);
+    if (!invite) throw Errors.notFound('Приглашение');
+    // Один аккаунт с ролями родителя и ученика не может стать «ребёнком» самого себя.
+    const parentUserId = await this.identity.userIdOfProfile('PARENT', invite.parentId);
+    if (parentUserId === user.userId)
+      throw Errors.businessRule(
+        'Это ваше собственное приглашение — откройте его из аккаунта ребёнка',
+      );
     const { parentId } = await this.family.acceptInvite(token, studentId);
     const parent = await this.identity.parentUserBrief(parentId);
     if (!parent) throw Errors.notFound('Приглашение');

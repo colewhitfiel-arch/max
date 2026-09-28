@@ -51,6 +51,22 @@ export const envSchema = z
     MAX_APP_ID: optionalString,
     /** Токен бота MAX: им подписаны launch-параметры мини-приложения (dev.max.ru/docs/webapps). */
     MAX_BOT_TOKEN: optionalString,
+    /**
+     * Имя бота MAX, к которому привязано мини-приложение (`https://max.ru/<имя>`). Из него
+     * строятся диплинки `?startapp=…` (приглашение ребёнка открывается прямо в мини-приложении);
+     * без него ссылки ведут на `WEB_URL`, и внутри MAX открываются в браузере, а не в мини-апп.
+     */
+    MAX_BOT_NAME: z
+      .string()
+      .trim()
+      .transform((value) => value.replace(/^@/, ''))
+      .pipe(
+        z
+          .string()
+          .regex(/^[A-Za-z0-9_.-]*$/, 'MAX_BOT_NAME: только имя бота из ссылки max.ru/<имя>'),
+      )
+      .optional()
+      .transform((value) => value || undefined),
 
     AI_PROVIDER: z.enum(['mock', 'gigachat']).default('mock'),
     GIGACHAT_AUTH_KEY: optionalString,

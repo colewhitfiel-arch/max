@@ -1,6 +1,7 @@
 export { studentKeys } from './keys';
 export {
   useChildren,
+  type UseChildrenOptions,
   useLinkChild,
   useUnlinkChild,
   useCreateChildInvite,

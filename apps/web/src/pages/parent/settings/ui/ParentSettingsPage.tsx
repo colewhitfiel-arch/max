@@ -20,7 +20,6 @@ import {
   ProfileCard,
   SettingsGroup,
 } from '@/widgets/account-section';
-import { NotificationSettings } from '@/widgets/notification-settings';
 
 /**
  * «Семья и оплата»: разделы родителя, которых нет в нижнем меню, — дети (привязка по коду
@@ -80,8 +79,9 @@ function FamilySettings() {
 }
 
 /**
- * `/parent/settings` — как у ученика: карточка профиля, внешний вид (тема/язык), уведомления,
- * роль и поддержка, выход; плюс «Семья и оплата». Секции — `widgets/account-section`.
+ * `/parent/settings`: карточка профиля, «Семья и оплата», внешний вид (только тема), роль и
+ * поддержка, выход. Без уведомлений, выбора языка и подписи о приложении — у родителя их нет.
+ * Секции — `widgets/account-section`.
  */
 export function ParentSettingsPage() {
   const { t } = useTranslation('parent-profile');
@@ -91,10 +91,9 @@ export function ParentSettingsPage() {
       <Screen gap={5}>
         <ProfileCard to="/parent/profile" />
         <FamilySettings />
-        <AppearanceSettings />
-        <NotificationSettings role="PARENT" />
+        <AppearanceSettings showLanguage={false} />
         <AccountSettings />
-        <LogoutButton />
+        <LogoutButton showAbout={false} />
       </Screen>
     </>
   );

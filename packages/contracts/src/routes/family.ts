@@ -50,8 +50,31 @@ export type ChildClubsList = z.infer<typeof ChildClubsListSchema>;
 export const CHILD_INVITE_TTL_DAYS = 7;
 
 /**
- * Ссылка-приглашение, которую родитель отправляет ребёнку в MAX. `url` строит сервер
- * (формат deep link MAX — TODO workstream J; сейчас `${origin}/invite/${token}`).
+ * Полезная нагрузка диплинка мини-приложения MAX для приглашения ребёнка:
+ * `https://max.ru/<бот>?startapp=invite_<token>`. MAX допускает в `startapp` латиницу, цифры,
+ * `_` и `-` до 512 символов — токен (base64url, 32 символа) подходит без кодирования.
+ */
+export const CHILD_INVITE_START_PARAM_PREFIX = 'invite_';
+
+/** Токен приглашения: base64url без `=`. Короче 16 символов сервер не выдаёт. */
+const CHILD_INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{16,256}$/;
+
+/** `startapp` диплинка MAX для приглашения с этим токеном. */
+export function childInviteStartParam(token: string): string {
+  return `${CHILD_INVITE_START_PARAM_PREFIX}${token}`;
+}
+
+/** Токен приглашения из `startapp` диплинка MAX; null — это не приглашение или мусор. */
+export function parseChildInviteStartParam(startParam: string | null | undefined): string | null {
+  if (!startParam?.startsWith(CHILD_INVITE_START_PARAM_PREFIX)) return null;
+  const token = startParam.slice(CHILD_INVITE_START_PARAM_PREFIX.length);
+  return CHILD_INVITE_TOKEN_RE.test(token) ? token : null;
+}
+
+/**
+ * Ссылка-приглашение, которую родитель отправляет ребёнку в MAX. `url` строит сервер: если
+ * задано имя бота (`MAX_BOT_NAME`) — диплинк мини-приложения
+ * `https://max.ru/<бот>?startapp=invite_<token>`, иначе веб-адрес `${WEB_URL}/invite/<token>`.
  */
 export const ChildInviteSchema = z.object({
   token: z.string().min(16),
@@ -70,6 +93,8 @@ export const ParentInviteSchema = z.object({
   parent: UserBriefSchema,
   expiresAt: DateTimeSchema,
   status: ParentInviteStatusSchema,
+  /** Ученик уже привязан к этому родителю (связь ACTIVE): принимать нечего, ответ будет 409. */
+  alreadyLinked: z.boolean().optional(),
 });
 export type ParentInvite = z.infer<typeof ParentInviteSchema>;
 

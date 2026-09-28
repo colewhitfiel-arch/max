@@ -200,19 +200,18 @@ function StudentInvite({ token }: { token: string }) {
       />
     );
   }
-  if (conflict) {
-    return (
-      <InviteState
-        icon={
-          <IconTile tone="success" size="xl">
-            <CheckIcon />
-          </IconTile>
-        }
-        title={t('alreadyLinked')}
-        description={t('alreadyLinkedHint')}
-      />
-    );
-  }
+  const alreadyLinked = (
+    <InviteState
+      icon={
+        <IconTile tone="success" size="xl">
+          <CheckIcon />
+        </IconTile>
+      }
+      title={t('alreadyLinked')}
+      description={t('alreadyLinkedHint')}
+    />
+  );
+  if (conflict) return alreadyLinked;
   if (invite.status === 'EXPIRED') {
     return (
       <InviteState
@@ -226,6 +225,8 @@ function StudentInvite({ token }: { token: string }) {
       />
     );
   }
+  // Сервер заранее сообщил, что связь с этим родителем уже есть: принимать нечего (иначе 409).
+  if (invite.alreadyLinked && !acceptedHere) return alreadyLinked;
   return (
     <PendingInvite
       invite={invite}
