@@ -141,6 +141,29 @@ describe('MaxSdkBridge', () => {
     expect(await bridge.storage.get('k')).toBe('v');
   }, 15000);
 
+  it('DeviceStorage ответил «нет значения» — локальная копия (общая для аккаунтов) не подставляется', async () => {
+    // В WebView остались токены другого MAX-аккаунта, а в DeviceStorage этого — пусто.
+    localStorage.setItem('max:auth.refresh', 'r-other-account');
+    installSdk();
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('auth.refresh')).toBeNull();
+  });
+
+  it('DeviceStorage упал с ошибкой — читаем локальную копию', async () => {
+    localStorage.setItem('max:k', 'v');
+    installSdk({
+      DeviceStorage: {
+        setItem: () => Promise.reject(new Error('host')),
+        getItem: () => Promise.reject(new Error('host')),
+        removeItem: () => Promise.reject(new Error('host')),
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('k')).toBe('v');
+  });
+
   it('вне MAX хранилище мессенджера не используется', async () => {
     const { store } = installSdk({ initData: '' });
     const bridge = new MaxSdkBridge();

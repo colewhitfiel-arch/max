@@ -4,10 +4,11 @@ import type { MaxBridge } from '@/shared/max';
 /** Минимум роутера, который нужен для перехода по диплинку (data router из `router.tsx`). */
 export interface StartParamRouter {
   state: { location: { pathname: string } };
-  navigate(to: string, options: { replace: boolean }): unknown;
+  navigate(to: string, options: { replace: boolean }): Promise<void>;
 }
 
-let applied = false;
+/** Переход по диплинку этого запуска; null — ещё не применялся. */
+let applied: Promise<boolean> | null = null;
 
 /** Экран для полезной нагрузки диплинка; null — неизвестная или пустая. */
 export function startParamPath(startParam: string | null | undefined): string | null {
@@ -21,11 +22,19 @@ export function startParamPath(startParam: string | null | undefined): string | 
  * `invite_<token>` → `/invite/<token>`). Вызывается до входа: экран за `RequireAuth`, и
  * аноним после входа вернётся на него же. Только со стартового корня: перезагрузка
  * внутреннего экрана (`start_param` у WebView прежний) не уводит пользователя обратно.
- * Возвращает true, если переход сделан.
+ *
+ * Возвращает промис, который разрешается, когда переход завершён: true — переход сделан,
+ * false — диплинка нет или запуск не с корня. Вход (`bootstrapAuth`) начинается только после
+ * него: экран приглашения — lazy-маршрут, пока грузится его чанк, роутер стоит на `/`, и
+ * редирект с корня (`/auth`, главная роли, онбординг) отменил бы переход. Повторный вызов за
+ * запуск (StrictMode) ничего не делает и возвращает тот же промис.
  */
-export function applyStartParam(bridge: MaxBridge, router: StartParamRouter): boolean {
-  if (applied) return false;
-  applied = true;
+export function applyStartParam(bridge: MaxBridge, router: StartParamRouter): Promise<boolean> {
+  applied ??= navigateToStartParam(bridge, router);
+  return applied;
+}
+
+async function navigateToStartParam(bridge: MaxBridge, router: StartParamRouter) {
   let startParam: string | null;
   try {
     startParam = bridge.getStartParam();
@@ -34,11 +43,15 @@ export function applyStartParam(bridge: MaxBridge, router: StartParamRouter): bo
   }
   const path = startParamPath(startParam);
   if (!path || router.state.location.pathname !== '/') return false;
-  void router.navigate(path, { replace: true });
+  try {
+    await router.navigate(path, { replace: true });
+  } catch {
+    /* переход не удался — запуск продолжается с корня */
+  }
   return true;
 }
 
 /** Сброс «уже применён» — только для тестов. */
 export function resetStartParamForTests(): void {
-  applied = false;
+  applied = null;
 }

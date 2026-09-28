@@ -188,15 +188,23 @@ function StudentInvite({ token }: { token: string }) {
   // Своё только что принятое приглашение (кэш уже ACCEPTED) — держим карточку до перехода.
   const acceptedHere = accept.isPending || accept.isSuccess;
   if (invite.status === 'ACCEPTED' && !acceptedHere) {
+    // Связь есть — ссылку принял сам ученик. Нет — её использовал другой ученик или родитель
+    // потом отвязал ребёнка: «всё готово» было бы неправдой, нужна новая ссылка.
     return (
       <InviteState
         icon={
-          <IconTile tone="success" size="xl">
-            <CheckIcon />
-          </IconTile>
+          invite.alreadyLinked ? (
+            <IconTile tone="success" size="xl">
+              <CheckIcon />
+            </IconTile>
+          ) : (
+            <IconTile tone="warning" size="xl">
+              <LinkIcon />
+            </IconTile>
+          )
         }
         title={t('alreadyAccepted')}
-        description={t('alreadyAcceptedHint')}
+        description={t(invite.alreadyLinked ? 'alreadyAcceptedHint' : 'alreadyUsedHint')}
       />
     );
   }

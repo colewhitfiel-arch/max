@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import '@/shared/i18n';
 import { handlers } from '@/test/fake-api/handlers';
 import { resetMockDb } from '@/test/fake-api/state';
+import { MOCK_INVITE_TOKENS } from '@/test/fake-api/world-extras';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import { MockMaxBridge } from '@/shared/max/mock-bridge';
@@ -16,6 +17,7 @@ import { useUiStore } from '@/shared/store/ui-store';
 import { App } from './App';
 import { Providers } from './providers';
 import { router } from './router';
+import { resetStartParamForTests } from './start-param';
 
 const server = setupServer(...handlers);
 const WAIT = { timeout: 10_000 };
@@ -32,9 +34,29 @@ function createBridge() {
   });
 }
 
+/**
+ * Как в браузере: прерванный переход роутера отменяется. Общий shim в `test/setup.ts` убирает
+ * `signal` у `Request` (jsdom и undici несовместимы), и прерванный переход там всё равно
+ * фиксируется — гонка перехода по диплинку с редиректом с `/` была бы не видна.
+ */
+function abortableNavigations(): () => void {
+  const Base = globalThis.Request;
+  class AbortableRequest extends Base {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(input, init);
+      if (init?.signal) Object.defineProperty(this, 'signal', { value: init.signal });
+    }
+  }
+  globalThis.Request = AbortableRequest;
+  return () => {
+    globalThis.Request = Base;
+  };
+}
+
 async function resetApp() {
   await router.navigate('/', { replace: true });
   resetAuthStore();
+  resetStartParamForTests();
   queryClient.clear();
   resetMockDb();
   useUiStore.setState({ theme: 'SYSTEM', selectedChildId: null, hydrated: false });
@@ -209,6 +231,37 @@ describe('foundation smoke (mock API)', () => {
 
       await router.navigate('/parent/unknown-page');
       await findText('Страница не найдена');
+    },
+  );
+
+  it(
+    'диплинк приглашения без сессии (?startapp=invite_…): вход → экран приглашения',
+    { timeout: 40_000 },
+    async () => {
+      const restoreRequest = abortableNavigations();
+      try {
+        const token = MOCK_INVITE_TOKENS.pending;
+        const bridge = createBridge();
+        bridge.getStartParam = () => `invite_${token}`;
+        const user = userEvent.setup();
+        render(
+          <Providers bridge={bridge}>
+            <App />
+          </Providers>,
+        );
+
+        // Аноним уходит на вход с экрана приглашения, а не с корня: путь запомнен в state.from.
+        await expectPage('Вход');
+        expect(router.state.location.state).toEqual({ from: `/invite/${token}` });
+
+        // После входа ученик возвращается на приглашение, а не на главную или онбординг.
+        await user.click(await findText('Алексей Смирнов'));
+        await expectPage('Приглашение');
+        expect(router.state.location.pathname).toBe(`/invite/${token}`);
+        await findText('Мария Иванова хочет следить за твоими успехами');
+      } finally {
+        restoreRequest();
+      }
     },
   );
 });

@@ -3,6 +3,7 @@ export {
   useChildren,
   type UseChildrenOptions,
   useLinkChild,
+  useCodeLinkedChildren,
   useUnlinkChild,
   useCreateChildInvite,
   useParentInvite,

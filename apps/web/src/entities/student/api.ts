@@ -1,5 +1,11 @@
-import type { HomeworkProgressDays } from '@edu/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { HomeworkProgressDays, LinkChildResult } from '@edu/contracts';
+import {
+  useIsMutating,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
 import { useAuthStore } from '@/shared/auth/store';
@@ -27,6 +33,7 @@ export function useChildren(enabled = true, { refetchInterval = false }: UseChil
 export function useLinkChild() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: studentKeys.linkChild(),
     mutationFn: (code: string) => call(api.family.linkChild({ body: { code } })),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: studentKeys.children() });
@@ -36,6 +43,29 @@ export function useLinkChild() {
       }
     },
   });
+}
+
+/** Успешная привязка по коду: кого привязали и когда отправили запрос (мс). */
+export interface CodeLink {
+  studentId: string | undefined;
+  submittedAt: number;
+}
+
+/**
+ * Привязки по коду (`useLinkChild`) из кэша мутаций: идёт ли сейчас такая привязка и кого уже
+ * привязали. По ним экран ссылки-приглашения не принимает ребёнка, привязанного по коду, за
+ * того, кто принял приглашение.
+ */
+export function useCodeLinkedChildren(): { pending: boolean; links: CodeLink[] } {
+  const pending = useIsMutating({ mutationKey: studentKeys.linkChild() }) > 0;
+  const links = useMutationState({
+    filters: { mutationKey: studentKeys.linkChild(), status: 'success' },
+    select: (mutation): CodeLink => ({
+      studentId: (mutation.state.data as LinkChildResult | undefined)?.student.id,
+      submittedAt: mutation.state.submittedAt,
+    }),
+  });
+  return { pending, links };
 }
 
 /** `DELETE /parent/children/:studentId`. */

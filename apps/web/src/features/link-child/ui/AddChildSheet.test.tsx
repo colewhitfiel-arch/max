@@ -53,6 +53,7 @@ function setChildren(items: unknown[]) {
 
 vi.mock('@/entities/student', async () => {
   const { useState, useSyncExternalStore } = await import('react');
+  const NO_CODE_LINKS = { pending: false, links: [] };
   return {
     // Мутация приглашения: после mutate() в data появляется ссылка, reset() её убирает.
     useCreateChildInvite: () => {
@@ -80,6 +81,7 @@ vi.mock('@/entities/student', async () => {
       );
       return { data };
     },
+    useCodeLinkedChildren: () => NO_CODE_LINKS,
     useLinkChild: () => ({
       mutate: mocks.link,
       reset: vi.fn(),
