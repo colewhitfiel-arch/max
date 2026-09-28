@@ -254,7 +254,7 @@ export class ParentDashboardService {
 
   private attendanceHistory(facts: StudentFacts, now: Date): AttendanceHistoryItem[] {
     return this.facts
-      .countableLessons(facts, now)
+      .pastLessons(facts, now)
       .flatMap((lesson) => {
         const status = facts.attendance.get(lesson.id);
         return status ? [{ lesson: { ...lesson, attendance: status }, status }] : [];

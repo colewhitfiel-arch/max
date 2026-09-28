@@ -94,7 +94,8 @@ export class AttendanceService {
 
   /**
    * Публичный сервис: посещаемость учеников группы за период. Зачётные занятия (`countable`) —
-   * те, что уже начались и не отменены (docs/04 §4.6); неотмеченные в посещённые не попадают.
+   * проведённые (`DONE`) и уже начавшиеся (docs/04 §4.6): неотмеченное занятие (`PLANNED`)
+   * пропуском не считается.
    */
   async attendanceOfGroup(
     groupId: string,
@@ -105,8 +106,7 @@ export class AttendanceService {
     const to = period.to.getTime() < now.getTime() ? period.to : now;
     const lessons = await this.groups.listLessons([groupId], period.from, to);
     const countableLessons = lessons.filter(
-      (lesson) =>
-        lesson.status !== 'CANCELLED' && new Date(lesson.startsAt).getTime() <= now.getTime(),
+      (lesson) => lesson.status === 'DONE' && new Date(lesson.startsAt).getTime() <= now.getTime(),
     );
     const attendedByStudent = await this.repo.countPresentByStudent(
       countableLessons.map((lesson) => lesson.id),

@@ -235,7 +235,7 @@ export class TeacherDashboardService {
 
   private attendanceHistory(facts: StudentFacts, now: Date): AttendanceHistoryItem[] {
     return this.facts
-      .countableLessons(facts, now)
+      .pastLessons(facts, now)
       .flatMap((lesson) => {
         const status = facts.attendance.get(lesson.id);
         return status ? [{ lesson: { ...lesson, attendance: status }, status }] : [];
@@ -266,7 +266,7 @@ export class TeacherDashboardService {
       0,
       ...facts.assignments.map((fact) => fact.submission?.submittedAt?.getTime() ?? 0),
       ...this.facts
-        .countableLessons(facts, now)
+        .pastLessons(facts, now)
         .filter((lesson) => {
           const status = facts.attendance.get(lesson.id);
           return status && ATTENDED.includes(status);
