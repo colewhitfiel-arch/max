@@ -1,10 +1,10 @@
 /**
- * Профиль родителя на MSW-моках: шапка с фото (смена через files flow purpose AVATAR),
+ * Профиль родителя на MSW-моках: шапка с фото (без смены фото — `PUT /me/avatar` пока 501),
  * витрина «Кружки для ваших детей» с отметкой кружков ребёнка и заглушкой записи.
  */
 import { ToastProvider } from '@edu/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { I18nextProvider } from 'react-i18next';
@@ -94,22 +94,14 @@ describe('ParentProfilePage', () => {
     expect(screen.queryByText(/Дети ещё не добавлены/)).toBeNull();
   });
 
-  it('смена фото: картинка загружается как AVATAR и попадает в me', async () => {
+  it('смены фото нет, пока PUT /me/avatar не реализован (501)', async () => {
     await useAuthStore.getState().loginDev('max-parent-1', ['PARENT']);
-    const user = userEvent.setup();
     renderProfile();
 
     await screen.findByRole('heading', { level: 1, name: 'Профиль' });
-    expect(screen.queryByRole('button', { name: 'Убрать фото' })).toBeNull();
-
-    const photo = new File([new Uint8Array([137, 80, 78, 71])], 'me.png', { type: 'image/png' });
-    await user.upload(screen.getByLabelText('Выбрать фото профиля'), photo);
-
-    expect(await screen.findByText('Фото обновлено', {}, WAIT)).toBeVisible();
-    await waitFor(() => expect(useAuthStore.getState().me?.user.avatarUrl).toBeTruthy(), WAIT);
-
-    await user.click(await screen.findByRole('button', { name: 'Убрать фото' }, WAIT));
-    expect(await screen.findByText('Фото убрано', {}, WAIT)).toBeVisible();
-    expect(useAuthStore.getState().me?.user.avatarUrl).toBeNull();
+    expect(screen.getByText('Ольга Смирнова')).toBeVisible();
+    expect(screen.queryByLabelText('Выбрать фото профиля')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сменить фото' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Убрать фото' })).not.toBeInTheDocument();
   });
 });
