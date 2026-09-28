@@ -279,13 +279,18 @@ describe('MaxSdkBridge', () => {
     expect(localStorage.getItem('max:k')).toBeNull();
     // Общая копия (до разделения по аккаунтам) не читается: один раз войдём заново.
     expect(await bridge.storage.get('auth.refresh')).toBeNull();
+    // И стирается: её токены ещё действительны, а общий префикс читается вне MAX.
+    expect(localStorage.getItem('max:auth.refresh')).toBeNull();
   });
 
   it('внутри MAX без id пользователя — общий префикс, как раньше', async () => {
+    localStorage.setItem('max:auth.refresh', 'r-shared');
     installSdk({ DeviceStorage: undefined, initDataUnsafe: { start_param: 'club-42' } });
     const bridge = new MaxSdkBridge();
     await bridge.init();
     await bridge.storage.set('k', 'v');
     expect(localStorage.getItem('max:k')).toBe('v');
+    // Без аккаунта общая копия — рабочая: не стирается.
+    expect(await bridge.storage.get('auth.refresh')).toBe('r-shared');
   });
 });

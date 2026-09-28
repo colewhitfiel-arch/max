@@ -103,6 +103,13 @@ async function waitForSdk(timeoutMs: number): Promise<MaxWebAppSdk | null> {
   }
 }
 
+/**
+ * Ключи сессии, которые до разделения копий по аккаунтам лежали под общим `max:`. Их общая копия
+ * внутри MAX больше не читается, но токены в ней ещё действительны — стираем при первом запуске
+ * с известным аккаунтом (список дублирует ключи shared/auth: мост от auth не зависит).
+ */
+const LEGACY_SHARED_SESSION_KEYS = ['auth.access', 'auth.refresh', 'auth.maxUser'];
+
 /** Префикс локальной копии хранилища; внутри MAX — свой у каждого аккаунта (`max:<id>:`). */
 function localPrefix(maxUserId: string | null): string {
   return maxUserId ? `max:${maxUserId}:` : 'max:';
@@ -183,9 +190,13 @@ export class MaxSdkBridge implements MaxBridge {
     // Хранилище мессенджера имеет смысл только внутри MAX: вне его запросы к хосту не отвечают.
     if (!this.isInsideMax()) return;
     // Локальная копия — своя у каждого MAX-аккаунта: WebView (или браузер с web.max.ru) бывает
-    // общим. Сохранённое до этого под общим `max:` внутри MAX больше не читается — один раз
-    // войдём заново по launch-параметрам.
+    // общим. Сохранённое до этого под общим `max:` внутри MAX больше не читается (токены сессии
+    // оттуда стираются) — один раз войдём заново по launch-параметрам.
     const maxUserId = this.getUser()?.id || null;
+    if (maxUserId) {
+      const legacy = createMockStorage(localPrefix(null));
+      await Promise.all(LEGACY_SHARED_SESSION_KEYS.map((key) => legacy.remove(key)));
+    }
     this.storage = this.sdk.DeviceStorage
       ? createDeviceStorage(this.sdk.DeviceStorage, maxUserId)
       : createMockStorage(localPrefix(maxUserId));
