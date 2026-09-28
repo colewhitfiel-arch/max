@@ -7,6 +7,12 @@ export interface StartParamRouter {
   navigate(to: string, options: { replace: boolean }): Promise<void>;
 }
 
+/**
+ * Дольше вход перехода по диплинку не ждёт: зависшая загрузка чанка экрана (медленная сеть в
+ * WebView) не держит сплэш — запуск продолжается, как без диплинка.
+ */
+export const START_PARAM_WAIT_MS = 8_000;
+
 /** Переход по диплинку этого запуска; null — ещё не применялся. */
 let applied: Promise<boolean> | null = null;
 
@@ -24,10 +30,11 @@ export function startParamPath(startParam: string | null | undefined): string | 
  * внутреннего экрана (`start_param` у WebView прежний) не уводит пользователя обратно.
  *
  * Возвращает промис, который разрешается, когда переход завершён: true — переход сделан,
- * false — диплинка нет или запуск не с корня. Вход (`bootstrapAuth`) начинается только после
- * него: экран приглашения — lazy-маршрут, пока грузится его чанк, роутер стоит на `/`, и
- * редирект с корня (`/auth`, главная роли, онбординг) отменил бы переход. Повторный вызов за
- * запуск (StrictMode) ничего не делает и возвращает тот же промис.
+ * false — диплинка нет, запуск не с корня или переход не завершился за `START_PARAM_WAIT_MS`.
+ * Вход (`bootstrapAuth`) начинается только после него: экран приглашения — lazy-маршрут, пока
+ * грузится его чанк, роутер стоит на `/`, и редирект с корня (`/auth`, главная роли, онбординг)
+ * отменил бы переход. Повторный вызов за запуск (StrictMode) ничего не делает и возвращает тот
+ * же промис.
  */
 export function applyStartParam(bridge: MaxBridge, router: StartParamRouter): Promise<boolean> {
   applied ??= navigateToStartParam(bridge, router);
@@ -43,12 +50,21 @@ async function navigateToStartParam(bridge: MaxBridge, router: StartParamRouter)
   }
   const path = startParamPath(startParam);
   if (!path || router.state.location.pathname !== '/') return false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), START_PARAM_WAIT_MS);
+  });
   try {
-    await router.navigate(path, { replace: true });
+    return await Promise.race([
+      router.navigate(path, { replace: true }).then(() => true),
+      timedOut,
+    ]);
   } catch {
     /* переход не удался — запуск продолжается с корня */
+    return true;
+  } finally {
+    clearTimeout(timer);
   }
-  return true;
 }
 
 /** Сброс «уже применён» — только для тестов. */

@@ -296,6 +296,38 @@ describe('bootstrapAuth внутри MAX: сессия привязана к MAX
     expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
   });
 
+  it('ключи сессии читаются и стираются параллельно — медленное хранилище не множит ожидание', async () => {
+    // Как DeviceStorage на хосте, который не отвечает: каждый вызов ждёт своего таймаута.
+    const inFlight = { get: 0, remove: 0 };
+    const peak = { get: 0, remove: 0 };
+    const slow = async <T>(kind: 'get' | 'remove', op: () => T): Promise<T> => {
+      inFlight[kind] += 1;
+      peak[kind] = Math.max(peak[kind], inFlight[kind]);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight[kind] -= 1;
+      return op();
+    };
+    const bridge = new MockMaxBridge({
+      launchParams: 'auth_date=1&hash=abc',
+      user: { id: '8', firstName: 'Ученик' },
+      storage: {
+        get: (key) => slow('get', () => memory.get(key) ?? null),
+        set: async (key, value) => void memory.set(key, value),
+        remove: (key) => slow('remove', () => void memory.delete(key)),
+      },
+    });
+    storeSession('7');
+    mocks.loginMax.mockResolvedValueOnce(
+      ok({ accessToken: 'a-8', refreshToken: 'r-8', me: me('PARENT') }),
+    );
+
+    await bootstrapAuth(bridge);
+
+    expect(peak).toEqual({ get: 3, remove: 3 });
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
+  });
+
   it('мост не знает пользователя (mock-режим с launch-параметрами) → сессия восстанавливается', async () => {
     storeSession(null);
     mocks.refresh.mockResolvedValueOnce(ok({ accessToken: 'a-new', refreshToken: 'r-new' }));

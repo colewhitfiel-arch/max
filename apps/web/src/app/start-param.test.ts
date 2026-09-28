@@ -1,8 +1,13 @@
 /** Диплинк MAX `startapp=invite_<token>` при запуске ведёт на экран приглашения (F14). */
 import { createMemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MaxBridge } from '@/shared/max';
-import { applyStartParam, resetStartParamForTests, startParamPath } from './start-param';
+import {
+  applyStartParam,
+  resetStartParamForTests,
+  START_PARAM_WAIT_MS,
+  startParamPath,
+} from './start-param';
 
 const TOKEN = 'Abc_DEF-0123456789abcdefghijklmn';
 
@@ -72,6 +77,32 @@ describe('applyStartParam', () => {
     resetStartParamForTests();
     expect(await applyStartParam(bridgeWith('club-42'), router)).toBe(false);
     expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('чанк экрана завис — вход ждёт перехода не дольше START_PARAM_WAIT_MS', async () => {
+    vi.useFakeTimers();
+    try {
+      const router = createMemoryRouter(
+        [
+          { path: '/', element: null },
+          // Загрузка lazy-экрана не завершается (сеть в WebView «повисла»).
+          { path: '/invite/:token', lazy: () => new Promise<never>(() => {}) },
+        ],
+        { initialEntries: ['/'] },
+      );
+      let settled = false;
+      const started = applyStartParam(bridgeWith(`invite_${TOKEN}`), router).then((done) => {
+        settled = true;
+        return done;
+      });
+      await vi.advanceTimersByTimeAsync(START_PARAM_WAIT_MS - 1);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await started).toBe(false);
+      expect(router.state.location.pathname).toBe('/');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('SDK бросил исключение — запуск продолжается как обычно', async () => {

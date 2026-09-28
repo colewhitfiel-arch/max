@@ -60,9 +60,9 @@ async function persistTokens(tokens: TokenPair | null): Promise<void> {
       await storage.set(AUTH_STORAGE_KEYS.access, tokens.accessToken);
       await storage.set(AUTH_STORAGE_KEYS.refresh, tokens.refreshToken);
     } else {
-      await storage.remove(AUTH_STORAGE_KEYS.access);
-      await storage.remove(AUTH_STORAGE_KEYS.refresh);
-      await storage.remove(AUTH_STORAGE_KEYS.maxUser);
+      // Параллельно: каждый вызов DeviceStorage, на который хост не отвечает, ждёт таймаута.
+      const target = storage;
+      await Promise.all(Object.values(AUTH_STORAGE_KEYS).map((key) => target.remove(key)));
     }
   } catch (cause) {
     console.warn('[auth] не удалось сохранить токены', cause);
@@ -248,11 +248,13 @@ export async function bootstrapAuth(bridge: MaxBridge): Promise<void> {
   let accessToken: string | null = null;
   let sessionOwner: string | null = null;
   try {
-    refreshToken = await bridge.storage.get(AUTH_STORAGE_KEYS.refresh);
-    accessToken = await bridge.storage.get(AUTH_STORAGE_KEYS.access);
-    if (refreshToken && launchUserId) {
-      sessionOwner = await bridge.storage.get(AUTH_STORAGE_KEYS.maxUser);
-    }
+    // Параллельно: на хостах, где DeviceStorage не отвечает, каждый вызов ждёт таймаута — подряд
+    // это держало бы сплэш в разы дольше.
+    [refreshToken, accessToken, sessionOwner] = await Promise.all([
+      bridge.storage.get(AUTH_STORAGE_KEYS.refresh),
+      bridge.storage.get(AUTH_STORAGE_KEYS.access),
+      launchUserId ? bridge.storage.get(AUTH_STORAGE_KEYS.maxUser) : null,
+    ]);
   } catch {
     /* хранилище недоступно — считаем, что сессии нет */
   }
