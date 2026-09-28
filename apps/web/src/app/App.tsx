@@ -20,7 +20,8 @@ export function App() {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
     // Диплинк MAX (`startapp`, например приглашение родителя) — до входа и до роутера. Вход ждёт
-    // конца перехода: иначе редирект с `/` отменит его, пока грузится lazy-экран приглашения.
+    // конца перехода (не дольше START_PARAM_WAIT_MS): иначе редирект с `/` отменит его, пока
+    // грузится lazy-экран приглашения.
     const startParam = applyStartParam(bridge, router);
     void (async () => {
       const off = await hydrateUiStore(bridge);
