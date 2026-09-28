@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { access, mkdir, rm } from 'node:fs/promises';
+import { access, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -129,6 +129,14 @@ export class LocalFsStorage implements StorageProvider {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async size(key: string): Promise<number | null> {
+    try {
+      return (await stat(this.pathFor(key))).size;
+    } catch {
+      return null;
     }
   }
 

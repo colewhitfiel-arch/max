@@ -33,6 +33,8 @@ export interface StorageProvider {
   put(key: string, body: Buffer | Readable, opts?: PutOptions): Promise<void>;
   get(key: string): Promise<Readable>;
   exists(key: string): Promise<boolean>;
+  /** Размер объекта в байтах; `null` — объекта нет. */
+  size(key: string): Promise<number | null>;
   delete(key: string): Promise<void>;
 }
 

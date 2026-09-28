@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { InlineJobQueue } from '../../src/common/queue/inline-job-queue';
 import { JOB_QUEUE } from '../../src/common/queue/job-queue';
+import { STORAGE, type StorageProvider } from '../../src/modules/files/storage/storage-provider';
 import { CourseBuilderService } from '../../src/modules/course-builder/course-builder.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
@@ -196,6 +197,22 @@ describe.skipIf(!hasTestDatabase)('course-builder (integration, mock AI)', () =>
     expect(download.headers['content-type']).toContain('text/plain');
     expect(download.headers['x-content-type-options']).toBe('nosniff');
     expect(download.headers['content-disposition']).toMatch(/^attachment/);
+  });
+
+  it('confirm не подтверждает объект больше заявленного размера и удаляет его', async () => {
+    // Хранилище, не соблюдающее подпись размера (или прямая запись мимо ссылки): кладём байты сами
+    const declared = await uploadUrl('small.txt', 'text/plain', 10);
+    const row = await app
+      .get(PrismaService)
+      .file.findUniqueOrThrow({ where: { id: declared.fileId }, select: { storageKey: true } });
+    const storage = app.get<StorageProvider>(STORAGE);
+    await storage.put(row.storageKey, Buffer.from('это явно длиннее десяти байт'));
+    const res = await http()
+      .post(`${base}/files/${declared.fileId}/confirm`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+    expect(res.body.error.code).toBe('VALIDATION');
+    expect(await storage.exists(row.storageKey)).toBe(false);
   });
 
   it('материал, из которого текст не извлекается (png), отклоняется сразу — 422', async () => {

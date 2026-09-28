@@ -330,7 +330,7 @@ POST /files/upload-url     { fileName, mime, sizeBytes, purpose: FilePurpose } �
 POST /files/:fileId/confirm → FileDto
 GET  /files/:fileId         → FileDto        // доступ по policies владельца/группы
 ```
-Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ. Текст извлекается пока только из pdf, docx, txt, md: задачу course-builder с материалами png/jpg/pptx сервер отклоняет сразу (422 `BUSINESS_RULE`).
+Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ. Заявленные `sizeBytes` и `mime` входят в подпись ссылки загрузки (S3: `Content-Length` и `Content-Type`, локально — токен), ссылка живёт 15 мин; `confirm` объект больше заявленного не подтверждает (400 `VALIDATION`) и удаляет. Текст извлекается пока только из pdf, docx, txt, md: задачу course-builder с материалами png/jpg/pptx сервер отклоняет сразу (422 `BUSINESS_RULE`).
 
 ### `course-builder.ts` — владелец A5 (скелет в F4)
 ```
