@@ -81,9 +81,10 @@ describe('RateLimitGuard', () => {
       request(app!.getHttpServer()).get('/rl/login').set('X-Forwarded-For', ip);
 
     await login('198.51.100.7').expect(200);
-    // Первый адрес X-Forwarded-For — клиент; дальше — прокси
-    await login('198.51.100.7, 10.0.0.1').expect(200);
-    const limited = await login('198.51.100.7').expect(429);
+    // Клиент — последний адрес X-Forwarded-For (его дописал прокси); подставленное клиентом
+    // в начало цепочки лимит не обходит
+    await login('203.0.113.66, 198.51.100.7').expect(200);
+    const limited = await login('192.0.2.1, 198.51.100.7').expect(429);
     expect(limited.body.error.code).toBe('RATE_LIMITED');
     const retryAfter = Number(limited.headers['retry-after']);
     expect(retryAfter).toBeGreaterThan(0);
@@ -116,11 +117,13 @@ describe('RateLimitGuard', () => {
     expect(isRateLimitEnabled({ NODE_ENV: 'production', RATE_LIMIT_ENABLED: false })).toBe(false);
   });
 
-  it('clientIp: первый адрес X-Forwarded-For, без заголовка — адрес сокета', () => {
+  it('clientIp: последний адрес X-Forwarded-For, без заголовка — адрес сокета', () => {
     const socket = { remoteAddress: '127.0.0.1' } as never;
-    expect(clientIp({ headers: { 'x-forwarded-for': ' 1.2.3.4 , 5.6.7.8' }, socket })).toBe(
-      '1.2.3.4',
+    expect(clientIp({ headers: { 'x-forwarded-for': ' 1.2.3.4 , 5.6.7.8 ' }, socket })).toBe(
+      '5.6.7.8',
     );
+    expect(clientIp({ headers: { 'x-forwarded-for': '9.9.9.9' }, socket })).toBe('9.9.9.9');
+    expect(clientIp({ headers: { 'x-forwarded-for': '' }, socket })).toBe('127.0.0.1');
     expect(clientIp({ headers: {}, socket })).toBe('127.0.0.1');
   });
 });

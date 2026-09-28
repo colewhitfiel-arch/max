@@ -43,15 +43,19 @@ export function isRateLimitEnabled(env: Pick<Env, 'RATE_LIMIT_ENABLED' | 'NODE_E
 }
 
 /**
- * IP клиента: первый адрес `X-Forwarded-For`. Заголовок ставит прокси стенда и затирает
- * присланный клиентом: Vercel — всегда, nginx из infra/nginx.conf — `$remote_addr`. Без прокси
- * (локальный dev) — адрес сокета. За другим прокси заголовок нужно перезаписывать так же,
- * иначе клиент подставит любой адрес и обойдёт лимит.
+ * IP клиента: последний адрес `X-Forwarded-For` — его дописывает прокси прямо перед api, а всё,
+ * что левее, мог прислать сам клиент. nginx из infra/nginx.conf дописывает `$remote_addr`
+ * (настоящий клиент и за доверенным TLS-прокси — модуль realip), Vercel перезаписывает
+ * заголовок целиком. Без прокси (локальный dev) — адрес сокета.
  */
 export function clientIp(req: Pick<Request, 'headers' | 'socket'>): string {
   const header = req.headers['x-forwarded-for'];
-  const first = (Array.isArray(header) ? header[0] : header)?.split(',')[0]?.trim();
-  return first || req.socket?.remoteAddress || 'unknown';
+  const last = (Array.isArray(header) ? header.join(',') : header)
+    ?.split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .at(-1);
+  return last || req.socket?.remoteAddress || 'unknown';
 }
 
 /**
