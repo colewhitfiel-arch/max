@@ -44,3 +44,9 @@
   border-radius: var(--ui-radius-full);
   background: currentColor;
 }
+
+/* В колонке (Stack, Screen) — по ширине текста, а не растянутой полосой. */
+.ui-stack > .ui-badge,
+.ui-screen > .ui-badge {
+  align-self: flex-start;
+}
