@@ -8,7 +8,8 @@
  * Чего в SDK MAX нет (в отличие от Telegram), и как это закрыто здесь:
  *  - темы: WebView наследует оформление мессенджера, читаем `prefers-color-scheme`;
  *  - `ready()` / `close()`: сплэш скрывается сам, окно закрывает пользователь — заглушки;
- *  - облачного хранилища: используем `DeviceStorage` (на устройстве), fallback — localStorage.
+ *  - облачного хранилища: используем `DeviceStorage` (на устройстве), fallback — localStorage
+ *    с префиксом MAX-аккаунта запуска (`max:<id>:`).
  */
 import { i18n } from '@/shared/i18n';
 import { createMockStorage } from './mock-bridge';
@@ -102,6 +103,11 @@ async function waitForSdk(timeoutMs: number): Promise<MaxWebAppSdk | null> {
   }
 }
 
+/** Префикс локальной копии хранилища; внутри MAX — свой у каждого аккаунта (`max:<id>:`). */
+function localPrefix(maxUserId: string | null): string {
+  return maxUserId ? `max:${maxUserId}:` : 'max:';
+}
+
 /**
  * Ответ `DeviceStorage.getItem` → значение: строка или объект `{ key, value }` (так в типах
  * MAX Bridge). Пустая строка, `null` и прочее — «нет значения».
@@ -121,11 +127,11 @@ function storedValue(answer: unknown): string | null {
  * не разрешается никогда. Поэтому каждый вызов ограничен таймаутом, а рядом ведётся зеркало в
  * localStorage — приложение не зависает на старте и продолжает работать с локальной копией.
  * Зеркало читается только при таймауте или ошибке: если хранилище ответило «нет значения»,
- * так и есть. Зеркало общее для всех MAX-аккаунтов в этом WebView, и подставлять его вместо
- * ответа — значит отдать одному аккаунту токены другого.
+ * так и есть. Зеркало своё у каждого MAX-аккаунта (`localPrefix`): WebView бывает общим у
+ * нескольких аккаунтов, и общая копия отдала бы одному аккаунту токены другого.
  */
-function createDeviceStorage(device: MaxStorageSdk): MaxStorage {
-  const local = createMockStorage('max:');
+function createDeviceStorage(device: MaxStorageSdk, maxUserId: string | null): MaxStorage {
+  const local = createMockStorage(localPrefix(maxUserId));
   const guard = <T>(value: unknown, fallback: T): Promise<T> =>
     Promise.race([
       Promise.resolve(value as T).catch(() => fallback),
@@ -160,8 +166,8 @@ export class MaxSdkBridge implements MaxBridge {
   private sdk: MaxWebAppSdk | null = null;
 
   constructor() {
-    // До init() (и если SDK без DeviceStorage) — хранилище WebView.
-    this.storage = createMockStorage('max:');
+    // До init() и вне MAX — хранилище WebView под общим префиксом.
+    this.storage = createMockStorage(localPrefix(null));
   }
 
   /**
@@ -175,9 +181,14 @@ export class MaxSdkBridge implements MaxBridge {
       return;
     }
     // Хранилище мессенджера имеет смысл только внутри MAX: вне его запросы к хосту не отвечают.
-    if (this.isInsideMax() && this.sdk.DeviceStorage) {
-      this.storage = createDeviceStorage(this.sdk.DeviceStorage);
-    }
+    if (!this.isInsideMax()) return;
+    // Локальная копия — своя у каждого MAX-аккаунта: WebView (или браузер с web.max.ru) бывает
+    // общим. Сохранённое до этого под общим `max:` внутри MAX больше не читается — один раз
+    // войдём заново по launch-параметрам.
+    const maxUserId = this.getUser()?.id || null;
+    this.storage = this.sdk.DeviceStorage
+      ? createDeviceStorage(this.sdk.DeviceStorage, maxUserId)
+      : createMockStorage(localPrefix(maxUserId));
   }
 
   /** Внутри MAX, только если SDK отдал подписанные данные запуска. */
