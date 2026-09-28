@@ -205,6 +205,19 @@ describe.skipIf(!hasTestDatabase)('родитель и преподавател�
     expect(res.body.groups.length).toBeGreaterThan(0);
     expect(res.body.stats.groupsCount).toBe(res.body.groups.length);
     expect(Array.isArray(res.body.toGrade)).toBe(true);
+
+    // Ученики — разные люди, а не зачисления: Алексей в двух группах считается один раз.
+    const details = await Promise.all(
+      res.body.groups.map((group: { id: string }) =>
+        http().get(`${base}/teacher/groups/${group.id}`).set('Authorization', `Bearer ${teacher}`),
+      ),
+    );
+    const distinct = new Set(
+      details.flatMap((detail) =>
+        (detail.body.students as Array<{ student: { id: string } }>).map((row) => row.student.id),
+      ),
+    );
+    expect(res.body.stats.studentsCount).toBe(distinct.size);
   });
 
   it('карточка ученика преподавателя показывает только его группы', async () => {

@@ -77,6 +77,10 @@ export class TeacherDashboardService {
       start,
       new Date(now.getTime() + UPCOMING_DAYS * DAY_MS),
     );
+    // Ученик в двух группах преподавателя — один ученик, а не два зачисления.
+    const rosters = await Promise.all(
+      groups.map((group) => this.groups.listStudentIdsInGroup(group.id)),
+    );
     const rates = (values: Array<number | null>) => {
       const known = values.filter((value): value is number => value !== null);
       return known.length === 0 ? null : known.reduce((a, b) => a + b, 0) / known.length;
@@ -91,7 +95,7 @@ export class TeacherDashboardService {
       events,
       stats: {
         groupsCount: groups.length,
-        studentsCount: groups.reduce((sum, group) => sum + group.studentsCount, 0),
+        studentsCount: new Set(rosters.flat()).size,
         avgAttendanceRate: rates(groups.map((group) => group.attendanceRate)),
         avgCompletionRate: rates(groups.map((group) => group.completionRate)),
         needsAttentionCount: groups.reduce((sum, group) => sum + group.needsAttentionCount, 0),

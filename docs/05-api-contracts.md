@@ -103,7 +103,7 @@ GET /parent/children/:studentId/groups/:groupId/tasks
 GET /teacher/home        → { today: LessonDto[], upcoming: LessonDto[], groups: GroupCard[],
                              toGrade: [{ assignment: AssignmentBrief, pendingCount }],
                              events: NotificationDto[] /* последние 5 */,
-                             stats: { groupsCount, studentsCount, avgAttendanceRate, avgCompletionRate, needsAttentionCount } }
+                             stats: { groupsCount, studentsCount /* разных учеников во всех группах */, avgAttendanceRate, avgCompletionRate, needsAttentionCount } }
 GET /teacher/groups      → { items: GroupCard[] }
 GET /teacher/groups/:groupId
                          → GroupDetail = GroupCard & { schedule: ScheduleRuleDto[],
