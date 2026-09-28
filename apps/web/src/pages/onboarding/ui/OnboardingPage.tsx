@@ -78,7 +78,10 @@ interface ChatStageProps {
   appearIds: ReadonlySet<string>;
   /** Кружки, предложенные последней репликой тьютора: кнопки быстрого ответа. */
   clubOptions: ClubCardDto[];
-  /** Ученик выбрал кружок кнопкой (название уходит ответом) — отметить его к записи. */
+  /**
+   * Ученик выбрал кружок кнопкой и ответ (название кружка) принят — отметить его к записи.
+   * Не ушёл (ошибка стрима) — кружок не отмечается.
+   */
   onPickClub: (club: ClubCardDto) => void;
   pendingUserText: string | null;
   streamText: string;
@@ -122,10 +125,12 @@ function ChatStage({
     scrollFeedToEnd(bottomRef.current);
   }, [messages.length, pendingUserText, streamText, clubOptions.length]);
 
-  const submit = (text: string) =>
+  /** `onSent` — только если ответ принят (кружок, выбранный кнопкой, отмечается лишь тогда). */
+  const submit = (text: string, onSent?: () => void) =>
     void onSend(text).then((sent) => {
+      if (sent) onSent?.();
       // Не ушло — вернуть ответ в поле, если ученик не начал набирать новый.
-      if (!sent) setDraft((current) => current || text);
+      else setDraft((current) => current || text);
     });
 
   const showOptions = clubOptions.length > 0 && canSend && !streaming && !pendingUserText;
@@ -146,13 +151,7 @@ function ChatStage({
         {showOptions && (
           <Inline gap={2} role="group" aria-label={t('onboarding.clubOptions')}>
             {clubOptions.map((club) => (
-              <Chip
-                key={club.id}
-                onClick={() => {
-                  onPickClub(club);
-                  submit(club.title);
-                }}
-              >
+              <Chip key={club.id} onClick={() => submit(club.title, () => onPickClub(club))}>
                 {club.title}
               </Chip>
             ))}
