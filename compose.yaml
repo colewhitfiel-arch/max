@@ -51,6 +51,9 @@ services:
       WEB_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
       CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-edu}?schema=public
+      # Seed демо-мира после миграций при каждом старте (идемпотентен; без него нет школы SCHOOL1,
+      # и демо-преподаватель не входит). Для чистой боевой базы — SEED_ON_START=0 в .env.
+      SEED_ON_START: ${SEED_ON_START:-1}
       # Redis не нужен: задачи выполняются в процессе api.
       QUEUE_DRIVER: inline
       REDIS_URL: ''

@@ -1,15 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { AttendanceSchema, CourseBlockSchema, SchoolSchema } from '../entities';
 import {
+  AttendanceSchema,
+  CourseBlockSchema,
+  NotificationSchema,
+  SchoolSchema,
+  SubmissionSchema,
+} from '../entities';
+import {
+  DEMO_IDS,
+  demoAssignmentDueOffsets,
   demoAttendance,
   demoBlocks,
+  demoClubInterests,
+  demoClubs,
+  demoEnrollments,
+  demoGroups,
   demoLessonSpecs,
   demoSchool,
   demoScheduleRules,
+  demoStudents,
+  demoSubmissions,
+  demoUsers,
   materializeDemoAttendance,
   materializeDemoLessons,
   materializeDemoPaidPeriod,
   materializeDemoPayment,
+  materializeDemoRoleNotifications,
+  materializeDemoSubmissions,
+  materializeDemoWalletIncome,
   materializeLessons,
 } from './index';
 
@@ -78,5 +96,91 @@ describe('демо-мир', () => {
       expect(days).toBe(29);
       expect(period.periodEnd >= schoolDate(now.toISOString())).toBe(true);
     }
+  });
+
+  it('сдачи — относительно now: сданы до срока задания, проверены позже сдачи, всё в прошлом', () => {
+    for (const now of NOWS) {
+      const submissions = materializeDemoSubmissions(now, MSK);
+      expect(submissions).toHaveLength(demoSubmissions.length);
+      for (const row of submissions) {
+        expect(SubmissionSchema.safeParse(row).success).toBe(true);
+        const submittedAt = Date.parse(row.submittedAt ?? '');
+        expect(submittedAt).toBeLessThan(now.getTime());
+        expect(Date.parse(row.gradedAt ?? '')).toBeGreaterThan(submittedAt);
+        expect(Date.parse(row.gradedAt ?? '')).toBeLessThanOrEqual(now.getTime());
+        const dueOffset = demoAssignmentDueOffsets[row.assignmentId];
+        if (dueOffset !== undefined)
+          expect(submittedAt).toBeLessThanOrEqual(now.getTime() + dueOffset * DAY_MS);
+      }
+    }
+  });
+
+  it('у Python есть прошедшее занятие с отметкой, серия Алексея жива (действие ≤ 2 дней назад)', () => {
+    for (const now of NOWS) {
+      const lessons = new Map(materializeDemoLessons(now, MSK).map((l) => [l.id, l]));
+      const attended = materializeDemoAttendance(now, MSK).filter(
+        (row) =>
+          row.studentId === DEMO_IDS.students.alexey && ['PRESENT', 'LATE'].includes(row.status),
+      );
+      const python = attended.filter(
+        (row) => lessons.get(row.lessonId)?.groupId === DEMO_IDS.groups.programmingA,
+      );
+      expect(python.length).toBeGreaterThan(0);
+      for (const row of python) expect(lessons.get(row.lessonId)?.status).toBe('DONE');
+
+      const actionDays = [
+        ...attended.map((row) => schoolDate(lessons.get(row.lessonId)?.startsAt ?? '')),
+        ...materializeDemoSubmissions(now, MSK)
+          .filter((row) => row.studentId === DEMO_IDS.students.alexey && row.submittedAt)
+          .map((row) => schoolDate(row.submittedAt ?? '')),
+      ].sort();
+      const today = schoolDate(now.toISOString());
+      const daysSinceLast = (Date.parse(today) - Date.parse(actionDays.at(-1) ?? '')) / DAY_MS;
+      expect(daysSinceLast).toBeGreaterThanOrEqual(0);
+      expect(daysSinceLast).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('поступление в кошелёк — от демо-оплаты преподавателю группы, на ту же сумму', () => {
+    for (const now of NOWS) {
+      const payment = materializeDemoPayment(now, MSK);
+      const income = materializeDemoWalletIncome(now, MSK);
+      const enrollment = demoEnrollments.find((e) => e.id === payment.enrollmentId);
+      const group = demoGroups.find((g) => g.id === enrollment?.groupId);
+      expect(income).toMatchObject({
+        kind: 'INCOME',
+        amount: payment.amount,
+        paymentId: payment.id,
+        studentId: payment.studentId,
+        groupId: group?.id,
+        teacherId: group?.teacherId,
+        at: payment.paidAt,
+      });
+    }
+  });
+
+  it('уведомления родителя и преподавателя проходят схему и не из будущего', () => {
+    for (const now of NOWS) {
+      const notifications = materializeDemoRoleNotifications(now, MSK);
+      expect(notifications.map((n) => n.userId).sort()).toEqual(
+        [demoUsers.parent.id, demoUsers.teacher.id].sort(),
+      );
+      for (const { userId: _userId, ...notification } of notifications) {
+        expect(NotificationSchema.safeParse(notification).success).toBe(true);
+        expect(Date.parse(notification.createdAt)).toBeLessThanOrEqual(now.getTime());
+      }
+    }
+  });
+
+  it('спрос на кружки — у прошедшего онбординг ученика, по существующим кружкам, без дублей', () => {
+    const clubIds = new Set(demoClubs.map((club) => club.id));
+    const pairs = new Set(demoClubInterests.map((row) => `${row.studentId}:${row.clubId}`));
+    expect(pairs.size).toBe(demoClubInterests.length);
+    for (const row of demoClubInterests) {
+      expect(clubIds.has(row.clubId)).toBe(true);
+      const student = demoStudents.find((s) => s.id === row.studentId);
+      expect(student?.onboardingCompletedAt).not.toBeNull();
+    }
+    expect(demoClubInterests.length).toBeGreaterThan(0);
   });
 });

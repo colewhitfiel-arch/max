@@ -73,7 +73,8 @@ export async function seedCatalogAndGroups(prisma: PrismaClient, now: Date): Pro
     });
   }
 
-  for (const lesson of materializeDemoLessons(now)) {
+  const lessons = materializeDemoLessons(now);
+  for (const lesson of lessons) {
     const data = {
       groupId: lesson.groupId,
       ruleId: lesson.ruleId,
@@ -88,6 +89,23 @@ export async function seedCatalogAndGroups(prisma: PrismaClient, now: Date): Pro
       where: { id: lesson.id },
       create: { id: lesson.id, ...data },
       update: data,
+    });
+  }
+
+  // Занятия из правил создаёт api (job schedule.materialize, docs/04) и занятые слоты обходит.
+  // Разовые демо-занятия плавают относительно `now` и при повторном seed могут лечь на уже
+  // созданное занятие из правила — его удаляем вместе с отметками, иначе у группы два занятия
+  // в одно время (docs/04 §4.5 п. 9). Только неотменённые занятия демо-правил под демо-занятиями.
+  const demoRuleIds = demoScheduleRules.map((rule) => rule.id);
+  for (const lesson of lessons) {
+    await prisma.lesson.deleteMany({
+      where: {
+        groupId: lesson.groupId,
+        ruleId: { in: demoRuleIds },
+        status: { not: 'CANCELLED' },
+        startsAt: { lt: lesson.endsAt },
+        endsAt: { gt: lesson.startsAt },
+      },
     });
   }
 }

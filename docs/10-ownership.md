@@ -16,6 +16,8 @@
 | `CLAUDE.md`, `README.md`, `OWNERS.yaml` | Правила для агентов |
 | `package.json` (корень), `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `turbo.json`, `tsconfig.base.json`, `packages/config/**` | Ломает сборку всем |
 | `.github/workflows/**`, `infra/**`, `.env.example`, `scripts/**` | CI/инфра |
+| `Dockerfile`, `compose.yaml`, `.dockerignore`, `vercel.json`, `api/**` | Упаковка и деплой (Docker-стенд, Vercel — ADR-014) |
+| `packages/db/prisma/schema/kv.prisma` | Таблица порта `KeyValueStore` при `KV_DRIVER=postgres` (docs/04, kv) |
 | `.editorconfig`, `.gitattributes`, `.gitignore`, `.prettierignore`, `.claude/**` | Корневые конфиги инструментов |
 
 ## 10.2. Владелец «contracts»
@@ -56,7 +58,7 @@
 
 ## 10.4. Владелец «api-shell»
 
-`apps/api/src/{main,worker,app.module,bootstrap}.ts`, `apps/api/src/modules/index.ts`, `apps/api/src/modules/identity/**` (auth core, AGENT_GUIDE §18), `apps/api/src/common/**`, `apps/api/src/config/**`, `apps/api/test/**` (кроме подпапок workstream'ов: `test/ai/**`, `test/analytics/**`, `test/course-builder/**`), `apps/api/package.json` и конфиги пакета (`apps/api/*`), `apps/api/src/types/**`, модули `school` и `health` (`apps/api/src/modules/{school,health}/**`), контракты `routes/{auth,health}.ts`, схемы `identity.prisma` и `school.prisma`.
+`apps/api/src/{main,worker,vercel,app.module,bootstrap}.ts`, `apps/api/src/modules/index.ts`, `apps/api/src/modules/identity/**` (auth core, AGENT_GUIDE §18), `apps/api/src/common/**`, `apps/api/src/config/**`, `apps/api/test/**` (кроме подпапок workstream'ов: `test/ai/**`, `test/analytics/**`, `test/course-builder/**`), `apps/api/package.json` и конфиги пакета (`apps/api/*`), `apps/api/src/types/**`, модули `school` и `health` (`apps/api/src/modules/{school,health}/**`), контракты `routes/{auth,health}.ts`, схемы `identity.prisma` и `school.prisma`.
 
 - Регистрация модуля в `app.module.ts` — единственная правка, которую владелец делает по запросу (одна строка).
 - Новое общее (guard, pipe, helper) — запрос владельцу; до этого агент держит helper в своём модуле.

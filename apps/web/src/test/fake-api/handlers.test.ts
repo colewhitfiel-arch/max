@@ -107,8 +107,8 @@ describe('mock world (msw/node)', () => {
     const calendar = await call(
       api.groups.getStudentCalendar({ query: { from: '2020-01-01', to: '2099-01-01' } }),
     );
-    // 5 занятий из фикстур + Python сегодня в 12:00 (world-extras, расписание дня репетитора).
-    expect(calendar.lessons).toHaveLength(6);
+    // 6 занятий из фикстур + Python сегодня в 12:00 (world-extras, расписание дня репетитора).
+    expect(calendar.lessons).toHaveLength(7);
     expect(calendar.lessons.find((l) => l.id === DEMO_IDS.lessons.roboticsPast1)?.attendance).toBe(
       'PRESENT',
     );
@@ -711,8 +711,8 @@ describe('mock world (msw/node)', () => {
     const all = await call(
       api.groups.getTeacherCalendar({ query: { from: '2020-01-01', to: '2099-01-01' } }),
     );
-    // Робототехника — 4 занятия, Python — сегодня и завтра; шахматы Андрея не видны.
-    expect(all.lessons).toHaveLength(6);
+    // Робототехника — 4 занятия, Python — вчера, сегодня и завтра; шахматы Андрея не видны.
+    expect(all.lessons).toHaveLength(7);
     expect(new Set(all.lessons.map((l) => l.group.code))).toEqual(new Set(['001', '012']));
     const starts = all.lessons.map((l) => l.startsAt);
     expect(starts).toEqual([...starts].sort());
