@@ -8,7 +8,7 @@ import { ToastProvider } from '@edu/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, getResponse, http } from 'msw';
+import { delay, getResponse, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -150,6 +150,29 @@ describe('TutorPage', () => {
     expect(screen.queryByText(/Привет, Алексей!/)).not.toBeInTheDocument();
     expect(feedRequests).toBeGreaterThanOrEqual(2);
     // Два стрима — дольше стандартных 5 с.
+  }, 20_000);
+
+  it('новый чат: лента после первого ответа не загрузилась — поле освобождается, есть «Повторить»', async () => {
+    // Поле занято, пока грузится лента нового чата; ошибка загрузки не должна держать его вечно.
+    server.use(
+      http.get(apiUrl('/ai/conversations/:conversationId/messages'), () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL', message: 'Сбой', requestId: 'r-1' } },
+          { status: 500 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderTutor();
+    await screen.findByText(/Привет, Алексей!/, {}, WAIT);
+    const sendButton = () => screen.getByRole('button', { name: 'Отправить' });
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Первый вопрос');
+    await user.click(sendButton());
+    await screen.findByText(/покажу пример из твоего курса/, {}, WAIT);
+
+    await waitFor(() => expect(sendButton()).not.toHaveAttribute('aria-busy'), WAIT);
+    expect(await screen.findByRole('button', { name: 'Повторить' }, WAIT)).toBeInTheDocument();
   }, 20_000);
 
   it('пока новый чат создаётся, «Остановить» нет — только индикатор; во время ответа есть', async () => {
