@@ -61,8 +61,9 @@ export function TutorChat({
   const { t } = useTranslation('student');
   const queryClient = useQueryClient();
   const create = useCreateConversation();
-  // Диалог, созданный первой отправкой этого чата: пока идёт первый ответ, ленту с сервера не
-  // берём — вопрос и стрим рисуются локально (иначе вопрос пришёл бы дважды).
+  // Диалог, созданный первой отправкой этого чата: пока идёт первый ответ и грузится его лента,
+  // ленту с сервера не берём — вопрос и стрим рисуются локально (иначе вопрос пришёл бы дважды).
+  // Всё это время поле занято: второй вопрос уходит, когда лента уже с сервера.
   const [freshId, setFreshId] = useState<string | null>(null);
   const activeId = conversationId ?? freshId;
   const fromServer = activeId !== null && activeId !== freshId;
@@ -125,8 +126,8 @@ export function TutorChat({
         const stopped = result.messageId === null;
         if (stopped) stream.reset();
         await refreshFeed(id, fresh);
-        // Лента нового чата загружена — дальше она с сервера, даже если, пока она грузилась,
-        // ученик уже отправил следующий вопрос: иначе лента осталась бы локальной и пустой.
+        // Лента нового чата загружена — дальше она с сервера (и поле снова свободно). Сброс —
+        // до проверки номера отправки: страховка, чтобы лента не осталась локальной и пустой.
         if (fresh) setFreshId(null);
         if (sendIdRef.current !== sendId) return;
         setPendingUserText(null);
@@ -209,8 +210,10 @@ export function TutorChat({
           setDraft('');
           void send(text);
         }}
-        busy={stream.isStreaming || create.isPending}
-        // Пока диалог создаётся, стрима ещё нет и остановить нечего — вместо «Стоп» индикатор.
+        // Новый чат занят, пока его лента не пришла с сервера (`freshId`): вопрос, отправленный
+        // раньше, разошёлся бы с загружаемой лентой — пустой чат или лента без него.
+        busy={stream.isStreaming || create.isPending || freshId !== null}
+        // Пока диалог создаётся или грузится лента, стрима нет и остановить нечего — индикатор.
         onStop={stream.isStreaming ? stream.abort : undefined}
         placeholder={t('tutor.placeholder')}
         inputLabel={t('common:chat.inputLabel')}
