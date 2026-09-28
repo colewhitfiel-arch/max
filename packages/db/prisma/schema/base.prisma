@@ -4,8 +4,10 @@
 // Остальные модели — в файлах по модулям в этой же папке (multi-file schema).
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../generated/client"
+  provider      = "prisma-client-js"
+  output        = "../../generated/client"
+  // native — локальная разработка; rhel-openssl-3.0.x — Vercel Functions (Amazon Linux 2023)
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

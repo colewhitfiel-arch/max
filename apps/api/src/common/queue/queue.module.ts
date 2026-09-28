@@ -10,10 +10,11 @@ import { type Env } from '../../config/env';
 import { ENV } from '../../config/env.module';
 import { AppLogger } from '../logger/logger.service';
 import { BullMqJobQueue } from './bullmq-job-queue';
-import { InlineJobQueue } from './inline-job-queue';
+import { InlineJobQueue, type InlineJobQueueOptions } from './inline-job-queue';
 import { JOB_QUEUE, type JobQueue } from './job-queue';
 
 export type ProcessMode = 'api' | 'worker';
+export type QueueModuleOptions = InlineJobQueueOptions;
 export const PROCESS_MODE = Symbol('PROCESS_MODE');
 
 class QueueLifecycle implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -33,7 +34,7 @@ class QueueLifecycle implements OnApplicationBootstrap, OnApplicationShutdown {
 @Global()
 @Module({})
 export class QueueModule {
-  static forRoot(mode: ProcessMode): DynamicModule {
+  static forRoot(mode: ProcessMode, options: QueueModuleOptions = {}): DynamicModule {
     return {
       module: QueueModule,
       providers: [
@@ -45,7 +46,7 @@ export class QueueModule {
             const log = logger.child({ module: 'queue' });
             if (env.QUEUE_DRIVER === 'bullmq' && env.REDIS_URL)
               return new BullMqJobQueue(env.REDIS_URL, mode, log);
-            return new InlineJobQueue(log);
+            return new InlineJobQueue(log, options);
           },
         },
         QueueLifecycle,

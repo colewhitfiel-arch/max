@@ -35,8 +35,34 @@ describe('MaxAuthProvider (схема подписи — проверить по
       .join('\n');
     const key = createHmac('sha256', 'WebAppData').update(secret).digest();
     const hash = createHmac('sha256', key).update(dataCheckString).digest('hex');
-    return new URLSearchParams({ ...params, hash }).toString();
+    // Как MAX: значения кодируются encodeURIComponent (пробел → %20, '+' остаётся '+'),
+    // а не form-encoding URLSearchParams (пробел → '+').
+    return Object.entries({ ...params, hash })
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
   }
+
+  it('значения с пробелами и плюсами: декодирование как в референсе MAX', async () => {
+    const tricky = JSON.stringify({
+      id: 7,
+      first_name: 'Max User',
+      photo_url: 'https://i.oneme.ru/i?r=a+b=c&x=1',
+    });
+    const identity = await max.verify({
+      kind: 'max',
+      launchParams: sign({
+        user: tricky,
+        auth_date: String(Math.floor(Date.now() / 1000)),
+        chat: '{"id":12345,"type":"DIALOG"}',
+        ip: '192.168.0.1',
+      }),
+    });
+    expect(identity).toMatchObject({
+      maxUserId: '7',
+      firstName: 'Max User',
+      avatarUrl: 'https://i.oneme.ru/i?r=a+b=c&x=1',
+    });
+  });
 
   const user = JSON.stringify({
     id: 42,

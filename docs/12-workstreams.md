@@ -52,6 +52,12 @@ Foundation завершён (`docs/FOUNDATION.md`). Ниже — независ�
   (поля `history`/`weekly`/`needsAttention`/`stats` в `TeacherStudentCard` остаются — A; вывод на экран — F).
 - Минимальные публичные сервисы для зависимостей: `GroupsService` (E), `CatalogService` (D), `CoursesService.createFromDraft` (B) —
   владельцы workstream'ов расширяют их, не ломая сигнатуры.
+- **Живой стенд на Vercel** (2026-09-27, ADR-014) — статика + одна функция `api/index.js` с Nest внутри (`apps/api/src/vercel.ts`),
+  один origin через `vercel.json`; inline-очередь удерживает инстанс через `waitUntil` (лимит 300 с); `KV_DRIVER=postgres`
+  (таблица `kv_entries`); `S3Storage` реализован на `@aws-sdk` (presigned URL); сертификат НУЦ — `GIGACHAT_CA_CERT_B64`;
+  миграции и seed — при сборке (`scripts/vercel-build.mjs`). Docker-путь (`compose.yaml`) остаётся эталоном для сдачи.
+  Не сделано: S3-бакет для стенда (пока `STORAGE_DRIVER=local` → загрузка материалов недоступна, режим «по теме» работает);
+  разбиение пайплайна course-builder по стадиям для больших материалов.
 
 ### Ревью 2026-09-23
 

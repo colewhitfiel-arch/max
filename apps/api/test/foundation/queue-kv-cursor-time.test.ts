@@ -39,6 +39,21 @@ describe('InlineJobQueue', () => {
     await q.drain();
     expect(attempts).toBe(2);
   });
+
+  it('keepAlive получает промис задачи и дожидается её завершения (serverless)', async () => {
+    const kept: Promise<unknown>[] = [];
+    const q = new InlineJobQueue(silent, { keepAlive: (p) => kept.push(p) });
+    let done = false;
+    q.process('course-builder', 'generate', async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      done = true;
+    });
+    await q.enqueue('course-builder', 'generate', {}, { jobId: 'j1' });
+    expect(kept).toHaveLength(1);
+    expect(done).toBe(false);
+    await kept[0];
+    expect(done).toBe(true);
+  });
 });
 
 describe('MemoryKeyValueStore', () => {

@@ -41,6 +41,8 @@ export const envSchema = z
 
     QUEUE_DRIVER: z.enum(['inline', 'bullmq']).default('inline'),
     REDIS_URL: optionalString,
+    /** memory — один процесс; postgres — общий стор для serverless (таблица kv_entries). */
+    KV_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
 
     AUTH_PROVIDER: z.enum(['dev', 'max']).default('dev'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET: минимум 32 символа'),
