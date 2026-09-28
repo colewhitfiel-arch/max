@@ -3,12 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { ClubCard, useChildClubs } from '@/entities/club';
 import { NoChildState } from '@/features/link-child';
-import { formatDateOnly, weekdayName } from '@/shared/lib/dates';
+import { formatDateOnly, parseDateOnly, weekdayName } from '@/shared/lib/dates';
 import { fullName } from '@/shared/lib/format';
 import { isFromApp } from '@/shared/lib/navigation';
 import { PARENT_HOME_PATH } from '@/shared/lib/parent-paths';
 import { useSelectedChildId } from '@/shared/store/ui-store';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
+
+/** Дата следующего платежа уже прошла (DateOnly против сегодняшнего дня устройства). */
+function isOverdue(nextPaymentAt: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return parseDateOnly(nextPaymentAt).getTime() < today.getTime();
+}
 
 /** `/parent/courses` — кружки ребёнка (`GET /parent/children/:id/clubs`) с оплатой и преподавателем. */
 export function ChildClubsPage() {
@@ -60,16 +67,28 @@ export function ChildClubsPage() {
                           size="sm"
                           label={tc('stats.progress')}
                         />
-                        <Text variant="caption" tone={item.paidUntil ? 'success' : 'warning'}>
+                        <Text
+                          variant="caption"
+                          tone={
+                            isOverdue(item.nextPaymentAt)
+                              ? 'danger'
+                              : item.paidUntil
+                                ? 'success'
+                                : 'warning'
+                          }
+                        >
                           {item.paidUntil
                             ? t('courses.paidUntil', {
                                 date: formatDateOnly(item.paidUntil, i18n.language),
                               })
                             : t('courses.notPaid')}
                           {' · '}
-                          {t('courses.nextPayment', {
-                            date: formatDateOnly(item.nextPaymentAt, i18n.language),
-                          })}
+                          {t(
+                            isOverdue(item.nextPaymentAt)
+                              ? 'courses.paymentOverdue'
+                              : 'courses.nextPayment',
+                            { date: formatDateOnly(item.nextPaymentAt, i18n.language) },
+                          )}
                         </Text>
                         <Button
                           variant="secondary"

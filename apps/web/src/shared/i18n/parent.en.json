@@ -25,6 +25,7 @@
     "paidUntil": "Paid until {{date}}",
     "notPaid": "No payments yet",
     "nextPayment": "Next payment {{date}}",
+    "paymentOverdue": "Payment overdue since {{date}}",
     "teacher": "Teacher",
     "schedule": "Schedule",
     "contacts": "Contacts",

@@ -25,6 +25,7 @@
     "paidUntil": "Оплачено до {{date}}",
     "notPaid": "Оплат ещё не было",
     "nextPayment": "Следующий платёж {{date}}",
+    "paymentOverdue": "Оплата просрочена с {{date}}",
     "teacher": "Преподаватель",
     "schedule": "Расписание",
     "contacts": "Контакты",
