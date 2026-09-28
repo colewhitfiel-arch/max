@@ -183,4 +183,33 @@ describe('useAiStream', () => {
 
     expect(result.current.status).toBe('done');
   });
+
+  it('размонтирование прерывает стрим: состояние не трогается, start не разрешается', async () => {
+    let signal: AbortSignal | undefined;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementationOnce(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          signal = init?.signal ?? undefined;
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result, unmount } = renderHook(() => useAiStream());
+
+    let settled = false;
+    act(() => {
+      void result.current.start('/ai/conversations/c1/messages', {}).then(() => {
+        settled = true;
+      });
+    });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    unmount();
+
+    expect(signal?.aborted).toBe(true);
+    // Экрана больше нет: код после `await start(...)` (setState, перезапрос ленты) не выполняется.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
+  });
 });
