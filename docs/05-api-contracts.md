@@ -235,17 +235,22 @@ HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открыты
 
 ### `ai.ts` — владелец B10 (секции — A1/A2/A4)
 ```
-POST /student/onboarding/start           → { conversationId, message: AiMessageDto }
-POST /student/onboarding/messages        { conversationId, text } → SSE; done { messageId, isComplete: boolean, profileDraft?: OnboardingProfileDraft }
+POST /student/onboarding/start           → { conversationId, message: AiMessageDto, history?: AiMessageDto[], profileDraft?, clubOptions?: ClubCard[] }
+                                          // незавершённое знакомство (kind ONBOARDING) продолжается: history — вся лента,
+                                          // profileDraft — если диалог уже собрал профиль, clubOptions — кнопки последней реплики
+POST /student/onboarding/messages        { conversationId, text } → SSE; done { messageId, isComplete: boolean, profileDraft?: OnboardingProfileDraft, clubOptions?: ClubCard[] }
+                                          // clubOptions — кружки школы, предложенные репликой (модель называет их в `clubOptions`,
+                                          // плюс упомянутые в тексте); клиент показывает кнопками, нажатие отправляет название
 GET  /student/onboarding/recommendations → { items: [{ club: ClubCard, reason: string, score: number }] }   // после isComplete
 POST /student/onboarding/complete        { selectedClubIds: Id[], laterClubIds?: Id[], profileDraft: OnboardingProfileDraft } → MeDto
                                           // selected — запись сейчас; later — «попробовать позже» (спрос, без записи);
-                                          // показанные, но не выбранные → SKIPPED. Диалог знакомства становится чатом тьютора (kind TUTOR)
+                                          // показанные, но не выбранные → SKIPPED. Диалог знакомства становится чатом тьютора
+                                          // (kind TUTOR, title «Знакомство с тьютором» — так он виден в истории чатов)
 GET  /teacher/clubs/demand               → { students, futureInterests: [{ label, count }], items: [{ club: ClubCard, chosen, later, skipped, avgScore?, reasons[] }] }
                                           // Enrollment в первую активную группу каждого кружка (MVP)
 
-GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>
-POST /ai/conversations                   { kind: 'TUTOR' } → ConversationDto
+GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>   // история чатов: свежие сверху; title — по первому вопросу
+POST /ai/conversations                   { kind: 'TUTOR' } → ConversationDto   // клиент создаёт диалог первой отправкой нового чата
 GET  /ai/conversations/:id/messages?cursor → Paginated<AiMessageDto>   // лента с конца: первая страница — последние
                                           // limit сообщений (внутри — по возрастанию времени), nextCursor ведёт к более старым
 POST /ai/conversations/:id/messages      { text } → SSE token/done/error      // rate limit: AI_TUTOR_DAILY_LIMIT

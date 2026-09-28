@@ -1,6 +1,7 @@
 import { queryKeys } from '@/shared/api/query-keys';
 
 export const aiKeys = {
+  /** История чатов тьютора; ленты диалогов (`messages`) — под этим же префиксом. */
   conversations: () => [...queryKeys.ai, 'conversations'] as const,
   messages: (conversationId: string) =>
     [...queryKeys.ai, 'conversations', conversationId, 'messages'] as const,

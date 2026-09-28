@@ -201,6 +201,7 @@
     "roleSheet": "Switch role",
     "support": "Support",
     "supportHint": "Chat with us in MAX",
+    "supportUnavailable": "The MAX support chat is not connected yet",
     "openProfile": "Open profile",
     "logout": "Log out",
     "about": "“Clubs” mini app for MAX"

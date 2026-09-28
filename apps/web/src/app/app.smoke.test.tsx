@@ -94,10 +94,11 @@ describe('foundation smoke (mock API)', () => {
       await expectPage('Курсы');
       await findText('Основы робототехники');
 
-      // Профиль: траектория и код для родителя.
+      // Профиль: траектория (свёрнута — раскрывается кнопкой) и код для родителя.
       await user.click(nav().getByRole('button', { name: 'Профиль' }));
       await expectPage('Профиль');
       await findText('ALX123');
+      await user.click(screen.getByRole('button', { name: 'Показать траекторию' }));
       await findText(/Сильные стороны/);
 
       // Настройки → выход → снова экран входа.

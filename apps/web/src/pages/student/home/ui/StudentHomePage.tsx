@@ -92,6 +92,7 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
         // «нет занятий».
         error={outsideHome && dayCalendar.isError ? dayCalendar.error : undefined}
         onRetry={() => void dayCalendar.refetch()}
+        fit
         unreadCount={unreadCount}
         onOpenNotifications={() => {
           setCalendarOpen(false);
@@ -125,13 +126,15 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
  * `/student` — главный экран ученика по макету Figma: серия/валюта, дуга посещений за неделю,
  * иконки предметов выбранного дня, расписание по дням с календарём-шторкой и колокольчиком
  * (боковая панель уведомлений). Данные — `GET /student/home` (+ `GET /student/calendar`).
+ * Экран вписан в высоту окна без скролла (`Screen fit`): иллюстрации занимают, сколько
+ * останется, а длинное расписание прокручивается внутри своей карточки.
  */
 export function StudentHomePage() {
   const { t } = useTranslation('student');
   const query = useStudentHome();
 
   return (
-    <Screen gap={6}>
+    <Screen gap={5} fit>
       <VisuallyHidden as="h1">{t('home.title')}</VisuallyHidden>
       <AsyncState query={query} skeleton={<DashboardSkeleton />}>
         {(home) => <StudentHomeContent home={home} />}

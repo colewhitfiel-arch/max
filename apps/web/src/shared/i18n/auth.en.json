@@ -58,6 +58,8 @@
     "goals": "Goals",
     "formats": "Preferred formats",
     "hours": "{{count}} h per week",
-    "futureLabel": "Want to try later"
+    "futureLabel": "Want to try later",
+    "clubOptions": "Clubs to choose from",
+    "pickedReason": "You picked this club while talking to the tutor"
   }
 }

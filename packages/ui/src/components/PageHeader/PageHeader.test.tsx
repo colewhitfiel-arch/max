@@ -48,4 +48,21 @@ describe('PageHeader', () => {
     expect(container.querySelector('.ui-page-header__lead')).not.toBeInTheDocument();
     expect(container.querySelector('.ui-page-header__actions')).not.toBeInTheDocument();
   });
+
+  it('leading — действие слева, после «Назад»', () => {
+    render(
+      <PageHeader
+        title="ИИ-тьютор"
+        variant="plain"
+        onBack={vi.fn()}
+        leading={
+          <button type="button" aria-label="История чатов">
+            ≡
+          </button>
+        }
+      />,
+    );
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Назад', 'История чатов']);
+  });
 });

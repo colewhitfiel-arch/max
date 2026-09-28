@@ -4,8 +4,13 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '@/shared/auth/hooks';
 import { AUTH_PATH } from '@/shared/auth/role-routes';
 
+export interface LogoutButtonProps {
+  /** Подпись о приложении под кнопкой (по умолчанию есть; у ученика — нет). */
+  showAbout?: boolean;
+}
+
 /** Выход из аккаунта (`POST /auth/logout`) + подпись о приложении. */
-export function LogoutButton() {
+export function LogoutButton({ showAbout = true }: LogoutButtonProps = {}) {
   const { t } = useTranslation('common');
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -25,9 +30,11 @@ export function LogoutButton() {
       >
         {t('settings.logout')}
       </Button>
-      <Text variant="caption" tone="muted" align="center">
-        {t('settings.about')}
-      </Text>
+      {showAbout && (
+        <Text variant="caption" tone="muted" align="center">
+          {t('settings.about')}
+        </Text>
+      )}
     </Stack>
   );
 }

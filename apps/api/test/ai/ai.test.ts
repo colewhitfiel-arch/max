@@ -131,7 +131,7 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
       'Потом хочу попробовать шахматы',
     ];
     let done: Record<string, unknown> | undefined;
-    for (const text of answers) {
+    for (const [index, text] of answers.entries()) {
       const res = await http()
         .post(`${base}/student/onboarding/messages`)
         .set('Authorization', `Bearer ${token}`)
@@ -139,9 +139,39 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
         .expect(200);
       const events = parseSse(res.text);
       done = events[events.length - 1];
+      if (index === 0) {
+        // вопрос о целях предлагает кружки школы кнопками — только настоящие кружки из каталога
+        const options = done?.clubOptions as Array<{ id: string; title: string }>;
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.every((club) => typeof club.id === 'string' && club.title)).toBe(true);
+
+        // обновили страницу: знакомство продолжается с той же ленты и теми же кнопками
+        const resumed = await http()
+          .post(`${base}/student/onboarding/start`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+        expect(resumed.body.conversationId).toBe(start.body.conversationId);
+        expect(resumed.body.history.map((m: { role: string }) => m.role)).toEqual([
+          'ASSISTANT',
+          'USER',
+          'ASSISTANT',
+        ]);
+        expect(resumed.body.clubOptions.map((c: { id: string }) => c.id)).toEqual(
+          options.map((c) => c.id),
+        );
+      }
     }
     expect(done).toMatchObject({ type: 'done', isComplete: true });
     expect(done?.profileDraft).toBeTruthy();
+    expect(done?.clubOptions).toBeUndefined();
+
+    // профиль собран, кружки ещё не выбраны: после обновления страницы — сразу выбор кружков
+    const resumedComplete = await http()
+      .post(`${base}/student/onboarding/start`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(resumedComplete.body.conversationId).toBe(start.body.conversationId);
+    expect(resumedComplete.body.profileDraft).toEqual(done?.profileDraft);
 
     const recs = await http()
       .get(`${base}/student/onboarding/recommendations`)
@@ -167,9 +197,9 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
       .get(`${base}/ai/conversations?kind=TUTOR`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(tutorChats.body.items.map((c: { id: string }) => c.id)).toContain(
-      start.body.conversationId,
-    );
+    expect(
+      tutorChats.body.items.find((c: { id: string }) => c.id === start.body.conversationId),
+    ).toMatchObject({ kind: 'TUTOR', title: 'Знакомство с тьютором' });
     const history = await http()
       .get(`${base}/ai/conversations/${start.body.conversationId}/messages`)
       .set('Authorization', `Bearer ${token}`)

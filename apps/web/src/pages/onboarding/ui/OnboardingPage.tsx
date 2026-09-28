@@ -1,7 +1,9 @@
 import {
   type AiMessageDto,
+  type ClubCard as ClubCardDto,
   type ClubRecommendation,
   type OnboardingProfileDraft,
+  type OnboardingStreamEvent,
   STREAMING_ROUTES,
 } from '@edu/contracts';
 import {
@@ -71,6 +73,12 @@ function Hero() {
 
 interface ChatStageProps {
   messages: AiMessageDto[];
+  /** Сообщения, которые появляются плавно (новое приветствие); остальные — сразу. */
+  appearIds: ReadonlySet<string>;
+  /** Кружки, предложенные последней репликой тьютора: кнопки быстрого ответа. */
+  clubOptions: ClubCardDto[];
+  /** Ученик выбрал кружок кнопкой (название уходит ответом) — отметить его к записи. */
+  onPickClub: (club: ClubCardDto) => void;
   pendingUserText: string | null;
   streamText: string;
   streaming: boolean;
@@ -83,9 +91,16 @@ interface ChatStageProps {
   onStop: () => void;
 }
 
-/** Этап знакомства: лента как в чате тьютора и «пилюля» ввода у нижнего края. */
+/**
+ * Этап знакомства: лента как в чате тьютора и «пилюля» ввода у нижнего края. Новые сообщения
+ * (приветствие, ответ ученика, реплика тьютора) появляются плавно; если тьютор предложил кружки —
+ * под его репликой кнопки, кружок выбирается одним нажатием, без ввода названия.
+ */
 function ChatStage({
   messages,
+  appearIds,
+  clubOptions,
+  onPickClub,
   pendingUserText,
   streamText,
   streaming,
@@ -102,7 +117,15 @@ function ChatStage({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length, pendingUserText, streamText]);
+  }, [messages.length, pendingUserText, streamText, clubOptions.length]);
+
+  const submit = (text: string) =>
+    void onSend(text).then((sent) => {
+      // Не ушло — вернуть ответ в поле, если ученик не начал набирать новый.
+      if (!sent) setDraft((current) => current || text);
+    });
+
+  const showOptions = clubOptions.length > 0 && canSend && !streaming && !pendingUserText;
 
   return (
     <Screen fill>
@@ -110,11 +133,31 @@ function ChatStage({
         <Hero />
         {startError != null && <QueryError error={startError} onRetry={onRetryStart} />}
         {messages.map((message) => (
-          <ChatMessage key={message.id} role={message.role} content={message.content} />
+          <ChatMessage
+            key={message.id}
+            role={message.role}
+            content={message.content}
+            appear={appearIds.has(message.id)}
+          />
         ))}
-        {pendingUserText && <ChatMessage role="USER" content={pendingUserText} />}
+        {showOptions && (
+          <Inline gap={2} role="group" aria-label={t('onboarding.clubOptions')}>
+            {clubOptions.map((club) => (
+              <Chip
+                key={club.id}
+                onClick={() => {
+                  onPickClub(club);
+                  submit(club.title);
+                }}
+              >
+                {club.title}
+              </Chip>
+            ))}
+          </Inline>
+        )}
+        {pendingUserText && <ChatMessage role="USER" content={pendingUserText} appear />}
         {(streaming || streamText) && (
-          <ChatMessage role="ASSISTANT" content={streamText} streaming={streaming} />
+          <ChatMessage role="ASSISTANT" content={streamText} streaming={streaming} appear />
         )}
         {streamError != null && (
           <Text variant="small" tone="danger" align="center" role="alert">
@@ -130,10 +173,7 @@ function ChatStage({
         onChange={setDraft}
         onSubmit={(text) => {
           setDraft('');
-          void onSend(text).then((sent) => {
-            // Не ушло — вернуть ответ в поле, если ученик не начал набирать новый.
-            if (!sent) setDraft((current) => current || text);
-          });
+          submit(text);
         }}
         disabled={!canSend}
         busy={streaming}
@@ -259,7 +299,13 @@ export function OnboardingPage() {
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
   const [profile, setProfile] = useState<OnboardingProfileDraft | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
+  // Плавно появляется только новое приветствие; продолженный диалог восстанавливается сразу.
+  const [appearIds, setAppearIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [clubOptions, setClubOptions] = useState<ClubCardDto[]>([]);
+  // Кружки, выбранные кнопкой в разговоре: на экране выбора они уже отмечены «Записаться».
+  const [pickedClubs, setPickedClubs] = useState<ClubCardDto[]>([]);
   const startedRef = useRef(false);
+  const presetRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
   const recommendations = useOnboardingRecommendations(profile !== null);
 
@@ -268,11 +314,27 @@ export function OnboardingPage() {
     if (profile !== null) topRef.current?.scrollIntoView({ block: 'start' });
   }, [profile]);
 
+  // Рекомендации пришли — кружки, выбранные кнопкой в разговоре, сразу отмечены «Записаться»
+  // (ученик может снять отметку). Один раз: дальше выбор только за учеником.
+  useEffect(() => {
+    if (!recommendations.data || presetRef.current) return;
+    presetRef.current = true;
+    if (pickedClubs.length === 0) return;
+    setChoices((prev) => ({
+      ...Object.fromEntries(pickedClubs.map((club) => [club.id, 'now' as const])),
+      ...prev,
+    }));
+  }, [recommendations.data, pickedClubs]);
+
   const startConversation = () =>
     start.mutate(undefined, {
       onSuccess: (result) => {
         setConversationId(result.conversationId);
-        setMessages([result.message]);
+        // Незавершённое знакомство продолжается с той же ленты (обновили страницу).
+        setMessages(result.history ?? [result.message]);
+        setAppearIds(result.history ? new Set() : new Set([result.message.id]));
+        setClubOptions(result.clubOptions ?? []);
+        if (result.profileDraft) setProfile(result.profileDraft);
       },
     });
 
@@ -287,13 +349,19 @@ export function OnboardingPage() {
 
   const send = async (text: string): Promise<boolean> => {
     if (!text.trim() || !conversationId || stream.isStreaming) return false;
+    const previousOptions = clubOptions;
+    setClubOptions([]);
     setPendingUserText(text);
     const result = await stream.start(STREAMING_ROUTES.onboardingMessage.path, {
       conversationId,
       text,
     });
     setPendingUserText(null);
-    if (result.status !== 'done') return false;
+    if (result.status !== 'done') {
+      // Ответ не ушёл — кнопки кружков возвращаются вместе с текстом в поле.
+      setClubOptions(previousOptions);
+      return false;
+    }
     const now = new Date().toISOString();
     const userMessage: AiMessageDto = {
       id: `${now}-u`,
@@ -316,12 +384,25 @@ export function OnboardingPage() {
       : [];
     setMessages((prev) => [...prev, userMessage, ...assistantMessage]);
     stream.reset();
-    if (result.done?.isComplete) {
-      const parsed = result.done.profileDraft as OnboardingProfileDraft | undefined;
-      setProfile(parsed ?? EMPTY_PROFILE);
+    const done = result.done as Extract<OnboardingStreamEvent, { type: 'done' }> | null;
+    if (done?.isComplete) {
+      setProfile(done.profileDraft ?? EMPTY_PROFILE);
+    } else if (result.text) {
+      setClubOptions(done?.clubOptions ?? []);
     }
     return true;
   };
+
+  /** Рекомендации + кружки, выбранные кнопкой в разговоре, но не попавшие в подборку (первыми). */
+  const withPicked = (items: ClubRecommendation[]): ClubRecommendation[] => [
+    ...pickedClubs
+      .filter((club) => !items.some((item) => item.club.id === club.id))
+      .map((club) => ({ club, reason: t('onboarding.pickedReason'), score: 1 })),
+    ...items,
+  ];
+
+  const pickClub = (club: ClubCardDto) =>
+    setPickedClubs((prev) => (prev.some((c) => c.id === club.id) ? prev : [...prev, club]));
 
   const idsWith = (choice: Choice) =>
     Object.entries(choices)
@@ -382,6 +463,9 @@ export function OnboardingPage() {
         {profile === null ? (
           <ChatStage
             messages={messages}
+            appearIds={appearIds}
+            clubOptions={clubOptions}
+            onPickClub={pickClub}
             pendingUserText={pendingUserText}
             streamText={stream.text}
             streaming={stream.isStreaming}
@@ -404,12 +488,12 @@ export function OnboardingPage() {
             </Stack>
             <AsyncState
               query={recommendations}
-              isEmpty={(data) => data.items.length === 0}
+              isEmpty={(data) => withPicked(data.items).length === 0}
               empty={<EmptyState title={t('onboarding.noClubs')} />}
             >
               {(data) => (
                 <Stack gap={3}>
-                  {data.items.map((item) => (
+                  {withPicked(data.items).map((item) => (
                     <ClubChoice
                       key={item.club.id}
                       item={item}

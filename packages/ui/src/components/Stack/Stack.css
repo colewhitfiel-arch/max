@@ -8,6 +8,18 @@
   flex: 1 1 auto;
 }
 
+/* Сжимается под доступное место и прокручивает содержимое (перебивает flex-shrink у `Screen fit`). */
+.ui-stack[data-scroll] {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ui-screen[data-fit] > .ui-stack[data-scroll],
+.ui-stack[data-scroll] > .ui-stack[data-scroll] {
+  flex-shrink: 1;
+}
+
 .ui-stack[data-gap='0'] {
   gap: 0;
 }

@@ -74,6 +74,11 @@ export interface DayScheduleProps {
    * (главная родителя), где иначе длинное название кружка рвётся на 390px.
    */
   dense?: boolean;
+  /**
+   * Экран без скролла (`Screen fit`, главная ученика): строка «‹ день ›» остаётся на месте,
+   * а таблица, если не влезает по высоте, сжимается и прокручивается сама. По умолчанию выкл.
+   */
+  fit?: boolean;
 }
 
 export interface DayScheduleColumn {
@@ -90,6 +95,16 @@ function dayLabel(date: Date, locale: string, t: (key: string) => string) {
   if (offset === -1) return t('home.yesterday');
   const weekday = formatWeekday(date, locale);
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${formatDate(date, locale)}`;
+}
+
+/** Тело расписания (таблица, пусто, ошибка): с `fit` сжимается и прокручивается само. */
+function ScheduleBody({ fit, children }: { fit: boolean; children: ReactNode }) {
+  if (!fit) return <>{children}</>;
+  return (
+    <Stack gap={0} scroll>
+      {children}
+    </Stack>
+  );
 }
 
 /**
@@ -115,6 +130,7 @@ export function DaySchedule({
   nameAction,
   striped = false,
   dense = false,
+  fit = false,
 }: DayScheduleProps) {
   const { t, i18n } = useTranslation('student');
   const { t: tc } = useTranslation('common');
@@ -132,7 +148,7 @@ export function DaySchedule({
       : null;
 
   return (
-    <Stack gap={5}>
+    <Stack gap={5} scroll={fit}>
       <Inline ref={headerRef} justify="between" align="center" wrap={false}>
         <IconButton
           aria-label={calendarOpen ? t('home.calendarClose') : t('home.calendar')}
@@ -177,71 +193,75 @@ export function DaySchedule({
         </IconButton>
       </Inline>
 
-      {loading ? (
-        <Skeleton height={110} aria-busy="true" />
-      ) : error != null ? (
-        <QueryError error={error} onRetry={onRetry} />
-      ) : dayLessons.length === 0 ? (
-        <Card>
-          <EmptyState
-            title={offset === 0 ? t('home.noLessonsToday') : t('home.noLessonsOnDay')}
-            action={
-              nameAction && (
-                <Button size="sm" leftIcon={<PlusIcon />} onClick={nameAction.onClick}>
-                  {nameAction.label}
-                </Button>
-              )
-            }
-          />
-        </Card>
-      ) : (
-        <CardColumns
-          aria-label={label}
-          striped={striped}
-          dense={dense}
-          columns={[
-            { key: 'name', header: t('home.columns.name'), fit: true, action: nameAction },
-            {
-              key: 'group',
-              header: secondColumn?.header ?? t('home.columns.group'),
-              align: 'center',
-              nowrap: secondColumn
-                ? secondColumn.nowrap
-                : dayLessons.every((lesson) => lesson.group.code != null),
-            },
-            { key: 'time', header: t('home.columns.time'), align: 'center', nowrap: true },
-          ]}
-          rows={dayLessons.map((lesson) => {
-            const cancelled = lesson.status === 'CANCELLED';
-            return {
-              key: lesson.id,
-              cells: {
-                name: cancelled ? (
-                  <Stack gap={1} align="start">
-                    {/* small — размер ячейки (14px, в узкой таблице 13px), а не body 16px. */}
-                    <Text as="span" variant="small" tone="muted">
-                      {lesson.group.club.title}
-                    </Text>
-                    <Badge tone="danger">{tc('lesson.cancelled')}</Badge>
-                  </Stack>
-                ) : (
-                  lesson.group.club.title
-                ),
-                group: secondColumn ? secondColumn.cell(lesson) : groupLabel(lesson.group),
-                time: (
-                  <Text
-                    as="span"
-                    variant="small"
-                    tone={cancelled ? 'muted' : lesson.id === highlightedId ? 'primary' : 'default'}
-                  >
-                    {formatTimeRange(lesson.startsAt, lesson.endsAt, i18n.language)}
-                  </Text>
-                ),
+      <ScheduleBody fit={fit}>
+        {loading ? (
+          <Skeleton height={110} aria-busy="true" />
+        ) : error != null ? (
+          <QueryError error={error} onRetry={onRetry} />
+        ) : dayLessons.length === 0 ? (
+          <Card>
+            <EmptyState
+              title={offset === 0 ? t('home.noLessonsToday') : t('home.noLessonsOnDay')}
+              action={
+                nameAction && (
+                  <Button size="sm" leftIcon={<PlusIcon />} onClick={nameAction.onClick}>
+                    {nameAction.label}
+                  </Button>
+                )
+              }
+            />
+          </Card>
+        ) : (
+          <CardColumns
+            aria-label={label}
+            striped={striped}
+            dense={dense}
+            columns={[
+              { key: 'name', header: t('home.columns.name'), fit: true, action: nameAction },
+              {
+                key: 'group',
+                header: secondColumn?.header ?? t('home.columns.group'),
+                align: 'center',
+                nowrap: secondColumn
+                  ? secondColumn.nowrap
+                  : dayLessons.every((lesson) => lesson.group.code != null),
               },
-            };
-          })}
-        />
-      )}
+              { key: 'time', header: t('home.columns.time'), align: 'center', nowrap: true },
+            ]}
+            rows={dayLessons.map((lesson) => {
+              const cancelled = lesson.status === 'CANCELLED';
+              return {
+                key: lesson.id,
+                cells: {
+                  name: cancelled ? (
+                    <Stack gap={1} align="start">
+                      {/* small — размер ячейки (14px, в узкой таблице 13px), а не body 16px. */}
+                      <Text as="span" variant="small" tone="muted">
+                        {lesson.group.club.title}
+                      </Text>
+                      <Badge tone="danger">{tc('lesson.cancelled')}</Badge>
+                    </Stack>
+                  ) : (
+                    lesson.group.club.title
+                  ),
+                  group: secondColumn ? secondColumn.cell(lesson) : groupLabel(lesson.group),
+                  time: (
+                    <Text
+                      as="span"
+                      variant="small"
+                      tone={
+                        cancelled ? 'muted' : lesson.id === highlightedId ? 'primary' : 'default'
+                      }
+                    >
+                      {formatTimeRange(lesson.startsAt, lesson.endsAt, i18n.language)}
+                    </Text>
+                  ),
+                },
+              };
+            })}
+          />
+        )}
+      </ScheduleBody>
     </Stack>
   );
 }

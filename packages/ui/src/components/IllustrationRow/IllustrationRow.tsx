@@ -14,6 +14,11 @@ export interface IllustrationRowProps extends HTMLAttributes<HTMLDivElement> {
   items: IllustrationRowItem[];
   /** Приглушить (серые полупрозрачные картинки — «не сегодня»). */
   muted?: boolean;
+  /**
+   * Гибкая высота: в родителе-flex ряд занимает свободное место (не больше 259px) и сжимается
+   * вплоть до нуля, картинки уменьшаются вместе с ним. Для экрана без скролла (`Screen fit`).
+   */
+  fluid?: boolean;
 }
 
 /**
@@ -23,7 +28,7 @@ export interface IllustrationRowProps extends HTMLAttributes<HTMLDivElement> {
  * Высота области постоянная (259px, как в макете), поэтому экран не прыгает.
  */
 export const IllustrationRow = forwardRef<HTMLDivElement, IllustrationRowProps>(
-  function IllustrationRow({ items, muted = false, className, ...rest }, ref) {
+  function IllustrationRow({ items, muted = false, fluid = false, className, ...rest }, ref) {
     const size = items.length <= 1 ? 'one' : items.length === 2 ? 'two' : 'many';
     return (
       <div
@@ -31,6 +36,7 @@ export const IllustrationRow = forwardRef<HTMLDivElement, IllustrationRowProps>(
         className={cx('ui-illustration-row', className)}
         data-size={size}
         data-muted={muted || undefined}
+        data-fluid={fluid || undefined}
         {...rest}
       >
         <div className="ui-illustration-row__track">
