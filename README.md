@@ -74,7 +74,7 @@ pnpm dev
 | `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` |
 | `STORAGE_DRIVER` | `local` / `s3` | `local` (`.data/storage`) |
 | `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` (платёж закрывается сразу; в production запрещён) |
-| `VITE_MAX_MODE` | `mock` / `real` | `mock` |
+| `VITE_MAX_MODE` | `mock` / `real` | `mock` (dev); production-сборка (`vite build`, Docker, Vercel) — всегда `real` |
 | `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
 
 Api не стартует при невалидном окружении и печатает список проблемных переменных. Вне `APP_ENV=development` запрещён dev-секрет JWT, а пустой `CORS_ORIGINS` выключает CORS (web и api на одном origin); при `APP_ENV=production` дополнительно запрещены dev-вход, пустой `CORS_ORIGINS` и заглушки `AI_PROVIDER=mock` / `PAYMENT_PROVIDER=fake`.
@@ -216,7 +216,7 @@ IPv6, rootless Docker, — тогда могут подменить `X-Forwarded
 
 Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
 свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
-с `GIGACHAT_AUTH_KEY`, явный `CORS_ORIGINS`, `PAYMENT_PROVIDER=yookassa` (+ ключи магазина). При
+с `GIGACHAT_AUTH_KEY`, явный `CORS_ORIGINS` (в Docker его задаёт `PUBLIC_ORIGIN`: `compose.yaml` подставляет его в `CORS_ORIGINS`, значение из `.env` не используется), `PAYMENT_PROVIDER=yookassa` (+ ключи магазина). При
 `APP_ENV=production` api не стартует с dev-входом, дефолтным секретом и заглушками `mock`/`fake`.
 Миграции — `pnpm db:deploy` до раскатки api.
 Для горизонтального масштабирования — `QUEUE_DRIVER=bullmq` с Redis (ADR-012; отдельный процесс

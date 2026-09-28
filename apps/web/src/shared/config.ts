@@ -12,8 +12,14 @@ function oneOf<T extends string>(value: string | undefined, allowed: readonly T[
 export const config = {
   /** База API, уже с префиксом `/api/v1`. */
   apiUrl: (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1').replace(/\/+$/, ''),
-  /** mock — эмуляция MAX Bridge в браузере; real — SDK внутри MAX. */
-  maxMode: oneOf<MaxMode>(import.meta.env.VITE_MAX_MODE, ['mock', 'real'], 'mock'),
+  /**
+   * mock — эмуляция MAX Bridge в браузере; real — SDK внутри MAX. Production-сборка — всегда
+   * real: с mock внутри MAX нет входа по подписи (а `VITE_MAX_MODE=mock` из `.env.example` легко
+   * попадает в сборку), вне MAX real и так работает как обычный веб.
+   */
+  maxMode: import.meta.env.PROD
+    ? ('real' as const)
+    : oneOf<MaxMode>(import.meta.env.VITE_MAX_MODE, ['mock', 'real'], 'mock'),
   /**
    * dev — экран выбора пользователя/ролей; max — автовход по launch-параметрам;
    * auto — по контексту: внутри MAX вход по подписи, в обычном браузере — dev-экран.

@@ -80,7 +80,8 @@ services:
         # Vite инлайнит эти значения в бандл на этапе сборки.
         VITE_API_URL: /api/v1
         VITE_API_MODE: real
-        VITE_MAX_MODE: ${VITE_MAX_MODE:-real}
+        # Образ — боевой: мост MAX всегда настоящий (production-сборка web и так не берёт mock).
+        VITE_MAX_MODE: real
         VITE_AUTH_MODE: ${VITE_AUTH_MODE:-auto}
         # Чат поддержки в MAX (https://max.ru/<ник>) для кнопки «Поддержка» в настройках всех ролей;
         # пусто — подсказка, что чат не подключён.
