@@ -1,5 +1,5 @@
 /**
- * Блок курса ученика: VIDEO открывается через MaxBridge.openLink (а не голый URL текстом),
+ * Блок курса ученика: TEXT — Markdown (без «#»/«**»), VIDEO открывается через MaxBridge.openLink (а не голый URL текстом),
  * задание блока — строкой списка с полным названием, типом и сроком.
  */
 import type { StudentBlockDetail } from '@edu/contracts';
@@ -116,6 +116,30 @@ describe('BlockPage', () => {
     expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Открыть видео' })).not.toBeInTheDocument();
     expect(openLink).not.toHaveBeenCalled();
+  });
+
+  it('TEXT: Markdown — заголовок и выделение, а не «#» и «**»; ссылка — через MaxBridge', async () => {
+    const user = userEvent.setup();
+    hooks.block = ready({
+      ...base,
+      type: 'TEXT',
+      content: {
+        markdown:
+          '# Arduino\n\n**Arduino** — плата для *проектов*.\n\n- датчик\n- [документация](https://docs.arduino.cc)',
+      },
+    } as unknown as StudentBlockDetail);
+    const bridge = new MockMaxBridge();
+    const openLink = vi.spyOn(bridge, 'openLink').mockImplementation(() => undefined);
+    renderBlock(bridge);
+
+    // h1 — название блока в шапке, «#» урока — h2.
+    expect(screen.getByRole('heading', { level: 2, name: 'Arduino' })).toBeInTheDocument();
+    expect(screen.queryByText(/[#*]/)).not.toBeInTheDocument();
+    expect(screen.getByText('проектов').tagName).toBe('EM');
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+
+    await user.click(screen.getByRole('link', { name: 'документация' }));
+    expect(openLink).toHaveBeenCalledWith('https://docs.arduino.cc/');
   });
 
   it('QUIZ без правильных ответов (вариант для ученика) — вопросы показаны', () => {

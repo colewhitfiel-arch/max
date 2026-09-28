@@ -21,7 +21,7 @@
 
 ## F3. Ученик: прохождение курса
 1. `/student/courses` → карточка с прогрессом и «следующий блок».
-2. Открытие блока → `POST /student/blocks/:id/open` → `BlockProgress(OPENED)`, событие `block.opened`.
+2. Открытие блока → `POST /student/blocks/:id/open` → `BlockProgress(OPENED)`, событие `block.opened`. TEXT-блок показывается как Markdown (`@edu/ui` `Markdown`: заголовки, выделение, списки, код; сырой HTML — текстом, ссылки только http(s) — через MaxBridge), а не исходным текстом с «#» и «**».
 3. Просмотр/ответ → `POST /student/blocks/:id/complete` → `BlockProgress(COMPLETED)`, `CourseProgress` пересчитан синхронно в `courses`, событие `block.completed`.
 4. Если блок — задание (QUIZ/QUESTION/PRACTICE/HOMEWORK), `complete` делегирует в `AssignmentsService.submitFromBlock` → дальше как F2 п.4–6.
 

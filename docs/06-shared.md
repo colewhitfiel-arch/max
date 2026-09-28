@@ -46,6 +46,7 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 
 Поведение компонентов `@edu/ui`, на которое опираются фичи (подробно — `packages/ui/README.md`):
 - `Text preserveLines` — сохраняет переносы строк (`white-space: pre-wrap`); инлайн-`style` в фичах не нужен.
+- `Markdown source` — безопасный рендер Markdown без зависимостей (TEXT-блоки курса): заголовки `#`…`###`, абзацы с переносами строк, жирный/курсив, код и блоки кода (`CodeBlock`), списки, цитаты, ссылки только http(s) (`onLinkClick` — переход через MaxBridge); сырой HTML — текстом, `dangerouslySetInnerHTML` не используется. `markdownToText` — тот же текст без разметки (превью в конструкторе курса).
 - `Chip` ставит `aria-pressed` только при переданном `selected` (в том числе `false`); без него — обычная кнопка (стартеры чата тьютора).
 - `ListRow onClick` нажимается по Enter/Space только с фокусом на самой строке; клик вложенной кнопки всплывает — её `onClick` вызывает `stopPropagation()`.
 - `Button`/`IconButton` в `loading` — `aria-busy` + `aria-disabled` (фокус не теряется, нажатие гасится) вместо `disabled`; тесты проверяют `aria-disabled`, формы дополнительно проверяют `mutation.isPending`.

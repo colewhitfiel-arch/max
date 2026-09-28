@@ -85,7 +85,10 @@
     "videoUnavailable": "Video unavailable",
     "noBlocks": "No materials in this course yet",
     "noBlocksHint": "The teacher will add lessons later",
-    "noModuleBlocks": "No blocks in this module yet"
+    "noModuleBlocks": "No blocks in this module yet",
+    "copyCode": "copy",
+    "codeCopied": "copied",
+    "copyCodeFailed": "Could not copy the code"
   },
   "homework": {
     "title": "Assignments",
