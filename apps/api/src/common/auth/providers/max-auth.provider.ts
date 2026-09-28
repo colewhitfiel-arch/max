@@ -61,20 +61,24 @@ export class MaxAuthProvider implements AuthProvider {
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expected = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
     if (!safeEqual(expected, hash.toLowerCase())) {
-      // Диагностика без утечки секретов: какой из альтернативных вариантов схемы совпал бы,
-      // длина токена и его необратимый отпечаток (чтобы сверить с ожидаемым значением).
-      this.log.warn(
-        {
-          reason: 'bad_signature',
-          keys,
-          length: input.launchParams.length,
-          tokenLen: botToken.length,
-          tokenSha8: createHash('sha256').update(botToken).digest('hex').slice(0, 8),
-          variantsMatched: signatureVariants(input.launchParams, pairs, botToken, hash),
-        },
-        'вход через MAX отклонён',
-      );
-      throw Errors.unauthorized('Подпись launch-параметров неверна');
+      if (this.env.MAX_AUTH_DEBUG) {
+        // Разбор расхождения подписи — только по явному MAX_AUTH_DEBUG=1: какой альтернативный
+        // вариант схемы совпал бы, длина токена и короткий отпечаток (8 hex sha256), чтобы
+        // сверить токен с ожидаемым. Сам токен и HMAC-значения в лог не попадают.
+        this.log.warn(
+          {
+            reason: 'bad_signature',
+            keys,
+            length: input.launchParams.length,
+            tokenLen: botToken.length,
+            tokenSha8: createHash('sha256').update(botToken).digest('hex').slice(0, 8),
+            variantsMatched: signatureVariants(input.launchParams, pairs, botToken, hash),
+          },
+          'вход через MAX отклонён',
+        );
+        throw Errors.unauthorized('Подпись launch-параметров неверна');
+      }
+      fail('bad_signature', 'Подпись launch-параметров неверна');
     }
 
     const get = (key: string): string | undefined => pairs.find(([k]) => k === key)?.[1];
@@ -123,7 +127,8 @@ export class MaxAuthProvider implements AuthProvider {
 
 /**
  * Какие альтернативные схемы подписи дали бы совпадение с `hash`. Только для диагностики
- * в логах: по результату понятно, ошибка в токене (ни один вариант) или в схеме (какой-то совпал).
+ * в логах (MAX_AUTH_DEBUG=1): по результату понятно, ошибка в токене (ни один вариант) или
+ * в схеме (какой-то совпал). Сравнение — за постоянное время, как у основной проверки.
  */
 export function signatureVariants(
   raw: string,
@@ -163,7 +168,7 @@ export function signatureVariants(
     'sha256-token-key': hmac(createHash('sha256').update(botToken).digest(), decoded),
   };
   return Object.entries(candidates)
-    .filter(([, value]) => value === target)
+    .filter(([, value]) => safeEqual(value, target))
     .map(([name]) => name);
 }
 
