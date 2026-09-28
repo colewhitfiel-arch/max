@@ -251,6 +251,36 @@ describe('parseInline: строчная разметка', () => {
     ]);
   });
 
+  it('ссылки внутри подписи ссылки остаются текстом — <a> в <a> не бывает', () => {
+    expect(parseInline('[[a](https://x.ru)](https://y.ru)')).toEqual([
+      {
+        type: 'link',
+        href: 'https://y.ru/',
+        children: [{ type: 'text', text: '[a](https://x.ru)' }],
+      },
+    ]);
+    expect(parseInline('[см. <https://x.ru> и **[b](https://z.ru)**](https://y.ru)')).toEqual([
+      {
+        type: 'link',
+        href: 'https://y.ru/',
+        children: [
+          { type: 'text', text: 'см. <https://x.ru> и ' },
+          { type: 'strong', children: [{ type: 'text', text: '[b](https://z.ru)' }] },
+        ],
+      },
+    ]);
+    // Картинка в ссылке — подписью; у небезопасной ссылки (она — текст) вложенная остаётся ссылкой.
+    expect(
+      parseInline(
+        '[![логотип](https://x.ru/a.png)](https://y.ru) [[a](https://x.ru)](javascript:x)',
+      ),
+    ).toEqual([
+      { type: 'link', href: 'https://y.ru/', children: [{ type: 'text', text: 'логотип' }] },
+      { type: 'text', text: ' ' },
+      { type: 'link', href: 'https://x.ru/', children: [{ type: 'text', text: 'a' }] },
+    ]);
+  });
+
   it('сырой HTML остаётся текстом', () => {
     expect(parseInline('<img src=x onerror=alert(1)><b>x</b>')).toEqual([
       { type: 'text', text: '<img src=x onerror=alert(1)><b>x</b>' },

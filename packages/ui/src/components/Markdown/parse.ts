@@ -1,7 +1,8 @@
 /**
  * Разбор безопасного подмножества Markdown в дерево без HTML: заголовки `#`…`###`, абзацы,
  * `**жирный**`, `*курсив*`, `` `код` ``, блоки кода ```` ``` ````, маркированные и нумерованные
- * списки (с вложенностью), цитаты `>`, линия `---`, ссылки `[текст](https://…)` и `<https://…>`.
+ * списки (с вложенностью), цитаты `>`, линия `---`, ссылки `[текст](https://…)` и `<https://…>`
+ * (без ссылок внутри подписи ссылки).
  * Дерево рендерится React-элементами (текст экранирует React): сырой HTML остаётся текстом,
  * ссылки — только http(s), картинки — только подписью (`alt`). Без зависимостей.
  */
@@ -432,8 +433,12 @@ function pushAll(out: MarkdownInline[], nodes: MarkdownInline[]) {
   }
 }
 
-/** Строчная разметка абзаца или пункта: выделение, код, ссылки, переносы строк. */
-export function parseInline(text: string, depth = 0): MarkdownInline[] {
+/**
+ * Строчная разметка абзаца или пункта: выделение, код, ссылки, переносы строк. `inLink` — текст
+ * внутри подписи ссылки: ссылки в нём остаются текстом (`<a>` в `<a>` недопустим, а нажатие на
+ * вложенную открыло бы обе).
+ */
+export function parseInline(text: string, depth = 0, inLink = false): MarkdownInline[] {
   const out: MarkdownInline[] = [];
   const failed = new Map<string, number>();
   let i = 0;
@@ -462,7 +467,7 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
       }
       continue;
     }
-    if (ch === '<') {
+    if (ch === '<' && !inLink) {
       const auto = /^<(https?:\/\/[^\s<>]+)>/i.exec(text.slice(i, i + 2048));
       const href = auto ? safeHref(auto[1]!) : null;
       if (auto && href) {
@@ -472,14 +477,14 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
       }
     }
     const image = ch === '!' && next === '[';
-    if (ch === '[' || image) {
+    if (image || (ch === '[' && !inLink)) {
       const link = parseLink(text, image ? i + 1 : i);
       if (link) {
+        const href = image ? null : safeHref(link.url);
         const children =
           depth < MAX_DEPTH
-            ? parseInline(link.label, depth + 1)
+            ? parseInline(link.label, depth + 1, inLink || href !== null)
             : [{ type: 'text' as const, text: link.label }];
-        const href = image ? null : safeHref(link.url);
         // Картинка — только подписью (без внешних загрузок); небезопасная ссылка — текстом.
         if (href) out.push({ type: 'link', href, children });
         else pushAll(out, children);
@@ -494,7 +499,7 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
         const size = run >= 2 ? 2 : 1;
         const close = findCloser(text, i + size, ch, size, failed);
         if (close > i + size) {
-          const children = parseInline(text.slice(i + size, close), depth + 1);
+          const children = parseInline(text.slice(i + size, close), depth + 1, inLink);
           out.push(size === 2 ? { type: 'strong', children } : { type: 'em', children });
           i = close + size;
           continue;
