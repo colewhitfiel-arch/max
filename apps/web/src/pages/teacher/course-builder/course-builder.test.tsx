@@ -48,6 +48,11 @@ const draft = {
       title: 'Циклы',
       blocks: [
         {
+          type: 'TEXT',
+          title: 'Теория',
+          content: { markdown: '## Цикл `for`\n\n**Цикл** перебирает *последовательность*.' },
+        },
+        {
           type: 'QUIZ',
           title: 'Проверка',
           content: {
@@ -229,6 +234,8 @@ describe('GenerationJobPage', () => {
     );
     expect(screen.getByText('2 вопр.')).toBeInTheDocument();
     expect(screen.getByText('5 карточек')).toBeInTheDocument();
+    // Текст урока — без разметки Markdown.
+    expect(screen.getByText('Цикл for Цикл перебирает последовательность.')).toBeInTheDocument();
   });
 
   it('отменённая задача — нейтральный бейдж, не «успех»', () => {

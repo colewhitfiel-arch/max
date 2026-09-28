@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import { useClubOffers } from '@/entities/club';
 import { useChildren } from '@/entities/student';
-import { ChangeAvatar } from '@/features/change-avatar';
 import { useMe } from '@/shared/auth/hooks';
 import { fullName } from '@/shared/lib/format';
 import { useUiStore } from '@/shared/store/ui-store';
@@ -15,7 +14,8 @@ import { ClubOfferCard } from './ClubOfferCard';
 const OFFERS_ANCHOR = 'offers';
 
 /**
- * Шапка профиля: крупное фото, имя, роль и число детей, смена фото. Число — по списку детей
+ * Шапка профиля: крупное фото, имя, роль и число детей. Смены фото (`ChangeAvatar`) нет, пока
+ * `PUT /me/avatar` отвечает 501 (docs/04, `User.avatarFileId`). Число — по списку детей
  * (`activeChildren`, он перечитывается по фокусу): `me.parent.childrenCount` не обновится,
  * когда ребёнок примет приглашение; до загрузки списка — он как запасной вариант.
  */
@@ -40,7 +40,6 @@ function ProfileHero({ activeChildren }: { activeChildren?: number }) {
             {childrenCount > 0 ? t('children', { count: childrenCount }) : t('noChildren')}
           </Text>
         </Stack>
-        <ChangeAvatar hasPhoto={Boolean(me.user.avatarUrl)} />
       </Stack>
     </Card>
   );

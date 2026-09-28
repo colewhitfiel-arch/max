@@ -5,6 +5,7 @@ import {
   Card,
   Inline,
   ListRow,
+  markdownToText,
   ProgressBar,
   Screen,
   Stack,
@@ -30,7 +31,7 @@ import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 function blockPreview(block: CourseDraftBlock, t: TFunction<'teacher'>): string | undefined {
   switch (block.type) {
     case 'TEXT':
-      return block.content.markdown.replace(/^#+\s*/gm, '').slice(0, 160);
+      return markdownToText(block.content.markdown).slice(0, 160);
     case 'QUIZ':
       return t('courseBuilder.job.preview.quiz', { count: block.content.questions.length });
     case 'INTERACTIVE':

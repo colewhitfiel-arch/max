@@ -7,6 +7,10 @@ describe('UiPlayground', () => {
   it('рендерится без ошибок и открывает Modal/Sheet/Toast', async () => {
     render(<UiPlayground />);
     expect(screen.getByText('UI Playground')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Датчик расстояния' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'документация Arduino' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Открыть Modal' }));
     expect(screen.getByRole('dialog', { name: 'Подтверждение' })).toBeInTheDocument();

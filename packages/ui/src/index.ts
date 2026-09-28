@@ -80,6 +80,7 @@ export * from './components/Inline';
 export * from './components/Grid';
 export * from './components/Divider';
 export * from './components/Text';
+export * from './components/Markdown';
 export * from './components/VisuallyHidden';
 
 // Режим родителя: аналитика и подробности заданий

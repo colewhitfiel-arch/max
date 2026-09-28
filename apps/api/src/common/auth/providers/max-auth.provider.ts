@@ -120,7 +120,10 @@ export class MaxAuthProvider implements AuthProvider {
       lastName: user.last_name ?? null,
       nickname: user.username ?? null,
       avatarUrl: user.photo_url ?? null,
-      locale: user.language_code === 'en' ? 'en' : 'ru',
+      // Интерфейс только на русском: выбора языка ни у одной роли нет (docs/00 §1.4), поэтому
+      // `language_code` клиента MAX не переносится в настройки — иначе пользователь из
+      // английского клиента застрял бы в английском интерфейсе без способа вернуться.
+      locale: 'ru',
     };
   }
 }

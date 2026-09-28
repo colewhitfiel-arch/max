@@ -136,7 +136,9 @@ describe('TeacherProfilePage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Профиль' })).toBeInTheDocument();
     expect(screen.getByText('Мария Иванова')).toBeInTheDocument();
     expect(screen.getByText('Преподаватель · 2 группы · 3 ученика')).toBeInTheDocument();
-    expect(screen.getByLabelText('Выбрать фото профиля')).toBeInTheDocument();
+    // Смены фото нет, пока PUT /me/avatar не реализован (501).
+    expect(screen.queryByLabelText('Выбрать фото профиля')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сменить фото' })).not.toBeInTheDocument();
 
     const stats = screen.getByRole('region', { name: 'Статистика' });
     for (const [label, value] of [

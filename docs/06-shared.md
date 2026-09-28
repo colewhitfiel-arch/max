@@ -46,6 +46,7 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 
 Поведение компонентов `@edu/ui`, на которое опираются фичи (подробно — `packages/ui/README.md`):
 - `Text preserveLines` — сохраняет переносы строк (`white-space: pre-wrap`); инлайн-`style` в фичах не нужен.
+- `Markdown source` — безопасный рендер Markdown без зависимостей (TEXT-блоки курса): заголовки `#`…`###`, абзацы с переносами строк, жирный/курсив, код и блоки кода (`CodeBlock`), списки, цитаты, ссылки только http(s) (`onLinkClick` — переход через MaxBridge); сырой HTML — текстом, `dangerouslySetInnerHTML` не используется. `markdownToText` — тот же текст без разметки (превью в конструкторе курса).
 - `Chip` ставит `aria-pressed` только при переданном `selected` (в том числе `false`); без него — обычная кнопка (стартеры чата тьютора).
 - `ListRow onClick` нажимается по Enter/Space только с фокусом на самой строке; клик вложенной кнопки всплывает — её `onClick` вызывает `stopPropagation()`.
 - `Button`/`IconButton` в `loading` — `aria-busy` + `aria-disabled` (фокус не теряется, нажатие гасится) вместо `disabled`; тесты проверяют `aria-disabled`, формы дополнительно проверяют `mutation.isPending`.
@@ -61,7 +62,7 @@ Prisma schema (multi-file), миграции, `PrismaClient` singleton, seed. Э
 - `max/` — `MaxBridge` интерфейс (`types.ts`) + реальный адаптер (`sdk-bridge.ts`) + mock (`mock-bridge.ts`), провайдер и хуки (`index.tsx`).
 - `i18n/` — i18next, namespaces по фичам; ru и en совпадают по ключам (тест `dictionaries.test.ts`), плюрализация — суффиксы `_one/_few/_many/_other` (ru) и `_one/_other` (en) с переменной `count`. Обращение: ученик — на «ты», родитель и преподаватель — на «вы», общие тексты (ошибки, выбор роли) — без обращения. Подписи enum — `common:roles.*`, `clubCategory.*`, `blockType.*`, `knowledgeNodeType.*`, `billing.period.*`.
 - `lib/dates.ts` («сегодня, 15:30», «через 2 дня», недели, tz; подписи — из `common:dates.*`; `parseDateOnly`/`formatDateOnly` — дата `YYYY-MM-DD` как локальная, без сдвига через UTC-полночь), `lib/money.ts` (копейки → «1 500 ₽»), `lib/format.ts` (`formatRate`, `formatPercent`, `formatScore`, `fullName`; склонения — через i18n, а не здесь), `lib/navigation.ts` (`FROM_APP_STATE`/`isFromApp` — «Назад» по истории или на корень роли), `lib/parent-paths.ts`, `lib/teacher-paths.ts` (пути, общие для нескольких страниц роли); `api/errors.ts` (`ApiClientError` → текст из `common:errors.codes.*`).
-- `config.ts` — `VITE_API_URL`, `VITE_MAX_MODE`, `VITE_AUTH_MODE` (режима моков нет: web всегда ходит в api).
+- `config.ts` — `VITE_API_URL`, `VITE_MAX_MODE`, `VITE_AUTH_MODE` (режима моков нет: web всегда ходит в api), `VITE_SUPPORT_URL` (чат поддержки в MAX для «Поддержки» всех ролей; пусто — подсказка вместо перехода).
 
 ## 6.6. `apps/api/src/common`
 - `auth/` — порт `AuthProvider` (`providers/`: `MaxAuthProvider`, `DevAuthProvider`), `JwtService`, `AuthGuard`, `AccessGuard`, `@CurrentUser()`, `@Public()`, `@Roles()`, `@RequirePermission()`.

@@ -206,7 +206,34 @@
 
 .ui-bar-chart__label {
   top: calc(100% + var(--ui-space-1));
+  /* Не шире шага (столбец + зазор): длинная подпись обрезается, а не наезжает на соседнюю. */
+  max-width: calc(100% + var(--ui-space-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
   font-weight: var(--ui-font-weight-medium);
   line-height: 1.2;
+}
+
+/*
+ * Длинные подписи (названия групп вместо кодов): столбцы 28px — по центру равных долей
+ * ширины области, подпись — не шире своей доли.
+ */
+.ui-bar-chart__figure[data-spread] .ui-bar-chart__bars {
+  gap: 0;
+}
+
+.ui-bar-chart__figure[data-spread] .ui-bar-chart__bar {
+  flex: 1 1 0;
+}
+
+.ui-bar-chart__figure[data-spread] .ui-bar-chart__segment {
+  right: auto;
+  left: 50%;
+  width: min(28px, calc(100% - var(--ui-space-2)));
+  transform: translateX(-50%);
+}
+
+.ui-bar-chart__figure[data-spread] .ui-bar-chart__label {
+  max-width: calc(100% - var(--ui-space-1));
 }

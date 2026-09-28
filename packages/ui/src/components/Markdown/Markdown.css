@@ -1,0 +1,93 @@
+/*
+ * Учебный текст в Markdown: блоки через 12px, перед заголовком — 20px; размер заголовка —
+ * по числу «#» (20 / 18 / 16px), а не по HTML-уровню. Длинные слова и ссылки переносятся.
+ */
+.ui-markdown {
+  min-width: 0;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height);
+  overflow-wrap: break-word;
+}
+
+.ui-markdown > *,
+.ui-markdown__quote > * {
+  margin: 0;
+}
+
+.ui-markdown > * + *,
+.ui-markdown__quote > * + * {
+  margin-top: var(--ui-space-3);
+}
+
+.ui-markdown > * + .ui-markdown__heading,
+.ui-markdown__quote > * + .ui-markdown__heading {
+  margin-top: var(--ui-space-5);
+}
+
+.ui-markdown__heading {
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.25;
+}
+
+.ui-markdown__heading[data-level='1'] {
+  font-size: var(--ui-font-size-lg);
+}
+
+.ui-markdown__heading[data-level='2'] {
+  font-size: 18px;
+}
+
+.ui-markdown__heading[data-level='3'] {
+  font-size: var(--ui-font-size-md);
+}
+
+.ui-markdown__list {
+  margin: 0;
+  padding-inline-start: 1.5em;
+}
+
+.ui-markdown__list li + li,
+.ui-markdown__list .ui-markdown__list {
+  margin-top: var(--ui-space-1);
+}
+
+.ui-markdown__list li::marker {
+  color: var(--ui-color-text-muted);
+}
+
+.ui-markdown__code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface-2);
+  font-family: var(--ui-font-family-mono);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+.ui-markdown__link {
+  color: var(--ui-color-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.ui-markdown__link:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-sm);
+}
+
+.ui-markdown__quote {
+  margin: 0;
+  padding-inline-start: var(--ui-space-3);
+  border-inline-start: 3px solid var(--ui-color-border);
+  color: var(--ui-color-text-muted);
+}
+
+.ui-markdown__rule {
+  height: 0;
+  margin-inline: 0;
+  border: 0;
+  border-top: 1px solid var(--ui-color-border);
+}

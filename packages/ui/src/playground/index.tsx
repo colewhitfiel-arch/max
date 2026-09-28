@@ -36,6 +36,7 @@ import {
   Input,
   ListRow,
   LockIcon,
+  Markdown,
   LogoutIcon,
   LifebuoyIcon,
   MenuIcon,
@@ -568,6 +569,31 @@ const DEMO_TASK_STATUS: Record<Tone, string> = {
   neutral: 'позже',
   info: '',
 };
+
+/** Урок из конструктора курса: разметка GigaChat (заголовки, выделение, списки, код, ссылки). */
+const DEMO_MARKDOWN = `# Датчик расстояния
+
+**Ультразвуковой датчик** HC-SR04 измеряет *расстояние* до препятствия: пин \`trig\` посылает сигнал, \`echo\` ловит эхо.
+Переносы строк внутри абзаца сохраняются.
+
+## Что понадобится
+- плата Arduino
+- датчик HC-SR04
+  - четыре провода «папа–мама»
+
+### Шаги
+1. Подключи датчик
+2. Загрузи скетч:
+
+\`\`\`cpp
+long distance = pulseIn(ECHO, HIGH) / 58;
+\`\`\`
+
+> Сырой HTML — текстом: <b>не жирный</b>. Ссылка [javascript:](javascript:alert(1)) — тоже текст.
+
+---
+
+Подробнее — [документация Arduino](https://docs.arduino.cc).`;
 
 const DEMO_CODE = `def control_robot(distance):
     if distance <= 15:
@@ -1165,6 +1191,66 @@ function TutorDemo() {
           ],
         }))}
       />
+      <Text variant="caption" tone="muted">
+        BarChart: группы без кода — подписи длиннее 5 символов раздвигают столбцы на равные доли, не
+        влезающая подпись обрезается многоточием
+      </Text>
+      <BarChart
+        title="Посещения"
+        aria-label="Робототехника, группа А: посетили 12, пропустили 3; Python, группа А: посетили 8, пропустили 2"
+        legend={[
+          {
+            key: 'robotics',
+            title: 'Робототехника',
+            tone: 'primary',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+          {
+            key: 'python',
+            title: 'Программирование',
+            tone: 'success',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+        ]}
+        bars={[
+          {
+            key: 'a',
+            label: 'группа А',
+            tone: 'primary',
+            segments: [
+              { key: 'attended', value: 12 },
+              { key: 'missed', value: 3, dim: true },
+            ],
+          },
+          {
+            key: 'b',
+            label: 'Python, группа А',
+            tone: 'success',
+            segments: [
+              { key: 'attended', value: 8 },
+              { key: 'missed', value: 2, dim: true },
+            ],
+          },
+        ]}
+      />
+      <DataTable
+        caption="Домашние задания по группам без кода"
+        columns={[
+          { key: 'group', header: 'Группа', weight: 1.9 },
+          {
+            key: 'correct',
+            header: 'Правильно выполненные дз',
+            align: 'center',
+            weight: 1.6,
+            tone: 'success',
+          },
+          { key: 'done', header: 'Выполненные дз', align: 'center', weight: 1.5, tone: 'primary' },
+        ]}
+        rows={['Робототехника, группа А', 'Python, группа А'].map((group, index) => ({
+          key: group,
+          cells: { group, correct: 3 + index, done: 7 + index },
+        }))}
+      />
       <DataTable
         caption="Домашние задания по группам"
         columns={[
@@ -1244,6 +1330,12 @@ function PlaygroundContent() {
             {'Первая строка ответа\nвторая строка\n\n  после пустой — с отступом'}
           </Text>
         </Row>
+      </Section>
+
+      <Section title="Markdown">
+        <Card>
+          <Markdown source={DEMO_MARKDOWN} />
+        </Card>
       </Section>
 
       <Section title="Button">

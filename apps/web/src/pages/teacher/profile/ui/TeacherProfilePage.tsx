@@ -17,15 +17,15 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useTeacherHome } from '@/entities/dashboard';
-import { ChangeAvatar } from '@/features/change-avatar';
 import { useMe } from '@/shared/auth/hooks';
 import { formatRate, fullName } from '@/shared/lib/format';
 import { FROM_APP_STATE } from '@/shared/lib/navigation';
 import { AsyncState, ListSkeleton, ScreenHeader } from '@/shared/ui';
 
 /**
- * Шапка профиля: крупное фото, имя, «Преподаватель · N групп · M учеников», смена фото.
- * Пока главная (`GET /teacher/home`) не загрузилась — только роль.
+ * Шапка профиля: крупное фото, имя, «Преподаватель · N групп · M учеников». Пока главная
+ * (`GET /teacher/home`) не загрузилась — только роль. Смены фото (`ChangeAvatar`) нет, пока
+ * `PUT /me/avatar` отвечает 501 (docs/04, `User.avatarFileId`).
  */
 function ProfileHero({ stats }: { stats?: TeacherStats }) {
   const { t } = useTranslation(['teacher-profile', 'common']);
@@ -51,7 +51,6 @@ function ProfileHero({ stats }: { stats?: TeacherStats }) {
             {summary}
           </Text>
         </Stack>
-        <ChangeAvatar hasPhoto={Boolean(me.user.avatarUrl)} />
       </Stack>
     </Card>
   );
