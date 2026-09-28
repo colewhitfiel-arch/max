@@ -132,6 +132,13 @@ describe('Посещаемость преподавателя', () => {
     expect(screen.getByText('Ждут отметки')).toBeInTheDocument();
     expect(screen.getByText('Ближайшие')).toBeInTheDocument();
     expect(screen.queryByText(/Отменено/)).not.toBeInTheDocument();
+    // У занятия с темой день тоже виден: «Ждут отметки» и «Ближайшие» — занятия разных дней.
+    expect(
+      screen.getByText(/^\d{1,2} \S+, \d{2}:\d{2}–\d{2}:\d{2} · Будущее занятие$/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^\d{1,2} \S+, \d{2}:\d{2}–\d{2}:\d{2} · Старое занятие$/),
+    ).toBeInTheDocument();
 
     await user.click(screen.getAllByRole('button', { name: /Робототехника, А/ })[0]!);
     expect(screen.getByTestId('location')).toHaveTextContent(`/teacher/attendance/${LESSON_ID}`);

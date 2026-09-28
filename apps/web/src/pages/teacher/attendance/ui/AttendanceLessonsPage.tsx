@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { lessonsToMark, useTeacherCalendar } from '@/entities/lesson';
 import {
-  formatDateTime,
+  formatRelativeDay,
   formatTimeRange,
   lastDaysPeriod,
   nextDaysPeriod,
@@ -31,9 +31,17 @@ export function AttendanceLessonsPage() {
     <ListRow
       key={lesson.id}
       title={lesson.group.title}
-      subtitle={`${formatTimeRange(lesson.startsAt, lesson.endsAt, i18n.language)} · ${
-        lesson.topic ?? formatDateTime(lesson.startsAt, i18n.language)
-      }`}
+      // День — всегда (в «Ждут отметки» и «Ближайшие» занятия разных дней), тема — если есть.
+      subtitle={[
+        `${formatRelativeDay(lesson.startsAt, i18n.language)}, ${formatTimeRange(
+          lesson.startsAt,
+          lesson.endsAt,
+          i18n.language,
+        )}`,
+        lesson.topic,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
       onClick={() => navigate(`/teacher/attendance/${lesson.id}`)}
       right={
         lesson.status === 'DONE' ? (
