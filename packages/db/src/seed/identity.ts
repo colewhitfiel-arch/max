@@ -32,6 +32,15 @@ export async function seedIdentity(prisma: PrismaClient): Promise<void> {
       locale: user.locale,
       theme: user.theme,
     };
+    // Демо-пользователь мог войти до первого seed (dev-вход) и получить случайный id: освобождаем
+    // его maxUserId, иначе upsert по фиксированному id упадёт на уникальности (P2002) и сломает деплой.
+    const occupied = await prisma.user.findUnique({ where: { maxUserId: user.maxUserId } });
+    if (occupied && occupied.id !== user.id) {
+      await prisma.user.update({
+        where: { id: occupied.id },
+        data: { maxUserId: `${user.maxUserId}#orphan-${occupied.id}` },
+      });
+    }
     await prisma.user.upsert({
       where: { id: user.id },
       create: { id: user.id, ...data },
