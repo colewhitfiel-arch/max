@@ -375,8 +375,9 @@ export function AssignHomeworkPage() {
           ))}
         </Inline>
 
-        {/* Экран не прокручивается: длинный шаг (ученики, материалы) листается здесь. */}
-        <Stack gap={4} scroll>
+        {/* Экран не прокручивается: длинный шаг (ученики, материалы) листается здесь. Новый шаг —
+            с начала (key): иначе он открылся бы на прокрутке прошлого, с заголовком за краем. */}
+        <Stack key={step} gap={4} scroll>
           {step === 'group' && groupStep}
           {step === 'what' && whatStep}
           {step === 'source' && sourceStep}
