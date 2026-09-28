@@ -112,7 +112,9 @@ export class PaymentsService {
     }
 
     const enrollment = await this.groups.getEnrollmentForBilling(body.enrollmentId);
-    if (!enrollment || enrollment.studentId !== studentId) throw Errors.notFound('Зачисление');
+    // Ушедший из группы (LEFT) не платит за неё: экран оплат мог устареть, пока его убирали.
+    if (!enrollment || enrollment.studentId !== studentId || enrollment.status === 'LEFT')
+      throw Errors.notFound('Зачисление');
     const amountKopecks = enrollment.priceKopecks * body.periodsCount;
 
     const payment = await this.repo.create({
@@ -222,12 +224,14 @@ export class PaymentsService {
     const paidUntil = await this.repo.paidUntilOf(enrollments.map((item) => item.id));
     return enrollments.map((enrollment) => {
       const paid = paidUntil.get(enrollment.id) ?? null;
+      const afterPaid = paid ? paid.getTime() + DAY_MS : 0;
       return {
         enrollmentId: enrollment.id,
         club: enrollment.group.club,
         paidUntil: paid ? toDateOnly(paid) : null,
-        // Следующий платёж — день после оплаченного периода; без оплат — с даты зачисления.
-        nextPaymentAt: toDateOnly(paid ? new Date(paid.getTime() + DAY_MS) : enrollment.enrolledAt),
+        // Следующий платёж — день после оплаченного периода, но не раньше зачисления: у вернувшегося
+        // в группу старые периоды остаются, а платить за время, когда его не было, он не должен.
+        nextPaymentAt: toDateOnly(new Date(Math.max(afterPaid, enrollment.enrolledAt.getTime()))),
         price: { amountKopecks: enrollment.priceKopecks, currency: 'RUB' as const },
       };
     });

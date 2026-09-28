@@ -140,21 +140,26 @@ export class AssignmentsRepository {
     return this.prisma.submission.findMany({ where: { assignmentId } });
   }
 
+  /**
+   * Сдано / проверено по заданиям — только у перечисленных адресатов (`assignmentId → studentIds`):
+   * сдачи учеников, которых уже нет в составе, в счётчики не входят.
+   */
   async countsByAssignment(
-    assignmentIds: string[],
+    targets: Map<string, string[]>,
   ): Promise<Map<string, { submitted: number; graded: number }>> {
     const counts = new Map<string, { submitted: number; graded: number }>();
-    if (assignmentIds.length === 0) return counts;
-    const rows = await this.prisma.submission.groupBy({
-      by: ['assignmentId', 'status'],
-      where: { assignmentId: { in: assignmentIds } },
-      _count: { _all: true },
-    });
-    for (const row of rows) {
-      const entry = counts.get(row.assignmentId) ?? { submitted: 0, graded: 0 };
+    if (targets.size === 0) return counts;
+    const rows = await this.prisma.submission.findMany({
       // «Сдано» — всё, что ученик отправил: и ожидающее проверки, и уже проверенное.
-      if (row.status === 'SUBMITTED' || row.status === 'GRADED') entry.submitted += row._count._all;
-      if (row.status === 'GRADED') entry.graded += row._count._all;
+      where: { assignmentId: { in: [...targets.keys()] }, status: { in: ['SUBMITTED', 'GRADED'] } },
+      select: { assignmentId: true, studentId: true, status: true },
+    });
+    const allowed = new Map([...targets].map(([id, studentIds]) => [id, new Set(studentIds)]));
+    for (const row of rows) {
+      if (!allowed.get(row.assignmentId)?.has(row.studentId)) continue;
+      const entry = counts.get(row.assignmentId) ?? { submitted: 0, graded: 0 };
+      entry.submitted += 1;
+      if (row.status === 'GRADED') entry.graded += 1;
       counts.set(row.assignmentId, entry);
     }
     return counts;

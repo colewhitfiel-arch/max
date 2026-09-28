@@ -166,8 +166,10 @@ PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCE
 POST   /teacher/groups                          { title, clubId } → GroupBrief   // title 1..100 (trim); кружок не из школы преподавателя — 400 VALIDATION;
                                                                                 // название уже есть среди его активных групп (без учёта регистра) — 409 CONFLICT
 PATCH  /teacher/groups/:groupId                 { title } → GroupBrief
-GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя и его активных групп, не в составе
-                                                                            // этой группы; q — подстрока имени/фамилии/ника; по алфавиту, до 50
+GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя (школа в профиле ученика или
+                                                                            // зачисление не LEFT в активную группу кружка этой школы) и его
+                                                                            // активных групп, не в составе этой группы; q — подстрока
+                                                                            // имени/фамилии/ника; по алфавиту, до 50
 POST   /teacher/groups/:groupId/students        { studentId } → GroupRoster { groupId, students: StudentBrief[] }
                                                 // идемпотентно; ученик не из кандидатов — 404; новое/возвращённое после ухода
                                                 // зачисление → событие enrollment.created
@@ -239,7 +241,8 @@ POST /teacher/submissions/:id/grade      { score: number, feedback?: string, sta
 
 SubmissionDto = { id, assignmentId, status, score?, isLate, attemptsCount, submittedAt?, gradedAt?, feedback?, text?, fileIds: Id[] }
 TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentIds: Id[] /* пусто — всей группе */, courseId?,
-                                            studentsCount /* адресаты или весь состав */, submittedCount, gradedCount }
+                                            studentsCount /* адресаты или весь состав — только текущий (ACTIVE) */,
+                                            submittedCount, gradedCount /* сдачи этих же учеников */ }
 HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открытые задания */, points /* баллы по кружку, формула — analytics */,
                  nextAssignment?: AssignmentBrief /* ближайшее открытое по дедлайну */ }
 ```
@@ -300,6 +303,7 @@ POST   /student/parent-invites/:token/accept student → { parent: UserBrief, li
 GET  /parent/children/:studentId/payments → { periods: [{ enrollmentId, club: ClubBrief, paidUntil?, nextPaymentAt, price: Money }],
                                                history: Paginated<PaymentDto> }
 POST /parent/children/:studentId/payments { enrollmentId, periodsCount: 1..12 } → { paymentId, confirmationUrl, amount: Money }   // Idempotency-Key
+                                          // чужое зачисление или ученик ушёл из группы (LEFT) — 404 NOT_FOUND
 GET  /parent/payments/:paymentId          → PaymentDto
 GET  /parent/wallet                       → { balance: Money }
 POST /parent/wallet/top-up                { amountKopecks: 10000..10000000 } → { balance: Money }   // Idempotency-Key; ЗАГЛУШКА (docs/07 F13)

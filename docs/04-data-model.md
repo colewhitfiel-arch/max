@@ -121,7 +121,7 @@ SubmissionAttempt id PK, submissionId FK, n int, answers json, score int?, submi
 ```
 Простое задание преподавателя («до пятницы решить 1–10») — `Assignment(type=HOMEWORK, courseId=null, blockId=null)`. Задание из блока курса — `blockId != null`, создаётся при публикации курса.
 
-`studentIds` — адресаты внутри группы: пустой массив (по умолчанию) означает «всей группе», непустой — задание видят, сдают и считаются в `studentsCount` только перечисленные ученики. Список фиксируется в момент создания и не меняется при изменении состава группы.
+`studentIds` — адресаты внутри группы: пустой массив (по умолчанию) означает «всей группе», непустой — задание видят, сдают и считаются в `studentsCount` только перечисленные ученики. Список фиксируется в момент создания и не меняется при изменении состава группы; ученик, убранный из группы (`LEFT`), в `studentsCount`, `submittedCount` и `gradedCount` карточки задания не входит.
 
 ### analytics (`analytics.prisma`)
 ```
@@ -183,7 +183,7 @@ ParentWallet    parentId PK, balanceKopecks int=0, currency "RUB"
 TeacherWalletTransaction id PK, teacherId FK, kind WalletTransactionKind, amountKopecks int,
                 currency "RUB", groupId? FK, studentId? FK, paymentId? , at
 ```
-«Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment; если периодов нет — сегодня.
+«Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment, но не раньше `Enrollment.enrolledAt` (у вернувшегося в группу после ухода старые периоды остаются, а время вне группы не оплачивается); если периодов нет — сегодня.
 Платёж создаётся через порт `PaymentProvider` (`fake` в dev, `yookassa` в бою): наш `Payment.id` — ключ идемпотентности у провайдера, статус закрывается вебхуком `POST /webhooks/payments/:provider` или опросом при `GET /parent/payments/:id`; закрытие идемпотентно (обновление статуса и запись `PaidPeriod` — в одной транзакции). Оплаченные периоды продолжают уже оплаченные, а если те истекли — начинаются с сегодняшнего дня.
 
 Кошелёк родителя (`ParentWallet`, `GET /parent/wallet`, `POST /parent/wallet/top-up`) — баланс настоящий, а **пополнение — заглушка**: сумма зачисляется сразу, без оплаты (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`). Поэтому ручка работает только при `PAYMENT_PROVIDER=fake`; с настоящим провайдером она отвечает 501 (docs/07 F13).
@@ -195,7 +195,7 @@ TeacherWalletTransaction id PK, teacherId FK, kind WalletTransactionKind, amount
   - `WITHDRAWAL` — вывод: от 100 ₽ до баланса, идемпотентно по `Idempotency-Key`; `group = student = null`. Реального перевода нет, поэтому ручка работает только при `PAYMENT_PROVIDER=fake`, иначе 501.
 - Период `day | week | month` (по умолчанию `day`) — скользящее окно до «сейчас» (в отличие от календарных окон успеваемости групп в §4.6): `day` — последние 24 часа (в «1 день» попадают и вчерашние вечерние операции, как в макете), `week` — 7 × 24 часа, `month` — 30 × 24 часа. Транзакции — с `at` в `(from, to]`.
 - `history` — баланс в равноотстоящих точках окна: `day` — 7 точек через 4 часа, `week` — 8 точек через сутки, `month` — 31 точка через сутки. Первая точка — баланс на `from`, последняя — текущий. Подписи оси X экран строит сам по периоду.
-- «Вам должны» (`debts`) — активные `Enrollment` групп преподавателя, у которых следующий платёж уже просрочен или наступит в ближайшие 45 дней. Следующий платёж (`dueAt`) — `max(PaidPeriod.periodEnd) + 1 день`; если оплаченных периодов нет — дата зачисления (долг с начала занятий, то есть просрочено; у родителя в этом случае «следующая дата оплаты» — сегодня, см. выше). Сумма — `Club.priceKopecks`, порядок — по `dueAt`.
+- «Вам должны» (`debts`) — активные `Enrollment` групп преподавателя, у которых следующий платёж уже просрочен или наступит в ближайшие 45 дней. Следующий платёж (`dueAt`) — `max(PaidPeriod.periodEnd) + 1 день`, но не раньше даты зачисления; если оплаченных периодов нет — дата зачисления (долг с начала занятий, то есть просрочено; у родителя в этом случае «следующая дата оплаты» — сегодня, см. выше). Сумма — `Club.priceKopecks`, порядок — по `dueAt`.
 
 Осталось до полноценных выплат (workstream I): доля школы в поступлении и вывод со статусом через провайдера — сейчас `WITHDRAWAL` списывает баланс сразу и никуда не переводит.
 
@@ -293,7 +293,7 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
 
 - **Посещаемость** `attendanceRate = attended / countable`. `countable` — занятия со статусом `DONE` в периоде, на которые ученик был зачислен (`Enrollment.enrolledAt <= lesson.startsAt`), минус `EXCUSED`. `attended` — `PRESENT | LATE`. Нет `countable` → `null`.
 - **Пропуски** `absences = count(ABSENT)`.
-- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
+- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), срок (публикация) которых не раньше зачисления ученика в группу (`Enrollment.enrolledAt <= dueAt`), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
 - **Активность** `activityScore` (0–100) за неделю: `min(100, 10*blocksCompleted + 15*submissions + 5*lessonsAttended + 2*tutorMessages + 1*appOpens)`. Отображается как «низкая (<30) / средняя / высокая (≥70)» + число. Формула — одна (`apps/api/src/modules/analytics/metrics.ts`), окно выбирает вызывающий. **Исключение:** снимок ученика для ИИ (`StudentContext.stats30d`, `modules/ai/context-builder.ts`) считает её за 30 дней и без `appOpens` (событий открытия приложения в снимке нет) — осознанное расхождение с недельным окном экранов.
 - **Прогресс по кружку** `clubProgress = avg(CourseProgress.percent по PUBLISHED курсам группы)`; если курсов нет — `completionRate` по заданиям группы.
 - **Динамика** — те же метрики по неделям из `StudentStatsDaily`; `trend` = разница с предыдущим периодом такой же длины.

@@ -70,10 +70,9 @@ export class TeacherGroupsService {
       this.assignments.completionOfGroup(brief.id, studentIds),
       this.nextLesson(brief.id),
     ]);
-    const attended = studentIds.reduce(
-      (sum, id) => sum + (attendance.attendedByStudent.get(id) ?? 0),
-      0,
-    );
+    // Знаменатель — сумма зачётных занятий учеников: у каждого свои, с даты зачисления.
+    const attended = studentIds.reduce((sum, id) => sum + (attendance.get(id)?.attended ?? 0), 0);
+    const countable = studentIds.reduce((sum, id) => sum + (attendance.get(id)?.countable ?? 0), 0);
     const due = studentIds.reduce((sum, id) => sum + (completion.get(id)?.due ?? 0), 0);
     const doneOnTime = studentIds.reduce(
       (sum, id) => sum + (completion.get(id)?.doneOnTime ?? 0),
@@ -82,7 +81,7 @@ export class TeacherGroupsService {
     return {
       ...brief,
       studentsCount: roster.length,
-      attendanceRate: attendanceRate(attended, attendance.countable * studentIds.length),
+      attendanceRate: attendanceRate(attended, countable),
       completionRate: completionRate(doneOnTime, due),
       // Точный счёт «требует внимания» есть в детали группы; в списке он считается так же,
       // но по агрегатам — поэтому здесь 0, пока не открыта карточка (docs/12, зона A).
@@ -103,9 +102,9 @@ export class TeacherGroupsService {
       this.blocksCompleted(studentIds, daysAgo(ACTIVITY_WINDOW_DAYS)),
     ]);
     return roster.map((student) => {
-      const attended = attendance.attendedByStudent.get(student.id) ?? 0;
+      const { attended, countable } = attendance.get(student.id) ?? { attended: 0, countable: 0 };
       const done = completion.get(student.id) ?? { doneOnTime: 0, due: 0 };
-      const rate = attendanceRate(attended, attendance.countable);
+      const rate = attendanceRate(attended, countable);
       const completed = completionRate(done.doneOnTime, done.due);
       const needsAttention: string[] = [];
       if (rate !== null && rate < LOW_ATTENDANCE) needsAttention.push('Пропускает занятия');

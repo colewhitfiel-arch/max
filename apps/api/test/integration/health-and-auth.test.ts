@@ -150,6 +150,41 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
     }
   });
 
+  it('на стенде (APP_ENV=staging) роль преподавателя — только по коду школы; демо-преподаватель входит', async () => {
+    const stagingApp = await createTestApp({ APP_ENV: 'staging' });
+    const http = () => request(stagingApp.getHttpServer());
+    try {
+      const run = Date.now();
+      const direct = await http()
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: `max-teacher-nocode-${run}`, roles: ['TEACHER'] })
+        .expect(422);
+      expect(direct.body.error.code).toBe('BUSINESS_RULE');
+
+      const parent = await http()
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: `max-parent-nocode-${run}`, roles: ['PARENT'] })
+        .expect(200);
+      const addRole = (inviteCode?: string) =>
+        http()
+          .post(`${base}/auth/roles`)
+          .set('Authorization', `Bearer ${parent.body.accessToken}`)
+          .send({ role: 'TEACHER', inviteCode });
+      await addRole().expect(422);
+      const withCode = await addRole('SCHOOL1').expect(200);
+      expect(withCode.body.me.teacher).not.toBeNull();
+
+      // Сид уже создал демо-преподавателю профиль со школой — код ему не нужен.
+      const demo = await http()
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: 'max-teacher-1', roles: ['TEACHER'] })
+        .expect(200);
+      expect(demo.body.me.activeRole).toBe('TEACHER');
+    } finally {
+      await stagingApp.close();
+    }
+  });
+
   it('невалидное тело → VALIDATION в едином формате', async () => {
     const res = await request(app.getHttpServer())
       .post(`${base}/auth/dev`)

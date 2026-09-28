@@ -150,8 +150,9 @@ export class IdentityService {
         let schoolId = user.teacher?.schoolId ?? null;
         if (!schoolId) {
           if (!inviteCode) {
-            // В dev допускаем вход преподавателем без кода — берём первую школу
-            if (this.env.APP_ENV !== 'production')
+            // Только в локальной разработке допускаем вход преподавателем без кода — берём
+            // первую школу. На стенде (staging) код обязателен: демо-преподаватель уже с профилем.
+            if (this.env.APP_ENV === 'development')
               schoolId = (await this.school.findByInviteCode('SCHOOL1'))?.id ?? null;
             if (!schoolId)
               throw Errors.businessRule('Для роли преподавателя нужен код приглашения школы');

@@ -10,7 +10,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { InlineJobQueue } from '../../src/common/queue/inline-job-queue';
 import { JOB_QUEUE } from '../../src/common/queue/job-queue';
+import { GroupsService } from '../../src/modules/groups/groups.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
+
+const DAY_MS = 86_400_000;
 
 describe.skipIf(!hasTestDatabase)('группы преподавателя (integration)', () => {
   let app: INestApplication;
@@ -22,7 +25,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-  const loginAs = async (maxUserId: string, role: 'TEACHER' | 'STUDENT') => {
+  const loginAs = async (maxUserId: string, role: 'TEACHER' | 'STUDENT' | 'PARENT') => {
     const res = await http()
       .post(`${base}/auth/dev`)
       .send({ maxUserId, roles: [role] })
@@ -45,6 +48,14 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
     const prisma = app.get(PrismaService);
     const groups = await prisma.group.findMany({ where: { teacherId }, select: { id: true } });
     const groupIds = groups.map((group) => group.id);
+    const enrollments = await prisma.enrollment.findMany({
+      where: { groupId: { in: groupIds } },
+      select: { id: true },
+    });
+    const enrollmentIds = enrollments.map((row) => row.id);
+    await prisma.paidPeriod.deleteMany({ where: { enrollmentId: { in: enrollmentIds } } });
+    await prisma.payment.deleteMany({ where: { enrollmentId: { in: enrollmentIds } } });
+    await prisma.teacherWalletTransaction.deleteMany({ where: { teacherId } });
     await prisma.submission.deleteMany({ where: { assignment: { groupId: { in: groupIds } } } });
     await prisma.assignment.deleteMany({ where: { groupId: { in: groupIds } } });
     await prisma.courseGenerationJob.deleteMany({ where: { groupId: { in: groupIds } } });
@@ -97,6 +108,26 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
     expect(duplicate.body.error.code).toBe('CONFLICT');
   });
 
+  it('название: `_` и `%` — обычные символы, а не шаблоны; дубль при переименовании — 409', async () => {
+    // Уже есть «Олимпиадная <run>»: как шаблон ILIKE оба названия ниже с ним совпали бы.
+    const underscore = await http()
+      .post(`${base}/teacher/groups`)
+      .set(auth(teacher))
+      .send({ title: `Олимпиадная_${run}`, clubId: DEMO_IDS.clubs.programming })
+      .expect(200);
+    await http()
+      .post(`${base}/teacher/groups`)
+      .set(auth(teacher))
+      .send({ title: `%${run}`, clubId: DEMO_IDS.clubs.programming })
+      .expect(200);
+    const duplicate = await http()
+      .patch(`${base}/teacher/groups/${underscore.body.id}`)
+      .set(auth(teacher))
+      .send({ title: `ОЛИМПИАДНАЯ ${run}` })
+      .expect(409);
+    expect(duplicate.body.error.code).toBe('CONFLICT');
+  });
+
   it('переименование', async () => {
     const renamed = await http()
       .patch(`${base}/teacher/groups/${groupId}`)
@@ -127,6 +158,24 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .query({ q: '7' })
       .set(auth(teacher))
       .expect(200);
+  });
+
+  it('кандидаты — и ученик без школы в профиле, зачисленный в группу кружка школы', async () => {
+    // Так приходят настоящие ученики: онбординг зачисляет в первую группу кружка (здесь —
+    // группу другого преподавателя школы), а школу в профиль ученика не записывает.
+    const newcomer = await loginAs(`max-student-onboarded-${run}`, 'STUDENT');
+    const me = await http().get(`${base}/me`).set(auth(newcomer.accessToken)).expect(200);
+    const studentId = me.body.student.id as string;
+    await app.get(GroupsService).enroll(studentId, DEMO_IDS.groups.roboticsA);
+    try {
+      const res = await http()
+        .get(`${base}/teacher/groups/${groupId}/candidates`)
+        .set(auth(teacher))
+        .expect(200);
+      expect(ids(res.body.items)).toContain(studentId);
+    } finally {
+      await app.get(PrismaService).enrollment.deleteMany({ where: { studentId } });
+    }
   });
 
   it('состав: добавить, повторно добавить (идемпотентно), убрать и вернуть', async () => {
@@ -178,6 +227,136 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.dasha}`)
       .set(auth(teacher))
       .expect(200);
+  });
+
+  it('счётчики задания — по текущему составу: сдачи убранного ученика не считаются', async () => {
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.dasha })
+      .expect(200);
+    const create = (studentIds?: string[]) =>
+      http()
+        .post(`${base}/teacher/assignments`)
+        .set(auth(teacher))
+        .send({ groupId, title: `Сдают все ${run}`, publish: true, studentIds })
+        .expect(200);
+    const assignments = [
+      (await create()).body.id as string,
+      (await create([DEMO_IDS.students.alexey, DEMO_IDS.students.dasha])).body.id as string,
+    ];
+    const students = [
+      await loginAs('max-student-1', 'STUDENT'),
+      await loginAs('max-student-2', 'STUDENT'),
+    ];
+    for (const assignmentId of assignments) {
+      for (const [index, student] of students.entries()) {
+        await http()
+          .post(`${base}/student/assignments/${assignmentId}/submit`)
+          .set(auth(student.accessToken))
+          .set('Idempotency-Key', `groups-${run}-${assignmentId}-${index}`)
+          .send({ text: 'Готово' })
+          .expect(200);
+      }
+    }
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.dasha}`)
+      .set(auth(teacher))
+      .expect(200);
+
+    const list = await http()
+      .get(`${base}/teacher/assignments`)
+      .query({ groupId })
+      .set(auth(teacher))
+      .expect(200);
+    for (const assignmentId of assignments) {
+      const card = list.body.items.find((item: { id: string }) => item.id === assignmentId);
+      expect(card).toMatchObject({ studentsCount: 1, submittedCount: 1 });
+      const submissions = await http()
+        .get(`${base}/teacher/assignments/${assignmentId}/submissions`)
+        .set(auth(teacher))
+        .expect(200);
+      expect(submissions.body.rows).toHaveLength(card.studentsCount);
+      expect(submissions.body.assignment).toMatchObject({ studentsCount: 1, submittedCount: 1 });
+    }
+  });
+
+  it('оплата: по зачислению ушедшего из группы (LEFT) платёж не создаётся — 404', async () => {
+    const enrollment = await app.get(PrismaService).enrollment.findUniqueOrThrow({
+      where: { studentId_groupId: { studentId: DEMO_IDS.students.alexey, groupId } },
+      select: { id: true },
+    });
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.alexey}`)
+      .set(auth(teacher))
+      .expect(200);
+    const parent = await loginAs('max-parent-1', 'PARENT');
+    const res = await http()
+      .post(`${base}/parent/children/${DEMO_IDS.students.alexey}/payments`)
+      .set(auth(parent.accessToken))
+      .set('Idempotency-Key', `groups-left-${run}`)
+      .send({ enrollmentId: enrollment.id, periodsCount: 1 })
+      .expect(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.alexey })
+      .expect(200);
+  });
+
+  it('оплата: вернувшемуся в группу следующий платёж — не раньше нового зачисления', async () => {
+    const prisma = app.get(PrismaService);
+    const where = { studentId_groupId: { studentId: DEMO_IDS.students.alexey, groupId } };
+    const { id: enrollmentId } = await prisma.enrollment.findUniqueOrThrow({
+      where,
+      select: { id: true },
+    });
+    // Прошлое пребывание в группе было оплачено; период закончился два месяца назад.
+    const payment = await prisma.payment.create({
+      data: {
+        parentId: DEMO_IDS.parents.olga,
+        studentId: DEMO_IDS.students.alexey,
+        enrollmentId,
+        amountKopecks: 100_00,
+        provider: 'fake',
+        idempotencyKey: `groups-old-${run}`,
+        status: 'SUCCEEDED',
+        paidAt: new Date(Date.now() - 90 * DAY_MS),
+      },
+    });
+    await prisma.paidPeriod.create({
+      data: {
+        enrollmentId,
+        paymentId: payment.id,
+        periodStart: new Date(Date.now() - 90 * DAY_MS),
+        periodEnd: new Date(Date.now() - 60 * DAY_MS),
+      },
+    });
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.alexey}`)
+      .set(auth(teacher))
+      .expect(200);
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.alexey })
+      .expect(200);
+    const { enrolledAt } = await prisma.enrollment.findUniqueOrThrow({
+      where,
+      select: { enrolledAt: true },
+    });
+
+    const parent = await loginAs('max-parent-1', 'PARENT');
+    const res = await http()
+      .get(`${base}/parent/children/${DEMO_IDS.students.alexey}/payments`)
+      .set(auth(parent.accessToken))
+      .expect(200);
+    const period = res.body.periods.find(
+      (item: { enrollmentId: string }) => item.enrollmentId === enrollmentId,
+    );
+    expect(period.nextPaymentAt).toBe(enrolledAt.toISOString().slice(0, 10));
   });
 
   it('ученика не из школы и не из своих групп добавить нельзя — 404', async () => {
