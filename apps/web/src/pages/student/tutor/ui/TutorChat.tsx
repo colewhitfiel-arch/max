@@ -125,9 +125,11 @@ export function TutorChat({
         const stopped = result.messageId === null;
         if (stopped) stream.reset();
         await refreshFeed(id, fresh);
+        // Лента нового чата загружена — дальше она с сервера, даже если, пока она грузилась,
+        // ученик уже отправил следующий вопрос: иначе лента осталась бы локальной и пустой.
+        if (fresh) setFreshId(null);
         if (sendIdRef.current !== sendId) return;
         setPendingUserText(null);
-        if (fresh) setFreshId(null);
         if (!stopped) {
           setAnnouncement(result.text);
           stream.reset();
@@ -190,8 +192,9 @@ export function TutorChat({
     </>
   );
 
+  // `grow`: чат забирает место под шапкой внутри `Screen fill` страницы (TutorPage).
   return (
-    <Screen fill>
+    <Screen grow>
       <Stack gap={3} grow justify="end">
         {fromServer ? <AsyncState query={query}>{() => feed}</AsyncState> : feed}
         <div ref={bottomRef} aria-hidden="true" />
@@ -207,7 +210,8 @@ export function TutorChat({
           void send(text);
         }}
         busy={stream.isStreaming || create.isPending}
-        onStop={stream.abort}
+        // Пока диалог создаётся, стрима ещё нет и остановить нечего — вместо «Стоп» индикатор.
+        onStop={stream.isStreaming ? stream.abort : undefined}
         placeholder={t('tutor.placeholder')}
         inputLabel={t('common:chat.inputLabel')}
         sendLabel={t('tutor.send')}
