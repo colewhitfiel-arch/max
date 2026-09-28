@@ -108,6 +108,26 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
     expect(duplicate.body.error.code).toBe('CONFLICT');
   });
 
+  it('название: `_` и `%` — обычные символы, а не шаблоны; дубль при переименовании — 409', async () => {
+    // Уже есть «Олимпиадная <run>»: как шаблон ILIKE оба названия ниже с ним совпали бы.
+    const underscore = await http()
+      .post(`${base}/teacher/groups`)
+      .set(auth(teacher))
+      .send({ title: `Олимпиадная_${run}`, clubId: DEMO_IDS.clubs.programming })
+      .expect(200);
+    await http()
+      .post(`${base}/teacher/groups`)
+      .set(auth(teacher))
+      .send({ title: `%${run}`, clubId: DEMO_IDS.clubs.programming })
+      .expect(200);
+    const duplicate = await http()
+      .patch(`${base}/teacher/groups/${underscore.body.id}`)
+      .set(auth(teacher))
+      .send({ title: `ОЛИМПИАДНАЯ ${run}` })
+      .expect(409);
+    expect(duplicate.body.error.code).toBe('CONFLICT');
+  });
+
   it('переименование', async () => {
     const renamed = await http()
       .patch(`${base}/teacher/groups/${groupId}`)

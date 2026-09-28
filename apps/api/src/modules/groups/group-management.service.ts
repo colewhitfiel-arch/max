@@ -167,18 +167,23 @@ export class GroupManagementService {
     return new Set([...ofSchool, ...enrolled.map((row) => row.studentId)]);
   }
 
-  /** Название уникально среди активных групп преподавателя (без учёта регистра). */
+  /**
+   * Название уникально среди активных групп преподавателя (без учёта регистра). Сравнение — в
+   * коде: `equals` + `mode: 'insensitive'` в Prisma превращается в ILIKE, где `%` и `_` в
+   * названии были бы шаблонами («Группа_1» совпала бы с «Группа 1»).
+   */
   private async assertTitleFree(teacherId: string, title: string, exceptGroupId?: string) {
-    const same = await this.prisma.group.findFirst({
+    const groups = await this.prisma.group.findMany({
       where: {
         teacherId,
         isActive: true,
-        title: { equals: title, mode: 'insensitive' },
         ...(exceptGroupId ? { id: { not: exceptGroupId } } : {}),
       },
-      select: { id: true },
+      select: { title: true },
     });
-    if (same) throw Errors.conflict('Группа с таким названием уже есть');
+    const needle = title.toLocaleLowerCase('ru');
+    if (groups.some((group) => group.title.toLocaleLowerCase('ru') === needle))
+      throw Errors.conflict('Группа с таким названием уже есть');
   }
 
   private async brief(groupId: string): Promise<GroupBrief> {
