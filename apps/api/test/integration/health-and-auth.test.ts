@@ -124,9 +124,27 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
     try {
       const res = await request(maxApp.getHttpServer())
         .post(`${base}/auth/dev`)
-        .send({ maxUserId: `max-dev-with-max-${Date.now()}`, roles: ['STUDENT'] })
+        .send({ maxUserId: 'max-student-1', roles: ['STUDENT'] })
         .expect(200);
       expect(res.body.accessToken).toBeTypeOf('string');
+    } finally {
+      await maxApp.close();
+    }
+  });
+
+  it('при AUTH_PROVIDER=max демо-вход не пускает в чужой аккаунт MAX и не выдаёт чужих ролей', async () => {
+    const maxApp = await createTestApp({ AUTH_PROVIDER: 'max', MAX_BOT_TOKEN: 'bot-token' });
+    try {
+      // Настоящий пользователь MAX (числовой id) — не демо: вход по его id запрещён.
+      await request(maxApp.getHttpServer())
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: '123456789', roles: ['PARENT'] })
+        .expect(403);
+      // Демо-ученик не получает роль преподавателя через dev-вход.
+      await request(maxApp.getHttpServer())
+        .post(`${base}/auth/dev`)
+        .send({ maxUserId: 'max-student-1', roles: ['TEACHER'] })
+        .expect(403);
     } finally {
       await maxApp.close();
     }

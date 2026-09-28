@@ -9,6 +9,7 @@ import type {
   UserBrief,
   UpdateSettingsBody,
 } from '@edu/contracts';
+import { demoUsers } from '@edu/contracts/fixtures';
 import { AUTH_PROVIDER, type AuthProvider } from '../../common/auth/auth-provider';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { JwtService } from '../../common/auth/jwt.service';
@@ -59,9 +60,16 @@ export class IdentityService {
   /**
    * Вход демо-пользователем. Разрешён везде, кроме production: на демо-стенде `AUTH_PROVIDER=max`
    * (нужен для подписи мини-приложения), но открыть стенд в обычном браузере тоже надо.
+   * При `AUTH_PROVIDER=max` в базе есть настоящие пользователи MAX, и произвольный maxUserId
+   * был бы входом в чужой аккаунт: там пускаем только демо-пользователей и только в их роли.
    */
   async loginDev(maxUserId: string, roles: Role[]): Promise<AuthResult> {
     if (this.env.APP_ENV === 'production') throw Errors.forbidden('Dev-вход недоступен');
+    if (this.authProvider.name === 'max') {
+      const demo = Object.values(demoUsers).find((u) => u.maxUserId === maxUserId);
+      if (!demo || roles.some((role) => !demo.roles.includes(role)))
+        throw Errors.forbidden('На этом стенде демо-вход — только демо-пользователями');
+    }
     const identity = await this.devAuthProvider.verify({ kind: 'dev', maxUserId });
     let user = await this.repo.upsertByIdentity(identity);
     for (const role of roles) {
