@@ -9,6 +9,14 @@
   min-height: 100%;
 }
 
+.ui-screen[data-grow] {
+  flex: 1 1 auto;
+}
+
+.ui-screen[data-fit] {
+  height: 100%;
+}
+
 .ui-screen[data-padding='none'] {
   padding: 0;
 }

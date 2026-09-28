@@ -33,7 +33,7 @@ function latestConversation(items: ConversationDto[]): ConversationDto | undefin
 /** Скелет чата: пара пузырей с обеих сторон и поле ввода. */
 function ChatSkeleton() {
   return (
-    <Screen fill>
+    <Screen grow>
       <Stack gap={3} grow justify="end" aria-busy="true">
         <Skeleton height={56} width="70%" />
         <Stack align="end">
@@ -173,7 +173,7 @@ export function ParentTutorPage() {
       <QueryError error={childrenQuery.error} onRetry={() => void childrenQuery.refetch()} />
     </Screen>
   ) : !child ? (
-    <Screen fill>
+    <Screen grow>
       <Stack grow justify="center">
         <EmptyState
           icon={
@@ -210,11 +210,13 @@ export function ParentTutorPage() {
     <ChatSkeleton />
   );
 
+  // Шапка и чат — одна колонка ровно в высоту области (`fill` + `grow`): пустой чат не
+  // прокручивается на высоту шапки, длинная лента прокручивается под липкими шапкой и полем.
   return (
-    <>
+    <Screen padding="none" gap={0} fill>
       <ScreenHeader title={t('title')} subtitle={subtitle} bell sticky />
       {body}
       <AddChildSheet open={addOpen} onClose={() => setAddOpen(false)} />
-    </>
+    </Screen>
   );
 }

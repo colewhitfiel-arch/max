@@ -10,6 +10,17 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
   gap?: Space;
   /** Растянуть на всю высоту скролл-области (для экранов с прижатой к низу панелью). */
   fill?: boolean;
+  /**
+   * Занять свободное место родителя-flex (`flex: 1`), как `Stack grow`: экран под своей шапкой
+   * внутри `Screen fill` — вместе ровно в высоту области, без лишней прокрутки на высоту шапки.
+   */
+  grow?: boolean;
+  /**
+   * Ровно высота скролл-области (`height: 100%`): экран не прокручивается сам — прокручиваются
+   * его части (панель с `ScoopPanel scroll`). Не влезло и так (очень низкое окно) — прокрутится
+   * вся область, как обычно.
+   */
+  fit?: boolean;
 }
 
 /**
@@ -17,7 +28,7 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
  * Состояния (loading/error/empty) решает потребитель через Skeleton/ErrorState/EmptyState.
  */
 export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
-  { padding = 'md', gap = 4, fill = false, className, ...rest },
+  { padding = 'md', gap = 4, fill = false, grow = false, fit = false, className, ...rest },
   ref,
 ) {
   return (
@@ -27,6 +38,8 @@ export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
       data-padding={padding}
       data-gap={gap}
       data-fill={fill || undefined}
+      data-grow={grow || undefined}
+      data-fit={fit || undefined}
       {...rest}
     />
   );

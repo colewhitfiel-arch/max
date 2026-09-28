@@ -43,6 +43,7 @@ export function ChildClubsPage() {
                   <ClubCard
                     key={item.enrollmentId}
                     club={item.club}
+                    wrapBadge
                     extra={
                       <Stack gap={2}>
                         <Text variant="caption">

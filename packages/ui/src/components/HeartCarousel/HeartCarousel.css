@@ -12,6 +12,8 @@
   --ui-heart-carousel-lift: 40px;
   --ui-heart-carousel-shrink: 0.107;
   position: relative;
+  /* Над панелью, которая заходит под ленту кривой (ScoopPanel overlap). */
+  z-index: 1;
   min-width: 0;
 }
 

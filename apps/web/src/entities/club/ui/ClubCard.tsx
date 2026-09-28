@@ -9,15 +9,21 @@ export interface ClubCardProps {
   /** Дополнительная строка (оплата, прогресс). */
   extra?: React.ReactNode;
   onClick?: () => void;
+  /**
+   * Бейдж категории может уйти под длинное название, если вместе они не влезают в ширину
+   * (экран 360px: «Программирование на Python» + «Программирование»). По умолчанию — одной
+   * строкой, как раньше.
+   */
+  wrapBadge?: boolean;
 }
 
 /** Карточка кружка: категория, цена, преподаватели, расписание. */
-export function ClubCard({ club, extra, onClick }: ClubCardProps) {
+export function ClubCard({ club, extra, onClick, wrapBadge = false }: ClubCardProps) {
   const { t, i18n } = useTranslation('common');
   return (
     <Card interactive={!!onClick} onClick={onClick}>
       <Stack gap={2}>
-        <Inline justify="between" wrap={false}>
+        <Inline justify="between" wrap={wrapBadge} align={wrapBadge ? 'start' : undefined}>
           <Text weight="medium">{club.title}</Text>
           <Badge tone="info">{t(`clubCategory.${club.category}`)}</Badge>
         </Inline>
