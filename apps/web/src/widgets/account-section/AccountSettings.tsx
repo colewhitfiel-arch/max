@@ -16,15 +16,15 @@ import { useNavigate } from 'react-router';
 import { SwitchRole } from '@/features/switch-role';
 import { useAuth } from '@/shared/auth/hooks';
 import { ROLE_SETUP_PATH } from '@/shared/auth/role-routes';
+import { config } from '@/shared/config';
 import { useMaxBridge } from '@/shared/max';
 import { SettingsGroup } from './SettingsGroup';
 
-const SUPPORT_URL = 'https://t.me/edu_support';
-
 export interface AccountSettingsProps {
   /**
-   * Чат поддержки в MAX (`https://max.ru/<ник>`) вместо ссылки по умолчанию — у ученика
-   * (`config.supportUrl`). Пустая строка — чат не настроен: вместо перехода подсказка-тост.
+   * Чат поддержки в MAX (`https://max.ru/<ник>`). По умолчанию — `config.supportUrl`
+   * (`VITE_SUPPORT_URL`), общий для всех ролей. Пустая строка — чат не настроен: вместо
+   * перехода подсказка-тост.
    */
   supportUrl?: string;
 }
@@ -42,7 +42,7 @@ export function AccountSettings({ supportUrl }: AccountSettingsProps = {}) {
 
   // Ссылки max.ru мост открывает внутри MAX (openMaxLink) — чат, а не браузер.
   const openSupport = () => {
-    const url = supportUrl ?? SUPPORT_URL;
+    const url = supportUrl ?? config.supportUrl;
     if (url) bridge.openLink(url);
     else toast.show({ tone: 'warning', title: t('settings.supportUnavailable') });
   };
