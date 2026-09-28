@@ -22,4 +22,11 @@ describe('ChatBubble', () => {
       'end',
     );
   });
+
+  it('appear — плавное появление только по запросу', () => {
+    const { container, rerender } = render(<ChatBubble appear>Новое</ChatBubble>);
+    expect(container.firstElementChild).toHaveAttribute('data-appear', 'true');
+    rerender(<ChatBubble>Из истории</ChatBubble>);
+    expect(container.firstElementChild).not.toHaveAttribute('data-appear');
+  });
 });

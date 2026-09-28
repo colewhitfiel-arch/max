@@ -17,6 +17,8 @@ export interface PageHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'titl
   backLabel?: string;
   /** Действия справа (IconButton, Button). */
   actions?: ReactNode;
+  /** Действие слева, после «Назад» (IconButton: например, история чатов). */
+  leading?: ReactNode;
   /**
    * `solid` — плашка на поверхности, заголовок слева (по умолчанию);
    * `plain` — без фона, заголовок по центру между «Назад» и действиями (как на главной из макета).
@@ -34,6 +36,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
     onBack,
     backLabel = 'Назад',
     actions,
+    leading,
     variant = 'solid',
     sticky = false,
     className,
@@ -50,13 +53,14 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
       data-sticky={sticky || undefined}
       {...rest}
     >
-      {(onBack || plain) && (
+      {(onBack || leading != null || plain) && (
         <div className="ui-page-header__lead">
           {onBack && (
             <IconButton className="ui-page-header__back" aria-label={backLabel} onClick={onBack}>
               <ChevronLeftIcon />
             </IconButton>
           )}
+          {leading}
         </div>
       )}
       <div className="ui-page-header__text">

@@ -12,7 +12,9 @@ import {
   Card,
   ChatBubble,
   ChatComposer,
+  ChevronDownIcon,
   ChevronsDownIcon,
+  ChevronUpIcon,
   Checkbox,
   Chip,
   ClipboardIcon,
@@ -36,6 +38,8 @@ import {
   LockIcon,
   LogoutIcon,
   LifebuoyIcon,
+  MenuIcon,
+  EditIcon,
   Modal,
   MoonIcon,
   PageHeader,
@@ -1540,6 +1544,10 @@ function PlaygroundContent() {
           <SparkIcon />
           <StarIcon />
           <ClipboardIcon />
+          <MenuIcon />
+          <EditIcon />
+          <ChevronDownIcon />
+          <ChevronUpIcon />
         </Row>
         <Row label="Заливочные (Figma)">
           <HomeIcon size={32} />

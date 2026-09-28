@@ -62,3 +62,19 @@
   opacity: 0.35;
   filter: grayscale(0.6);
 }
+
+/* fluid: высота — сколько осталось в родителе-flex (до 259px), картинки вписываются в неё. */
+.ui-illustration-row[data-fluid] {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  max-height: 259px;
+}
+
+.ui-screen[data-fit] > .ui-illustration-row[data-fluid] {
+  flex-shrink: 1;
+}
+
+.ui-illustration-row[data-fluid] .ui-illustration-row__item {
+  max-height: min(var(--ui-illustration-h), 100%);
+}

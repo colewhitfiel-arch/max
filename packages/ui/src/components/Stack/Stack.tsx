@@ -16,13 +16,18 @@ export interface StackProps extends HTMLAttributes<HTMLElement> {
   justify?: FlexJustify;
   /** Занимать свободное место родителя-flex (`flex: 1`). */
   grow?: boolean;
+  /**
+   * Сжиматься, когда месту в родителе-flex не хватает, и прокручивать содержимое самому
+   * (`min-height: 0; overflow-y: auto`). Для блоков экрана `Screen fit`.
+   */
+  scroll?: boolean;
   /** HTML-тег. По умолчанию `div`. */
   as?: ElementType;
 }
 
 /** Вертикальная flex-раскладка с gap из токенов. */
 export const Stack = forwardRef<HTMLElement, StackProps>(function Stack(
-  { gap = 3, align, justify, grow = false, as = 'div', className, ...rest },
+  { gap = 3, align, justify, grow = false, scroll = false, as = 'div', className, ...rest },
   ref,
 ) {
   return createElement(as, {
@@ -30,6 +35,7 @@ export const Stack = forwardRef<HTMLElement, StackProps>(function Stack(
     className: cx('ui-stack', className),
     'data-gap': gap,
     'data-grow': grow || undefined,
+    'data-scroll': scroll || undefined,
     'data-align': align,
     'data-justify': justify,
     ...rest,

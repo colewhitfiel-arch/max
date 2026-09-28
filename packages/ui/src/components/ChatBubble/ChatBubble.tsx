@@ -19,13 +19,28 @@ export interface ChatBubbleProps extends HTMLAttributes<HTMLDivElement> {
   streaming?: boolean;
   /** Доступное название индикатора набора. */
   typingLabel?: string;
+  /**
+   * Плавное появление при монтировании (подъём + проявление, ~250мс; без анимации при
+   * `prefers-reduced-motion`). Для новых сообщений ленты, а не для истории.
+   */
+  appear?: boolean;
   /** Текст сообщения (переносы строк сохраняются). */
   children?: ReactNode;
 }
 
 /** Пузырь сообщения чата. Домена не знает: роль и время форматирует потребитель. */
 export const ChatBubble = forwardRef<HTMLDivElement, ChatBubbleProps>(function ChatBubble(
-  { side = 'start', avatar, meta, streaming = false, typingLabel, className, children, ...rest },
+  {
+    side = 'start',
+    avatar,
+    meta,
+    streaming = false,
+    typingLabel,
+    appear = false,
+    className,
+    children,
+    ...rest
+  },
   ref,
 ) {
   const empty = children == null || children === '';
@@ -35,6 +50,7 @@ export const ChatBubble = forwardRef<HTMLDivElement, ChatBubbleProps>(function C
       className={cx('ui-chat-bubble', className)}
       data-side={side}
       data-streaming={streaming || undefined}
+      data-appear={appear || undefined}
       aria-busy={streaming || undefined}
       {...rest}
     >
