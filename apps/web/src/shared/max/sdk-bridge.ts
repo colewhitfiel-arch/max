@@ -32,7 +32,11 @@ const SDK_POLL_MS = 50;
 const STORAGE_TIMEOUT_MS = 2000;
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
-/** Методы хранилища MAX: могут вернуть значение синхронно или промисом — поддерживаем оба. */
+/**
+ * Методы хранилища MAX: могут вернуть значение синхронно или промисом — поддерживаем оба.
+ * `getItem` по типам MAX Bridge отвечает `{ key, value }`, но встречается и голая строка
+ * (см. `storedValue`).
+ */
 interface MaxStorageSdk {
   setItem(key: string, value: string): unknown;
   getItem(key: string): unknown;
@@ -99,6 +103,18 @@ async function waitForSdk(timeoutMs: number): Promise<MaxWebAppSdk | null> {
 }
 
 /**
+ * Ответ `DeviceStorage.getItem` → значение: строка или объект `{ key, value }` (так в типах
+ * MAX Bridge). Пустая строка, `null` и прочее — «нет значения».
+ */
+function storedValue(answer: unknown): string | null {
+  const raw =
+    answer !== null && typeof answer === 'object' && 'value' in answer
+      ? (answer as { value: unknown }).value
+      : answer;
+  return typeof raw === 'string' && raw !== '' ? raw : null;
+}
+
+/**
  * `DeviceStorage` MAX за нашим интерфейсом.
  *
  * Методы хранилища — запрос к хост-приложению: вне MAX (и если мессенджер не ответил) промис
@@ -125,7 +141,7 @@ function createDeviceStorage(device: MaxStorageSdk): MaxStorage {
         value = noAnswer;
       }
       if (value === noAnswer) return local.get(key);
-      return typeof value === 'string' ? value : null;
+      return storedValue(value);
     },
     async set(key, value) {
       await local.set(key, value);

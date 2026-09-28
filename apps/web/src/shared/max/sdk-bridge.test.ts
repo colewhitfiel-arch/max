@@ -150,6 +150,54 @@ describe('MaxSdkBridge', () => {
     expect(await bridge.storage.get('auth.refresh')).toBeNull();
   });
 
+  it('DeviceStorage отвечает объектом { key, value } (как в типах MAX Bridge) — берём value', async () => {
+    const store = new Map<string, string>([['auth.refresh', 'r-device']]);
+    localStorage.setItem('max:auth.refresh', 'r-mirror');
+    installSdk({
+      DeviceStorage: {
+        setItem: async (key: string, value: string) => {
+          store.set(key, value);
+          return { status: 'updated' };
+        },
+        getItem: async (key: string) => ({ key, value: store.get(key) ?? '' }),
+        removeItem: async (key: string) => {
+          store.delete(key);
+          return { status: 'removed' };
+        },
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('auth.refresh')).toBe('r-device');
+    await bridge.storage.set('theme', 'DARK');
+    expect(await bridge.storage.get('theme')).toBe('DARK');
+    await bridge.storage.remove('theme');
+    expect(await bridge.storage.get('theme')).toBeNull();
+  });
+
+  it('DeviceStorage ответил { value: "" } / { value: null } / "" — «нет значения», копия не подставляется', async () => {
+    localStorage.setItem('max:empty', 'mirror');
+    localStorage.setItem('max:missing', 'mirror');
+    localStorage.setItem('max:bare', 'mirror');
+    const answers: Record<string, unknown> = {
+      empty: { key: 'empty', value: '' },
+      missing: { key: 'missing', value: null },
+      bare: '',
+    };
+    installSdk({
+      DeviceStorage: {
+        setItem: async () => ({ status: 'updated' }),
+        getItem: async (key: string) => answers[key],
+        removeItem: async () => ({ status: 'removed' }),
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('empty')).toBeNull();
+    expect(await bridge.storage.get('missing')).toBeNull();
+    expect(await bridge.storage.get('bare')).toBeNull();
+  });
+
   it('DeviceStorage упал с ошибкой — читаем локальную копию', async () => {
     localStorage.setItem('max:k', 'v');
     installSdk({
