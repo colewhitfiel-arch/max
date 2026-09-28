@@ -138,6 +138,18 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
       })
       .expect(200);
     assignmentIds.push(assignment.body.id);
+    // И ещё одно, со сроком позавчера: две «просроченные» подряд — ещё до прихода новичка.
+    const older = await http()
+      .post(`${base}/teacher/assignments`)
+      .set(auth(teacher))
+      .send({
+        groupId: DEMO_IDS.groups.roboticsA,
+        title: `Позапрошлое ДЗ ${run}`,
+        dueAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
+        publish: true,
+      })
+      .expect(200);
+    assignmentIds.push(older.body.id);
     const before = await groupDetail();
 
     const newcomer = await login(`max-student-newcomer-${run}`, 'STUDENT');
@@ -160,5 +172,13 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
 
     const home = await http().get(`${base}/student/home`).set(auth(newcomer)).expect(200);
     expect(home.body.stats).toMatchObject({ attendanceRate: null, completionRate: null });
+
+    // Карточка ученика у преподавателя согласна с деталью группы: ни «просроченных сдач
+    // подряд» (сроки до зачисления), ни «нет активности» (окно — с зачисления).
+    const card = await http()
+      .get(`${base}/teacher/students/${newcomerId}`)
+      .set(auth(teacher))
+      .expect(200);
+    expect(card.body.needsAttention).toEqual([]);
   });
 });
