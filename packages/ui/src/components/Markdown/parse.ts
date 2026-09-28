@@ -42,9 +42,12 @@ const MAX_DEPTH = 8;
 const MAX_LINK_LABEL = 1000;
 const MAX_LINK_URL = 2048;
 
-const FENCE = /^(\s*)(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/;
+// Регулярки блоков — без вложенных квантификаторов с перекрытием: текст ИИ и преподавателя не
+// ограничен по длине, и строка в сотню тысяч символов не должна разбираться квадратично.
+// Остаток строки ограждения и заголовка разбирается вручную (fenceOf, headingOf).
+const FENCE = /^(\s*)(`{3,}|~{3,})([\s\S]*)$/;
 const FENCE_CLOSE = /^\s*(`{3,}|~{3,})[ \t]*$/;
-const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
+const HEADING_OPEN = /^ {0,3}(#{1,6})(?=[ \t]|$)/;
 const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const QUOTE = /^ {0,3}> ?(.*)$/;
 const ITEM = /^([ \t]*)([-*+]|(\d{1,9})[.)])[ \t]+(\S.*)$/;
@@ -95,14 +98,45 @@ function matchItem(line: string): ItemMatch | null {
   };
 }
 
-/** Строка начинает другой блок (прерывает абзац или пункт списка). */
-function startsBlock(line: string): boolean {
-  return FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line);
+interface FenceMatch {
+  /** Отступ открывающей строки: снимается со строк тела. */
+  indent: number;
+  marker: string;
+  language: string;
 }
 
-function parseFence(lines: string[], start: number, m: RegExpExecArray) {
-  const indent = (m[1] ?? '').length;
-  const marker = m[2] ?? '```';
+/** Открывающая строка блока кода: ``` или ~~~ (от трёх) и язык. После ``` в строке нет «`». */
+function fenceOf(line: string): FenceMatch | null {
+  const m = FENCE.exec(line);
+  if (!m) return null;
+  const marker = m[2]!;
+  const info = m[3]!.trim();
+  if (marker[0] === '`' && info.includes('`')) return null;
+  return { indent: m[1]!.length, marker, language: /^\S*/.exec(info)![0].toLowerCase() };
+}
+
+const isSpaceOrTab = (ch: string | undefined) => ch === ' ' || ch === '\t';
+
+/** Заголовок `#`…`######`: уровень и текст без закрывающей серии `#` и пробелов по краям. */
+function headingOf(line: string): { level: number; text: string } | null {
+  const m = HEADING_OPEN.exec(line);
+  if (!m) return null;
+  const start = m[0].length;
+  let end = line.length;
+  while (end > start && isSpaceOrTab(line[end - 1])) end -= 1;
+  let hashes = end;
+  while (hashes > start && line[hashes - 1] === '#') hashes -= 1;
+  // Закрывающая серия «#» отделена пробелом, иначе это часть текста («C#»).
+  if (hashes < end && isSpaceOrTab(line[hashes - 1])) end = hashes;
+  return { level: m[1]!.length, text: line.slice(start, end).trim() };
+}
+
+/** Строка начинает другой блок (прерывает абзац или пункт списка). */
+function startsBlock(line: string): boolean {
+  return fenceOf(line) !== null || HEADING_OPEN.test(line) || RULE.test(line) || QUOTE.test(line);
+}
+
+function parseFence(lines: string[], start: number, { indent, marker, language }: FenceMatch) {
   const body: string[] = [];
   let i = start + 1;
   for (; i < lines.length; i += 1) {
@@ -114,11 +148,7 @@ function parseFence(lines: string[], start: number, m: RegExpExecArray) {
     }
     body.push(stripIndent(line, indent));
   }
-  const block: MarkdownBlock = {
-    type: 'code',
-    language: (m[3] ?? '').toLowerCase(),
-    text: body.join('\n'),
-  };
+  const block: MarkdownBlock = { type: 'code', language, text: body.join('\n') };
   return { block, next: i };
 }
 
@@ -189,17 +219,17 @@ function parseBlocks(lines: string[], depth: number): MarkdownBlock[] {
       i += 1;
       continue;
     }
-    const fence = FENCE.exec(line);
+    const fence = fenceOf(line);
     if (fence) {
       const result = parseFence(lines, i, fence);
       blocks.push(result.block);
       i = result.next;
       continue;
     }
-    const heading = HEADING.exec(line);
+    const heading = headingOf(line);
     if (heading) {
-      const text = (heading[2] ?? '').trim();
-      const level = Math.min((heading[1] ?? '#').length, 3) as 1 | 2 | 3;
+      const { text } = heading;
+      const level = Math.min(heading.level, 3) as 1 | 2 | 3;
       if (text) blocks.push({ type: 'heading', level, children: parseInline(text) });
       i += 1;
       continue;
