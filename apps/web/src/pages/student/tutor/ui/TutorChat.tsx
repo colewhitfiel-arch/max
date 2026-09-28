@@ -209,7 +209,8 @@ export function TutorChat({
           void send(text);
         }}
         busy={stream.isStreaming || create.isPending}
-        onStop={stream.abort}
+        // Пока диалог создаётся, стрима ещё нет и остановить нечего — вместо «Стоп» индикатор.
+        onStop={stream.isStreaming ? stream.abort : undefined}
         placeholder={t('tutor.placeholder')}
         inputLabel={t('common:chat.inputLabel')}
         sendLabel={t('tutor.send')}

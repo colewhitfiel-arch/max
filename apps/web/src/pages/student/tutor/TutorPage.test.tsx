@@ -119,6 +119,33 @@ describe('TutorPage', () => {
     // Два стрима и задержанные ленты — дольше стандартных 5 с.
   }, 20_000);
 
+  it('пока новый чат создаётся, «Остановить» нет — только индикатор; во время ответа есть', async () => {
+    // Диалог создаётся медленно: стрима ещё нет, останавливать нечего.
+    server.use(
+      http.post(apiUrl('/ai/conversations'), async () => {
+        await delay(1500);
+      }),
+    );
+    const user = userEvent.setup();
+    renderTutor();
+    await screen.findByText(/Привет, Алексей!/, {}, WAIT);
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Как подготовиться?');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Отправить' })).toHaveAttribute(
+        'aria-busy',
+        'true',
+      ),
+    );
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Остановить' })).not.toBeInTheDocument();
+
+    // Ответ пошёл — «Остановить» на месте.
+    expect(await screen.findByRole('button', { name: 'Остановить' }, WAIT)).toBeInTheDocument();
+  });
+
   it('старый чат открывается из истории; «Новый чат» возвращает к пустому', async () => {
     const user = userEvent.setup();
     const router = renderTutor();
