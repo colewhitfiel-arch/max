@@ -53,13 +53,19 @@ export function useCreateGroup() {
   });
 }
 
-/** `PATCH /teacher/groups/:groupId` — переименовать группу. */
+/**
+ * `PATCH /teacher/groups/:groupId` — переименовать группу. Перезапрос не ждём: новое название
+ * перемонтирует форму (`key={title}`), и колбэк `mutate(…, { onSuccess })` с тостом «Название
+ * сохранено» до конца перезапроса уже не дожил бы.
+ */
 export function useUpdateGroup(groupId: string) {
   const invalidate = useInvalidateTeacher();
   return useMutation({
     mutationFn: (body: UpdateGroupBody) =>
       call(api.groups.updateGroup({ params: { groupId }, body })),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate();
+    },
   });
 }
 
