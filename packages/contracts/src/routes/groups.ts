@@ -5,7 +5,7 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 import { DateTimeSchema, IdSchema, PeriodQuerySchema } from '../common';
-import { LessonDtoSchema } from '../entities';
+import { GroupBriefSchema, LessonDtoSchema, StudentBriefSchema } from '../entities';
 import { contractRouterOptions, userRoute } from './meta';
 
 const c = initContract();
@@ -14,6 +14,23 @@ const c = initContract();
 
 export const LessonsListSchema = z.object({ lessons: z.array(LessonDtoSchema) });
 export type LessonsList = z.infer<typeof LessonsListSchema>;
+
+/** Ограничение длины названия группы (форма создания и переименования). */
+export const GROUP_TITLE_MAX_LENGTH = 100;
+
+/** Состав группы: активные ученики по алфавиту. */
+export const GroupRosterSchema = z.object({
+  groupId: IdSchema,
+  students: z.array(StudentBriefSchema),
+});
+export type GroupRoster = z.infer<typeof GroupRosterSchema>;
+
+/**
+ * Кого можно добавить в группу: ученики школы преподавателя и ученики его других групп,
+ * которых в этой группе ещё нет.
+ */
+export const GroupCandidatesSchema = z.object({ items: z.array(StudentBriefSchema) });
+export type GroupCandidates = z.infer<typeof GroupCandidatesSchema>;
 
 // ---------- Тела запросов ----------
 
@@ -38,6 +55,27 @@ export const UpdateLessonBodySchema = z.object({
   cancelReason: z.string().optional(),
 });
 export type UpdateLessonBody = z.infer<typeof UpdateLessonBodySchema>;
+
+const GroupTitleSchema = z.string().trim().min(1).max(GROUP_TITLE_MAX_LENGTH);
+
+/** Новая группа преподавателя: название и кружок его школы (кружок задаёт цену и каталог). */
+export const CreateGroupBodySchema = z.object({
+  title: GroupTitleSchema,
+  clubId: IdSchema,
+});
+export type CreateGroupBody = z.infer<typeof CreateGroupBodySchema>;
+
+export const UpdateGroupBodySchema = z.object({ title: GroupTitleSchema });
+export type UpdateGroupBody = z.infer<typeof UpdateGroupBodySchema>;
+
+/** Поиск по имени/фамилии; пусто — все кандидаты. */
+export const GroupCandidatesQuerySchema = z.object({
+  q: z.string().trim().max(100).optional(),
+});
+export type GroupCandidatesQuery = z.infer<typeof GroupCandidatesQuerySchema>;
+
+export const AddGroupStudentBodySchema = z.object({ studentId: IdSchema });
+export type AddGroupStudentBody = z.infer<typeof AddGroupStudentBodySchema>;
 
 // ---------- Роуты ----------
 
@@ -94,6 +132,50 @@ export const groupsContract = c.router(
       responses: { 200: LessonDtoSchema },
       summary: 'Изменить тему/кабинет занятия или отменить его',
       metadata: userRoute('teacher:lessons.manage'),
+    },
+    createGroup: {
+      method: 'POST',
+      path: '/teacher/groups',
+      body: CreateGroupBodySchema,
+      responses: { 200: GroupBriefSchema },
+      summary: 'Создать группу преподавателя (кружок — из его школы)',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    updateGroup: {
+      method: 'PATCH',
+      path: '/teacher/groups/:groupId',
+      pathParams: z.object({ groupId: IdSchema }),
+      body: UpdateGroupBodySchema,
+      responses: { 200: GroupBriefSchema },
+      summary: 'Переименовать группу',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    listGroupCandidates: {
+      method: 'GET',
+      path: '/teacher/groups/:groupId/candidates',
+      pathParams: z.object({ groupId: IdSchema }),
+      query: GroupCandidatesQuerySchema,
+      responses: { 200: GroupCandidatesSchema },
+      summary: 'Ученики, которых можно добавить в группу',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    addGroupStudent: {
+      method: 'POST',
+      path: '/teacher/groups/:groupId/students',
+      pathParams: z.object({ groupId: IdSchema }),
+      body: AddGroupStudentBodySchema,
+      responses: { 200: GroupRosterSchema },
+      summary: 'Добавить ученика в группу (идемпотентно)',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    removeGroupStudent: {
+      method: 'DELETE',
+      path: '/teacher/groups/:groupId/students/:studentId',
+      pathParams: z.object({ groupId: IdSchema, studentId: IdSchema }),
+      body: c.noBody(),
+      responses: { 200: GroupRosterSchema },
+      summary: 'Убрать ученика из группы (зачисление → LEFT, история сохраняется)',
+      metadata: userRoute('teacher:groups.manage'),
     },
   },
   contractRouterOptions,

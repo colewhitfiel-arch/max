@@ -44,7 +44,7 @@
 
 | Модуль | Публичный сервис |
 |---|---|
-| identity | `getUser(id)`, `getStudentProfile(id)`, `getTeacherProfile(id)`, `getParentProfile(id)`, `findStudentByLinkCode(code)`, `briefs(userIds)` |
+| identity | `getUser(id)`, `getStudentProfile(id)`, `getTeacherProfile(id)`, `getParentProfile(id)`, `findStudentByLinkCode(code)`, `briefs(userIds)`, `listStudentIdsOfSchool(schoolId)` (кандидаты в группы преподавателя) |
 | school | `getSchool(id)`, `getSettings(id)`, `timezone(schoolId)` |
 | catalog | `getClub(id)`, `listClubs(schoolId?)`, `clubBriefs(ids)`, `teacherCard(teacherId, viewerRole)` |
 | groups | `getGroup(id)`, `groupBrief(id)`, `listGroupsByTeacher(teacherId)`, `listStudentIdsInGroup(groupId)`, `listEnrollments(studentId)`, `isEnrolled(studentId, groupId)`, `listLessons({ groupIds \| studentId, from, to })`, `getLesson(id)`, `getEnrollment(id)` |
