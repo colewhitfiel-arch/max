@@ -87,7 +87,7 @@ max/
 │   │   │                         # 20260922085338_onboarding_club_interests (Prisma берёт <папка схемы>/migrations)
 │   │   ├── scripts/pg.mjs        # embedded PostgreSQL: up | down | status
 │   │   ├── generated/client/     # prisma generate (gitignored)
-│   │   └── src/                  # index.ts, client.ts, testing.ts, seed/{index,identity,catalog-groups,learning,ai-payments-notifications}.ts
+│   │   └── src/                  # index.ts, client.ts, testing.ts, seed/{index,demo-world,identity,catalog-groups,learning,ai-payments-notifications}.ts
 │   ├── ai/                       # @edu/ai — AiProvider, MockAiProvider, GigaChatProvider, AiService, retry/timeout/json,
 │   │   └── src/                  # prompts/registry.ts, context/student-context.ts, providers/{mock,gigachat}/
 │   ├── ui/                       # @edu/ui — компоненты (src/components/*), icons/, styles/{tokens,base,index}.css,

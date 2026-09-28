@@ -41,6 +41,16 @@ export function demoCourseProgressData(now: Date) {
 }
 
 export async function seedLearning(prisma: PrismaClient, now: Date): Promise<void> {
+  // Демо-занятия при каждом seed переезжают и снова становятся PLANNED/DONE по фикстурам.
+  // Отметки, поставленные на них через api, уехали бы вместе с занятием — у PLANNED-занятия
+  // в будущем «присутствовал». Удаляем только такие отметки и только на демо-занятиях.
+  await prisma.attendance.deleteMany({
+    where: {
+      lessonId: { in: materializeDemoLessons(now).map((lesson) => lesson.id) },
+      id: { notIn: demoAttendance.map((row) => row.id) },
+    },
+  });
+
   for (const { id, ...data } of demoAttendanceRows(now)) {
     await prisma.attendance.upsert({
       where: { id },
