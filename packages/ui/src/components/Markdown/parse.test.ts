@@ -164,6 +164,22 @@ describe('parseMarkdown: блоки', () => {
     }
   });
 
+  it('строки-ловушки для ссылок («[](», «[a](», «[») разбираются быстро и остаются текстом', () => {
+    // Каждая «[» смотрит вперёд до подписи и адреса: без общего бюджета 100 тыс. символов — секунды.
+    const n = 100_000;
+    for (const unit of ['[](', '[a](', '[']) {
+      const trap = unit.repeat(Math.ceil(n / unit.length));
+      const started = performance.now();
+      const nodes = parseInline(trap);
+      expect(performance.now() - started).toBeLessThan(1000);
+      expect(nodes.every((node) => node.type === 'text')).toBe(true);
+    }
+    // Обычные ссылки рядом с ловушкой в другом абзаце по-прежнему разбираются.
+    expect(parseInline('[сайт](https://example.com)')).toEqual([
+      { type: 'link', href: 'https://example.com/', children: [{ type: 'text', text: 'сайт' }] },
+    ]);
+  });
+
   it('глубокая вложенность цитат и выделений не роняет разбор', () => {
     expect(() => parseMarkdown(`${'>'.repeat(5000)} x`)).not.toThrow();
     expect(() => parseInline(`${'*_'.repeat(3000)}x${'_*'.repeat(3000)}`)).not.toThrow();

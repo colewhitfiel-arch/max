@@ -42,6 +42,16 @@ const MAX_DEPTH = 8;
 /** Длиннее подпись и адрес ссылки не ищутся: иначе текст с тысячами «[» или «(» разбирается квадратично. */
 const MAX_LINK_LABEL = 1000;
 const MAX_LINK_URL = 2048;
+/**
+ * Сколько символов разбор ссылок может просмотреть в одном абзаце: каждая «[» смотрит вперёд до
+ * MAX_LINK_LABEL + MAX_LINK_URL, и строка-ловушка из тысяч «[](» иначе разбиралась бы секундами.
+ * Бюджет кончился — дальше «[» остаются текстом.
+ */
+const LINK_SCAN_BUDGET = 200_000;
+
+interface ScanBudget {
+  left: number;
+}
 
 // Регулярки блоков — без вложенных квантификаторов с перекрытием: текст ИИ и преподавателя не
 // ограничен по длине, и строка в сотню тысяч символов не должна разбираться квадратично.
@@ -360,7 +370,8 @@ interface LinkMatch {
 }
 
 /** `[подпись](адрес "заголовок")` с `[` в позиции `start`. */
-function parseLink(text: string, start: number): LinkMatch | null {
+function parseLink(text: string, start: number, budget: ScanBudget): LinkMatch | null {
+  if (budget.left <= 0) return null;
   let depth = 0;
   let j = start;
   for (; j < text.length && j - start <= MAX_LINK_LABEL; j += 1) {
@@ -378,6 +389,7 @@ function parseLink(text: string, start: number): LinkMatch | null {
       if (depth === 0) break;
     }
   }
+  budget.left -= j - start + 1;
   if (text[j] !== ']' || text[j + 1] !== '(') return null;
   const label = text.slice(start + 1, j);
   let k = j + 2;
@@ -386,6 +398,7 @@ function parseLink(text: string, start: number): LinkMatch | null {
   if (text[k] === '<') {
     const window = text.slice(k, k + MAX_LINK_URL);
     const end = window.indexOf('>');
+    budget.left -= end < 0 ? window.length : end + 1;
     if (end < 0 || window.slice(0, end).includes('\n')) return null;
     const close = k + end;
     url = text.slice(k + 1, close);
@@ -406,6 +419,7 @@ function parseLink(text: string, start: number): LinkMatch | null {
         parens -= 1;
       }
     }
+    budget.left -= k - begin + 1;
     url = text.slice(begin, k);
   }
   while (text[k] === ' ' || text[k] === '\t') k += 1;
@@ -438,7 +452,12 @@ function pushAll(out: MarkdownInline[], nodes: MarkdownInline[]) {
  * внутри подписи ссылки: ссылки в нём остаются текстом (`<a>` в `<a>` недопустим, а нажатие на
  * вложенную открыло бы обе).
  */
-export function parseInline(text: string, depth = 0, inLink = false): MarkdownInline[] {
+export function parseInline(
+  text: string,
+  depth = 0,
+  inLink = false,
+  budget: ScanBudget = { left: LINK_SCAN_BUDGET },
+): MarkdownInline[] {
   const out: MarkdownInline[] = [];
   const failed = new Map<string, number>();
   let i = 0;
@@ -478,12 +497,12 @@ export function parseInline(text: string, depth = 0, inLink = false): MarkdownIn
     }
     const image = ch === '!' && next === '[';
     if (image || (ch === '[' && !inLink)) {
-      const link = parseLink(text, image ? i + 1 : i);
+      const link = parseLink(text, image ? i + 1 : i, budget);
       if (link) {
         const href = image ? null : safeHref(link.url);
         const children =
           depth < MAX_DEPTH
-            ? parseInline(link.label, depth + 1, inLink || href !== null)
+            ? parseInline(link.label, depth + 1, inLink || href !== null, budget)
             : [{ type: 'text' as const, text: link.label }];
         // Картинка — только подписью (без внешних загрузок); небезопасная ссылка — текстом.
         if (href) out.push({ type: 'link', href, children });
@@ -499,7 +518,7 @@ export function parseInline(text: string, depth = 0, inLink = false): MarkdownIn
         const size = run >= 2 ? 2 : 1;
         const close = findCloser(text, i + size, ch, size, failed);
         if (close > i + size) {
-          const children = parseInline(text.slice(i + size, close), depth + 1, inLink);
+          const children = parseInline(text.slice(i + size, close), depth + 1, inLink, budget);
           out.push(size === 2 ? { type: 'strong', children } : { type: 'em', children });
           i = close + size;
           continue;
