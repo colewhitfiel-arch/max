@@ -17,7 +17,11 @@ export interface BarChartSegment {
 
 export interface BarChartBar {
   key: string;
-  /** Подпись под столбцом (код группы «001»). */
+  /**
+   * Подпись под столбцом (код группы «001»). Не шире шага столбцов — длинная обрезается
+   * многоточием; строка длиннее 5 символов (название группы без кода) раздвигает столбцы
+   * на равные доли ширины, и подпись занимает свою долю.
+   */
   label?: ReactNode;
   tone: BarChartTone;
   /** Части столбца снизу вверх («посетили», затем «пропустили»). */
@@ -64,6 +68,9 @@ export interface BarChartProps extends Omit<
   'aria-label': string;
 }
 
+/** Подписи длиннее — «длинные» (названия групп, а не коды «001»): столбцы раздвигаются. */
+const SHORT_LABEL_LENGTH = 5;
+
 /** Верх оси по умолчанию: максимум, округлённый вверх до десятка (не меньше 10). */
 function tensCeil(value: number): number {
   return Math.max(10, Math.ceil(value / 10) * 10);
@@ -75,6 +82,8 @@ function tensCeil(value: number): number {
  * «пропустили» — тем же цветом темнее), итог над столбцом, подпись под ним, сетка по делениям.
  * Нулевой столбец — пустое место с подписью. Столбцы ужимаются до шага 22px (подпись не
  * слипается с соседней); если и так не помещаются — область прокручивается по горизонтали.
+ * Подпись не шире своего места (многоточие), при длинных подписях столбцы стоят по центру
+ * равных долей ширины — подписи не наезжают друг на друга.
  */
 export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(function BarChart(
   { bars, yTicks, formatTick = String, legend, title, className, 'aria-label': ariaLabel, ...rest },
@@ -96,6 +105,9 @@ export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(function BarCh
   const percent = (value: number) => `${round2(ratio(value, 0, max) * 100)}%`;
   const hasLegend = legend !== undefined && legend.length > 0;
   const hasLabels = bars.some((bar) => bar.label != null && bar.label !== false);
+  const spread = bars.some(
+    (bar) => typeof bar.label === 'string' && [...bar.label].length > SHORT_LABEL_LENGTH,
+  );
 
   return (
     <div
@@ -132,6 +144,7 @@ export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(function BarCh
           role="img"
           aria-label={ariaLabel}
           data-labels={hasLabels || undefined}
+          data-spread={spread || undefined}
         >
           <div
             className="ui-bar-chart__plot"

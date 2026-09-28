@@ -1191,6 +1191,66 @@ function TutorDemo() {
           ],
         }))}
       />
+      <Text variant="caption" tone="muted">
+        BarChart: группы без кода — подписи длиннее 5 символов раздвигают столбцы на равные доли, не
+        влезающая подпись обрезается многоточием
+      </Text>
+      <BarChart
+        title="Посещения"
+        aria-label="Робототехника, группа А: посетили 12, пропустили 3; Python, группа А: посетили 8, пропустили 2"
+        legend={[
+          {
+            key: 'robotics',
+            title: 'Робототехника',
+            tone: 'primary',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+          {
+            key: 'python',
+            title: 'Программирование',
+            tone: 'success',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+        ]}
+        bars={[
+          {
+            key: 'a',
+            label: 'группа А',
+            tone: 'primary',
+            segments: [
+              { key: 'attended', value: 12 },
+              { key: 'missed', value: 3, dim: true },
+            ],
+          },
+          {
+            key: 'b',
+            label: 'Python, группа А',
+            tone: 'success',
+            segments: [
+              { key: 'attended', value: 8 },
+              { key: 'missed', value: 2, dim: true },
+            ],
+          },
+        ]}
+      />
+      <DataTable
+        caption="Домашние задания по группам без кода"
+        columns={[
+          { key: 'group', header: 'Группа', weight: 1.9 },
+          {
+            key: 'correct',
+            header: 'Правильно выполненные дз',
+            align: 'center',
+            weight: 1.6,
+            tone: 'success',
+          },
+          { key: 'done', header: 'Выполненные дз', align: 'center', weight: 1.5, tone: 'primary' },
+        ]}
+        rows={['Робототехника, группа А', 'Python, группа А'].map((group, index) => ({
+          key: group,
+          cells: { group, correct: 3 + index, done: 7 + index },
+        }))}
+      />
       <DataTable
         caption="Домашние задания по группам"
         columns={[
