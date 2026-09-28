@@ -1,4 +1,4 @@
-import { EditIcon, IconButton, MenuIcon, Text } from '@edu/ui';
+import { EditIcon, IconButton, MenuIcon, Screen, Text } from '@edu/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
@@ -58,8 +58,10 @@ export function TutorPage() {
     if (id !== conversationId) navigate(`${TUTOR_PATH}/${id}`);
   };
 
+  // Шапка и чат — одна колонка ровно в высоту области (`fill` + `grow`): пустой чат не
+  // прокручивается на высоту шапки, длинная лента прокручивается под липкими шапкой и полем.
   return (
-    <>
+    <Screen padding="none" gap={0} fill>
       <ScreenHeader
         title={t('tutor.title')}
         subtitle={streaming ? t('tutor.typing') : t('tutor.online')}
@@ -108,6 +110,6 @@ export function TutorPage() {
           if (id === conversationId) navigate(TUTOR_PATH, { replace: true });
         }}
       />
-    </>
+    </Screen>
   );
 }
