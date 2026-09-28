@@ -111,6 +111,8 @@ export class ScheduleMaterializerService {
   async materialize(now: Date = new Date()): Promise<{ created: number }> {
     const rules = await this.prisma.scheduleRule.findMany({
       where: { group: { isActive: true } },
+      // Порядок фиксирован: при пересечении правил двух групп побеждает одно и то же правило.
+      orderBy: [{ groupId: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         groupId: true,
@@ -147,24 +149,54 @@ export class ScheduleMaterializerService {
         startsAt: { lt: to },
         endsAt: { gt: from },
       },
-      select: { startsAt: true, endsAt: true, group: { select: { teacherId: true } } },
+      select: {
+        groupId: true,
+        startsAt: true,
+        endsAt: true,
+        group: { select: { teacherId: true } },
+      },
     });
-    const busy = new Map<string, Array<{ startsAt: Date; endsAt: Date }>>();
+    type Busy = { groupId: string; startsAt: Date; endsAt: Date };
+    const busy = new Map<string, Busy[]>();
     for (const lesson of existing) {
       const teacherId = lesson.group.teacherId;
       busy.set(teacherId, [...(busy.get(teacherId) ?? []), lesson]);
     }
 
     const data: LessonSlot[] = [];
+    // Слоты правил, занятые занятием ДРУГОЙ группы того же преподавателя: правила пересекаются,
+    // и у проигравшей группы занятий не будет — об этом нужно знать (своё занятие — норма).
+    const clashes = new Map<
+      string,
+      { ruleId: string; groupId: string; teacherId: string; skipped: number }
+    >();
     for (const { teacherId, ...slot } of slots.sort(
-      (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+      (a, b) => a.startsAt.getTime() - b.startsAt.getTime() || a.ruleId.localeCompare(b.ruleId),
     )) {
       const taken = busy.get(teacherId) ?? [];
-      if (taken.some((lesson) => overlaps(lesson, slot))) continue;
+      const conflict = taken.find((lesson) => overlaps(lesson, slot));
+      if (conflict) {
+        if (conflict.groupId !== slot.groupId) {
+          const entry = clashes.get(slot.ruleId) ?? {
+            ruleId: slot.ruleId,
+            groupId: slot.groupId,
+            teacherId,
+            skipped: 0,
+          };
+          entry.skipped += 1;
+          clashes.set(slot.ruleId, entry);
+        }
+        continue;
+      }
       taken.push(slot);
       busy.set(teacherId, taken);
       data.push(slot);
     }
+    for (const clash of clashes.values())
+      this.log.warn(
+        clash,
+        'слоты правила заняты занятиями другой группы преподавателя — пропущены',
+      );
     if (data.length === 0) return { created: 0 };
     // Отменённое занятие из правила остаётся в таблице: skipDuplicates не даёт создать его снова.
     const { count } = await this.prisma.lesson.createMany({ data, skipDuplicates: true });
