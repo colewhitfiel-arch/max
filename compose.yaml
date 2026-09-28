@@ -89,8 +89,11 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # По умолчанию только loopback: снаружи стенд открывают через TLS-прокси или туннель на этой
+    # же машине (README, «Хостинг»). Открыть порт наружу напрямую — WEB_BIND=0.0.0.0; тогда
+    # клиенты, пришедшие через docker-proxy (IPv6, rootless), могут подменить X-Forwarded-For.
     ports:
-      - '8080:80'
+      - '${WEB_BIND:-127.0.0.1}:8080:80'
 
 # Отдельный сервис worker не нужен при QUEUE_DRIVER=inline. Если понадобится bullmq:
 # поднять redis, задать QUEUE_DRIVER=bullmq и REDIS_URL=redis://redis:6379 у api и добавить

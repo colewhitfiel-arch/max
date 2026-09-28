@@ -209,8 +209,10 @@ IP клиента для лимитов частоты (вход — `RATE_LIMIT
 сами, nginx — `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`). Иначе все
 пользователи попадут в один счётчик адреса прокси и упрутся в общий лимит входа. Прокси из
 публичной сети в доверенные не входит; если он всё же в ней, добавьте его адрес в
-`set_real_ip_from`. Порт 8080 при внешнем прокси лучше публиковать только на loopback
-(`'127.0.0.1:8080:80'` в `compose.yaml`).
+`set_real_ip_from`. `compose.yaml` публикует порт 8080 только на loopback (`WEB_BIND`, по
+умолчанию `127.0.0.1`): TLS-прокси и туннель на той же машине работают, а напрямую из сети порт
+закрыт. Открыть его наружу без прокси — `WEB_BIND=0.0.0.0` (клиенты, пришедшие через docker-proxy —
+IPv6, rootless Docker, — тогда могут подменить `X-Forwarded-For`).
 
 Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
 свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
