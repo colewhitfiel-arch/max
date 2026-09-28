@@ -27,6 +27,7 @@ export function testEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
       RATE_LIMIT_ENABLED: '',
       RATE_LIMIT_AUTH_PER_MIN: '',
       RATE_LIMIT_LINK_PER_HOUR: '',
+      RATE_LIMIT_LINK_USER_PER_HOUR: '',
       RATE_LIMIT_AI_PER_MIN: '',
       RATE_LIMIT_GENERATION_PER_HOUR: '',
       ...overrides,

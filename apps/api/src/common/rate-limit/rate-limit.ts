@@ -109,12 +109,15 @@ export class RateLimitGuard implements CanActivate {
     const window = Math.floor(nowSec / policy.windowSec);
     const count = await this.kv.incr(`rl:${bucket}:${subject}:${window}`, policy.windowSec);
     // Потолок на пользователя считается с любых адресов: новый IP не даёт новых попыток сверх него.
-    const userCount =
-      policy.userCeiling && req.user
-        ? await this.kv.incr(`rl:${bucket}:user:${req.user.userId}:${window}`, policy.windowSec)
-        : 0;
-    const overCeiling = policy.userCeiling ? userCount > policy.userCeiling(this.env) : false;
-    if (count <= policy.limit(this.env) && !overCeiling) return true;
+    // В него идут только попытки, прошедшие лимит своего адреса, — иначе один посетитель общего
+    // демо-аккаунта, долбящий после 429, выбрал бы потолок за всех.
+    const allowed =
+      count <= policy.limit(this.env) &&
+      (!policy.userCeiling ||
+        !req.user ||
+        (await this.kv.incr(`rl:${bucket}:user:${req.user.userId}:${window}`, policy.windowSec)) <=
+          policy.userCeiling(this.env));
+    if (allowed) return true;
     const retryAfterSec = (window + 1) * policy.windowSec - nowSec;
     http.getResponse<Response>().setHeader('Retry-After', String(retryAfterSec));
     throw Errors.rateLimited('Слишком много запросов — попробуйте чуть позже');

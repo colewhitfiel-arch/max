@@ -165,6 +165,26 @@ describe('RateLimitGuard', () => {
     await link(other, '198.51.100.4').expect(200);
   });
 
+  it('привязка ребёнка: отказы по лимиту адреса не расходуют потолок пользователя', async () => {
+    app = await createApp({
+      RATE_LIMIT_ENABLED: '1',
+      RATE_LIMIT_LINK_PER_HOUR: '1',
+      RATE_LIMIT_LINK_USER_PER_HOUR: '2',
+    });
+    const parent = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000a1' });
+    const link = (ip: string) =>
+      request(app!.getHttpServer())
+        .get('/rl/link')
+        .set('Authorization', parent)
+        .set('X-Forwarded-For', ip);
+
+    // Один посетитель общего демо-аккаунта долбит с одного адреса после 429…
+    await link('198.51.100.1').expect(200);
+    for (let i = 0; i < 5; i += 1) await link('198.51.100.1').expect(429);
+    // …а другой посетитель того же аккаунта со своего адреса ещё может попробовать.
+    await link('198.51.100.2').expect(200);
+  });
+
   it('запуск генерации курса: свой часовой счётчик, отдельный от вызовов ИИ', async () => {
     app = await createApp({
       RATE_LIMIT_ENABLED: '1',
@@ -200,6 +220,7 @@ describe('RateLimitGuard', () => {
       RATE_LIMIT_ENABLED: '1',
       RATE_LIMIT_AUTH_PER_MIN: '1',
       RATE_LIMIT_LINK_PER_HOUR: '1',
+      RATE_LIMIT_LINK_USER_PER_HOUR: '1',
       RATE_LIMIT_AI_PER_MIN: '1',
       RATE_LIMIT_GENERATION_PER_HOUR: '1',
     });
@@ -210,6 +231,7 @@ describe('RateLimitGuard', () => {
       expect(env).toMatchObject({
         RATE_LIMIT_AUTH_PER_MIN: 60,
         RATE_LIMIT_LINK_PER_HOUR: 10,
+        RATE_LIMIT_LINK_USER_PER_HOUR: 50,
         RATE_LIMIT_AI_PER_MIN: 20,
         RATE_LIMIT_GENERATION_PER_HOUR: 10,
       });
