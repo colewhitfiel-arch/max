@@ -125,9 +125,11 @@ export function TutorChat({
         const stopped = result.messageId === null;
         if (stopped) stream.reset();
         await refreshFeed(id, fresh);
+        // Лента нового чата загружена — дальше она с сервера, даже если, пока она грузилась,
+        // ученик уже отправил следующий вопрос: иначе лента осталась бы локальной и пустой.
+        if (fresh) setFreshId(null);
         if (sendIdRef.current !== sendId) return;
         setPendingUserText(null);
-        if (fresh) setFreshId(null);
         if (!stopped) {
           setAnnouncement(result.text);
           stream.reset();
