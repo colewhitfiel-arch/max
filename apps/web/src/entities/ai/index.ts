@@ -1,7 +1,8 @@
 export { aiKeys } from './keys';
 export {
-  useConversations,
+  useConversationHistory,
   useMessages,
+  messagesQueryOptions,
   useCreateConversation,
   useDeleteConversation,
   useParentConversations,

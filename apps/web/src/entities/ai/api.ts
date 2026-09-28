@@ -1,21 +1,35 @@
-import type { AiMessageDto, CompleteOnboardingBody, Paginated } from '@edu/contracts';
+import type {
+  AiMessageDto,
+  CompleteOnboardingBody,
+  ConversationDto,
+  Paginated,
+} from '@edu/contracts';
 import {
   type InfiniteData,
+  infiniteQueryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
-import { queryKeys } from '@/shared/api/query-keys';
 import { useAuthStore } from '@/shared/auth/store';
 import { aiKeys } from './keys';
 
-/** `GET /ai/conversations?kind=TUTOR`. */
-export function useConversations() {
-  return useQuery({
+/**
+ * История чатов с тьютором: `GET /ai/conversations?kind=TUTOR`, свежие сверху (по последнему
+ * сообщению), `fetchNextPage()` подгружает более старые. Чаты без сообщений (созданы, но вопрос
+ * так и не отправлен) в историю не попадают.
+ */
+export function useConversationHistory() {
+  return useInfiniteQuery({
     queryKey: aiKeys.conversations(),
-    queryFn: () => call(api.ai.listConversations({ query: { kind: 'TUTOR' } })),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(api.ai.listConversations({ query: { kind: 'TUTOR', ...cursorQuery(pageParam) } })),
+    getNextPageParam: (page) => page.nextCursor,
+    select: (data): ConversationDto[] =>
+      data.pages.flatMap((page) => page.items).filter((item) => item.lastMessageAt !== null),
   });
 }
 
@@ -28,15 +42,17 @@ const chatFeed = (data: InfiniteData<Paginated<AiMessageDto>>): ChatFeed => ({
   items: [...data.pages].reverse().flatMap((page) => page.items),
 });
 
-const cursorQuery = (cursor: string | undefined) => (cursor ? { cursor } : {});
+function cursorQuery(cursor: string | undefined) {
+  return cursor ? { cursor } : {};
+}
 
 /**
- * `GET /ai/conversations/:id/messages` — лента с конца: первая страница — последние сообщения,
- * `fetchNextPage()` подгружает более старые (они встают в начало `data.items`). Инвалидация
- * после ответа перезапрашивает загруженные страницы — новое сообщение появляется в конце.
+ * Запрос ленты диалога (без `select`): общий для `useMessages` и предзагрузки
+ * (`queryClient.prefetchInfiniteQuery(messagesQueryOptions(id))`) — новый чат грузит ленту
+ * заранее, до того как начнёт показывать её с сервера.
  */
-export function useMessages(conversationId: string) {
-  return useInfiniteQuery({
+export function messagesQueryOptions(conversationId: string) {
+  return infiniteQueryOptions({
     queryKey: aiKeys.messages(conversationId),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
@@ -47,26 +63,49 @@ export function useMessages(conversationId: string) {
         }),
       ),
     getNextPageParam: (page) => page.nextCursor,
-    select: chatFeed,
   });
 }
 
-/** `POST /ai/conversations { kind: 'TUTOR' }`. */
+/**
+ * `GET /ai/conversations/:id/messages` — лента с конца: первая страница — последние сообщения,
+ * `fetchNextPage()` подгружает более старые (они встают в начало `data.items`). Инвалидация
+ * после ответа перезапрашивает загруженные страницы — новое сообщение появляется в конце.
+ * `enabled: false` — ленту пока не запрашивать (новый чат ещё ждёт первый ответ).
+ */
+export function useMessages(
+  conversationId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  return useInfiniteQuery({
+    ...messagesQueryOptions(conversationId),
+    select: chatFeed,
+    enabled,
+  });
+}
+
+/**
+ * `POST /ai/conversations { kind: 'TUTOR' }`. Перезапрашивается только история (`exact`):
+ * ключи лент лежат под тем же префиксом, их трогать незачем.
+ */
 export function useCreateConversation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => call(api.ai.createConversation({ body: { kind: 'TUTOR' } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: aiKeys.conversations() }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: aiKeys.conversations(), exact: true }),
   });
 }
 
-/** `DELETE /ai/conversations/:id`. */
+/** `DELETE /ai/conversations/:id`: история перезапрашивается, лента удалённого чата — из кэша. */
 export function useDeleteConversation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (conversationId: string) =>
       call(api.ai.deleteConversation({ params: { conversationId } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai }),
+    onSuccess: (_result, conversationId) => {
+      queryClient.removeQueries({ queryKey: aiKeys.messages(conversationId) });
+      return queryClient.invalidateQueries({ queryKey: aiKeys.conversations(), exact: true });
+    },
   });
 }
 

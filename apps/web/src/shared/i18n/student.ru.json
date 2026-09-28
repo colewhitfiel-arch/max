@@ -51,7 +51,22 @@
     "stop": "Остановить",
     "online": "онлайн",
     "typing": "печатает…",
-    "thinking": "Тьютор печатает…"
+    "thinking": "Тьютор печатает…",
+    "newChat": "Новый чат",
+    "history": "История чатов",
+    "historyEmpty": "Здесь появятся твои чаты",
+    "historyEmptyHint": "Задай вопрос тьютору — чат сохранится, и к нему можно будет вернуться",
+    "historyToday": "Сегодня",
+    "historyYesterday": "Вчера",
+    "historyWeek": "Последние 7 дней",
+    "historyEarlier": "Ранее",
+    "historyMore": "Показать ещё",
+    "untitled": "Чат без названия",
+    "delete": "Удалить чат «{{title}}»",
+    "deleteTitle": "Удалить чат?",
+    "deleteHint": "«{{title}}» и все его сообщения удалятся без возможности восстановления.",
+    "deleteConfirm": "Удалить",
+    "deleted": "Чат удалён"
   },
   "courses": {
     "title": "Курсы",

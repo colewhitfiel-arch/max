@@ -50,7 +50,22 @@
     "stop": "Stop",
     "online": "online",
     "typing": "typing…",
-    "thinking": "Tutor is typing…"
+    "thinking": "Tutor is typing…",
+    "newChat": "New chat",
+    "history": "Chat history",
+    "historyEmpty": "Your chats will appear here",
+    "historyEmptyHint": "Ask the tutor a question — the chat is saved and you can come back to it",
+    "historyToday": "Today",
+    "historyYesterday": "Yesterday",
+    "historyWeek": "Previous 7 days",
+    "historyEarlier": "Earlier",
+    "historyMore": "Show more",
+    "untitled": "Untitled chat",
+    "delete": "Delete chat “{{title}}”",
+    "deleteTitle": "Delete chat?",
+    "deleteHint": "“{{title}}” and all its messages will be deleted permanently.",
+    "deleteConfirm": "Delete",
+    "deleted": "Chat deleted"
   },
   "courses": {
     "title": "Courses",
