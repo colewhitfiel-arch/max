@@ -129,6 +129,41 @@ describe('parseMarkdown: блоки', () => {
     ]);
   });
 
+  it('заголовок: закрывающие «#» — только после пробела; ``` с «`» в строке — не код, ~~~ — код', () => {
+    expect(parseMarkdown('## C#\n# a ## ##  \n# ###\n```js `x`\n~~~ Py `x`\nкод\n~~~')).toEqual([
+      { type: 'heading', level: 2, children: [{ type: 'text', text: 'C#' }] },
+      { type: 'heading', level: 1, children: [{ type: 'text', text: 'a ##' }] },
+      {
+        type: 'paragraph',
+        children: [
+          { type: 'text', text: '```js ' },
+          { type: 'code', text: 'x' },
+        ],
+      },
+      { type: 'code', language: 'py', text: 'код' },
+    ]);
+  });
+
+  it('длинные строки-ловушки для заголовка и ограждения разбираются за линейное время', () => {
+    // Прежние регулярки перебирали разбиения строки: 50 тыс. символов — секунды, 100 тыс. — десятки.
+    const n = 100_000;
+    // Строка-ловушка и её разбор: отдельно и второй строкой абзаца (проверка «начинает ли блок»).
+    const traps: [string, string[], string[]][] = [
+      [`# a${' \t'.repeat(n / 2)}x`, ['heading'], ['paragraph', 'heading']],
+      [`# a${' '.repeat(n)}x`, ['heading'], ['paragraph', 'heading']],
+      [`\`\`\`x${'a'.repeat(n)}\``, ['paragraph'], ['paragraph']],
+      [`\`\`\`${' '.repeat(n)}\``, ['paragraph'], ['paragraph']],
+    ];
+    const types = (source: string) => parseMarkdown(source).map((block) => block.type);
+    for (const [trap, alone, afterText] of traps) {
+      const started = performance.now();
+      expect(types(trap)).toEqual(alone);
+      expect(types(`текст\n${trap}`)).toEqual(afterText);
+      // С запасом на медленный CI: линейный разбор укладывается в миллисекунды.
+      expect(performance.now() - started).toBeLessThan(1000);
+    }
+  });
+
   it('глубокая вложенность цитат и выделений не роняет разбор', () => {
     expect(() => parseMarkdown(`${'>'.repeat(5000)} x`)).not.toThrow();
     expect(() => parseInline(`${'*_'.repeat(3000)}x${'_*'.repeat(3000)}`)).not.toThrow();
@@ -213,6 +248,36 @@ describe('parseInline: строчная разметка', () => {
         href: 'https://ru.wikipedia.org/wiki/Arduino_(%D0%BF%D0%BB%D0%B0%D1%82%D1%84%D0%BE%D1%80%D0%BC%D0%B0)',
         children: [{ type: 'strong', children: [{ type: 'text', text: 'Вики' }] }],
       },
+    ]);
+  });
+
+  it('ссылки внутри подписи ссылки остаются текстом — <a> в <a> не бывает', () => {
+    expect(parseInline('[[a](https://x.ru)](https://y.ru)')).toEqual([
+      {
+        type: 'link',
+        href: 'https://y.ru/',
+        children: [{ type: 'text', text: '[a](https://x.ru)' }],
+      },
+    ]);
+    expect(parseInline('[см. <https://x.ru> и **[b](https://z.ru)**](https://y.ru)')).toEqual([
+      {
+        type: 'link',
+        href: 'https://y.ru/',
+        children: [
+          { type: 'text', text: 'см. <https://x.ru> и ' },
+          { type: 'strong', children: [{ type: 'text', text: '[b](https://z.ru)' }] },
+        ],
+      },
+    ]);
+    // Картинка в ссылке — подписью; у небезопасной ссылки (она — текст) вложенная остаётся ссылкой.
+    expect(
+      parseInline(
+        '[![логотип](https://x.ru/a.png)](https://y.ru) [[a](https://x.ru)](javascript:x)',
+      ),
+    ).toEqual([
+      { type: 'link', href: 'https://y.ru/', children: [{ type: 'text', text: 'логотип' }] },
+      { type: 'text', text: ' ' },
+      { type: 'link', href: 'https://x.ru/', children: [{ type: 'text', text: 'a' }] },
     ]);
   });
 

@@ -124,11 +124,6 @@
     "LIGHT": "Light",
     "DARK": "Dark"
   },
-  "locale": {
-    "label": "Language",
-    "ru": "Русский",
-    "en": "English"
-  },
   "account": {
     "settingsError": "Failed to save settings"
   },
@@ -166,8 +161,6 @@
   "settings": {
     "appearance": "Appearance",
     "theme": "Theme",
-    "language": "Language",
-    "languageSheet": "App language",
     "notifications": "Notifications",
     "notificationsUnavailable": "Notification settings are coming soon",
     "notify": {

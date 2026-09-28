@@ -91,7 +91,7 @@ export function ParentSettingsPage() {
       <Screen gap={5}>
         <ProfileCard to="/parent/profile" />
         <FamilySettings />
-        <AppearanceSettings showLanguage={false} />
+        <AppearanceSettings />
         <AccountSettings />
         <LogoutButton showAbout={false} />
       </Screen>

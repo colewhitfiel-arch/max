@@ -8,7 +8,7 @@ import { ToastProvider } from '@edu/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, http } from 'msw';
+import { delay, getResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -85,38 +85,71 @@ describe('TutorPage', () => {
     expect(within(drawer).getByText('Что мне сделать сегодня?')).toBeInTheDocument();
   });
 
-  it('второй вопрос, пока грузится лента после первого ответа: чат не пустеет', async () => {
-    // Лента диалога приходит с задержкой — второй вопрос уходит, пока она ещё грузится.
+  it('новый чат: пока после первого ответа грузится лента, второй вопрос не уходит; потом — уходит', async () => {
+    // Как настоящий сервер: лента собирается в момент запроса, а отдаётся, когда тест откроет
+    // ворота. Запрос ленты, пришедший раньше второго вопроса, второго вопроса не знает.
+    let openFeed!: () => void;
+    const feedGate = new Promise<void>((resolve) => {
+      openFeed = resolve;
+    });
+    let feedRequests = 0;
     server.use(
-      http.get(apiUrl('/ai/conversations/:conversationId/messages'), async () => {
-        await delay(1500);
+      http.get(apiUrl('/ai/conversations/:conversationId/messages'), async ({ request }) => {
+        feedRequests += 1;
+        const response = await getResponse(handlers, request.clone());
+        await feedGate;
+        return response;
       }),
     );
     const user = userEvent.setup();
     renderTutor();
     await screen.findByText(/Привет, Алексей!/, {}, WAIT);
     const input = screen.getByRole('textbox', { name: 'Сообщение' });
+    const sendButton = () => screen.getByRole('button', { name: 'Отправить' });
 
     await user.type(input, 'Первый вопрос');
-    await user.click(screen.getByRole('button', { name: 'Отправить' }));
-    // Первый ответ дописан: поле снова принимает вопрос, а лента с сервера ещё не пришла.
+    await user.click(sendButton());
+    // Первый ответ дописан, лента нового чата запрошена и ещё не пришла.
     await screen.findByText(/покажу пример из твоего курса/, {}, WAIT);
+    await waitFor(() => expect(feedRequests).toBe(1), WAIT);
     await waitFor(
       () => expect(screen.queryByRole('button', { name: 'Остановить' })).not.toBeInTheDocument(),
       WAIT,
     );
 
-    await user.type(input, 'Второй вопрос');
-    await user.click(screen.getByRole('button', { name: 'Отправить' }));
-
-    // В ленте оба вопроса и оба ответа; приветствие пустого чата не вернулось.
-    await waitFor(() => {
-      expect(screen.getByText('Первый вопрос')).toBeInTheDocument();
-      expect(screen.getByText('Второй вопрос')).toBeInTheDocument();
-      expect(screen.getAllByRole('group', { name: 'Тьютор' })).toHaveLength(2);
-    }, WAIT);
+    // Промежуточное состояние: вопрос и ответ на месте, приветствия нет, поле занято —
+    // набрать можно, отправить нельзя (ни кнопкой, ни Enter), остановить нечего.
+    expect(screen.getByText('Первый вопрос')).toBeInTheDocument();
     expect(screen.queryByText(/Привет, Алексей!/)).not.toBeInTheDocument();
-    // Два стрима и задержанные ленты — дольше стандартных 5 с.
+    await user.type(input, 'Второй вопрос');
+    expect(sendButton()).toHaveAttribute('aria-busy', 'true');
+    expect(sendButton()).toBeDisabled();
+    await user.keyboard('{Enter}');
+    expect(input).toHaveValue('Второй вопрос');
+    expect(screen.getAllByRole('group', { name: 'Ты' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Остановить' })).not.toBeInTheDocument();
+
+    // Лента пришла — чат уже с сервера, поле свободно.
+    openFeed();
+    await waitFor(() => expect(sendButton()).not.toHaveAttribute('aria-busy'), WAIT);
+    expect(sendButton()).toBeEnabled();
+    expect(screen.getByText('Первый вопрос')).toBeInTheDocument();
+    expect(screen.getAllByRole('group', { name: 'Тьютор' })).toHaveLength(1);
+
+    await user.click(sendButton());
+
+    // В ленте оба вопроса и оба ответа — с сервера; приветствие пустого чата не вернулось.
+    await waitFor(() => {
+      expect(screen.getAllByRole('group', { name: 'Ты' })).toHaveLength(2);
+      expect(screen.getAllByRole('group', { name: 'Тьютор' })).toHaveLength(2);
+      expect(sendButton()).not.toHaveAttribute('aria-busy');
+    }, WAIT);
+    expect(screen.getByText('Первый вопрос')).toBeInTheDocument();
+    expect(screen.getByText('Второй вопрос')).toBeInTheDocument();
+    expect(input).toHaveValue('');
+    expect(screen.queryByText(/Привет, Алексей!/)).not.toBeInTheDocument();
+    expect(feedRequests).toBeGreaterThanOrEqual(2);
+    // Два стрима — дольше стандартных 5 с.
   }, 20_000);
 
   it('пока новый чат создаётся, «Остановить» нет — только индикатор; во время ответа есть', async () => {

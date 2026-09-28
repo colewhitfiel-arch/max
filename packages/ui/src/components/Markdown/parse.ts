@@ -1,7 +1,8 @@
 /**
  * Разбор безопасного подмножества Markdown в дерево без HTML: заголовки `#`…`###`, абзацы,
  * `**жирный**`, `*курсив*`, `` `код` ``, блоки кода ```` ``` ````, маркированные и нумерованные
- * списки (с вложенностью), цитаты `>`, линия `---`, ссылки `[текст](https://…)` и `<https://…>`.
+ * списки (с вложенностью), цитаты `>`, линия `---`, ссылки `[текст](https://…)` и `<https://…>`
+ * (без ссылок внутри подписи ссылки).
  * Дерево рендерится React-элементами (текст экранирует React): сырой HTML остаётся текстом,
  * ссылки — только http(s), картинки — только подписью (`alt`). Без зависимостей.
  */
@@ -42,9 +43,12 @@ const MAX_DEPTH = 8;
 const MAX_LINK_LABEL = 1000;
 const MAX_LINK_URL = 2048;
 
-const FENCE = /^(\s*)(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/;
+// Регулярки блоков — без вложенных квантификаторов с перекрытием: текст ИИ и преподавателя не
+// ограничен по длине, и строка в сотню тысяч символов не должна разбираться квадратично.
+// Остаток строки ограждения и заголовка разбирается вручную (fenceOf, headingOf).
+const FENCE = /^(\s*)(`{3,}|~{3,})([\s\S]*)$/;
 const FENCE_CLOSE = /^\s*(`{3,}|~{3,})[ \t]*$/;
-const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
+const HEADING_OPEN = /^ {0,3}(#{1,6})(?=[ \t]|$)/;
 const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const QUOTE = /^ {0,3}> ?(.*)$/;
 const ITEM = /^([ \t]*)([-*+]|(\d{1,9})[.)])[ \t]+(\S.*)$/;
@@ -95,14 +99,45 @@ function matchItem(line: string): ItemMatch | null {
   };
 }
 
-/** Строка начинает другой блок (прерывает абзац или пункт списка). */
-function startsBlock(line: string): boolean {
-  return FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line);
+interface FenceMatch {
+  /** Отступ открывающей строки: снимается со строк тела. */
+  indent: number;
+  marker: string;
+  language: string;
 }
 
-function parseFence(lines: string[], start: number, m: RegExpExecArray) {
-  const indent = (m[1] ?? '').length;
-  const marker = m[2] ?? '```';
+/** Открывающая строка блока кода: ``` или ~~~ (от трёх) и язык. После ``` в строке нет «`». */
+function fenceOf(line: string): FenceMatch | null {
+  const m = FENCE.exec(line);
+  if (!m) return null;
+  const marker = m[2]!;
+  const info = m[3]!.trim();
+  if (marker[0] === '`' && info.includes('`')) return null;
+  return { indent: m[1]!.length, marker, language: /^\S*/.exec(info)![0].toLowerCase() };
+}
+
+const isSpaceOrTab = (ch: string | undefined) => ch === ' ' || ch === '\t';
+
+/** Заголовок `#`…`######`: уровень и текст без закрывающей серии `#` и пробелов по краям. */
+function headingOf(line: string): { level: number; text: string } | null {
+  const m = HEADING_OPEN.exec(line);
+  if (!m) return null;
+  const start = m[0].length;
+  let end = line.length;
+  while (end > start && isSpaceOrTab(line[end - 1])) end -= 1;
+  let hashes = end;
+  while (hashes > start && line[hashes - 1] === '#') hashes -= 1;
+  // Закрывающая серия «#» отделена пробелом, иначе это часть текста («C#»).
+  if (hashes < end && isSpaceOrTab(line[hashes - 1])) end = hashes;
+  return { level: m[1]!.length, text: line.slice(start, end).trim() };
+}
+
+/** Строка начинает другой блок (прерывает абзац или пункт списка). */
+function startsBlock(line: string): boolean {
+  return fenceOf(line) !== null || HEADING_OPEN.test(line) || RULE.test(line) || QUOTE.test(line);
+}
+
+function parseFence(lines: string[], start: number, { indent, marker, language }: FenceMatch) {
   const body: string[] = [];
   let i = start + 1;
   for (; i < lines.length; i += 1) {
@@ -114,11 +149,7 @@ function parseFence(lines: string[], start: number, m: RegExpExecArray) {
     }
     body.push(stripIndent(line, indent));
   }
-  const block: MarkdownBlock = {
-    type: 'code',
-    language: (m[3] ?? '').toLowerCase(),
-    text: body.join('\n'),
-  };
+  const block: MarkdownBlock = { type: 'code', language, text: body.join('\n') };
   return { block, next: i };
 }
 
@@ -189,17 +220,17 @@ function parseBlocks(lines: string[], depth: number): MarkdownBlock[] {
       i += 1;
       continue;
     }
-    const fence = FENCE.exec(line);
+    const fence = fenceOf(line);
     if (fence) {
       const result = parseFence(lines, i, fence);
       blocks.push(result.block);
       i = result.next;
       continue;
     }
-    const heading = HEADING.exec(line);
+    const heading = headingOf(line);
     if (heading) {
-      const text = (heading[2] ?? '').trim();
-      const level = Math.min((heading[1] ?? '#').length, 3) as 1 | 2 | 3;
+      const { text } = heading;
+      const level = Math.min(heading.level, 3) as 1 | 2 | 3;
       if (text) blocks.push({ type: 'heading', level, children: parseInline(text) });
       i += 1;
       continue;
@@ -402,8 +433,12 @@ function pushAll(out: MarkdownInline[], nodes: MarkdownInline[]) {
   }
 }
 
-/** Строчная разметка абзаца или пункта: выделение, код, ссылки, переносы строк. */
-export function parseInline(text: string, depth = 0): MarkdownInline[] {
+/**
+ * Строчная разметка абзаца или пункта: выделение, код, ссылки, переносы строк. `inLink` — текст
+ * внутри подписи ссылки: ссылки в нём остаются текстом (`<a>` в `<a>` недопустим, а нажатие на
+ * вложенную открыло бы обе).
+ */
+export function parseInline(text: string, depth = 0, inLink = false): MarkdownInline[] {
   const out: MarkdownInline[] = [];
   const failed = new Map<string, number>();
   let i = 0;
@@ -432,7 +467,7 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
       }
       continue;
     }
-    if (ch === '<') {
+    if (ch === '<' && !inLink) {
       const auto = /^<(https?:\/\/[^\s<>]+)>/i.exec(text.slice(i, i + 2048));
       const href = auto ? safeHref(auto[1]!) : null;
       if (auto && href) {
@@ -442,14 +477,14 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
       }
     }
     const image = ch === '!' && next === '[';
-    if (ch === '[' || image) {
+    if (image || (ch === '[' && !inLink)) {
       const link = parseLink(text, image ? i + 1 : i);
       if (link) {
+        const href = image ? null : safeHref(link.url);
         const children =
           depth < MAX_DEPTH
-            ? parseInline(link.label, depth + 1)
+            ? parseInline(link.label, depth + 1, inLink || href !== null)
             : [{ type: 'text' as const, text: link.label }];
-        const href = image ? null : safeHref(link.url);
         // Картинка — только подписью (без внешних загрузок); небезопасная ссылка — текстом.
         if (href) out.push({ type: 'link', href, children });
         else pushAll(out, children);
@@ -464,7 +499,7 @@ export function parseInline(text: string, depth = 0): MarkdownInline[] {
         const size = run >= 2 ? 2 : 1;
         const close = findCloser(text, i + size, ch, size, failed);
         if (close > i + size) {
-          const children = parseInline(text.slice(i + size, close), depth + 1);
+          const children = parseInline(text.slice(i + size, close), depth + 1, inLink);
           out.push(size === 2 ? { type: 'strong', children } : { type: 'em', children });
           i = close + size;
           continue;

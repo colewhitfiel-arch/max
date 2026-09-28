@@ -75,6 +75,26 @@ describe('Markdown', () => {
     expect(onLinkClick).toHaveBeenCalledWith('https://arduino.cc/ru');
   });
 
+  it('ссылка в подписи ссылки — текстом: одна <a>, нажатие открывает один адрес', async () => {
+    const user = userEvent.setup();
+    const onLinkClick = vi.fn();
+    const { container } = render(
+      <Markdown
+        source="[[внутренняя](https://x.ru) и <https://z.ru>](https://y.ru)"
+        onLinkClick={onLinkClick}
+      />,
+    );
+    expect(container.querySelectorAll('a')).toHaveLength(1);
+    const link = screen.getByRole('link', {
+      name: '[внутренняя](https://x.ru) и <https://z.ru>',
+    });
+    expect(link).toHaveAttribute('href', 'https://y.ru/');
+
+    await user.click(link);
+    expect(onLinkClick).toHaveBeenCalledTimes(1);
+    expect(onLinkClick).toHaveBeenCalledWith('https://y.ru/');
+  });
+
   it('небезопасное не выполняется: HTML — текстом, javascript: и картинки — без ссылок', () => {
     const source =
       '<img src=x onerror="alert(1)"> <script>alert(2)</script>\n\n' +
