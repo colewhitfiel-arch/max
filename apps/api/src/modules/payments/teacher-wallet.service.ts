@@ -11,6 +11,7 @@ import type {
 } from '@edu/contracts';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
+import { runIdempotent } from '../../common/kv/idempotency';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { GroupsService } from '../groups/groups.service';
@@ -81,7 +82,8 @@ export class TeacherWalletService {
    * Вывод средств — заглушка до выплат через провайдера (docs/07 F17): сумма списывается
    * сразу, но никуда не уходит. С настоящим провайдером ручка выключена: иначе преподаватель
    * увидел бы «выведено» там, где денег не переводили.
-   * `Idempotency-Key` защищает от двойного списания при повторе запроса.
+   * `Idempotency-Key` защищает от двойного списания при повторе запроса (ключ занимается
+   * атомарно до списания — и для параллельных запросов).
    */
   async withdraw(
     user: AuthUser,
@@ -92,31 +94,35 @@ export class TeacherWalletService {
     if (this.provider.name !== 'fake')
       throw Errors.notImplemented('Вывод средств через провайдера');
     const key = `wallet:withdraw:${teacherId}:${idempotencyKey}`;
-    const replay = await this.kv.get<TeacherWithdrawal>(key);
-    if (replay) return replay;
-
-    const balance = await this.repo.teacherBalance(teacherId);
-    if (body.amountKopecks > balance)
-      throw Errors.businessRule('Сумма вывода больше баланса', { balanceKopecks: balance });
-    const created = await this.repo.createWithdrawal(
-      teacherId,
-      body.amountKopecks,
-      'RUB',
-      new Date(),
-    );
-    const result: TeacherWithdrawal = {
-      balance: { amountKopecks: balance - body.amountKopecks, currency: 'RUB' },
-      transaction: {
-        id: created.id,
-        kind: 'WITHDRAWAL',
-        amount: { amountKopecks: body.amountKopecks, currency: 'RUB' },
-        at: created.at.toISOString(),
-        group: null,
-        student: null,
+    const { value: result, replayed } = await runIdempotent(
+      this.kv,
+      key,
+      WITHDRAW_REPLAY_TTL_SEC,
+      async (): Promise<TeacherWithdrawal> => {
+        const balance = await this.repo.teacherBalance(teacherId);
+        if (body.amountKopecks > balance)
+          throw Errors.businessRule('Сумма вывода больше баланса', { balanceKopecks: balance });
+        const created = await this.repo.createWithdrawal(
+          teacherId,
+          body.amountKopecks,
+          'RUB',
+          new Date(),
+        );
+        return {
+          balance: { amountKopecks: balance - body.amountKopecks, currency: 'RUB' },
+          transaction: {
+            id: created.id,
+            kind: 'WITHDRAWAL',
+            amount: { amountKopecks: body.amountKopecks, currency: 'RUB' },
+            at: created.at.toISOString(),
+            group: null,
+            student: null,
+          },
+        };
       },
-    };
-    await this.kv.set(key, result, WITHDRAW_REPLAY_TTL_SEC);
-    this.log.info({ teacherId, amountKopecks: body.amountKopecks }, 'вывод с кошелька');
+    );
+    if (!replayed)
+      this.log.info({ teacherId, amountKopecks: body.amountKopecks }, 'вывод с кошелька');
     return result;
   }
 
