@@ -97,7 +97,7 @@ Enum'ы, сущности (`entities/`), схемы блоков (`blocks/`), п
 
 ## 14. Configuration
 
-Один корневой `.env` (шаблон `.env.example`, `pnpm env:init`). Переменные сгруппированы: общее, backend, БД, очереди, auth, MAX, GigaChat, storage, платежи, frontend (`VITE_*`). Обязательность зависит от выбранных драйверов (например, `REDIS_URL` при `QUEUE_DRIVER=bullmq`); в `APP_ENV=production` запрещены dev-секрет, dev-вход и пустой CORS. Vite читает корневой `.env` (`envDir`).
+Один корневой `.env` (шаблон `.env.example`, `pnpm env:init`). Переменные сгруппированы: общее, backend, БД, очереди, auth, MAX, GigaChat, storage, платежи, frontend (`VITE_*`). Обязательность зависит от выбранных драйверов (например, `REDIS_URL` при `QUEUE_DRIVER=bullmq`); вне `APP_ENV=development` запрещён dev-секрет JWT, а пустой `CORS_ORIGINS` выключает CORS (любой origin — только в development); в `APP_ENV=production` запрещены ещё dev-вход и пустой CORS. Vite читает корневой `.env` (`envDir`).
 
 ## 15. Logging
 

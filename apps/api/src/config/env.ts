@@ -130,12 +130,15 @@ export const envSchema = z
       'YOOKASSA_SHOP_ID',
       'при PAYMENT_PROVIDER=yookassa нужны YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY',
     );
+    // Секрет из .env.example знает каждый: им можно подписать любой токен. Публичный стенд
+    // работает с APP_ENV=staging (ADR-014), поэтому запрет — везде, кроме development.
+    need(
+      env.APP_ENV !== 'development' && env.JWT_SECRET === DEV_JWT_SECRET,
+      'JWT_SECRET',
+      `в ${env.APP_ENV} нельзя использовать dev-секрет`,
+    );
+    // Заглушки ИИ/оплаты и dev-вход на staging допустимы (ADR-014) — запрещены только в production.
     if (env.APP_ENV === 'production') {
-      need(
-        env.JWT_SECRET === DEV_JWT_SECRET,
-        'JWT_SECRET',
-        'в production нельзя использовать dev-секрет',
-      );
       need(env.AUTH_PROVIDER === 'dev', 'AUTH_PROVIDER', 'в production dev-вход запрещён');
       need(env.CORS_ORIGINS.length === 0, 'CORS_ORIGINS', 'в production нужен явный список origin');
       // Заглушка платежей отмечает оплату прошедшей, не получив денег, — в production это дыра.
