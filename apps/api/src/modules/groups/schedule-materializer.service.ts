@@ -174,9 +174,10 @@ export class ScheduleMaterializerService {
       (a, b) => a.startsAt.getTime() - b.startsAt.getTime() || a.ruleId.localeCompare(b.ruleId),
     )) {
       const taken = busy.get(teacherId) ?? [];
-      const conflict = taken.find((lesson) => overlaps(lesson, slot));
-      if (conflict) {
-        if (conflict.groupId !== slot.groupId) {
+      const conflicts = taken.filter((lesson) => overlaps(lesson, slot));
+      if (conflicts.length > 0) {
+        // Своё занятие группы в слоте — норма (уже создано или разовое); конфликт — только чужое.
+        if (!conflicts.some((lesson) => lesson.groupId === slot.groupId)) {
           const entry = clashes.get(slot.ruleId) ?? {
             ruleId: slot.ruleId,
             groupId: slot.groupId,
