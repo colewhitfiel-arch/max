@@ -216,65 +216,71 @@ export class TutorService {
     const { conversation, sink, prompt } = turn;
     const question = turn.text.trim().slice(0, MAX_MESSAGE_CHARS);
     if (!question) throw Errors.validation('Пустое сообщение');
-    const limitKey = await this.enforceDailyLimit(turn.userId);
-
-    const vars = await turn.vars();
-    const history: AiChatMessage[] = (
-      await this.repo.recentMessages(conversation.id, HISTORY_LIMIT)
-    ).map((m) => ({ role: m.role === 'ASSISTANT' ? 'assistant' : 'user', content: m.content }));
-    await this.repo.addMessage({
-      conversationId: conversation.id,
-      role: 'USER',
-      content: question,
-      titleIfEmpty: question.slice(0, 60),
-    });
-    history.push({ role: 'user', content: question });
-
-    const request = buildRequest(prompt, vars, {
-      history,
-      metadata: { userId: turn.userId },
-      signal: sink.signal,
-    });
-
-    let answer = '';
-    let failed = false;
-    for await (const chunk of this.ai.stream(request)) {
-      if (chunk.type === 'token') {
-        answer += chunk.text;
-        sink.write({ type: 'token', text: chunk.text });
-      } else if (chunk.type === 'error') {
-        failed = true;
-        sink.write({
-          type: 'error',
-          code: 'EXTERNAL_INTEGRATION',
-          message: turn.unavailableMessage,
-        });
-      }
-    }
-    if (sink.signal.aborted && !answer) return null;
-    if (!failed || answer) {
-      // Попытка списывается только за состоявшийся ответ: сбой модели лимит не тратит
-      await this.kv.incr(limitKey, LIMIT_TTL_SEC);
-      const saved = await this.repo.addMessage({
+    const limitKey = await this.reserveDailyLimit(turn.userId);
+    // Попытка списывается только за состоявшийся ответ: сбой модели, ошибка или уход клиента
+    // до первого токена возвращают резерв в лимит
+    let charged = false;
+    try {
+      const vars = await turn.vars();
+      const history: AiChatMessage[] = (
+        await this.repo.recentMessages(conversation.id, HISTORY_LIMIT)
+      ).map((m) => ({ role: m.role === 'ASSISTANT' ? 'assistant' : 'user', content: m.content }));
+      await this.repo.addMessage({
         conversationId: conversation.id,
-        role: 'ASSISTANT',
-        content: answer || '…',
-        promptId: prompt.key,
+        role: 'USER',
+        content: question,
+        titleIfEmpty: question.slice(0, 60),
       });
-      if (!failed) sink.write({ type: 'done', messageId: saved.id });
+      history.push({ role: 'user', content: question });
+
+      const request = buildRequest(prompt, vars, {
+        history,
+        metadata: { userId: turn.userId },
+        signal: sink.signal,
+      });
+
+      let answer = '';
+      let failed = false;
+      for await (const chunk of this.ai.stream(request)) {
+        if (chunk.type === 'token') {
+          answer += chunk.text;
+          sink.write({ type: 'token', text: chunk.text });
+        } else if (chunk.type === 'error') {
+          failed = true;
+          sink.write({
+            type: 'error',
+            code: 'EXTERNAL_INTEGRATION',
+            message: turn.unavailableMessage,
+          });
+        }
+      }
+      if (sink.signal.aborted && !answer) return null;
+      if (!failed || answer) {
+        charged = true;
+        const saved = await this.repo.addMessage({
+          conversationId: conversation.id,
+          role: 'ASSISTANT',
+          content: answer || '…',
+          promptId: prompt.key,
+        });
+        if (!failed) sink.write({ type: 'done', messageId: saved.id });
+      }
+      return { chars: answer.length, failed };
+    } finally {
+      if (!charged) await this.kv.decr(limitKey).catch(() => undefined);
     }
-    return { chars: answer.length, failed };
   }
 
   /**
-   * Проверка дневного лимита (день — по LIMIT_TIMEZONE). Сам учёт — после ответа модели
-   * (`kv.incr` в runTurn); параллельные запросы могут чуть превысить лимит — для дневного
-   * бюджета это допустимо. Возвращает ключ счётчика.
+   * Дневной лимит (день — по LIMIT_TIMEZONE): попытка резервируется атомарным `incr` до вызова
+   * модели, поэтому параллельные запросы не проходят сверх лимита. Отказ возвращает резерв
+   * (`decr`), несостоявшийся ход — тоже (runTurn). Возвращает ключ счётчика.
    */
-  private async enforceDailyLimit(userId: string): Promise<string> {
+  private async reserveDailyLimit(userId: string): Promise<string> {
     const key = `ai:tutor:${userId}:${toDateOnly(LIMIT_TIMEZONE)}`;
-    const used = Number((await this.kv.get<number | string>(key)) ?? 0);
-    if (used >= this.env.AI_TUTOR_DAILY_LIMIT) {
+    const used = await this.kv.incr(key, LIMIT_TTL_SEC);
+    if (used > this.env.AI_TUTOR_DAILY_LIMIT) {
+      await this.kv.decr(key).catch(() => undefined);
       throw Errors.rateLimited('Лимит сообщений тьютору на сегодня исчерпан — продолжим завтра');
     }
     return key;
