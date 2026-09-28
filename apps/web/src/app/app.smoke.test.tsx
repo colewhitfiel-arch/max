@@ -6,9 +6,9 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import '@/shared/i18n';
+import { i18n, setLanguage } from '@/shared/i18n';
 import { handlers } from '@/test/fake-api/handlers';
-import { resetMockDb } from '@/test/fake-api/state';
+import { db, findUserByMaxId, resetMockDb } from '@/test/fake-api/state';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import { MockMaxBridge } from '@/shared/max/mock-bridge';
@@ -209,6 +209,32 @@ describe('foundation smoke (mock API)', () => {
 
       await router.navigate('/parent/unknown-page');
       await findText('Страница не найдена');
+    },
+  );
+
+  it(
+    'язык интерфейса — всегда русский, даже если в настройках на сервере сохранён en',
+    { timeout: 40_000 },
+    async () => {
+      // Так бывает у пользователя из английского клиента MAX или выбравшего en раньше:
+      // выбора языка в настройках нет, вернуть русский он бы не смог.
+      const parent = findUserByMaxId('max-parent-1');
+      expect(parent).toBeDefined();
+      db.settings.set(parent!.id, { theme: 'SYSTEM', locale: 'en' });
+      try {
+        const user = userEvent.setup();
+        renderApp();
+        await expectPage('Вход');
+        await user.click(await findText('Ольга Смирнова'));
+        await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+        expect(useAuthStore.getState().me?.settings.locale).toBe('en');
+
+        await expectPage('Главная');
+        expect(i18n.language).toBe('ru');
+        expect(nav().getByRole('button', { name: 'Аналитика' })).toBeInTheDocument();
+      } finally {
+        await setLanguage('ru');
+      }
     },
   );
 });

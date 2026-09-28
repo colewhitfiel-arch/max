@@ -79,6 +79,15 @@ describe('MaxAuthProvider (схема подписи — проверить по
     expect(identity).toMatchObject({ maxUserId: '42', firstName: 'Иван', nickname: 'ivan' });
   });
 
+  it('язык клиента MAX не переносится: пользователь создаётся с locale=ru', async () => {
+    const english = JSON.stringify({ id: 43, first_name: 'John', language_code: 'en' });
+    const identity = await max.verify({
+      kind: 'max',
+      launchParams: sign({ user: english, auth_date: String(Math.floor(Date.now() / 1000)) }),
+    });
+    expect(identity).toMatchObject({ maxUserId: '43', firstName: 'John', locale: 'ru' });
+  });
+
   it('отклоняет подделанную подпись', async () => {
     const forged = sign({ user, auth_date: String(Math.floor(Date.now() / 1000)) }).replace(
       /hash=\w{4}/,
