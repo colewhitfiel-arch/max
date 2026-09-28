@@ -264,4 +264,64 @@ describe.skipIf(!hasTestDatabase)('course-builder (integration, mock AI)', () =>
     expect(a?.error).toBeTypeOf('string');
     expect(b?.stage).toBe('CANCELLED');
   });
+
+  /** Задача «в работе», последний прогресс которой был `minutesAgo` минут назад. */
+  const runningJob = async (minutesAgo: number) => {
+    const prisma = app.get(PrismaService);
+    const job = await prisma.courseGenerationJob.create({
+      data: {
+        teacherId,
+        groupId: DEMO_IDS.groups.programmingA,
+        topic: 'x',
+        sourceKind: 'TOPIC',
+        stage: 'GENERATING',
+        startedAt: new Date(),
+      },
+    });
+    const updatedAt = new Date(Date.now() - minutesAgo * 60_000);
+    await prisma.$executeRaw`UPDATE course_generation_jobs SET updated_at = ${updatedAt} WHERE id = ${job.id}::uuid`;
+    return job.id;
+  };
+
+  it('чтение задачи само переводит зависшую в FAILED (таймер сторожа на serverless не срабатывает)', async () => {
+    const stuck = await runningJob(120);
+    const alive = await runningJob(1);
+    const res = await http()
+      .get(`${base}/teacher/course-builder/jobs/${stuck}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body.stage).toBe('FAILED');
+    expect(res.body.error).toMatch(/не уложился во время/);
+
+    const stuckInList = await runningJob(120);
+    const list = await http()
+      .get(`${base}/teacher/course-builder/jobs?limit=100`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const stageOf = (id: string) =>
+      list.body.items.find((item: { id: string }) => item.id === id)?.stage;
+    expect(stageOf(stuckInList)).toBe('FAILED');
+    expect(stageOf(alive)).toBe('GENERATING');
+  });
+
+  it('порог зависания — COURSE_BUILDER_STALE_AFTER_SEC (на Vercel чуть больше maxDuration)', async () => {
+    const tenMinutes = await runningJob(10);
+    // По умолчанию (30 минут) задача ещё жива
+    const byDefault = await http()
+      .get(`${base}/teacher/course-builder/jobs/${tenMinutes}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(byDefault.body.stage).toBe('GENERATING');
+
+    const vercelLike = await createTestApp({ COURSE_BUILDER_STALE_AFTER_SEC: '360' });
+    try {
+      const res = await request(vercelLike.getHttpServer())
+        .get(`${base}/teacher/course-builder/jobs/${tenMinutes}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(res.body.stage).toBe('FAILED');
+    } finally {
+      await vercelLike.close();
+    }
+  });
 });

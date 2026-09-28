@@ -170,7 +170,8 @@ Docker-путь ниже — эталон для сдачи; для постоя
 - Сборка — `scripts/vercel-build.mjs`: turbo build → `prisma migrate deploy` → seed при
   `SEED_ON_DEPLOY=1`. Миграции идут по `DATABASE_URL_UNPOOLED`, если провайдер БД его даёт.
 - Обязательные переменные проекта: всё из `.env.example` без dev-значений плюс
-  `KV_DRIVER=postgres`, `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
+  `KV_DRIVER=postgres`, `COURSE_BUILDER_STALE_AFTER_SEC=360` (оборванная по 300 с генерация
+  сразу уходит в FAILED), `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
   `VITE_API_URL=/api/v1`, `VITE_MAX_MODE=real`, `ENABLE_EXPERIMENTAL_COREPACK=1`.
   `APP_ENV=staging` (production-guard требует настоящий провайдер оплаты), свой `JWT_SECRET`
   (dev-значение вне development отклоняется); `CORS_ORIGINS` можно не задавать — origin один.

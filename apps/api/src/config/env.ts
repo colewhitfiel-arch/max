@@ -103,6 +103,11 @@ export const envSchema = z
     AI_TUTOR_DAILY_LIMIT: z.coerce.number().int().positive().default(50),
     /** Сколько окон survey / уроков course-builder генерируется параллельно. */
     COURSE_BUILDER_MAX_PARALLEL: z.coerce.number().int().min(1).max(8).default(3),
+    /**
+     * Задача генерации без прогресса дольше стольких секунд считается мёртвой и переводится
+     * в FAILED (сторож и чтение задачи). На Vercel — чуть больше maxDuration функции (~360).
+     */
+    COURSE_BUILDER_STALE_AFTER_SEC: z.coerce.number().int().min(60).default(1800),
 
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('.data/storage'),
