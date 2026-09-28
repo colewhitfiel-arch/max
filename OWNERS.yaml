@@ -28,6 +28,14 @@ owners:
     - infra/**
     - scripts/**
     - packages/config/**
+    # Упаковка и деплой: Docker-стенд и Vercel (ADR-014).
+    - Dockerfile
+    - compose.yaml
+    - .dockerignore
+    - vercel.json
+    - api/**
+    # Таблица порта KeyValueStore при KV_DRIVER=postgres (docs/04, kv).
+    - packages/db/prisma/schema/kv.prisma
 
   contracts:
     - packages/contracts/src/index.ts
@@ -62,6 +70,7 @@ owners:
   api-shell:
     - apps/api/src/main.ts
     - apps/api/src/worker.ts
+    - apps/api/src/vercel.ts
     - apps/api/src/app.module.ts
     - apps/api/src/bootstrap.ts
     - apps/api/src/modules/index.ts
