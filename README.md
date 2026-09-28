@@ -167,6 +167,9 @@ Docker-путь ниже — эталон для сдачи; для постоя
 
 - Вход функции — `apps/api/src/vercel.ts` (Nest поднимается один раз на инстанс). Фоновые
   задачи inline-очереди удерживают инстанс через `waitUntil` до конца (лимит функции — 300 с).
+- Расписание: занятия из правил на 8 недель вперёд создаёт job `schedule.materialize` при старте
+  инстанса — не чаще раза в сутки благодаря отметке в `kv_entries` (docs/04), отдельный cron не нужен.
+  В Docker и `pnpm dev` его ставит api при старте и затем раз в сутки.
 - Сборка — `scripts/vercel-build.mjs`: turbo build → `prisma migrate deploy` → seed при
   `SEED_ON_DEPLOY=1`. Миграции идут по `DATABASE_URL_UNPOOLED`, если провайдер БД его даёт.
   Preview-сборки (`VERCEL_ENV=preview`: ветки и `vercel deploy` без `--prod`) базу не трогают —

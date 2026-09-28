@@ -87,7 +87,11 @@ ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:
 Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, room?, status LessonStatus=PLANNED,
                 cancelReason?                                           unique(ruleId, startsAt)
 ```
-Занятия материализуются worker'ом из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`.
+Занятия материализуются из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`. Реализация — `modules/groups` (`ScheduleMaterializerService`, очередь `schedule`), пока нет отдельного модуля `schedule`:
+- правила только активных групп, дни — с сегодняшнего по часам школы (`School.timezone` школы преподавателя группы) на 8 недель, в пределах `validFrom…validTo` включительно;
+- занятие из правила создаётся один раз (`createMany` с пропуском дублей по `(ruleId, startsAt)`): повтор ничего не дублирует, отменённое не воскрешает;
+- слот пропускается, если у группы уже есть неотменённое занятие, пересекающееся с ним (например, разовое — в том числе плавающие демо-занятия seed'а), — инвариант §4.5 п. 9;
+- запуск: HTTP-процесс api (и функция Vercel) ставит job при старте и затем проверяет раз в час; отметка `schedule:materialized:<дата UTC>` в `KeyValueStore` (TTL 26 ч) оставляет одну материализацию в сутки на все процессы и холодные старты, при сбое снимается. Выполняет очередь: inline — сам api, bullmq — worker. При `NODE_ENV=test` сам не запускается (тесты вызывают сервис).
 **Планируется** `Group.code?` — короткий номер группы («001», 1–16 символов), который преподаватель видит в расписании, успеваемости и кошельке (docs/07 F16–F18). Пока есть только в контракте (`GroupBrief.code`, опционально; нет — UI показывает `title`) и в MSW-моках; поле в `groups.prisma` добавляется вместе с backend-ручками групп (workstream E).
 
 ### attendance (`attendance.prisma`)
@@ -212,7 +216,7 @@ AuditLog        id PK, actorUserId FK, action, entityType, entityId, diff json?
 ```
 KvEntry         key PK (строка, не uuid), value json, expiresAt?, updatedAt
 ```
-Хранилище порта `KeyValueStore` (`apps/api/src/common/kv`) при `KV_DRIVER=postgres`: идемпотентность, дневные лимиты, кэш контекста, общие для всех инстансов serverless (ADR-014). Запись с прошедшим `expiresAt` не читается; протухшие удаляются по случаю при записи. При `KV_DRIVER=memory` таблица пустует. Ни один модуль не читает её напрямую — только через порт.
+Хранилище порта `KeyValueStore` (`apps/api/src/common/kv`) при `KV_DRIVER=postgres`: идемпотентность, дневные лимиты, кэш контекста, отметка ежедневной материализации расписания, общие для всех инстансов serverless (ADR-014). Запись с прошедшим `expiresAt` не читается; протухшие удаляются по случаю при записи. При `KV_DRIVER=memory` таблица пустует. Ни один модуль не читает её напрямую — только через порт.
 
 ### 4.2.1. Индексы
 
