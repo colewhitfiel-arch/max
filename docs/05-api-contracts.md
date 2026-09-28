@@ -239,7 +239,8 @@ POST /teacher/submissions/:id/grade      { score: number, feedback?: string, sta
 
 SubmissionDto = { id, assignmentId, status, score?, isLate, attemptsCount, submittedAt?, gradedAt?, feedback?, text?, fileIds: Id[] }
 TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentIds: Id[] /* пусто — всей группе */, courseId?,
-                                            studentsCount /* адресаты или весь состав */, submittedCount, gradedCount }
+                                            studentsCount /* адресаты или весь состав — только текущий (ACTIVE) */,
+                                            submittedCount, gradedCount /* сдачи этих же учеников */ }
 HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открытые задания */, points /* баллы по кружку, формула — analytics */,
                  nextAssignment?: AssignmentBrief /* ближайшее открытое по дедлайну */ }
 ```

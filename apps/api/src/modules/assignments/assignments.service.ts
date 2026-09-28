@@ -663,7 +663,7 @@ export class AssignmentsService {
   // ---------- внутреннее ----------
 
   /** Адресаты: пустой список — весь состав группы, иначе только выбранные (и ещё зачисленные). */
-  private targetsOf(row: AssignmentRow, roster: Awaited<ReturnType<GroupsService['listRoster']>>) {
+  private targetsOf<T extends { id: string }>(row: AssignmentRow, roster: T[]): T[] {
     if (row.studentIds.length === 0) return roster;
     const chosen = new Set(row.studentIds);
     return roster.filter((student) => chosen.has(student.id));
@@ -683,11 +683,18 @@ export class AssignmentsService {
 
   private async toCards(rows: AssignmentRow[]): Promise<TeacherAssignmentCard[]> {
     if (rows.length === 0) return [];
-    const [groupsById, counts, rosterSizes] = await Promise.all([
+    const [groupsById, rosters] = await Promise.all([
       this.groups.groupBriefsByIds(rows.map((row) => row.groupId)),
-      this.repo.countsByAssignment(rows.map((row) => row.id)),
-      this.rosterSizes(rows.map((row) => row.groupId)),
+      this.rosterIds(rows.map((row) => row.groupId)),
     ]);
+    // Адресаты — текущий состав, как на экране сдач: убранные из группы в счётчики не входят.
+    const targets = new Map(
+      rows.map((row) => [
+        row.id,
+        this.targetsOf(row, rosters.get(row.groupId) ?? []).map((student) => student.id),
+      ]),
+    );
+    const counts = await this.repo.countsByAssignment(targets);
     return rows.flatMap((row) => {
       const group = groupsById.get(row.groupId);
       if (!group) return [];
@@ -705,8 +712,7 @@ export class AssignmentsService {
           publishedAt: row.publishedAt?.toISOString() ?? null,
           studentIds: row.studentIds,
           courseId: row.courseId,
-          studentsCount:
-            row.studentIds.length > 0 ? row.studentIds.length : (rosterSizes.get(row.groupId) ?? 0),
+          studentsCount: targets.get(row.id)?.length ?? 0,
           submittedCount: count.submitted,
           gradedCount: count.graded,
         },
@@ -714,15 +720,16 @@ export class AssignmentsService {
     });
   }
 
-  private async rosterSizes(groupIds: string[]): Promise<Map<string, number>> {
+  /** Текущий состав (ACTIVE) групп: `groupId → [{ id }]`. */
+  private async rosterIds(groupIds: string[]): Promise<Map<string, Array<{ id: string }>>> {
     const unique = [...new Set(groupIds)];
-    const sizes = await Promise.all(
+    const rosters = await Promise.all(
       unique.map(async (groupId) => {
         const ids = await this.groups.listStudentIdsInGroup(groupId);
-        return [groupId, ids.length] as const;
+        return [groupId, ids.map((id) => ({ id }))] as const;
       }),
     );
-    return new Map(sizes);
+    return new Map(rosters);
   }
 
   private brief(

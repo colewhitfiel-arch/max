@@ -180,6 +180,58 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .expect(200);
   });
 
+  it('счётчики задания — по текущему составу: сдачи убранного ученика не считаются', async () => {
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.dasha })
+      .expect(200);
+    const create = (studentIds?: string[]) =>
+      http()
+        .post(`${base}/teacher/assignments`)
+        .set(auth(teacher))
+        .send({ groupId, title: `Сдают все ${run}`, publish: true, studentIds })
+        .expect(200);
+    const assignments = [
+      (await create()).body.id as string,
+      (await create([DEMO_IDS.students.alexey, DEMO_IDS.students.dasha])).body.id as string,
+    ];
+    const students = [
+      await loginAs('max-student-1', 'STUDENT'),
+      await loginAs('max-student-2', 'STUDENT'),
+    ];
+    for (const assignmentId of assignments) {
+      for (const [index, student] of students.entries()) {
+        await http()
+          .post(`${base}/student/assignments/${assignmentId}/submit`)
+          .set(auth(student.accessToken))
+          .set('Idempotency-Key', `groups-${run}-${assignmentId}-${index}`)
+          .send({ text: 'Готово' })
+          .expect(200);
+      }
+    }
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.dasha}`)
+      .set(auth(teacher))
+      .expect(200);
+
+    const list = await http()
+      .get(`${base}/teacher/assignments`)
+      .query({ groupId })
+      .set(auth(teacher))
+      .expect(200);
+    for (const assignmentId of assignments) {
+      const card = list.body.items.find((item: { id: string }) => item.id === assignmentId);
+      expect(card).toMatchObject({ studentsCount: 1, submittedCount: 1 });
+      const submissions = await http()
+        .get(`${base}/teacher/assignments/${assignmentId}/submissions`)
+        .set(auth(teacher))
+        .expect(200);
+      expect(submissions.body.rows).toHaveLength(card.studentsCount);
+      expect(submissions.body.assignment).toMatchObject({ studentsCount: 1, submittedCount: 1 });
+    }
+  });
+
   it('ученика не из школы и не из своих групп добавить нельзя — 404', async () => {
     const stranger = await loginAs(`max-student-stranger-${run}`, 'STUDENT');
     const me = await http().get(`${base}/me`).set(auth(stranger.accessToken)).expect(200);
