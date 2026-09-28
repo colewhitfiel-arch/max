@@ -119,6 +119,7 @@ describe('продуктовые промпты', () => {
     const answers = ['Люблю роботов', 'Сделать своего робота', 'Четыре часа, практика'];
     const history: AiChatMessage[] = [{ role: 'assistant', content: 'Привет!' }];
     const replies: string[] = [];
+    const options: Array<string[] | null> = [];
     for (const answer of answers) {
       history.push({ role: 'user', content: answer });
       const req = buildRequest(
@@ -131,9 +132,12 @@ describe('продуктовые промпты', () => {
       const { data } = await ai.chatJson(req, OnboardingTurnSchema);
       expect(data.isComplete).toBe(false);
       replies.push(data.reply);
+      options.push(data.clubOptions);
       history.push({ role: 'assistant', content: data.reply });
     }
     expect(replies[0]).toContain('цели');
+    // вопрос о целях предлагает кружки школы кнопками; остальные — без кнопок
+    expect(options).toEqual([['робототехника'], [], []]);
     expect(replies[1]).toContain('часов');
     expect(replies[2]).toContain('попозже');
 

@@ -67,6 +67,8 @@ export const AiStreamEventSchema = z.discriminatedUnion('type', [
     messageId: IdSchema,
     isComplete: z.boolean().optional(),
     profileDraft: z.unknown().optional(),
+    /** Онбординг: предложенные кружки (`ClubCard[]`, типизировано в `OnboardingStreamEventSchema`). */
+    clubOptions: z.unknown().optional(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
 ]);

@@ -1,9 +1,11 @@
 /**
  * Онбординг: провал старта — «Повторить» вместо тупика; ошибка стрима возвращает ответ
- * в поле ввода; «Остановить» до первого токена не добавляет пустой пузырь тьютора.
+ * в поле ввода; «Остановить» до первого токена не добавляет пустой пузырь тьютора. Кружки,
+ * предложенные тьютором, — кнопки: одно нажатие отправляет название. Незавершённое знакомство
+ * продолжается с той же ленты.
  */
 import { ToastProvider } from '@edu/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +16,12 @@ import '@/shared/i18n';
 import { OnboardingPage } from './OnboardingPage';
 
 type StartOptions = {
-  onSuccess?: (result: { conversationId: string; message: unknown }) => void;
+  onSuccess?: (result: {
+    conversationId: string;
+    message: unknown;
+    history?: unknown[];
+    clubOptions?: unknown[];
+  }) => void;
 };
 
 const hooks = vi.hoisted(() => ({
@@ -126,5 +133,73 @@ describe('OnboardingPage', () => {
     const roles = screen.getAllByTestId('message').map((m) => m.dataset.role);
     expect(roles).toEqual(['ASSISTANT', 'USER']);
     expect(input).toHaveValue('');
+  });
+
+  it('кружки из реплики тьютора — кнопки: одно нажатие отправляет название кружка', async () => {
+    const robotics = { id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' };
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Тебе может подойти Робототехника. Что ближе?',
+      messageId: '0190a000-0000-7000-8000-000000000002',
+      done: {
+        type: 'done',
+        messageId: '0190a000-0000-7000-8000-000000000002',
+        isComplete: false,
+        clubOptions: [robotics],
+      },
+    });
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Отлично!',
+      messageId: '0190a000-0000-7000-8000-000000000003',
+      done: { type: 'done', messageId: '0190a000-0000-7000-8000-000000000003', isComplete: false },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    const options = await screen.findByRole('group', { name: 'Кружки на выбор' });
+
+    await user.click(within(options).getByRole('button', { name: 'Робототехника' }));
+    expect(hooks.streamStart).toHaveBeenLastCalledWith(expect.any(String), {
+      conversationId: 'c1',
+      text: 'Робототехника',
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('group', { name: 'Кружки на выбор' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Робототехника', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('незавершённое знакомство продолжается: лента и кнопки кружков восстановлены', async () => {
+    const answer = {
+      ...greeting,
+      id: '0190a000-0000-7000-8000-000000000011',
+      role: 'USER',
+      content: 'Роботы',
+    };
+    const question = {
+      ...greeting,
+      id: '0190a000-0000-7000-8000-000000000012',
+      content: 'Робототехника или шахматы?',
+    };
+    hooks.start.mutate.mockImplementation((_vars, options) =>
+      options?.onSuccess?.({
+        conversationId: 'c1',
+        message: greeting,
+        history: [greeting, answer, question],
+        clubOptions: [{ id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' }],
+      }),
+    );
+    renderPage();
+
+    const roles = screen.getAllByTestId('message').map((m) => m.dataset.role);
+    expect(roles).toEqual(['ASSISTANT', 'USER', 'ASSISTANT']);
+    expect(
+      within(screen.getByRole('group', { name: 'Кружки на выбор' })).getByRole('button', {
+        name: 'Робототехника',
+      }),
+    ).toBeInTheDocument();
   });
 });

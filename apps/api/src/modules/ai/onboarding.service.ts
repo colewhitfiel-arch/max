@@ -40,6 +40,37 @@ import { TRAJECTORY_JOB } from './trajectory.service';
 
 const RECOMMENDATIONS_LIMIT = 5;
 const DEMAND_REASONS_LIMIT = 3;
+/** Сколько кружков максимум показывать кнопками под репликой тьютора. */
+const CLUB_OPTIONS_LIMIT = 4;
+/** Сколько сообщений незавершённого знакомства отдавать при возобновлении (диалог ≤ 7 ответов). */
+const RESUME_HISTORY_LIMIT = 30;
+/** Название чата знакомства в истории чатов тьютора после завершения онбординга. */
+const ONBOARDING_CHAT_TITLE = 'Знакомство с тьютором';
+
+/** Нормализация для сравнения названий кружков: регистр, «ё», знаки препинания. */
+const normalize = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+/**
+ * Упомянут ли кружок в тексте: каждое значимое слово названия (≥ 4 букв) встречается в тексте
+ * с любым окончанием («Робототехника» ↔ «робототехнику», «Шахматы» ↔ «шахматах»). Название из
+ * коротких слов («ИЗО») — только целым словом.
+ */
+function mentions(text: string, title: string): boolean {
+  const words = normalize(text).split(' ');
+  const titleWords = normalize(title).split(' ').filter(Boolean);
+  const significant = titleWords.filter((word) => word.length >= 4);
+  if (significant.length === 0)
+    return titleWords.length > 0 && titleWords.every((w) => words.includes(w));
+  return significant.every((word) => {
+    const stem = word.slice(0, Math.max(4, word.length - 2));
+    return words.some((candidate) => candidate.startsWith(stem));
+  });
+}
 
 interface SnapshotRecommendation {
   clubId: string;
@@ -51,6 +82,8 @@ interface OnboardingSnapshot {
   profileDraft?: OnboardingProfile;
   /** Что показали ученику — чтобы при complete зафиксировать SKIPPED и причины/оценки. */
   recommendations?: SnapshotRecommendation[];
+  /** Кружки-кнопки под последней репликой тьютора — вернуть их при возобновлении диалога. */
+  clubOptionIds?: string[];
 }
 
 /** Онбординг ученика (F1): диалог с ИИ → черновик профиля → подбор кружков → зачисление. */
@@ -72,8 +105,29 @@ export class OnboardingService {
     this.log = logger.child({ module: 'ai.onboarding' });
   }
 
+  /**
+   * Начать знакомство или продолжить незавершённое (обновили страницу, вернулись позже): у
+   * продолжения — вся лента, собранный профиль (если диалог уже завершён) и кнопки кружков
+   * последней реплики. Новый диалог — первый вопрос без вызова модели.
+   */
   async start(user: AuthUser): Promise<OnboardingStartResult> {
     const studentId = this.requireStudent(user);
+    const existing = await this.repo.latestConversation(user.userId, 'ONBOARDING');
+    if (existing) {
+      const rows = await this.repo.recentMessages(existing.id, RESUME_HISTORY_LIMIT);
+      const first = rows[0];
+      if (first) {
+        const snapshot = (existing.contextSnapshot as OnboardingSnapshot | null) ?? {};
+        const clubOptions = await this.clubCardsByIds(studentId, snapshot.clubOptionIds ?? []);
+        return {
+          conversationId: existing.id,
+          message: toMessageDto(first),
+          history: rows.map(toMessageDto),
+          ...(snapshot.profileDraft ? { profileDraft: snapshot.profileDraft } : {}),
+          ...(clubOptions.length > 0 && !snapshot.profileDraft ? { clubOptions } : {}),
+        };
+      }
+    }
     const conversation = await this.repo.createConversation({
       userId: user.userId,
       studentId,
@@ -159,17 +213,53 @@ export class OnboardingService {
       content: turn.reply,
       promptId: onboardingTurnPrompt.key,
     });
-    if (turn.isComplete && turn.profileDraft) {
-      const snapshot: OnboardingSnapshot = { profileDraft: turn.profileDraft };
-      await this.repo.setConversationSnapshot(conversation.id, snapshot as never);
-    }
+    // Кружки, предложенные репликой, — кнопками: названия от модели + упомянутые в тексте.
+    const clubOptions = turn.isComplete
+      ? []
+      : this.clubOptions(turn.reply, turn.clubOptions ?? [], clubs);
+    const snapshot: OnboardingSnapshot = {
+      ...((conversation.contextSnapshot as OnboardingSnapshot | null) ?? {}),
+      clubOptionIds: clubOptions.map((club) => club.id),
+      ...(turn.isComplete && turn.profileDraft ? { profileDraft: turn.profileDraft } : {}),
+    };
+    await this.repo.setConversationSnapshot(conversation.id, snapshot as never);
     for (const token of tokenize(turn.reply)) sink.write({ type: 'token', text: token });
     sink.write({
       type: 'done',
       messageId: saved.id,
       isComplete: turn.isComplete,
       ...(turn.isComplete && turn.profileDraft ? { profileDraft: turn.profileDraft } : {}),
+      ...(clubOptions.length > 0 ? { clubOptions } : {}),
     });
+  }
+
+  /**
+   * Кружки для кнопок быстрого ответа: сперва названные моделью в `clubOptions` (сверяются
+   * со списком школы — выдуманных нет), затем упомянутые в тексте реплики; до 4 штук.
+   */
+  private clubOptions(reply: string, named: string[], pool: ClubCard[]): ClubCard[] {
+    const picked = new Map<string, ClubCard>();
+    for (const name of named) {
+      const key = normalize(name);
+      if (!key) continue;
+      const club =
+        pool.find((c) => normalize(c.title) === key) ??
+        pool.find((c) => mentions(name, c.title) || mentions(c.title, name));
+      if (club) picked.set(club.id, club);
+    }
+    for (const club of pool) {
+      if (!picked.has(club.id) && mentions(reply, club.title)) picked.set(club.id, club);
+    }
+    return [...picked.values()].slice(0, CLUB_OPTIONS_LIMIT);
+  }
+
+  /** Карточки кружков по id — только из пула ученика, в том же порядке. */
+  private async clubCardsByIds(studentId: string, ids: string[]): Promise<ClubCard[]> {
+    if (ids.length === 0) return [];
+    const student = await this.identity.getStudentProfile(studentId);
+    const pool = await this.clubPool(student?.schoolId ?? null);
+    const byId = new Map(pool.map((club) => [club.id, club]));
+    return ids.flatMap((id) => byId.get(id) ?? []);
   }
 
   /** Кружки школы, отранжированные моделью под профиль (черновик из диалога или сохранённый). */
@@ -389,7 +479,11 @@ export class OnboardingService {
       role: 'ASSISTANT',
       content: lines.join(' '),
     });
-    await this.repo.updateConversation(conversation.id, { kind: 'TUTOR', title: null });
+    // В истории чатов тьютора знакомство видно под своим названием.
+    await this.repo.updateConversation(conversation.id, {
+      kind: 'TUTOR',
+      title: ONBOARDING_CHAT_TITLE,
+    });
   }
 
   // ---------- внутреннее ----------
