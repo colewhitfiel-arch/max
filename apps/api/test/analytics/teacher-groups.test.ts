@@ -25,6 +25,9 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
   let teacher = '';
   let alexey = '';
   const lessonIds: string[] = [];
+  const assignmentIds: string[] = [];
+  const newcomerIds: string[] = [];
+  const run = Date.now();
   const base = '/api/v1';
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -42,7 +45,11 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
       .get(`${base}/teacher/groups/${DEMO_IDS.groups.roboticsA}`)
       .set(auth(teacher))
       .expect(200);
-    return res.body as { attendanceRate: number | null; students: StudentRow[] };
+    return res.body as {
+      attendanceRate: number | null;
+      completionRate: number | null;
+      students: StudentRow[];
+    };
   };
 
   const rowOf = (rows: StudentRow[], studentId: string) =>
@@ -57,6 +64,11 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
   afterAll(async () => {
     const prisma = app.get(PrismaService);
     await prisma.lesson.deleteMany({ where: { id: { in: lessonIds } } });
+    await prisma.submission.deleteMany({ where: { assignmentId: { in: assignmentIds } } });
+    await prisma.assignment.deleteMany({ where: { id: { in: assignmentIds } } });
+    await prisma.enrollment.deleteMany({
+      where: { groupId: DEMO_IDS.groups.roboticsA, studentId: { in: newcomerIds } },
+    });
     await app.close();
   });
 
@@ -82,5 +94,42 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
 
     const home = await http().get(`${base}/student/home`).set(auth(alexey)).expect(200);
     expect(home.body.stats.attendanceRate).toBe(1);
+  });
+
+  it('новый ученик: занятия и сроки заданий до его зачисления ему не в счёт', async () => {
+    // Срок задания всей группе прошёл вчера — до того, как в группу пришёл новый ученик.
+    const assignment = await http()
+      .post(`${base}/teacher/assignments`)
+      .set(auth(teacher))
+      .send({
+        groupId: DEMO_IDS.groups.roboticsA,
+        title: `Прошлое ДЗ ${run}`,
+        dueAt: new Date(Date.now() - DAY_MS).toISOString(),
+        publish: true,
+      })
+      .expect(200);
+    assignmentIds.push(assignment.body.id);
+    const before = await groupDetail();
+
+    const newcomer = await login(`max-student-newcomer-${run}`, 'STUDENT');
+    const me = await http().get(`${base}/me`).set(auth(newcomer)).expect(200);
+    const newcomerId = me.body.student.id as string;
+    newcomerIds.push(newcomerId);
+    await app.get(PrismaService).enrollment.create({
+      data: { studentId: newcomerId, groupId: DEMO_IDS.groups.roboticsA },
+    });
+
+    const after = await groupDetail();
+    expect(rowOf(after.students, newcomerId)).toMatchObject({
+      attendanceRate: null,
+      completionRate: null,
+      needsAttention: [],
+    });
+    // Показатели группы новичок не портит: его знаменатели пока пустые.
+    expect(after.attendanceRate).toBe(before.attendanceRate);
+    expect(after.completionRate).toBe(before.completionRate);
+
+    const home = await http().get(`${base}/student/home`).set(auth(newcomer)).expect(200);
+    expect(home.body.stats).toMatchObject({ attendanceRate: null, completionRate: null });
   });
 });

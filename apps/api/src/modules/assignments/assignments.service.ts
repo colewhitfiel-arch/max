@@ -606,7 +606,8 @@ export class AssignmentsService {
 
   /**
    * Публичный сервис: выполнение заданий по ученикам группы. Знаменатель — задания со сроком
-   * в прошлом, адресованные ученику; числитель — сданные не позже срока (docs/04 §4.6).
+   * в прошлом, адресованные ученику, и срок не раньше его зачисления в группу; числитель —
+   * сданные не позже срока (docs/04 §4.6).
    */
   async completionOfGroup(
     groupId: string,
@@ -616,9 +617,10 @@ export class AssignmentsService {
     const result = new Map(studentIds.map((id) => [id, { doneOnTime: 0, due: 0 }]));
     const assignments = await this.repo.listDueOfGroup(groupId, before);
     if (assignments.length === 0) return result;
-    const submissions = await this.repo.listSubmissionsOfAssignments(
-      assignments.map((row) => row.id),
-    );
+    const [submissions, enrolledAt] = await Promise.all([
+      this.repo.listSubmissionsOfAssignments(assignments.map((row) => row.id)),
+      this.groups.enrolledAtInGroup(groupId),
+    ]);
     const byKey = new Map(submissions.map((s) => [`${s.assignmentId}:${s.studentId}`, s]));
     for (const assignment of assignments) {
       const targets =
@@ -628,6 +630,9 @@ export class AssignmentsService {
       for (const studentId of targets) {
         const entry = result.get(studentId);
         if (!entry) continue;
+        // Срок прошёл до прихода ученика в группу — задание ему не в счёт.
+        const since = enrolledAt.get(studentId);
+        if (since && assignment.dueAt && assignment.dueAt.getTime() < since.getTime()) continue;
         entry.due += 1;
         const submission = byKey.get(`${assignment.id}:${studentId}`);
         if (submission && !submission.isLate && isDone(submission)) entry.doneOnTime += 1;

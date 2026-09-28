@@ -195,6 +195,18 @@ export class GroupsService {
       );
   }
 
+  /**
+   * Даты зачисления состава группы (ACTIVE, `studentId → enrolledAt`): посещаемость и задания
+   * ученика считаются только с этого дня (docs/04 §4.6).
+   */
+  async enrolledAtInGroup(groupId: string): Promise<Map<string, Date>> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: { groupId, status: 'ACTIVE' },
+      select: { studentId: true, enrolledAt: true },
+    });
+    return new Map(rows.map((row) => [row.studentId, row.enrolledAt]));
+  }
+
   /** Группы ученика (ACTIVE-зачисления) — по ним видны задания и курсы. */
   async listGroupIdsOfStudent(studentId: string): Promise<string[]> {
     const rows = await this.prisma.enrollment.findMany({

@@ -293,7 +293,7 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
 
 - **Посещаемость** `attendanceRate = attended / countable`. `countable` — занятия со статусом `DONE` в периоде, на которые ученик был зачислен (`Enrollment.enrolledAt <= lesson.startsAt`), минус `EXCUSED`. `attended` — `PRESENT | LATE`. Нет `countable` → `null`.
 - **Пропуски** `absences = count(ABSENT)`.
-- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
+- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), срок (публикация) которых не раньше зачисления ученика в группу (`Enrollment.enrolledAt <= dueAt`), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
 - **Активность** `activityScore` (0–100) за неделю: `min(100, 10*blocksCompleted + 15*submissions + 5*lessonsAttended + 2*tutorMessages + 1*appOpens)`. Отображается как «низкая (<30) / средняя / высокая (≥70)» + число. Формула — одна (`apps/api/src/modules/analytics/metrics.ts`), окно выбирает вызывающий. **Исключение:** снимок ученика для ИИ (`StudentContext.stats30d`, `modules/ai/context-builder.ts`) считает её за 30 дней и без `appOpens` (событий открытия приложения в снимке нет) — осознанное расхождение с недельным окном экранов.
 - **Прогресс по кружку** `clubProgress = avg(CourseProgress.percent по PUBLISHED курсам группы)`; если курсов нет — `completionRate` по заданиям группы.
 - **Динамика** — те же метрики по неделям из `StudentStatsDaily`; `trend` = разница с предыдущим периодом такой же длины.
