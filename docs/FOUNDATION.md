@@ -73,7 +73,7 @@ Enum'ы, сущности (`entities/`), схемы блоков (`blocks/`), п
 
 ## 8. Auth
 
-Поток: клиент → `POST /auth/dev` (dev) или `POST /auth/max` (production) → `IdentityService` upsert'ит пользователя, роли, профили → выдаёт access JWT (15 мин; claims `sub, mid, roles, role, pid`) и refresh (30 дней, хранится sha256 + activeRole) → все ручки требуют Bearer (кроме `@Public`). `POST /auth/refresh` ротирует пару, `POST /auth/switch-role`/`/auth/roles` — смена/добавление роли (TEACHER — по `School.inviteCode`, в dev допускается без кода), `GET /me` — `MeDto`. Dev-переключение между пользователями и ролями — экран `/auth` в web и `POST /auth/dev` в api.
+Поток: клиент → `POST /auth/dev` (dev) или `POST /auth/max` (production) → `IdentityService` upsert'ит пользователя, роли, профили → выдаёт access JWT (15 мин; claims `sub, mid, roles, role, pid`) и refresh (30 дней, хранится sha256 + activeRole) → все ручки требуют Bearer (кроме `@Public`). `POST /auth/refresh` ротирует пару, `POST /auth/switch-role`/`/auth/roles` — смена/добавление роли (TEACHER — по `School.inviteCode`; без кода — только при `APP_ENV=development`, школа `SCHOOL1`; на стенде `staging` код обязателен, демо-преподаватель входит с профилем из seed), `GET /me` — `MeDto`. Dev-переключение между пользователями и ролями — экран `/auth` в web и `POST /auth/dev` в api.
 
 ## 9. Permissions
 
