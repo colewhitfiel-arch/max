@@ -120,6 +120,13 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .set(auth(teacher))
       .expect(200);
     expect(ids(found.body.items)).toEqual([DEMO_IDS.students.dasha]);
+
+    // Цифры в строке поиска — строка, а не число (query не разбирается как JSON).
+    await http()
+      .get(`${base}/teacher/groups/${groupId}/candidates`)
+      .query({ q: '7' })
+      .set(auth(teacher))
+      .expect(200);
   });
 
   it('состав: добавить, повторно добавить (идемпотентно), убрать и вернуть', async () => {

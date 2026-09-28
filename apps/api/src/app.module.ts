@@ -43,7 +43,9 @@ export class AppModule {
         AuthCoreModule,
         TsRestModule.register({
           isGlobal: true,
-          jsonQuery: true,
+          // Клиент (shared/api/client.ts) шлёт query обычными строками, схемы контрактов — строки
+          // и z.coerce. jsonQuery разбирал бы «true»/«7» в boolean/number и ронял валидацию в 400.
+          jsonQuery: false,
           validateResponses: env.APP_ENV !== 'production',
         }),
         ...DOMAIN_MODULES,

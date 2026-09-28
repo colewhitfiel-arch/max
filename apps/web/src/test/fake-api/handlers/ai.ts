@@ -615,7 +615,9 @@ export const aiHandlers = [
       ({ auth }) => {
         const student = studentOfUser(auth.user.id);
         const trajectory = student && db.trajectories.find((t) => t.studentId === student.id);
-        return json(TrajectoryDtoSchema.nullable(), trajectory ?? null);
+        // Как у настоящего api: Nest отдаёт null пустым телом, а не JSON `null`.
+        if (!trajectory) return new HttpResponse(null, { status: 200 });
+        return json(TrajectoryDtoSchema, trajectory);
       },
       ['STUDENT'],
     ),

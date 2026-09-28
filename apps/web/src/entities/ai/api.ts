@@ -158,7 +158,9 @@ const TRAJECTORY_POLL_MS = 5_000;
 export function useTrajectory({ queuedAt = null }: { queuedAt?: number | null } = {}) {
   return useQuery({
     queryKey: aiKeys.trajectory(),
-    queryFn: () => call(api.ai.getTrajectory()),
+    // Нет траектории — api отвечает 200 с пустым телом (Nest не пишет JSON `null`), а react-query
+    // считает `undefined` ошибкой: приводим к null, контракт это и обещает.
+    queryFn: async () => (await call(api.ai.getTrajectory())) ?? null,
     refetchInterval: (query) => {
       if (queuedAt == null) return false;
       const data = query.state.data;
