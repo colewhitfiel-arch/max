@@ -13,7 +13,7 @@ import {
 } from '@edu/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useChildren, useCreateChildInvite } from '@/entities/student';
+import { useChildren, useCodeLinkedChildren, useCreateChildInvite } from '@/entities/student';
 import { describeApiError } from '@/shared/api/errors';
 import { formatDate } from '@/shared/lib/dates';
 import { fullName } from '@/shared/lib/format';
@@ -81,8 +81,14 @@ export function ChildInviteLink({ onAccepted }: ChildInviteLinkProps = {}) {
   const children = useChildren(true, {
     refetchInterval: invite ? INVITE_ACCEPT_POLL_MS : false,
   });
+  // Привязка по коду рядом (тот же экран или шторка) — не принятие приглашения.
+  const codeLinks = useCodeLinkedChildren();
+  const linkingByCode = codeLinks.pending;
+  const linkedByCode = codeLinks.links;
   // Кто уже был привязан, когда появилась ссылка: новый ACTIVE сверх них — принявший ребёнок.
   const baselineRef = useRef<Set<string> | null>(null);
+  // Привязки по коду, завершённые до ссылки (их дети уже в базе или с тех пор отвязаны).
+  const earlierCodeLinksRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     if (!invite) {
@@ -96,6 +102,15 @@ export function ChildInviteLink({ onAccepted }: ChildInviteLinkProps = {}) {
       return;
     }
     const baseline = baselineRef.current;
+    // Привязанные по коду, пока ссылка на экране, — в базу: они появились не по ссылке. Пока
+    // привязка по коду идёт, её ребёнок ещё неизвестен — ждём ответа, чтобы не принять его за
+    // принявшего ссылку.
+    for (const link of linkedByCode) {
+      if (link.studentId && !earlierCodeLinksRef.current.has(link.submittedAt)) {
+        baseline.add(link.studentId);
+      }
+    }
+    if (linkingByCode) return;
     const accepted = children.data.items.find(
       (child) => child.linkStatus === 'ACTIVE' && !baseline.has(child.student.id),
     );
@@ -111,10 +126,22 @@ export function ChildInviteLink({ onAccepted }: ChildInviteLinkProps = {}) {
     // Ссылка погашена — следующему ребёнку нужна новая.
     create.reset();
     onAccepted?.(accepted.student.id);
-  }, [invite, children.data, bridge, toast, t, tc, create, onAccepted]);
+  }, [
+    invite,
+    children.data,
+    linkingByCode,
+    linkedByCode,
+    bridge,
+    toast,
+    t,
+    tc,
+    create,
+    onAccepted,
+  ]);
 
   const startInvite = () => {
     baselineRef.current = children.data ? activeIds(children.data) : null;
+    earlierCodeLinksRef.current = new Set(linkedByCode.map((link) => link.submittedAt));
     create.mutate();
   };
 
