@@ -126,11 +126,6 @@
     "LIGHT": "Светлая",
     "DARK": "Тёмная"
   },
-  "locale": {
-    "label": "Язык",
-    "ru": "Русский",
-    "en": "English"
-  },
   "account": {
     "settingsError": "Не удалось сохранить настройки"
   },
@@ -168,8 +163,6 @@
   "settings": {
     "appearance": "Внешний вид",
     "theme": "Тема",
-    "language": "Язык",
-    "languageSheet": "Язык приложения",
     "notifications": "Уведомления",
     "notificationsUnavailable": "Настройки уведомлений появятся позже",
     "notify": {

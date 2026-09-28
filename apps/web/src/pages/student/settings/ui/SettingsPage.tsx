@@ -22,7 +22,7 @@ export function SettingsPage() {
       <Screen gap={5}>
         <Stack gap={5}>
           <ProfileCard to="/student/profile" />
-          <AppearanceSettings showLanguage={false} />
+          <AppearanceSettings />
           <AccountSettings supportUrl={config.supportUrl} />
           <LogoutButton showAbout={false} />
         </Stack>

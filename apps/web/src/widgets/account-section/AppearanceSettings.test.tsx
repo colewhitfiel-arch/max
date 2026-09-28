@@ -1,12 +1,13 @@
 /**
- * «Внешний вид»: язык, как и тема, применяется сразу и откатывается, если сервер не сохранил
- * настройку; при успехе остаётся выбранным.
+ * «Внешний вид» — только тема: выбора языка нет ни у одной роли (docs/00 §1.4). Тема применяется
+ * сразу и откатывается, если сервер не сохранил настройку; при успехе остаётся выбранной.
  */
 import { ToastProvider } from '@edu/ui';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { i18n, setLanguage } from '@/shared/i18n';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import '@/shared/i18n';
+import { useUiStore } from '@/shared/store/ui-store';
 import { AppearanceSettings } from './AppearanceSettings';
 
 type Callbacks = { onError?: (error: unknown) => void; onSuccess?: () => void };
@@ -21,7 +22,7 @@ vi.mock('@/shared/auth/hooks', () => ({
   useAuth: () => ({
     me: {
       user: { id: 'u1', firstName: 'Анна', lastName: null, nickname: null, avatarUrl: null },
-      settings: { theme: 'SYSTEM', locale: 'ru' },
+      settings: { theme: 'SYSTEM', locale: 'en' },
     },
   }),
 }));
@@ -37,40 +38,45 @@ function renderSettings() {
   );
 }
 
-describe('AppearanceSettings: язык', () => {
-  beforeEach(async () => {
-    await setLanguage('ru');
+describe('AppearanceSettings', () => {
+  beforeEach(() => {
+    act(() => useUiStore.getState().setTheme('SYSTEM'));
     hooks.pending = undefined;
     hooks.mutate = vi.fn((_vars: unknown, callbacks?: Callbacks) => {
       hooks.pending = callbacks;
     });
   });
 
-  afterEach(async () => {
-    await setLanguage('ru');
+  it('только тема: строки и списка выбора языка нет', () => {
+    renderSettings();
+
+    expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument();
+    expect(screen.queryByText(/Язык/)).not.toBeInTheDocument();
+    expect(screen.queryByText('English')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it('ошибка сохранения — язык возвращается к прежнему', async () => {
+  it('ошибка сохранения — тема возвращается к прежней', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getByRole('button', { name: /Язык/ }));
-    await user.click(screen.getByRole('button', { name: 'English' }));
+    await user.click(screen.getByRole('radio', { name: 'Тёмная' }));
 
-    expect(hooks.mutate).toHaveBeenCalledWith({ locale: 'en' }, expect.anything());
-    await vi.waitFor(() => expect(i18n.language).toBe('en'));
+    expect(hooks.mutate).toHaveBeenCalledWith({ theme: 'DARK' }, expect.anything());
+    expect(useUiStore.getState().theme).toBe('DARK');
     act(() => hooks.pending?.onError?.(new Error('boom')));
-    await vi.waitFor(() => expect(i18n.language).toBe('ru'));
+    expect(useUiStore.getState().theme).toBe('SYSTEM');
+    expect(await screen.findByText('Не удалось сохранить настройки')).toBeInTheDocument();
   });
 
-  it('успешное сохранение — язык остаётся выбранным', async () => {
+  it('успешное сохранение — тема остаётся выбранной', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getByRole('button', { name: /Язык/ }));
-    await user.click(screen.getByRole('button', { name: 'English' }));
-
+    await user.click(screen.getByRole('radio', { name: 'Тёмная' }));
     act(() => hooks.pending?.onSuccess?.());
-    await vi.waitFor(() => expect(i18n.language).toBe('en'));
+
+    expect(useUiStore.getState().theme).toBe('DARK');
+    expect(screen.getByRole('radio', { name: 'Тёмная' })).toHaveAttribute('aria-checked', 'true');
   });
 });

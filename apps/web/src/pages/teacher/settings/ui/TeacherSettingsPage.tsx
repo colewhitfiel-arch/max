@@ -93,7 +93,7 @@ export function TeacherSettingsPage() {
       <Screen gap={5}>
         <ProfileCard to="/teacher/profile" />
         <WorkSettings />
-        <AppearanceSettings showLanguage={false} />
+        <AppearanceSettings />
         <AccountSettings />
         <LogoutButton showAbout={false} />
       </Screen>
