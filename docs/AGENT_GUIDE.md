@@ -55,7 +55,7 @@ apps/web/src
 apps/api/src
   main.ts / worker.ts / app.module.ts / bootstrap.ts   — владелец api-shell
   config/env.ts                                        — владелец api-shell
-  common/{auth,errors,events,kv,logger,pagination,prisma,queue,time,validation}  — владелец api-shell
+  common/{auth,errors,events,kv,logger,pagination,prisma,queue,rate-limit,time,validation}  — владелец api-shell
   modules/index.ts                                     — реестр модулей (одна строка на модуль)
   modules/<name>/
     <name>.module.ts      Nest-модуль, exports: публичный сервис

@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
 import { AppLogger } from '../../common/logger/logger.service';
+import { RateLimit } from '../../common/rate-limit/rate-limit';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { OnboardingService } from './onboarding.service';
 import { ParentTutorService } from './parent-tutor.service';
@@ -60,6 +61,7 @@ export class AiStreamController {
   }
 
   @RequirePermission('student:onboarding.complete')
+  @RateLimit('ai')
   @Post('student/onboarding/messages')
   async onboardingMessage(
     @CurrentUser() user: AuthUser,
@@ -79,6 +81,7 @@ export class AiStreamController {
   }
 
   @RequirePermission('student:tutor.chat')
+  @RateLimit('ai')
   @Post('ai/conversations/:conversationId/messages')
   async tutorMessage(
     @CurrentUser() user: AuthUser,
@@ -94,6 +97,7 @@ export class AiStreamController {
 
   /** Тьютор родителя о ребёнке (`STREAMING_ROUTES.parentTutorMessage`). */
   @RequirePermission('parent:tutor.chat')
+  @RateLimit('ai')
   @Post('parent/ai/conversations/:conversationId/messages')
   async parentTutorMessage(
     @CurrentUser() user: AuthUser,

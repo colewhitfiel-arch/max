@@ -3,6 +3,7 @@ import { authContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import { CurrentUser, Public, RequirePermission, Roles } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth-user';
+import { RateLimit } from '../../common/rate-limit/rate-limit';
 import { IdentityService } from './identity.service';
 
 /** Реализация contracts/routes/auth.ts. Роутинг и валидация — ts-rest; логика — IdentityService. */
@@ -11,6 +12,7 @@ export class AuthController {
   constructor(private readonly identity: IdentityService) {}
 
   @Public()
+  @RateLimit('auth')
   @TsRestHandler(authContract.loginMax)
   loginMax() {
     return tsRestHandler(authContract.loginMax, async ({ body }) => ({
@@ -20,6 +22,7 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit('auth')
   @TsRestHandler(authContract.loginDev)
   loginDev() {
     return tsRestHandler(authContract.loginDev, async ({ body }) => ({
@@ -29,6 +32,7 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit('auth')
   @TsRestHandler(authContract.refresh)
   refresh() {
     return tsRestHandler(authContract.refresh, async ({ body }) => ({

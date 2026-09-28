@@ -44,6 +44,18 @@ export const envSchema = z
     /** memory — один процесс; postgres — общий стор для serverless (таблица kv_entries). */
     KV_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
 
+    /**
+     * Ограничение частоты запросов (fixed window в KeyValueStore; common/rate-limit).
+     * Пусто — включено везде, кроме NODE_ENV=test.
+     */
+    RATE_LIMIT_ENABLED: boolFromString.optional(),
+    /** Входов и обновлений сессии (/auth/max, /auth/dev, /auth/refresh) в минуту с одного IP. */
+    RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(60),
+    /** Попыток привязать ребёнка по коду и принять приглашение в час на пользователя. */
+    RATE_LIMIT_LINK_PER_HOUR: z.coerce.number().int().positive().default(10),
+    /** Запросов к ИИ (тьютор, онбординг, генерация курса) в минуту на пользователя. */
+    RATE_LIMIT_AI_PER_MIN: z.coerce.number().int().positive().default(20),
+
     AUTH_PROVIDER: z.enum(['dev', 'max']).default('dev'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET: минимум 32 символа'),
     JWT_ACCESS_TTL: z.string().default('15m'),
