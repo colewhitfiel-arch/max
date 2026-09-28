@@ -43,6 +43,7 @@ import { config } from '@/shared/config';
 import { RootRedirect } from './root-redirect';
 import { RouteErrorScreen } from './route-error';
 import { ParentShell, StudentShell, TeacherShell } from './shells';
+import { Splash } from './splash';
 
 const devRoutes: RouteObject[] = config.isDev
   ? [
@@ -117,6 +118,9 @@ export const routes: RouteObject[] = [
  * Pathless-корень с `errorElement`: ошибки рендера страниц и падения `lazy()` показывают наш экран,
  * а не встроенный «Unexpected Application Error!» (ErrorBoundary в providers их не видит).
  */
-export const rootRoutes: RouteObject[] = [{ errorElement: <RouteErrorScreen />, children: routes }];
+export const rootRoutes: RouteObject[] = [
+  // hydrateFallbackElement — пока грузится lazy-страница первого адреса (иначе пусто и предупреждение).
+  { errorElement: <RouteErrorScreen />, hydrateFallbackElement: <Splash />, children: routes },
+];
 
 export const router = createBrowserRouter(rootRoutes);
