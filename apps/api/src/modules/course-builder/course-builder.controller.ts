@@ -12,7 +12,7 @@ import { CourseBuilderService } from './course-builder.service';
 export class CourseBuilderController {
   constructor(private readonly service: CourseBuilderService) {}
 
-  @RateLimit('ai')
+  @RateLimit('generation')
   @TsRestHandler(courseBuilderContract.createGenerationJob)
   create(@CurrentUser() user: AuthUser) {
     return tsRestHandler(courseBuilderContract.createGenerationJob, async ({ body }) => ({

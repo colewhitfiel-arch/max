@@ -43,6 +43,18 @@ class RateLimitedController {
   link() {
     return { ok: true };
   }
+
+  @RateLimit('ai')
+  @Get('ai')
+  ai() {
+    return { ok: true };
+  }
+
+  @RateLimit('generation')
+  @Get('generation')
+  generation() {
+    return { ok: true };
+  }
 }
 
 async function createApp(overrides: Partial<Record<keyof Env, string>>): Promise<INestApplication> {
@@ -108,6 +120,24 @@ describe('RateLimitGuard', () => {
     await request(app.getHttpServer()).get('/rl/link').expect(401);
   });
 
+  it('запуск генерации курса: свой часовой счётчик, отдельный от вызовов ИИ', async () => {
+    app = await createApp({
+      RATE_LIMIT_ENABLED: '1',
+      RATE_LIMIT_GENERATION_PER_HOUR: '1',
+      RATE_LIMIT_AI_PER_MIN: '5',
+    });
+    const alice = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000a1' });
+    const call = (path: string) =>
+      request(app!.getHttpServer()).get(path).set('Authorization', alice);
+
+    await call('/rl/generation').expect(200);
+    const limited = await call('/rl/generation').expect(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+    expect(Number(limited.headers['retry-after'])).toBeLessThanOrEqual(3600);
+    // Лимит генерации не съедает лимит обычных вызовов ИИ
+    await call('/rl/ai').expect(200);
+  });
+
   it('в NODE_ENV=test без RATE_LIMIT_ENABLED лимит выключен', async () => {
     app = await createApp({ RATE_LIMIT_AUTH_PER_MIN: '1' });
     for (let i = 0; i < 3; i += 1) await request(app.getHttpServer()).get('/rl/login').expect(200);
@@ -132,7 +162,7 @@ describe('ручки под лимитом', () => {
   const bucketOf = (target: object, method: string) =>
     Reflect.getMetadata(RATE_LIMIT_KEY, (target as Record<string, unknown>)[method] as object);
 
-  it('вход, привязка ребёнка и вызовы ИИ помечены своей группой', () => {
+  it('вход, привязка ребёнка, вызовы ИИ и запуск генерации курса помечены своей группой', () => {
     const expected: Array<[object, string, string]> = [
       [AuthController.prototype, 'loginMax', 'auth'],
       [AuthController.prototype, 'loginDev', 'auth'],
@@ -143,7 +173,7 @@ describe('ручки под лимитом', () => {
       [AiStreamController.prototype, 'parentTutorMessage', 'ai'],
       [AiStreamController.prototype, 'onboardingMessage', 'ai'],
       [AiController.prototype, 'getOnboardingRecommendations', 'ai'],
-      [CourseBuilderController.prototype, 'create', 'ai'],
+      [CourseBuilderController.prototype, 'create', 'generation'],
     ];
     for (const [target, method, bucket] of expected)
       expect({ method, bucket: bucketOf(target, method) }).toEqual({ method, bucket });

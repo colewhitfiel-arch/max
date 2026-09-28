@@ -53,8 +53,10 @@ export const envSchema = z
     RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(60),
     /** Попыток привязать ребёнка по коду и принять приглашение в час на пользователя. */
     RATE_LIMIT_LINK_PER_HOUR: z.coerce.number().int().positive().default(10),
-    /** Запросов к ИИ (тьютор, онбординг, генерация курса) в минуту на пользователя. */
+    /** Запросов к ИИ (тьютор, онбординг) в минуту на пользователя. */
     RATE_LIMIT_AI_PER_MIN: z.coerce.number().int().positive().default(20),
+    /** Запусков генерации курса (course-builder) в час на пользователя. */
+    RATE_LIMIT_GENERATION_PER_HOUR: z.coerce.number().int().positive().default(10),
 
     AUTH_PROVIDER: z.enum(['dev', 'max']).default('dev'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET: минимум 32 символа'),

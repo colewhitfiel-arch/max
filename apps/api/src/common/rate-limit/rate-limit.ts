@@ -18,9 +18,10 @@ import { KV_STORE, type KeyValueStore } from '../kv/key-value-store';
 /**
  * Группы ручек с общим счётчиком: вход и обновление сессии (по IP), привязка ребёнка по коду
  * и приглашению (по пользователю — 6-символьный код иначе перебирается), вызовы GigaChat
- * (по пользователю).
+ * (по пользователю) и запуск генерации курса — отдельно и в час: одна задача course-builder
+ * делает много вызовов GigaChat (по пользователю).
  */
-export type RateLimitBucket = 'auth' | 'link' | 'ai';
+export type RateLimitBucket = 'auth' | 'link' | 'ai' | 'generation';
 
 interface BucketPolicy {
   /** Чей счётчик: IP клиента (публичные ручки) или пользователь из JWT. */
@@ -33,6 +34,11 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitBucket, BucketPolicy> = {
   auth: { by: 'ip', windowSec: 60, limit: (env) => env.RATE_LIMIT_AUTH_PER_MIN },
   link: { by: 'user', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
   ai: { by: 'user', windowSec: 60, limit: (env) => env.RATE_LIMIT_AI_PER_MIN },
+  generation: {
+    by: 'user',
+    windowSec: 60 * 60,
+    limit: (env) => env.RATE_LIMIT_GENERATION_PER_HOUR,
+  },
 };
 
 export const RATE_LIMIT_KEY = 'rate-limit:bucket';
