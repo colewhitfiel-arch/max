@@ -5,7 +5,8 @@
   padding: var(--ui-space-4);
 }
 
-.ui-screen[data-fill] {
+.ui-screen[data-fill],
+.ui-screen[data-fixed] {
   min-height: 100%;
 }
 

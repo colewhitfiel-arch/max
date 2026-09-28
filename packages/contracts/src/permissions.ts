@@ -37,6 +37,7 @@ export const PERMISSIONS = [
   // преподаватель
   'teacher:home.view',
   'teacher:groups.view',
+  'teacher:groups.manage',
   'teacher:students.view',
   'teacher:lessons.manage',
   'teacher:attendance.mark',
@@ -91,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ...COMMON,
     'teacher:home.view',
     'teacher:groups.view',
+    'teacher:groups.manage',
     'teacher:students.view',
     'teacher:lessons.manage',
     'teacher:attendance.mark',

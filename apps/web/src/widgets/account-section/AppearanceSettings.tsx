@@ -21,7 +21,7 @@ import { useUiStore } from '@/shared/store/ui-store';
 import { SettingsGroup } from './SettingsGroup';
 
 export interface AppearanceSettingsProps {
-  /** Строка «Язык» (по умолчанию есть). Ученику и родителю не показывается — только тема. */
+  /** Строка «Язык» (по умолчанию есть). Ученику, родителю и преподавателю не показывается — только тема. */
   showLanguage?: boolean;
 }
 
@@ -115,7 +115,7 @@ export function AppearanceSettings({ showLanguage = true }: AppearanceSettingsPr
       </Card>
 
       <Sheet
-        open={languageOpen}
+        open={showLanguage && languageOpen}
         onClose={() => setLanguageOpen(false)}
         title={t('settings.languageSheet')}
         closeLabel={t('actions.close')}

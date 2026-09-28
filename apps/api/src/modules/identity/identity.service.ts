@@ -244,6 +244,11 @@ export class IdentityService {
     return this.repo.findTeacherSchoolId(teacherProfileId);
   }
 
+  /** Для других модулей: id профилей учеников школы (кого преподаватель может взять в группу). */
+  async listStudentIdsOfSchool(schoolId: string): Promise<string[]> {
+    return this.repo.findStudentIdsOfSchool(schoolId);
+  }
+
   /**
    * Школа пользователя для экранов, общих для всех ролей (каталог, публичный профиль):
    * у ученика и преподавателя — своя, у родителя — школа первого привязанного ребёнка.

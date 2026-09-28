@@ -5,7 +5,7 @@ import { useAuth } from '@/shared/auth/hooks';
 import { AUTH_PATH } from '@/shared/auth/role-routes';
 
 export interface LogoutButtonProps {
-  /** Подпись о приложении под кнопкой (по умолчанию есть; у ученика и родителя — нет). */
+  /** Подпись о приложении под кнопкой (по умолчанию есть; у ученика, родителя и преподавателя — нет). */
   showAbout?: boolean;
 }
 

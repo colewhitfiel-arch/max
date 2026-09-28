@@ -17,8 +17,8 @@ export interface StackProps extends HTMLAttributes<HTMLElement> {
   /** Занимать свободное место родителя-flex (`flex: 1`). */
   grow?: boolean;
   /**
-   * Сжиматься, когда месту в родителе-flex не хватает, и прокручивать содержимое самому
-   * (`min-height: 0; overflow-y: auto`). Для блоков экрана `Screen fit`.
+   * Прокручивать содержимое самому (`min-height: 0; overflow-y: auto`). В `Screen fit` —
+   * сжиматься, когда места не хватает; в `Screen fixed` — занимать свободное место экрана.
    */
   scroll?: boolean;
   /** HTML-тег. По умолчанию `div`. */

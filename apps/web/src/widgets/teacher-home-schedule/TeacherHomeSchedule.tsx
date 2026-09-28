@@ -98,7 +98,9 @@ export function TeacherHomeSchedule() {
         secondColumn={{
           header: t('home.columns.group'),
           cell: (lesson) => lesson.group.code ?? lesson.group.title,
-          nowrap: true,
+          // Короткий код «001» не переносится; название группы без кода длинное — переносится
+          // по словам, иначе заезжает на колонку времени.
+          nowrap: lessons.every((lesson) => lesson.group.code != null),
         }}
         striped
       />

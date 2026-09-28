@@ -158,6 +158,15 @@ export class IdentityRepository {
     });
   }
 
+  /** id профилей учеников школы — кандидаты в группы преподавателя этой школы. */
+  async findStudentIdsOfSchool(schoolId: string): Promise<string[]> {
+    const rows = await this.prisma.studentProfile.findMany({
+      where: { schoolId },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   /** userId по id профиля роли — кому слать уведомление (`null`, если профиля нет). */
   async findUserIdOfProfile(
     role: 'STUDENT' | 'PARENT' | 'TEACHER',

@@ -21,7 +21,15 @@ export interface AppLayoutProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
 }
 
-export type AppLayoutContentProps = HTMLAttributes<HTMLElement>;
+export interface AppLayoutContentProps extends HTMLAttributes<HTMLElement> {
+  /**
+   * Экран ровно по высоте области между шапкой и меню: область становится flex-колонкой,
+   * `Screen fill` занимает остаток под своей шапкой (а не 100% области поверх неё — без
+   * лишней прокрутки на высоту шапки), `Screen fixed` — ровно остаток и сам не прокручивается.
+   * По умолчанию `false` — прежняя блочная раскладка.
+   */
+  fit?: boolean;
+}
 
 /** Полноэкранный фон-картинка под шапкой, контентом и меню (экран «Задания» — звёзды). */
 export interface AppLayoutBackdropProps {
@@ -57,10 +65,17 @@ function AppLayoutBackdrop({ image, opacity, size, position, repeat }: AppLayout
 
 /** Скроллируемая область между шапкой и меню (`<main>`). */
 const AppLayoutContent = forwardRef<HTMLElement, AppLayoutContentProps>(function AppLayoutContent(
-  { className, ...rest },
+  { fit = false, className, ...rest },
   ref,
 ) {
-  return <main ref={ref} className={cx('ui-app-layout__content', className)} {...rest} />;
+  return (
+    <main
+      ref={ref}
+      className={cx('ui-app-layout__content', className)}
+      data-fit={fit || undefined}
+      {...rest}
+    />
+  );
 });
 
 const AppLayoutRoot = forwardRef<HTMLDivElement, AppLayoutProps>(function AppLayout(

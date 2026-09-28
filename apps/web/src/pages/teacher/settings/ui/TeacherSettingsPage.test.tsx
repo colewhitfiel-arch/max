@@ -1,6 +1,6 @@
 /**
- * Настройки репетитора: профиль, «Работа» (разделы вне нижнего меню), внешний вид, уведомления
- * преподавателя, роль и выход — на месте бывшего экрана «Ещё».
+ * Настройки репетитора: профиль, «Работа» (разделы вне нижнего меню), внешний вид (только тема),
+ * роль и выход — на месте бывшего экрана «Ещё». Уведомлений, языка и подписи о приложении нет.
  */
 import type { MeDto } from '@edu/contracts';
 import { ToastProvider } from '@edu/ui';
@@ -29,7 +29,7 @@ const maria: MeDto = {
   teacher: { id: id(20), schoolId: id(1) },
 };
 
-// Уведомления проверяет свой тест; здесь — что экран просит набор преподавателя.
+// Раздел уведомлений у преподавателя убран: если экран снова его подключит, тест это увидит.
 vi.mock('@/widgets/notification-settings', () => ({
   NotificationSettings: ({ role }: { role: string }) => <p>уведомления {role}</p>,
 }));
@@ -75,7 +75,7 @@ describe('TeacherSettingsPage', () => {
   });
   afterEach(() => resetAuthStore());
 
-  it('секции как у родителя: профиль, «Работа», внешний вид, уведомления преподавателя, выход', () => {
+  it('секции: профиль, «Работа», внешний вид, аккаунт, выход', () => {
     renderSettings();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Настройки' })).toBeInTheDocument();
@@ -83,8 +83,19 @@ describe('TeacherSettingsPage', () => {
     for (const title of ['Работа', 'Внешний вид', 'Аккаунт']) {
       expect(screen.getByRole('heading', { level: 2, name: title })).toBeInTheDocument();
     }
-    expect(screen.getByText('уведомления TEACHER')).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Выйти из аккаунта' })).toBeInTheDocument();
+  });
+
+  it('без уведомлений, языка и подписи «Мини-приложение «Кружки»»', () => {
+    renderSettings();
+
+    expect(screen.queryByText(/^уведомления/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'Уведомления' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Язык/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Мини-приложение/)).not.toBeInTheDocument();
   });
 
   it.each([

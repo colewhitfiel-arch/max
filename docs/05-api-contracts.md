@@ -161,6 +161,17 @@ GET  /teacher/calendar?from&to                  → { lessons: LessonDto[] }   /
                                                                             // календарь); teacher:groups.view
 POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto   // endsAt > startsAt, иначе 400 VALIDATION
 PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCELLED', cancelReason? } → LessonDto
+
+// Группы преподавателя (F19); teacher:groups.manage, чужая группа — 403
+POST   /teacher/groups                          { title, clubId } → GroupBrief   // title 1..100 (trim); кружок не из школы преподавателя — 400 VALIDATION;
+                                                                                // название уже есть среди его активных групп (без учёта регистра) — 409 CONFLICT
+PATCH  /teacher/groups/:groupId                 { title } → GroupBrief
+GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя и его активных групп, не в составе
+                                                                            // этой группы; q — подстрока имени/фамилии/ника; по алфавиту, до 50
+POST   /teacher/groups/:groupId/students        { studentId } → GroupRoster { groupId, students: StudentBrief[] }
+                                                // идемпотентно; ученик не из кандидатов — 404; новое/возвращённое после ухода
+                                                // зачисление → событие enrollment.created
+DELETE /teacher/groups/:groupId/students/:studentId → GroupRoster   // зачисление → LEFT (leftAt), оплаты и история остаются; идемпотентно
 ```
 
 ### `attendance.ts` — владелец B3
