@@ -6,8 +6,8 @@ import {
   demoBlocks,
   demoCourse,
   demoModules,
-  demoSubmissions,
   materializeDemoLessons,
+  materializeDemoSubmissions,
 } from '@edu/contracts/fixtures';
 import type { Prisma, PrismaClient } from '../../generated/client';
 
@@ -132,7 +132,7 @@ export async function seedLearning(prisma: PrismaClient, now: Date): Promise<voi
     });
   }
 
-  for (const submission of demoSubmissions) {
+  for (const submission of materializeDemoSubmissions(now)) {
     const data = {
       assignmentId: submission.assignmentId,
       studentId: submission.studentId,

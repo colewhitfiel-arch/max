@@ -54,13 +54,13 @@ import {
   demoParents,
   demoScheduleRules,
   demoStudents,
-  demoSubmissions,
   demoTeachers,
   demoUsers,
   materializeDemoAttendance,
   materializeDemoLessons,
   materializeDemoPaidPeriod,
   materializeDemoPayment,
+  materializeDemoSubmissions,
 } from '@edu/contracts/fixtures';
 import {
   buildWorldExtras,
@@ -224,7 +224,7 @@ function buildState() {
       },
     ] as BlockProgress[],
     assignments: clone(demoAssignments) as Assignment[],
-    submissions: clone(demoSubmissions) as Submission[],
+    submissions: materializeDemoSubmissions(now, tzOffset) as Submission[],
     /** Сдачи по Idempotency-Key: `${studentId}:${key}` → задание и ответ, отданный в первый раз. */
     submissionReplays: new Map<string, { assignmentId: string; result: SubmissionDto }>(),
     // + оплаты за недавние поступления в кошелёк Марии (world-extras): «Вам должны» и платежи
