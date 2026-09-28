@@ -7,6 +7,7 @@ import { useMaxBridge } from '@/shared/max';
 import { hydrateUiStore, useUiStore } from '@/shared/store/ui-store';
 import { router } from './router';
 import { Splash } from './splash';
+import { applyStartParam } from './start-param';
 
 /** Bootstrap (UI-store, сессия) → сплэш → роутер. */
 export function App() {
@@ -19,6 +20,8 @@ export function App() {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
+    // Диплинк MAX (`startapp`, например приглашение родителя) — до входа и до роутера.
+    applyStartParam(bridge, router);
     void (async () => {
       const off = await hydrateUiStore(bridge);
       if (cancelled) off();

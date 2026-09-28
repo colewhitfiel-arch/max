@@ -7,7 +7,10 @@ import { LinkChildForm } from './LinkChildForm';
 export interface AddChildSheetProps {
   open: boolean;
   onClose: () => void;
-  /** Ребёнок привязан по коду (связь сразу ACTIVE) — обычно его выбирают. Шторка закрывается сама. */
+  /**
+   * Ребёнок привязан — по коду (связь сразу ACTIVE) или принял приглашение по ссылке, пока
+   * шторка открыта. Обычно его выбирают. Шторка закрывается сама.
+   */
   onLinked?: (studentId: string) => void;
 }
 
@@ -37,7 +40,12 @@ export function AddChildSheet({ open, onClose, onLinked }: AddChildSheetProps) {
               {t('addChild.invite.description')}
             </Text>
           </Stack>
-          <ChildInviteLink />
+          <ChildInviteLink
+            onAccepted={(studentId) => {
+              onLinked?.(studentId);
+              onClose();
+            }}
+          />
         </Stack>
 
         <Inline gap={3} align="center" wrap={false} aria-hidden="true">

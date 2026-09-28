@@ -274,10 +274,10 @@ DELETE /parent/children/:studentId       → 204 (REVOKED)
 GET    /parent/children/:studentId/clubs → { items: [{ club: ClubCard, group: GroupBrief, enrollmentId, schedule: ScheduleRuleDto[],
                                               progress: ClubProgress, paidUntil?: string, nextPaymentAt: string, price: Money }] }
 POST   /parent/children/invites          → { token, url, expiresAt }   // ссылка-приглашение ребёнку, живёт 7 дней
-GET    /student/parent-invites/:token    student → { token, parent: UserBrief, expiresAt, status: PENDING|ACCEPTED|EXPIRED }
+GET    /student/parent-invites/:token    student → { token, parent: UserBrief, expiresAt, status: PENDING|ACCEPTED|EXPIRED, alreadyLinked? }
 POST   /student/parent-invites/:token/accept student → { parent: UserBrief, linkStatus }   // связь → ACTIVE
 ```
-`url` строит сервер: сейчас `${origin}/invite/${token}` (экран `/invite/:token`); формат deep link MAX — TODO (workstream J). Поток — docs/07 F14.
+`url` строит сервер: с `MAX_BOT_NAME` — диплинк мини-приложения MAX `https://max.ru/<MAX_BOT_NAME>?startapp=invite_<token>` (хелперы `childInviteStartParam` / `parseChildInviteStartParam` в `family.ts`), без него — `${WEB_URL}/invite/<token>` (экран `/invite/:token`). `alreadyLinked` — ученик уже привязан к этому родителю. `accept`: повтор тем же учеником — 200, пока связь ACTIVE (после отвязки — 422); чужой по принятой ссылке и уже привязанный ребёнок — 409 `CONFLICT` (во втором случае ссылка не гасится); истёкшая и своё же приглашение — 422 `BUSINESS_RULE`; нет такого — 404. Поток — docs/07 F14.
 
 ### `payments.ts` — владелец B8
 ```

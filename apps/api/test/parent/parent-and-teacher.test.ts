@@ -57,7 +57,9 @@ describe.skipIf(!hasTestDatabase)('родитель и преподавател�
   });
 
   it('приглашение по ссылке: ученик видит его и принимает', async () => {
-    const invitingParent = await loginAs('max-parent-invite', 'PARENT');
+    // Новый родитель на каждый прогон: тестовая БД не сбрасывается, а уже привязанного ребёнка
+    // повторное приглашение того же родителя не принимает (409, docs/07 F14).
+    const invitingParent = await loginAs(`max-parent-invite-${Date.now()}`, 'PARENT');
     const invite = await http()
       .post(`${base}/parent/children/invites`)
       .set('Authorization', `Bearer ${invitingParent}`)
