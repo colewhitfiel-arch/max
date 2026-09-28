@@ -35,7 +35,16 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
  * Состояния (loading/error/empty) решает потребитель через Skeleton/ErrorState/EmptyState.
  */
 export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
-  { padding = 'md', gap = 4, fill = false, grow = false, fit = false, fixed = false, className, ...rest },
+  {
+    padding = 'md',
+    gap = 4,
+    fill = false,
+    grow = false,
+    fit = false,
+    fixed = false,
+    className,
+    ...rest
+  },
   ref,
 ) {
   return (
