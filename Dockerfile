@@ -105,10 +105,14 @@ EXPOSE 3000
 
 # Миграции применяются перед стартом. Схема многофайловая (папка prisma/schema),
 # каталог миграций лежит внутри неё — prisma/schema/migrations.
+# SEED_ON_START=1 (по умолчанию в compose.yaml) — затем идемпотентный seed демо-мира: школа с кодом
+# SCHOOL1, демо-пользователи, кружки, курс. Он собран в packages/db/dist/seed (tsx в образе нет),
+# фикстуры берёт из @edu/contracts/fixtures (contracts/dist), клиент — из packages/db/generated.
+# Упавший seed не даёт api стартовать: контейнер перезапускается и пробует снова.
 # Worker отдельным сервисом не нужен: QUEUE_DRIVER=inline, задачи выполняются в процессе api.
 # Чтобы включить его при QUEUE_DRIVER=bullmq — добавить сервис с
 # CMD ["node", "apps/api/dist/worker.js"] и REDIS_URL (см. комментарий в compose.yaml).
-CMD ["sh", "-c", "prisma migrate deploy --schema=/app/packages/db/prisma/schema && exec node apps/api/dist/main.js"]
+CMD ["sh", "-c", "prisma migrate deploy --schema=/app/packages/db/prisma/schema && if [ \"$SEED_ON_START\" = \"1\" ]; then node packages/db/dist/seed/index.js; fi && exec node apps/api/dist/main.js"]
 
 # ---------------------------------------------------------------------------
 # runtime-web — nginx: SPA + прокси /api/ на сервис api (единый origin)

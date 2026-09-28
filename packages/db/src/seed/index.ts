@@ -1,6 +1,7 @@
 /**
  * Seed демо-мира из packages/contracts/src/fixtures. Идемпотентен (upsert по id).
- * Запуск: `pnpm db:seed` (корень) или `prisma db seed` из packages/db.
+ * Запуск: `pnpm db:seed` (корень) или `prisma db seed` из packages/db; в Docker-образе api —
+ * собранный `node packages/db/dist/seed/index.js` (SEED_ON_START=1, см. Dockerfile).
  * Модульные фрагменты — в этой папке по файлам; demo-world.ts (владелец db) вызывает их по порядку.
  */
 import { createPrismaClient } from '../client';
