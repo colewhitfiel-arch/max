@@ -166,8 +166,10 @@ PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCE
 POST   /teacher/groups                          { title, clubId } → GroupBrief   // title 1..100 (trim); кружок не из школы преподавателя — 400 VALIDATION;
                                                                                 // название уже есть среди его активных групп (без учёта регистра) — 409 CONFLICT
 PATCH  /teacher/groups/:groupId                 { title } → GroupBrief
-GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя и его активных групп, не в составе
-                                                                            // этой группы; q — подстрока имени/фамилии/ника; по алфавиту, до 50
+GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя (школа в профиле ученика или
+                                                                            // зачисление не LEFT в активную группу кружка этой школы) и его
+                                                                            // активных групп, не в составе этой группы; q — подстрока
+                                                                            // имени/фамилии/ника; по алфавиту, до 50
 POST   /teacher/groups/:groupId/students        { studentId } → GroupRoster { groupId, students: StudentBrief[] }
                                                 // идемпотентно; ученик не из кандидатов — 404; новое/возвращённое после ухода
                                                 // зачисление → событие enrollment.created

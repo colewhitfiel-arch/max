@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { InlineJobQueue } from '../../src/common/queue/inline-job-queue';
 import { JOB_QUEUE } from '../../src/common/queue/job-queue';
+import { GroupsService } from '../../src/modules/groups/groups.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
 const DAY_MS = 86_400_000;
@@ -137,6 +138,24 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       .query({ q: '7' })
       .set(auth(teacher))
       .expect(200);
+  });
+
+  it('кандидаты — и ученик без школы в профиле, зачисленный в группу кружка школы', async () => {
+    // Так приходят настоящие ученики: онбординг зачисляет в первую группу кружка (здесь —
+    // группу другого преподавателя школы), а школу в профиль ученика не записывает.
+    const newcomer = await loginAs(`max-student-onboarded-${run}`, 'STUDENT');
+    const me = await http().get(`${base}/me`).set(auth(newcomer.accessToken)).expect(200);
+    const studentId = me.body.student.id as string;
+    await app.get(GroupsService).enroll(studentId, DEMO_IDS.groups.roboticsA);
+    try {
+      const res = await http()
+        .get(`${base}/teacher/groups/${groupId}/candidates`)
+        .set(auth(teacher))
+        .expect(200);
+      expect(ids(res.body.items)).toContain(studentId);
+    } finally {
+      await app.get(PrismaService).enrollment.deleteMany({ where: { studentId } });
+    }
   });
 
   it('состав: добавить, повторно добавить (идемпотентно), убрать и вернуть', async () => {

@@ -23,9 +23,10 @@ const byName = (a: StudentBrief, b: StudentBrief) => fullName(a).localeCompare(f
 
 /**
  * Группы преподавателя как его рабочий инструмент (docs/07 F19): создание, название и состав.
- * Кружок группы — из школы преподавателя (catalog), ученики — из его школы и других его групп
- * (identity + свои зачисления): чужих детей в группу добавить нельзя. Таблицы — только свои
- * (groups, enrollments), чужое — через публичные сервисы (AGENT_GUIDE §4).
+ * Кружок группы — из школы преподавателя (catalog), ученики — из его школы (профиль школы или
+ * зачисление в группу её кружка) и других его групп (identity + catalog + свои зачисления):
+ * чужих детей в группу добавить нельзя. Таблицы — только свои (groups, enrollments), чужое —
+ * через публичные сервисы (AGENT_GUIDE §4).
  */
 @Injectable()
 export class GroupManagementService {
@@ -143,17 +144,27 @@ export class GroupManagementService {
 
   // ---------- внутреннее ----------
 
-  /** Кого преподаватель может взять в группу: ученики его школы и его активных групп. */
+  /**
+   * Кого преподаватель может взять в группу: ученики его школы — с профилем этой школы или
+   * зачисленные (не `LEFT`) в активную группу любого её кружка (так в школу попадают ученики,
+   * пришедшие через онбординг: школа в их профиле не записывается), — и его активных групп.
+   */
   private async allowedStudentIds(teacherId: string): Promise<Set<string>> {
     const schoolId = await this.identity.getTeacherSchoolId(teacherId);
-    const [ofSchool, ofGroups] = await Promise.all([
+    const clubIds = schoolId
+      ? (await this.catalog.listActiveClubCards(schoolId)).map((club) => club.id)
+      : [];
+    const [ofSchool, enrolled] = await Promise.all([
       schoolId ? this.identity.listStudentIdsOfSchool(schoolId) : Promise.resolve([]),
       this.prisma.enrollment.findMany({
-        where: { status: { not: 'LEFT' }, group: { teacherId, isActive: true } },
+        where: {
+          status: { not: 'LEFT' },
+          group: { isActive: true, OR: [{ teacherId }, { clubId: { in: clubIds } }] },
+        },
         select: { studentId: true },
       }),
     ]);
-    return new Set([...ofSchool, ...ofGroups.map((row) => row.studentId)]);
+    return new Set([...ofSchool, ...enrolled.map((row) => row.studentId)]);
   }
 
   /** Название уникально среди активных групп преподавателя (без учёта регистра). */
