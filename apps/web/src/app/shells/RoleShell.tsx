@@ -9,10 +9,15 @@ export interface RoleShellProps {
   role: Role;
   header?: ReactNode;
   children?: ReactNode;
+  /**
+   * Экраны роли ровно по высоте области между шапкой и меню (`AppLayout.Content fit`):
+   * `Screen fill` под шапкой экрана не даёт лишней прокрутки. По умолчанию выключено.
+   */
+  fitContent?: boolean;
 }
 
 /** Общий каркас роли: AppLayout + нижнее меню из конфига + Outlet. */
-export function RoleShell({ role, header, children }: RoleShellProps) {
+export function RoleShell({ role, header, children, fitContent = false }: RoleShellProps) {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
@@ -42,7 +47,7 @@ export function RoleShell({ role, header, children }: RoleShellProps) {
         />
       }
     >
-      <AppLayout.Content>{children ?? <Outlet />}</AppLayout.Content>
+      <AppLayout.Content fit={fitContent}>{children ?? <Outlet />}</AppLayout.Content>
     </AppLayout>
   );
 }

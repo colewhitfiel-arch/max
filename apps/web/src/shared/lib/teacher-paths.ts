@@ -25,3 +25,12 @@ export const teacherStudentPaths = {
   tasks: (studentId: string, groupId: string, task?: string) =>
     `/teacher/students/${studentId}/groups/${groupId}/tasks${task ? `?task=${encodeURIComponent(task)}` : ''}`,
 };
+
+/** Группы преподавателя: список, создание, карточка и правка состава (в том числе из «Задать ДЗ»). */
+export const teacherGroupPaths = {
+  list: '/teacher/groups',
+  create: '/teacher/groups/new',
+  group: (groupId: string) => `/teacher/groups/${groupId}`,
+  /** Название и состав группы. */
+  edit: (groupId: string) => `/teacher/groups/${groupId}/edit`,
+};

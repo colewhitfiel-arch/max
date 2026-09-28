@@ -10,6 +10,12 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
   gap?: Space;
   /** Растянуть на всю высоту скролл-области (для экранов с прижатой к низу панелью). */
   fill?: boolean;
+  /**
+   * Экран ровно по высоте области и без собственной прокрутки (формы с прижатыми к низу
+   * кнопками): длинную часть кладут в `Stack scroll`. Работает внутри `AppLayout.Content fit`;
+   * вне его ведёт себя как `fill`.
+   */
+  fixed?: boolean;
 }
 
 /**
@@ -17,7 +23,7 @@ export interface ScreenProps extends HTMLAttributes<HTMLDivElement> {
  * Состояния (loading/error/empty) решает потребитель через Skeleton/ErrorState/EmptyState.
  */
 export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
-  { padding = 'md', gap = 4, fill = false, className, ...rest },
+  { padding = 'md', gap = 4, fill = false, fixed = false, className, ...rest },
   ref,
 ) {
   return (
@@ -27,6 +33,7 @@ export const Screen = forwardRef<HTMLDivElement, ScreenProps>(function Screen(
       data-padding={padding}
       data-gap={gap}
       data-fill={fill || undefined}
+      data-fixed={fixed || undefined}
       {...rest}
     />
   );
