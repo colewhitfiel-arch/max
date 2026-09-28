@@ -22,8 +22,31 @@ export interface KeyValueStore {
   decr(key: string): Promise<number>;
 }
 
+/** Не чаще этого запись в MemoryKeyValueStore убирает из памяти все протухшие ключи. */
+const MEMORY_SWEEP_INTERVAL_MS = 60_000;
+
 export class MemoryKeyValueStore implements KeyValueStore {
   private readonly map = new Map<string, { value: unknown; expiresAt: number | null }>();
+  private nextSweepAt = Date.now() + MEMORY_SWEEP_INTERVAL_MS;
+
+  /** Сколько ключей в памяти, включая протухшие, которые ещё не убраны (диагностика, тесты). */
+  get size(): number {
+    return this.map.size;
+  }
+
+  /**
+   * Протухший ключ убирается при чтении, но многие ключи больше никто не читает: счётчик
+   * rate-limit прошлого окна, дневной лимит вчерашнего дня. Чтобы они не копились в памяти
+   * процесса, запись раз в минуту проходит по всем ключам и удаляет протухшие.
+   */
+  private sweep(): void {
+    const now = Date.now();
+    if (now < this.nextSweepAt) return;
+    this.nextSweepAt = now + MEMORY_SWEEP_INTERVAL_MS;
+    for (const [key, entry] of this.map) {
+      if (entry.expiresAt !== null && entry.expiresAt <= now) this.map.delete(key);
+    }
+  }
 
   private live(key: string) {
     const entry = this.map.get(key);
@@ -40,6 +63,7 @@ export class MemoryKeyValueStore implements KeyValueStore {
   }
 
   async set<T>(key: string, value: T, ttlSec?: number): Promise<void> {
+    this.sweep();
     this.map.set(key, { value, expiresAt: ttlSec ? Date.now() + ttlSec * 1000 : null });
   }
 
@@ -54,6 +78,7 @@ export class MemoryKeyValueStore implements KeyValueStore {
   }
 
   async incr(key: string, ttlSec: number): Promise<number> {
+    this.sweep();
     const entry = this.live(key);
     const next = ((entry?.value as number | undefined) ?? 0) + 1;
     this.map.set(key, { value: next, expiresAt: entry?.expiresAt ?? Date.now() + ttlSec * 1000 });

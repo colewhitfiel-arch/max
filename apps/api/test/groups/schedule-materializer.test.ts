@@ -1,6 +1,6 @@
 /**
  * Интеграция: материализация расписания (job `schedule.materialize`, docs/04) на тестовой БД.
- * «Сейчас» — 2031 год, чтобы не пересекаться с демо-занятиями; своя группа теста и все занятия
+ * «Сейчас» — 2031 год, чтобы не пересекаться с демо-занятиями; свои группы теста и все занятия
  * из правил, созданные тестом (в том числе демо-групп), после удаляются. Нужна тестовая БД.
  */
 import type { INestApplication } from '@nestjs/common';
@@ -19,6 +19,7 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
   const now = new Date('2031-03-03T06:00:00.000Z'); // понедельник, 09:00 МСК
   const windowStart = new Date('2031-01-01T00:00:00.000Z');
   let groupId = '';
+  let otherGroupId = '';
   let inactiveGroupId = '';
   let mondayRule = '';
   let wednesdayRule = '';
@@ -40,6 +41,12 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
       data: { clubId: DEMO_IDS.clubs.robotics, teacherId, title: `Расписание ${run}` },
     });
     groupId = group.id;
+    // Вторая группа того же преподавателя: он не ведёт две группы одновременно.
+    otherGroupId = (
+      await prisma.group.create({
+        data: { clubId: DEMO_IDS.clubs.programming, teacherId, title: `Вторая ${run}` },
+      })
+    ).id;
     const inactive = await prisma.group.create({
       data: {
         clubId: DEMO_IDS.clubs.robotics,
@@ -99,6 +106,24 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
         cancelReason: 'Каникулы',
       },
     });
+    // Занятие другой группы того же преподавателя, задевающее слот 17.03 (10:30–11:30 МСК), —
+    // слот пропускается; занятие закрытой группы в слоте 24.03 слот не занимает.
+    await prisma.lesson.create({
+      data: {
+        groupId: otherGroupId,
+        startsAt: new Date('2031-03-17T07:30:00.000Z'),
+        endsAt: new Date('2031-03-17T08:30:00.000Z'),
+        topic: 'Другая группа',
+      },
+    });
+    await prisma.lesson.create({
+      data: {
+        groupId: inactiveGroupId,
+        startsAt: new Date('2031-03-24T07:00:00.000Z'),
+        endsAt: new Date('2031-03-24T08:00:00.000Z'),
+        topic: 'Закрытая группа',
+      },
+    });
   });
 
   afterAll(async () => {
@@ -106,7 +131,7 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
     await prisma.lesson.deleteMany({
       where: {
         OR: [
-          { groupId: { in: [groupId, inactiveGroupId] } },
+          { groupId: { in: [groupId, otherGroupId, inactiveGroupId] } },
           { ruleId: { in: demoRules }, startsAt: { gte: windowStart } },
         ],
       },
@@ -114,7 +139,9 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
     await prisma.scheduleRule.deleteMany({
       where: { groupId: { in: [groupId, inactiveGroupId] } },
     });
-    await prisma.group.deleteMany({ where: { id: { in: [groupId, inactiveGroupId] } } });
+    await prisma.group.deleteMany({
+      where: { id: { in: [groupId, otherGroupId, inactiveGroupId] } },
+    });
     await app.close();
   });
 
@@ -122,10 +149,11 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
     const { created } = await materializer.materialize(now);
     expect(created).toBeGreaterThan(0);
 
-    // Понедельники 03.03 … 21.04 в 10:00 МСК = 07:00 UTC; 03.03 занят разовым, 10.03 отменён.
+    // Понедельники 03.03 … 21.04 в 10:00 МСК = 07:00 UTC; 03.03 занят разовым, 10.03 отменён,
+    // 17.03 преподаватель ведёт другую группу.
     const monday = await lessonsOf({ ruleId: mondayRule });
     expect(monday.map((lesson) => lesson.startsAt.toISOString())).toEqual(
-      ['03-10', '03-17', '03-24', '03-31', '04-07', '04-14', '04-21'].map(
+      ['03-10', '03-24', '03-31', '04-07', '04-14', '04-21'].map(
         (day) => `2031-${day}T07:00:00.000Z`,
       ),
     );
@@ -149,7 +177,9 @@ describe.skipIf(!hasTestDatabase)('материализация расписан
     });
     expect(firstMonday).toHaveLength(1);
     expect(firstMonday[0]?.ruleId).toBeNull();
-    expect(await lessonsOf({ groupId: inactiveGroupId })).toEqual([]);
+    expect((await lessonsOf({ groupId: inactiveGroupId })).map((lesson) => lesson.ruleId)).toEqual([
+      null,
+    ]);
   });
 
   it('повторный запуск идемпотентен', async () => {

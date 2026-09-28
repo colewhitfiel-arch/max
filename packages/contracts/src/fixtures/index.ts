@@ -356,7 +356,8 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
   {
     id: DEMO_IDS.lessons.roboticsPast1,
     groupId: DEMO_IDS.groups.roboticsA,
-    // Дата плавает относительно «сейчас» и с днём недели правила не совпадает — занятие разовое.
+    // Дата плавает относительно «сейчас» — занятие разовое; если оно легло на слот правила,
+    // материализация этот слот пропускает, а seed удаляет занятие из правила (docs/05 §5.5).
     ruleId: null,
     dayOffset: -7,
     startTime: '15:00',

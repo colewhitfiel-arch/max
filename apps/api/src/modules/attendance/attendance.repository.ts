@@ -26,19 +26,15 @@ export class AttendanceRepository {
     });
   }
 
-  /** Отметки `PRESENT|LATE` учеников на перечисленных занятиях (пары занятие × ученик). */
-  async listAttended(
+  /** Отметки учеников на перечисленных занятиях (занятие × ученик → статус). */
+  async listMarks(
     lessonIds: string[],
     studentIds: string[],
-  ): Promise<Array<{ lessonId: string; studentId: string }>> {
+  ): Promise<Array<{ lessonId: string; studentId: string; status: AttendanceStatus }>> {
     if (lessonIds.length === 0 || studentIds.length === 0) return [];
     return this.prisma.attendance.findMany({
-      where: {
-        lessonId: { in: lessonIds },
-        studentId: { in: studentIds },
-        status: { in: ['PRESENT', 'LATE'] },
-      },
-      select: { lessonId: true, studentId: true },
+      where: { lessonId: { in: lessonIds }, studentId: { in: studentIds } },
+      select: { lessonId: true, studentId: true, status: true },
     });
   }
 

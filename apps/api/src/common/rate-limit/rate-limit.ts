@@ -17,22 +17,29 @@ import { KV_STORE, type KeyValueStore } from '../kv/key-value-store';
 
 /**
  * Группы ручек с общим счётчиком: вход и обновление сессии (по IP), привязка ребёнка по коду
- * и приглашению (по пользователю — 6-символьный код иначе перебирается), вызовы GigaChat
- * (по пользователю).
+ * и приглашению (по пользователю и IP — 6-символьный код иначе перебирается, а общий
+ * демо-родитель публичного стенда у разных посетителей не должен делить один счётчик), вызовы
+ * GigaChat (по пользователю) и запуск генерации курса — отдельно и в час: одна задача
+ * course-builder делает много вызовов GigaChat (по пользователю).
  */
-export type RateLimitBucket = 'auth' | 'link' | 'ai';
+export type RateLimitBucket = 'auth' | 'link' | 'ai' | 'generation';
 
 interface BucketPolicy {
-  /** Чей счётчик: IP клиента (публичные ручки) или пользователь из JWT. */
-  by: 'ip' | 'user';
+  /** Чей счётчик: IP клиента (публичные ручки), пользователь из JWT или пара пользователь + IP. */
+  by: 'ip' | 'user' | 'user+ip';
   windowSec: number;
   limit: (env: Env) => number;
 }
 
 export const RATE_LIMIT_POLICIES: Record<RateLimitBucket, BucketPolicy> = {
   auth: { by: 'ip', windowSec: 60, limit: (env) => env.RATE_LIMIT_AUTH_PER_MIN },
-  link: { by: 'user', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
+  link: { by: 'user+ip', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
   ai: { by: 'user', windowSec: 60, limit: (env) => env.RATE_LIMIT_AI_PER_MIN },
+  generation: {
+    by: 'user',
+    windowSec: 60 * 60,
+    limit: (env) => env.RATE_LIMIT_GENERATION_PER_HOUR,
+  },
 };
 
 export const RATE_LIMIT_KEY = 'rate-limit:bucket';
@@ -43,15 +50,27 @@ export function isRateLimitEnabled(env: Pick<Env, 'RATE_LIMIT_ENABLED' | 'NODE_E
 }
 
 /**
- * IP клиента: первый адрес `X-Forwarded-For`. Заголовок ставит прокси стенда и затирает
- * присланный клиентом: Vercel — всегда, nginx из infra/nginx.conf — `$remote_addr`. Без прокси
- * (локальный dev) — адрес сокета. За другим прокси заголовок нужно перезаписывать так же,
- * иначе клиент подставит любой адрес и обойдёт лимит.
+ * IP клиента: последний адрес `X-Forwarded-For` — его дописывает прокси прямо перед api, а всё,
+ * что левее, мог прислать сам клиент. nginx из infra/nginx.conf дописывает `$remote_addr`
+ * (настоящий клиент и за доверенным TLS-прокси — модуль realip), Vercel перезаписывает
+ * заголовок целиком. Без прокси (локальный dev) — адрес сокета.
  */
 export function clientIp(req: Pick<Request, 'headers' | 'socket'>): string {
   const header = req.headers['x-forwarded-for'];
-  const first = (Array.isArray(header) ? header[0] : header)?.split(',')[0]?.trim();
-  return first || req.socket?.remoteAddress || 'unknown';
+  const last = (Array.isArray(header) ? header.join(',') : header)
+    ?.split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .at(-1);
+  return last || req.socket?.remoteAddress || 'unknown';
+}
+
+/** Чей счётчик: без пользователя (публичная ручка) — всегда по IP. */
+function subjectOf(policy: BucketPolicy, req: RequestWithUser): string {
+  const ip = `ip:${clientIp(req)}`;
+  if (policy.by === 'ip' || !req.user) return ip;
+  const user = `user:${req.user.userId}`;
+  return policy.by === 'user+ip' ? `${user}:${ip}` : user;
 }
 
 /**
@@ -77,8 +96,7 @@ export class RateLimitGuard implements CanActivate {
     const policy = RATE_LIMIT_POLICIES[bucket];
     const http = context.switchToHttp();
     const req = http.getRequest<RequestWithUser>();
-    const subject =
-      policy.by === 'user' && req.user ? `user:${req.user.userId}` : `ip:${clientIp(req)}`;
+    const subject = subjectOf(policy, req);
     const nowSec = Math.floor(Date.now() / 1000);
     const window = Math.floor(nowSec / policy.windowSec);
     const count = await this.kv.incr(`rl:${bucket}:${subject}:${window}`, policy.windowSec);

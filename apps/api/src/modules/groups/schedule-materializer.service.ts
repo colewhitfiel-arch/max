@@ -90,8 +90,9 @@ const overlaps = (a: { startsAt: Date; endsAt: Date }, b: { startsAt: Date; ends
  * Материализация расписания (job `schedule.materialize`, docs/04): правила активных групп
  * превращаются в занятия на 8 недель вперёд по часам школы. Идемпотентна: занятие из правила
  * уникально по `(ruleId, startsAt)`, повторный запуск ничего не дублирует, а отменённое
- * занятие не воскрешает. Слот пропускается, если в группе уже есть неотменённое занятие,
- * пересекающееся с ним (например, разовое): занятия одной группы не пересекаются (§4.5 п. 9).
+ * занятие не воскрешает. Слот пропускается, если у преподавателя группы уже есть неотменённое
+ * занятие любой его активной группы (например, разовое), пересекающееся с ним: преподаватель
+ * не ведёт две группы сразу, а занятия одной группы не пересекаются (§4.5 п. 9).
  * Пояс школы — через школу преподавателя группы (identity + school), чужие таблицы не читаются.
  */
 @Injectable()
@@ -124,35 +125,44 @@ export class ScheduleMaterializerService {
     });
     const timezones = await this.timezonesOfTeachers(rules.map((rule) => rule.group.teacherId));
 
-    const slots: LessonSlot[] = [];
+    const slots: Array<LessonSlot & { teacherId: string }> = [];
     for (const rule of rules) {
-      const timezone = timezones.get(rule.group.teacherId);
-      if (timezone) slots.push(...ruleSlots(rule, timezone, now));
+      const teacherId = rule.group.teacherId;
+      const timezone = timezones.get(teacherId);
+      if (timezone) slots.push(...ruleSlots(rule, timezone, now).map((s) => ({ ...s, teacherId })));
     }
     if (slots.length === 0) return { created: 0 };
 
+    // Занятость — по преподавателю: неотменённые занятия всех его активных групп. Занятия
+    // закрытой группы преподаватель в расписании не видит — и слоты они не занимают.
     const from = new Date(Math.min(...slots.map((slot) => slot.startsAt.getTime())));
     const to = new Date(Math.max(...slots.map((slot) => slot.endsAt.getTime())));
     const existing = await this.prisma.lesson.findMany({
       where: {
-        groupId: { in: [...new Set(slots.map((slot) => slot.groupId))] },
+        group: {
+          teacherId: { in: [...new Set(slots.map((slot) => slot.teacherId))] },
+          isActive: true,
+        },
         status: { not: 'CANCELLED' },
         startsAt: { lt: to },
         endsAt: { gt: from },
       },
-      select: { groupId: true, startsAt: true, endsAt: true },
+      select: { startsAt: true, endsAt: true, group: { select: { teacherId: true } } },
     });
     const busy = new Map<string, Array<{ startsAt: Date; endsAt: Date }>>();
     for (const lesson of existing) {
-      busy.set(lesson.groupId, [...(busy.get(lesson.groupId) ?? []), lesson]);
+      const teacherId = lesson.group.teacherId;
+      busy.set(teacherId, [...(busy.get(teacherId) ?? []), lesson]);
     }
 
     const data: LessonSlot[] = [];
-    for (const slot of slots.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())) {
-      const taken = busy.get(slot.groupId) ?? [];
+    for (const { teacherId, ...slot } of slots.sort(
+      (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+    )) {
+      const taken = busy.get(teacherId) ?? [];
       if (taken.some((lesson) => overlaps(lesson, slot))) continue;
       taken.push(slot);
-      busy.set(slot.groupId, taken);
+      busy.set(teacherId, taken);
       data.push(slot);
     }
     if (data.length === 0) return { created: 0 };

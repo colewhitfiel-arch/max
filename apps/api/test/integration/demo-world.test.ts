@@ -99,13 +99,23 @@ describe.skipIf(!hasTestDatabase)('демо-мир после seed (integration)
   });
 
   it('уведомления есть у родителя и у преподавателя', async () => {
-    const parent = await get('/notifications', 'parent');
-    expect((parent.body as { items: Array<{ id: string }> }).items.map((n) => n.id)).toContain(
-      DEMO_IDS.parentNotification,
-    );
-    const teacher = await get('/notifications', 'teacher');
-    expect((teacher.body as { items: Array<{ id: string }> }).items.map((n) => n.id)).toContain(
-      DEMO_IDS.teacherNotification,
-    );
+    // Листаем ленту до конца: демо-уведомления старые (дни назад), а каждый прогон тестов
+    // добавляет демо-пользователям новых — на первой странице их может уже не быть.
+    const allNotificationIds = async (who: keyof typeof tokens) => {
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+        const page = (await get(`/notifications${query}`, who)).body as {
+          items: Array<{ id: string }>;
+          nextCursor?: string;
+        };
+        ids.push(...page.items.map((n) => n.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      return ids;
+    };
+    expect(await allNotificationIds('parent')).toContain(DEMO_IDS.parentNotification);
+    expect(await allNotificationIds('teacher')).toContain(DEMO_IDS.teacherNotification);
   });
 });

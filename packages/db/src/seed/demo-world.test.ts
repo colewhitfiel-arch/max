@@ -84,6 +84,15 @@ describe.skipIf(skip)('seed демо-мира (БД)', () => {
     await prisma.attendance.create({
       data: { lessonId: ruleLesson.id, studentId: DEMO_IDS.students.dasha, ...marked },
     });
+    // И занятие из правила другой группы того же преподавателя (Мария ведёт обе, Алексей
+    // ходит в обе) — оно тоже уходит: преподаватель не ведёт две группы сразу.
+    const otherGroupLesson = await prisma.lesson.create({
+      data: {
+        groupId: DEMO_IDS.groups.programmingA,
+        ruleId: DEMO_IDS.scheduleRules.programmingTue,
+        ...slot,
+      },
+    });
     const cancelled = await prisma.lesson.create({
       data: {
         groupId: DEMO_IDS.groups.roboticsA,
@@ -98,6 +107,7 @@ describe.skipIf(skip)('seed демо-мира (БД)', () => {
 
       expect(await prisma.attendance.findUnique({ where: { id: apiMark.id } })).toBeNull();
       expect(await prisma.lesson.findUnique({ where: { id: ruleLesson.id } })).toBeNull();
+      expect(await prisma.lesson.findUnique({ where: { id: otherGroupLesson.id } })).toBeNull();
       expect(await prisma.lesson.findUnique({ where: { id: cancelled.id } })).not.toBeNull();
       const lesson = await prisma.lesson.findUniqueOrThrow({
         where: { id: roboticsToday },
@@ -111,7 +121,9 @@ describe.skipIf(skip)('seed демо-мира (БД)', () => {
       });
       expect(fixtureMarks).toBe(demoAttendance.length);
     } finally {
-      await prisma.lesson.deleteMany({ where: { id: { in: [ruleLesson.id, cancelled.id] } } });
+      await prisma.lesson.deleteMany({
+        where: { id: { in: [ruleLesson.id, otherGroupLesson.id, cancelled.id] } },
+      });
       await seedDemoWorld(prisma, now);
     }
   });

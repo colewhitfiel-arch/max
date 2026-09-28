@@ -201,6 +201,17 @@ docker compose up -d --build
 ssh -R 80:127.0.0.1:8080 nokey@localhost.run    # выдаст https://<...>.lhr.life
 ```
 
+IP клиента для лимитов частоты (вход — `RATE_LIMIT_AUTH_PER_MIN` с одного IP): nginx стенда
+(`infra/nginx.conf`, модуль realip) доверяет `X-Forwarded-For` только от прокси с loopback и из
+частных сетей (`10/8`, `172.16/12`, `192.168/16` — сюда входит шлюз Docker) и дописывает
+настоящего клиента в конец цепочки, а api берёт последний адрес. Поэтому TLS-прокси перед
+портом 8080 должен передавать `X-Forwarded-For` с адресом клиента (caddy и traefik делают это
+сами, nginx — `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`). Иначе все
+пользователи попадут в один счётчик адреса прокси и упрутся в общий лимит входа. Прокси из
+публичной сети в доверенные не входит; если он всё же в ней, добавьте его адрес в
+`set_real_ip_from`. Порт 8080 при внешнем прокси лучше публиковать только на loopback
+(`'127.0.0.1:8080:80'` в `compose.yaml`).
+
 Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
 свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
 с `GIGACHAT_AUTH_KEY`, явный `CORS_ORIGINS`, `PAYMENT_PROVIDER=yookassa` (+ ключи магазина). При
