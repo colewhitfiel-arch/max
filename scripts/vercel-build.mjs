@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Сборка на Vercel (buildCommand в vercel.json): turbo build api + web → миграции Prisma →
- * seed по флагу. Миграции идут через прямое (непулированное) подключение, если провайдер БД
+ * seed по флагу (на preview-сборках — только по MIGRATE_ON_PREVIEW=1). Миграции идут через прямое (непулированное) подключение, если провайдер БД
  * его дал (Neon/Vercel Postgres кладут DATABASE_URL_UNPOOLED / POSTGRES_URL_NON_POOLING).
  */
 import { execSync } from 'node:child_process';
@@ -22,6 +22,16 @@ const migrateUrl =
 
 if (!migrateUrl) {
   console.log('\nvercel-build: DATABASE_URL не задан — миграции и seed пропущены');
+  process.exit(0);
+}
+
+// Preview-сборка (ветка, `vercel deploy` без --prod) не должна менять базу стенда: переменные
+// Vercel по умолчанию видны всем окружениям, и миграция из неслитой ветки попала бы в боевую БД.
+// У preview с собственной базой миграции включаются явно: MIGRATE_ON_PREVIEW=1.
+if (process.env.VERCEL_ENV === 'preview' && process.env.MIGRATE_ON_PREVIEW !== '1') {
+  console.log(
+    '\nvercel-build: preview-сборка — миграции и seed пропущены (для отдельной preview-БД: MIGRATE_ON_PREVIEW=1)',
+  );
   process.exit(0);
 }
 

@@ -169,6 +169,11 @@ Docker-путь ниже — эталон для сдачи; для постоя
   задачи inline-очереди удерживают инстанс через `waitUntil` до конца (лимит функции — 300 с).
 - Сборка — `scripts/vercel-build.mjs`: turbo build → `prisma migrate deploy` → seed при
   `SEED_ON_DEPLOY=1`. Миграции идут по `DATABASE_URL_UNPOOLED`, если провайдер БД его даёт.
+  Preview-сборки (`VERCEL_ENV=preview`: ветки и `vercel deploy` без `--prod`) базу не трогают —
+  миграции и seed пропускаются; для preview с отдельной базой их включает `MIGRATE_ON_PREVIEW=1`.
+- Переменные БД (`DATABASE_URL*`, `POSTGRES_*`) и `SEED_ON_DEPLOY` задавайте только для окружения
+  **Production** (Vercel по умолчанию отдаёт новую переменную всем окружениям). Seed идемпотентен
+  и при каждом деплое возвращает демо-мир к фикстурам.
 - Обязательные переменные проекта: всё из `.env.example` без dev-значений плюс
   `KV_DRIVER=postgres`, `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
   `VITE_API_URL=/api/v1`, `VITE_MAX_MODE=real`, `ENABLE_EXPERIMENTAL_COREPACK=1`.
