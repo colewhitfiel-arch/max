@@ -51,4 +51,30 @@ describe.skipIf(!hasTestDatabase)('PostgresKeyValueStore (integration)', () => {
     await new Promise((r) => setTimeout(r, 1100));
     expect(await kv.incr(key, 1)).toBe(1);
   });
+
+  it('setIfAbsent: из параллельных захватов удаётся ровно один; протухший ключ занимается заново', async () => {
+    const key = `test:kv:claim:${Date.now()}`;
+    const claims = await Promise.all(
+      [1, 2, 3, 4, 5].map((n) => kv.setIfAbsent(key, { pending: n }, 60)),
+    );
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await kv.setIfAbsent(key, 'другое', 60)).toBe(false);
+
+    const expiring = `test:kv:claim:ttl:${Date.now()}`;
+    expect(await kv.setIfAbsent(expiring, 1, 1)).toBe(true);
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(await kv.setIfAbsent(expiring, 2, 60)).toBe(true);
+    expect(await kv.get(expiring)).toBe(2);
+  });
+
+  it('decr: живой счётчик уменьшается до нуля, отсутствующий ключ не создаётся', async () => {
+    const key = `test:kv:decr:${Date.now()}`;
+    expect(await kv.decr(key)).toBe(0);
+    expect(await kv.get(key)).toBeUndefined();
+    await kv.incr(key, 60);
+    await kv.incr(key, 60);
+    const parallel = await Promise.all([kv.decr(key), kv.decr(key), kv.decr(key)]);
+    expect([...parallel].sort()).toEqual([0, 0, 1]);
+    expect(await kv.incr(key, 60)).toBe(1);
+  });
 });

@@ -22,6 +22,7 @@ import {
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
 import { DomainEventBus } from '../../common/events/domain-events';
+import { runIdempotent } from '../../common/kv/idempotency';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
@@ -366,41 +367,45 @@ export class AssignmentsService {
     if (!row) throw Errors.notFound('Задание');
 
     // Повтор того же запроса (сеть) отдаёт прежний результат; тот же ключ на другое задание — конфликт.
+    // Ключ занимается атомарно до сдачи: параллельный запрос с тем же ключом не потратит попытку.
     const replayKey = `submit:${studentId}:${idempotencyKey}`;
-    const replay = await this.kv.get<{ assignmentId: string; result: SubmissionDto }>(replayKey);
-    if (replay) {
-      if (replay.assignmentId !== row.id)
-        throw Errors.conflict('Ключ идемпотентности уже использован для другого задания');
-      return replay.result;
-    }
+    const { value: stored, replayed } = await runIdempotent(
+      this.kv,
+      replayKey,
+      SUBMIT_REPLAY_TTL_SEC,
+      async (): Promise<{ assignmentId: string; result: SubmissionDto }> => {
+        const existing = await this.repo.findSubmission(row.id, studentId);
+        if (row.allowedAttempts !== null && (existing?.attemptsCount ?? 0) >= row.allowedAttempts)
+          throw Errors.businessRule('Попытки закончились');
+        if (body.fileIds?.length)
+          await this.files.listOwnedByPurpose(user.userId, body.fileIds, 'SUBMISSION');
 
-    const existing = await this.repo.findSubmission(row.id, studentId);
-    if (row.allowedAttempts !== null && (existing?.attemptsCount ?? 0) >= row.allowedAttempts)
-      throw Errors.businessRule('Попытки закончились');
-    if (body.fileIds?.length)
-      await this.files.listOwnedByPurpose(user.userId, body.fileIds, 'SUBMISSION');
-
-    const submittedAt = new Date();
-    const text = body.text?.trim() || null;
-    const submission = await this.repo.submit({
-      assignmentId: row.id,
-      studentId,
-      answers: body.answers ?? (text ? { text } : null),
-      text,
-      fileIds: body.fileIds ?? [],
-      isLate: !!row.dueAt && row.dueAt.getTime() < submittedAt.getTime(),
-      submittedAt,
-    });
-    const result = submissionDto(submission);
-    await this.kv.set(replayKey, { assignmentId: row.id, result }, SUBMIT_REPLAY_TTL_SEC);
+        const submittedAt = new Date();
+        const text = body.text?.trim() || null;
+        const submission = await this.repo.submit({
+          assignmentId: row.id,
+          studentId,
+          answers: body.answers ?? (text ? { text } : null),
+          text,
+          fileIds: body.fileIds ?? [],
+          isLate: !!row.dueAt && row.dueAt.getTime() < submittedAt.getTime(),
+          submittedAt,
+        });
+        return { assignmentId: row.id, result: submissionDto(submission) };
+      },
+    );
+    if (stored.assignmentId !== row.id)
+      throw Errors.conflict('Ключ идемпотентности уже использован для другого задания');
+    const { result } = stored;
+    if (replayed) return result;
     await this.events.emit('submission.submitted', {
-      submissionId: submission.id,
+      submissionId: result.id,
       assignmentId: row.id,
       studentId,
       groupId: row.groupId,
-      isLate: submission.isLate,
-      attempt: submission.attemptsCount,
-      at: submittedAt.toISOString(),
+      isLate: result.isLate,
+      attempt: result.attemptsCount,
+      at: result.submittedAt ?? new Date().toISOString(),
     });
     return result;
   }

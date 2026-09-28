@@ -66,6 +66,28 @@ describe('MemoryKeyValueStore', () => {
     await kv.set('exp', 1, -1);
     expect(await kv.get('exp')).toBeUndefined();
   });
+
+  it('setIfAbsent занимает ключ один раз; протухший — можно занять заново', async () => {
+    const kv = new MemoryKeyValueStore();
+    const claims = await Promise.all([1, 2, 3].map((n) => kv.setIfAbsent('claim', n, 60)));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await kv.setIfAbsent('claim', 'другое', 60)).toBe(false);
+    await kv.set('old', 'x', -1);
+    expect(await kv.setIfAbsent('old', 'y', 60)).toBe(true);
+    expect(await kv.get('old')).toBe('y');
+  });
+
+  it('decr возвращает попытку живому счётчику, не создаёт ключ и не уходит ниже нуля', async () => {
+    const kv = new MemoryKeyValueStore();
+    expect(await kv.decr('none')).toBe(0);
+    expect(await kv.get('none')).toBeUndefined();
+    await kv.incr('cnt', 60);
+    await kv.incr('cnt', 60);
+    expect(await kv.decr('cnt')).toBe(1);
+    expect(await kv.decr('cnt')).toBe(0);
+    expect(await kv.decr('cnt')).toBe(0);
+    expect(await kv.incr('cnt', 60)).toBe(1);
+  });
 });
 
 describe('cursor pagination', () => {

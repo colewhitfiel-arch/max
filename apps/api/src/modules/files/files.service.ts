@@ -75,8 +75,13 @@ export class FilesService {
 
   async confirmUpload(user: AuthUser, fileId: string): Promise<FileDto> {
     const row = await this.requireOwned(user, fileId);
-    if (!(await this.storage.exists(row.storageKey))) {
-      throw Errors.businessRule('Файл ещё не загружен в хранилище');
+    const size = await this.storage.size(row.storageKey);
+    if (size === null) throw Errors.businessRule('Файл ещё не загружен в хранилище');
+    // Подпись ссылки уже требует заявленный размер; проверка здесь — на случай хранилища,
+    // которое её не соблюло: объект больше заявленного не подтверждается и удаляется.
+    if (size > row.sizeBytes) {
+      await this.storage.delete(row.storageKey).catch(() => undefined);
+      throw Errors.validation('Файл больше заявленного размера');
     }
     return this.toDto(await this.repo.confirm(row.id));
   }

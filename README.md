@@ -77,7 +77,7 @@ pnpm dev
 | `VITE_MAX_MODE` | `mock` / `real` | `mock` |
 | `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
 
-Api не стартует при невалидном окружении и печатает список проблемных переменных. При `APP_ENV=production` дополнительно запрещены dev-секрет JWT, dev-вход, пустой `CORS_ORIGINS` и заглушки `AI_PROVIDER=mock` / `PAYMENT_PROVIDER=fake`.
+Api не стартует при невалидном окружении и печатает список проблемных переменных. Вне `APP_ENV=development` запрещён dev-секрет JWT, а пустой `CORS_ORIGINS` выключает CORS (web и api на одном origin); при `APP_ENV=production` дополнительно запрещены dev-вход, пустой `CORS_ORIGINS` и заглушки `AI_PROVIDER=mock` / `PAYMENT_PROVIDER=fake`.
 
 ## ИИ-функции (GigaChat через `@edu/ai`)
 
@@ -180,9 +180,11 @@ Docker-путь ниже — эталон для сдачи; для постоя
   **Production** (Vercel по умолчанию отдаёт новую переменную всем окружениям). Seed идемпотентен
   и при каждом деплое возвращает демо-мир к фикстурам.
 - Обязательные переменные проекта: всё из `.env.example` без dev-значений плюс
-  `KV_DRIVER=postgres`, `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
+  `KV_DRIVER=postgres`, `COURSE_BUILDER_STALE_AFTER_SEC=360` (оборванная по 300 с генерация
+  сразу уходит в FAILED), `GIGACHAT_CA_CERT_B64` (сертификат НУЦ в base64),
   `VITE_API_URL=/api/v1`, `VITE_MAX_MODE=real`, `ENABLE_EXPERIMENTAL_COREPACK=1`.
-  `APP_ENV=staging` (production-guard требует настоящий провайдер оплаты).
+  `APP_ENV=staging` (production-guard требует настоящий провайдер оплаты), свой `JWT_SECRET`
+  (dev-значение вне development отклоняется); `CORS_ORIGINS` можно не задавать — origin один.
 - Файлы: `STORAGE_DRIVER=s3` с любым S3-совместимым хранилищем (presigned URL, бакету нужен
   CORS на PUT/GET с origin стенда). Без S3 загрузка материалов не работает, режим «по теме» — работает.
 - Деплой: `vercel deploy --prod` из корня (проект привязан через `.vercel/`, он в .gitignore).

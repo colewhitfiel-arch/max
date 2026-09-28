@@ -19,7 +19,10 @@ export interface S3StorageOptions {
   forcePathStyle: boolean;
 }
 
-const DEFAULT_EXPIRES_SEC = 15 * 60;
+/** Ссылка на загрузку живёт 15 минут. */
+const UPLOAD_EXPIRES_SEC = 15 * 60;
+/** Ссылка на скачивание — час (docs/05: `FileDto.url`, TTL 1 ч; как у LocalFsStorage). */
+const DOWNLOAD_EXPIRES_SEC = 60 * 60;
 
 /**
  * S3-совместимое хранилище (Yandex Object Storage, VK Cloud, Supabase Storage, Cloudflare R2, MinIO).
@@ -46,16 +49,23 @@ export class S3Storage implements StorageProvider {
     key: string,
     opts: { contentType: string; sizeBytes: number; expiresSec?: number },
   ): Promise<UploadTarget> {
-    const expiresIn = opts.expiresSec ?? DEFAULT_EXPIRES_SEC;
+    const expiresIn = opts.expiresSec ?? UPLOAD_EXPIRES_SEC;
     const url = await getSignedUrl(
       this.client,
-      new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: opts.contentType }),
-      { expiresIn },
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: opts.contentType,
+        ContentLength: opts.sizeBytes,
+      }),
+      // Презайнер по умолчанию выносит content-type из подписи — возвращаем его явно
+      { expiresIn, signableHeaders: new Set(['content-type']) },
     );
     return {
       url,
       method: 'PUT',
-      // Content-Type входит в подпись — клиент обязан отправить ровно его.
+      // Content-Type и Content-Length входят в подпись: бакет примет только файл заявленного
+      // типа и ровно заявленного размера (Content-Length браузер ставит сам по размеру файла).
       headers: { 'Content-Type': opts.contentType },
       expiresAt: new Date(Date.now() + expiresIn * 1000),
     };
@@ -76,7 +86,7 @@ export class S3Storage implements StorageProvider {
         : {}),
     });
     return getSignedUrl(this.client, command, {
-      expiresIn: opts.expiresSec ?? DEFAULT_EXPIRES_SEC,
+      expiresIn: opts.expiresSec ?? DOWNLOAD_EXPIRES_SEC,
     });
   }
 
@@ -107,11 +117,15 @@ export class S3Storage implements StorageProvider {
   }
 
   async exists(key: string): Promise<boolean> {
+    return (await this.size(key)) !== null;
+  }
+
+  async size(key: string): Promise<number | null> {
     try {
-      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
-      return true;
+      const head = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return head.ContentLength ?? 0;
     } catch (error) {
-      if (isNotFound(error)) return false;
+      if (isNotFound(error)) return null;
       throw error;
     }
   }

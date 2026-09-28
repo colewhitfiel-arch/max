@@ -3,6 +3,7 @@ import { familyContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
+import { RateLimit } from '../../common/rate-limit/rate-limit';
 import { ChildrenService } from './children.service';
 
 /** Реализация contracts/routes/family.ts. */
@@ -21,6 +22,7 @@ export class ChildrenController {
 
   @TsRestHandler(familyContract.linkChild)
   @RequirePermission('parent:children.manage')
+  @RateLimit('link')
   link(@CurrentUser() user: AuthUser) {
     return tsRestHandler(familyContract.linkChild, async ({ body }) => ({
       status: 200,
@@ -66,6 +68,7 @@ export class ChildrenController {
 
   @TsRestHandler(familyContract.acceptParentInvite)
   @RequirePermission('student:parents.link')
+  @RateLimit('link')
   acceptInvite(@CurrentUser() user: AuthUser) {
     return tsRestHandler(familyContract.acceptParentInvite, async ({ params }) => ({
       status: 200,

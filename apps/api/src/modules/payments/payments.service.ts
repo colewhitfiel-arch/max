@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
 import { DomainEventBus } from '../../common/events/domain-events';
+import { runIdempotent } from '../../common/kv/idempotency';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
@@ -197,7 +198,8 @@ export class PaymentsService {
   /**
    * Пополнение кошелька — заглушка до провайдера (docs/07 F13): сумма зачисляется сразу,
    * без оплаты. Поэтому с настоящим провайдером ручка выключена: иначе она печатала бы деньги.
-   * `Idempotency-Key` защищает от повтора: тот же ключ отдаёт прежний баланс, не зачисляя дважды.
+   * `Idempotency-Key` защищает от повтора: тот же ключ отдаёт прежний баланс, не зачисляя дважды
+   * (ключ занимается атомарно до зачисления — и для параллельных запросов).
    */
   async topUpWallet(
     user: AuthUser,
@@ -208,12 +210,17 @@ export class PaymentsService {
     if (this.provider.name !== 'fake')
       throw Errors.notImplemented('Пополнение кошелька через провайдера');
     const key = `wallet:topup:${parentId}:${idempotencyKey}`;
-    const replay = await this.kv.get<Wallet>(key);
-    if (replay) return replay;
-    const balance = await this.repo.topUpWallet(parentId, body.amountKopecks);
-    const wallet: Wallet = { balance: { amountKopecks: balance, currency: 'RUB' } };
-    await this.kv.set(key, wallet, TOPUP_REPLAY_TTL_SEC);
-    this.log.info({ parentId, amountKopecks: body.amountKopecks }, 'кошелёк пополнен');
+    const { value: wallet, replayed } = await runIdempotent(
+      this.kv,
+      key,
+      TOPUP_REPLAY_TTL_SEC,
+      async (): Promise<Wallet> => {
+        const balance = await this.repo.topUpWallet(parentId, body.amountKopecks);
+        return { balance: { amountKopecks: balance, currency: 'RUB' } };
+      },
+    );
+    if (!replayed)
+      this.log.info({ parentId, amountKopecks: body.amountKopecks }, 'кошелёк пополнен');
     return wallet;
   }
 

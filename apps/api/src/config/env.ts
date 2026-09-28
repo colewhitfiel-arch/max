@@ -44,6 +44,18 @@ export const envSchema = z
     /** memory — один процесс; postgres — общий стор для serverless (таблица kv_entries). */
     KV_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
 
+    /**
+     * Ограничение частоты запросов (fixed window в KeyValueStore; common/rate-limit).
+     * Пусто — включено везде, кроме NODE_ENV=test.
+     */
+    RATE_LIMIT_ENABLED: boolFromString.optional(),
+    /** Входов и обновлений сессии (/auth/max, /auth/dev, /auth/refresh) в минуту с одного IP. */
+    RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(60),
+    /** Попыток привязать ребёнка по коду и принять приглашение в час на пользователя. */
+    RATE_LIMIT_LINK_PER_HOUR: z.coerce.number().int().positive().default(10),
+    /** Запросов к ИИ (тьютор, онбординг, генерация курса) в минуту на пользователя. */
+    RATE_LIMIT_AI_PER_MIN: z.coerce.number().int().positive().default(20),
+
     AUTH_PROVIDER: z.enum(['dev', 'max']).default('dev'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET: минимум 32 символа'),
     JWT_ACCESS_TTL: z.string().default('15m'),
@@ -51,6 +63,11 @@ export const envSchema = z
     MAX_APP_ID: optionalString,
     /** Токен бота MAX: им подписаны launch-параметры мини-приложения (dev.max.ru/docs/webapps). */
     MAX_BOT_TOKEN: optionalString,
+    /**
+     * Разбор неверной подписи MAX в логе: какой вариант схемы совпал бы и отпечаток токена
+     * (8 hex sha256). Только для отладки расхождения подписи; на стенде — выключено.
+     */
+    MAX_AUTH_DEBUG: boolFromString.default(false),
     /**
      * Имя бота MAX, к которому привязано мини-приложение (`https://max.ru/<имя>`). Из него
      * строятся диплинки `?startapp=…` (приглашение ребёнка открывается прямо в мини-приложении);
@@ -86,6 +103,11 @@ export const envSchema = z
     AI_TUTOR_DAILY_LIMIT: z.coerce.number().int().positive().default(50),
     /** Сколько окон survey / уроков course-builder генерируется параллельно. */
     COURSE_BUILDER_MAX_PARALLEL: z.coerce.number().int().min(1).max(8).default(3),
+    /**
+     * Задача генерации без прогресса дольше стольких секунд считается мёртвой и переводится
+     * в FAILED (сторож и чтение задачи). На Vercel — чуть больше maxDuration функции (~360).
+     */
+    COURSE_BUILDER_STALE_AFTER_SEC: z.coerce.number().int().min(60).default(1800),
 
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('.data/storage'),
@@ -130,12 +152,15 @@ export const envSchema = z
       'YOOKASSA_SHOP_ID',
       'при PAYMENT_PROVIDER=yookassa нужны YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY',
     );
+    // Секрет из .env.example знает каждый: им можно подписать любой токен. Публичный стенд
+    // работает с APP_ENV=staging (ADR-014), поэтому запрет — везде, кроме development.
+    need(
+      env.APP_ENV !== 'development' && env.JWT_SECRET === DEV_JWT_SECRET,
+      'JWT_SECRET',
+      `в ${env.APP_ENV} нельзя использовать dev-секрет`,
+    );
+    // Заглушки ИИ/оплаты и dev-вход на staging допустимы (ADR-014) — запрещены только в production.
     if (env.APP_ENV === 'production') {
-      need(
-        env.JWT_SECRET === DEV_JWT_SECRET,
-        'JWT_SECRET',
-        'в production нельзя использовать dev-секрет',
-      );
       need(env.AUTH_PROVIDER === 'dev', 'AUTH_PROVIDER', 'в production dev-вход запрещён');
       need(env.CORS_ORIGINS.length === 0, 'CORS_ORIGINS', 'в production нужен явный список origin');
       // Заглушка платежей отмечает оплату прошедшей, не получив денег, — в production это дыра.

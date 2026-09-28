@@ -59,7 +59,10 @@ READY        событие generation.finished; PUT draft → правки; POS
 ```
 
 Отмена (`POST .../cancel`) проверяется между стадиями. Ошибка любой стадии → `FAILED` с текстом
-ошибки в `job.error` и событием `generation.finished { stage: 'FAILED' }`.
+ошибки в `job.error` и событием `generation.finished { stage: 'FAILED' }`. Задача «в работе» без
+прогресса дольше `COURSE_BUILDER_STALE_AFTER_SEC` (по умолчанию 30 мин; на Vercel ~360 с — чуть больше
+`maxDuration` функции) считается оборванной и тоже уходит в `FAILED`: это делает сторож по таймеру
+и, независимо от него, чтение задачи (`GET` задачи и списка) — на serverless таймер не срабатывает.
 
 ## Инварианты
 

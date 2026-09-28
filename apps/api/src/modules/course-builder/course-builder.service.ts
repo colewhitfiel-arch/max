@@ -20,6 +20,8 @@ import { DomainEventBus } from '../../common/events/domain-events';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
 import { JOB_QUEUE, type JobQueue } from '../../common/queue/job-queue';
+import { type Env } from '../../config/env';
+import { InjectEnv } from '../../config/env.module';
 import { CoursesService } from '../courses/courses.service';
 import { FilesService } from '../files/files.service';
 import { GroupsService } from '../groups/groups.service';
@@ -28,17 +30,18 @@ import {
   type JobRow,
   CourseBuilderRepository,
   JobCursorSchema,
+  RUNNING_STAGES,
   TERMINAL_STAGES,
 } from './course-builder.repository';
 import { CoursePipelineRunner, PipelineCancelledError } from './pipeline/runner';
 
 export const GENERATE_JOB = 'generate';
 const TERMINAL: ReadonlySet<string> = new Set(TERMINAL_STAGES);
-/** Задача без смены стадии/прогресса дольше этого считается мёртвой (упал процесс/worker). */
-const STALE_AFTER_MS = 30 * 60 * 1000;
+const RUNNING: ReadonlySet<string> = new Set(RUNNING_STAGES);
 const STALE_SWEEP_EVERY_MS = 10 * 60 * 1000;
 const FAILED_MESSAGE = 'Не удалось собрать черновик курса, попробуйте ещё раз';
-const INTERRUPTED_MESSAGE = 'Генерация прервана: сервер перезапускался, запустите её заново';
+const INTERRUPTED_MESSAGE =
+  'Генерация прервалась: сервер перезапустился или не уложился во время — запустите её заново';
 
 /**
  * Задачи генерации курса (F8): создание, статус, черновик, принятие, отмена; выполнение
@@ -48,6 +51,11 @@ const INTERRUPTED_MESSAGE = 'Генерация прервана: сервер �
 export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
   private readonly log;
   private sweepTimer: NodeJS.Timeout | null = null;
+  /**
+   * Задача без смены стадии/прогресса дольше этого считается мёртвой: упал процесс/worker или
+   * функцию Vercel оборвал maxDuration (COURSE_BUILDER_STALE_AFTER_SEC).
+   */
+  private readonly staleAfterMs: number;
 
   constructor(
     private readonly repo: CourseBuilderRepository,
@@ -57,9 +65,11 @@ export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
     private readonly courses: CoursesService,
     private readonly events: DomainEventBus,
     @Inject(JOB_QUEUE) private readonly queue: JobQueue,
+    @InjectEnv() env: Env,
     logger: AppLogger,
   ) {
     this.log = logger.child({ module: 'course-builder' });
+    this.staleAfterMs = env.COURSE_BUILDER_STALE_AFTER_SEC * 1000;
   }
 
   onModuleInit(): void {
@@ -80,25 +90,11 @@ export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
     try {
       // inline-очередь не переживает рестарт: давно не начатая задача уже не начнётся
       const stale = await this.repo.findStale(
-        new Date(now.getTime() - STALE_AFTER_MS),
+        new Date(now.getTime() - this.staleAfterMs),
         this.queue.driver === 'inline',
       );
       let failed = 0;
-      for (const job of stale) {
-        const applied = await this.repo.updateIfActive(job.id, {
-          stage: 'FAILED',
-          error: INTERRUPTED_MESSAGE,
-          finishedAt: now,
-        });
-        if (!applied) continue;
-        failed += 1;
-        await this.events.emit('generation.finished', {
-          jobId: job.id,
-          teacherId: job.teacherId,
-          stage: 'FAILED',
-          at: now.toISOString(),
-        });
-      }
+      for (const job of stale) if (await this.failInterrupted(job, now)) failed += 1;
       if (failed > 0) this.log.warn({ failed }, 'зависшие задачи генерации переведены в FAILED');
       return failed;
     } catch (error) {
@@ -149,11 +145,10 @@ export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
   async list(user: AuthUser, query: PaginationQuery): Promise<Paginated<GenerationJobListItem>> {
     const teacherId = this.requireTeacher(user);
     const limit = normalizeLimit(query.limit);
-    const rows = await this.repo.listByTeacher(
-      teacherId,
-      limit,
-      decodeCursor(query.cursor, JobCursorSchema),
-    );
+    const cursor = decodeCursor(query.cursor, JobCursorSchema);
+    let rows = await this.repo.listByTeacher(teacherId, limit, cursor);
+    if (await this.failStaleAmong(rows))
+      rows = await this.repo.listByTeacher(teacherId, limit, cursor);
     const page = toPage(rows, limit, (last) => ({
       createdAt: last.createdAt.toISOString(),
       id: last.id,
@@ -165,7 +160,10 @@ export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
   }
 
   async get(user: AuthUser, jobId: string): Promise<GenerationJobDto> {
-    return this.toDto(await this.requireOwned(user, jobId));
+    const row = await this.requireOwned(user, jobId);
+    if (await this.failStaleAmong([row]))
+      return this.toDto((await this.repo.findById(row.id)) ?? row);
+    return this.toDto(row);
   }
 
   async updateDraft(user: AuthUser, jobId: string, draft: CourseDraft): Promise<GenerationJobDto> {
@@ -335,6 +333,52 @@ export class CourseBuilderService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ---------- внутреннее ----------
+
+  /**
+   * Ленивая проверка при чтении задачи: на serverless таймер сторожа на замороженном инстансе
+   * почти не срабатывает, и оборванный по maxDuration пайплайн иначе висел бы «в работе».
+   * `true` — хотя бы одна задача переведена в FAILED (строки нужно перечитать).
+   */
+  private async failStaleAmong(
+    rows: Array<{ id: string; teacherId: string; stage: string; updatedAt: Date }>,
+  ): Promise<boolean> {
+    const now = new Date();
+    const staleBefore = now.getTime() - this.staleAfterMs;
+    const inline = this.queue.driver === 'inline';
+    let failed = false;
+    for (const row of rows) {
+      const active = RUNNING.has(row.stage) || (inline && row.stage === 'QUEUED');
+      if (
+        active &&
+        row.updatedAt.getTime() < staleBefore &&
+        (await this.failInterrupted(row, now))
+      ) {
+        this.log.warn({ jobId: row.id }, 'зависшая задача генерации переведена в FAILED');
+        failed = true;
+      }
+    }
+    return failed;
+  }
+
+  /** Зависшая задача → FAILED с событием; `false` — она уже завершилась сама. */
+  private async failInterrupted(
+    job: { id: string; teacherId: string },
+    now: Date,
+  ): Promise<boolean> {
+    const applied = await this.repo.updateIfActive(job.id, {
+      stage: 'FAILED',
+      error: INTERRUPTED_MESSAGE,
+      finishedAt: now,
+    });
+    if (!applied) return false;
+    await this.events.emit('generation.finished', {
+      jobId: job.id,
+      teacherId: job.teacherId,
+      stage: 'FAILED',
+      at: now.toISOString(),
+    });
+    return true;
+  }
 
   private requireTeacher(user: AuthUser): string {
     if (user.activeRole !== 'TEACHER' || !user.profileId)

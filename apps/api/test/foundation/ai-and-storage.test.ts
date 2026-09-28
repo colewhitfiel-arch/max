@@ -5,6 +5,7 @@ import pino from 'pino';
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildAiService } from '../../src/modules/ai/ai.factory';
 import { LocalFsStorage } from '../../src/modules/files/storage/local-fs.storage';
+import { S3Storage } from '../../src/modules/files/storage/s3.storage';
 import { buildStorageKey } from '../../src/modules/files/storage/storage-provider';
 import { testEnv } from '../helpers/env';
 
@@ -65,5 +66,36 @@ describe('LocalFsStorage', () => {
 
   it('не выпускает за пределы корня', async () => {
     await expect(storage.exists('../etc/passwd')).rejects.toThrow();
+  });
+});
+
+describe('S3Storage: presigned URL (без сети)', () => {
+  const s3 = new S3Storage({
+    endpoint: 'http://localhost:9000',
+    region: 'ru-central1',
+    bucket: 'edu',
+    accessKey: 'test-access',
+    secretKey: 'test-secret',
+    forcePathStyle: true,
+  });
+
+  it('загрузка: размер и тип входят в подпись, ссылка живёт 15 минут', async () => {
+    const target = await s3.createUploadTarget('material/2026/09/f/doc.pdf', {
+      contentType: 'application/pdf',
+      sizeBytes: 1024,
+    });
+    const url = new URL(target.url);
+    expect(url.searchParams.get('X-Amz-SignedHeaders')?.split(';').sort()).toEqual([
+      'content-length',
+      'content-type',
+      'host',
+    ]);
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('900');
+    expect(target.headers).toEqual({ 'Content-Type': 'application/pdf' });
+  });
+
+  it('скачивание: ссылка живёт час (docs/05)', async () => {
+    const url = new URL(await s3.createDownloadUrl('material/2026/09/f/doc.pdf'));
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('3600');
   });
 });

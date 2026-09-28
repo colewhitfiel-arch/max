@@ -48,7 +48,8 @@ apps/web  (React SPA, Vite)  ──HTTP JSON / SSE──▶  apps/api (NestJS, H
 - `common/logger` — pino, request-id (AsyncLocalStorage, заголовок `X-Request-Id`), redaction секретов и контента ИИ, интерсептор HTTP-логов.
 - `common/events` — `DomainEventBus.emit(name, payload)` с валидацией, `@OnDomainEvent`.
 - `common/queue` — `JobQueue` порт, `InlineJobQueue` (хук `keepAlive` для serverless — `waitUntil`), `BullMqJobQueue`, `QueueModule.forRoot('api'|'worker', options)`.
-- `common/kv` — `KeyValueStore` порт, `MemoryKeyValueStore` (dev), `PostgresKeyValueStore` (таблица `kv_entries`, `KV_DRIVER=postgres` — общий стор для нескольких инстансов).
+- `common/kv` — `KeyValueStore` порт (`get/set/setIfAbsent/del/incr/decr`), `MemoryKeyValueStore` (dev), `PostgresKeyValueStore` (таблица `kv_entries`, `KV_DRIVER=postgres` — общий стор для нескольких инстансов), `runIdempotent` — `Idempotency-Key` с атомарным захватом ключа.
+- `common/rate-limit` — `@RateLimit('auth'|'link'|'ai')` + `RateLimitGuard`: fixed window на `KeyValueStore.incr`, 429 `RATE_LIMITED` с `Retry-After`; лимиты — `RATE_LIMIT_*` в env, в `NODE_ENV=test` выключен.
 - `vercel.ts` — вход для Vercel Functions (ADR-014): Nest поднимается один раз на инстанс через `ExpressAdapter`; `main.ts`/`worker.ts` — обычные процессы.
 - `common/prisma` — `PrismaService` (глобальный), `ping()`.
 - `common/pagination`, `common/time`, `common/validation`.
@@ -97,7 +98,7 @@ Enum'ы, сущности (`entities/`), схемы блоков (`blocks/`), п
 
 ## 14. Configuration
 
-Один корневой `.env` (шаблон `.env.example`, `pnpm env:init`). Переменные сгруппированы: общее, backend, БД, очереди, auth, MAX, GigaChat, storage, платежи, frontend (`VITE_*`). Обязательность зависит от выбранных драйверов (например, `REDIS_URL` при `QUEUE_DRIVER=bullmq`); в `APP_ENV=production` запрещены dev-секрет, dev-вход и пустой CORS. Vite читает корневой `.env` (`envDir`).
+Один корневой `.env` (шаблон `.env.example`, `pnpm env:init`). Переменные сгруппированы: общее, backend, БД, очереди, auth, MAX, GigaChat, storage, платежи, frontend (`VITE_*`). Обязательность зависит от выбранных драйверов (например, `REDIS_URL` при `QUEUE_DRIVER=bullmq`); вне `APP_ENV=development` запрещён dev-секрет JWT, а пустой `CORS_ORIGINS` выключает CORS (любой origin — только в development); в `APP_ENV=production` запрещены ещё dev-вход и пустой CORS. Vite читает корневой `.env` (`envDir`).
 
 ## 15. Logging
 

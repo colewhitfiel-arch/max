@@ -42,7 +42,8 @@ services:
     environment:
       NODE_ENV: production
       # APP_ENV=production включает строгие проверки в apps/api/src/config/env.ts:
-      # запрещает AUTH_PROVIDER=dev и дефолтный JWT_SECRET, требует CORS_ORIGINS.
+      # запрещает AUTH_PROVIDER=dev и дефолтный JWT_SECRET, требует CORS_ORIGINS
+      # (дефолтный JWT_SECRET запрещён и в staging).
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       API_PORT: '3000'
