@@ -48,10 +48,12 @@ import {
 } from '../model';
 
 /**
- * Доли ширины колонок из макета (52 / 125 / 68 / 76 px): все блоки транзакций по дням
- * и «Вам должны» выровнены между собой.
+ * Доли ширины колонок: все блоки транзакций по дням и «Вам должны» выровнены между собой.
+ * В макете (52 / 125 / 68 / 76 px) группа подписана кодом «001»; без кода это название
+ * («Робототехника, группа А»), поэтому группе — самая широкая колонка: на 375–390px слова
+ * не рвутся по буквам, а суммы и даты dd.MM.yy помещаются в строку.
  */
-const COLUMN_WEIGHTS = { group: 52, student: 125, amount: 68, last: 76 } as const;
+const COLUMN_WEIGHTS = { group: 118, student: 88, amount: 56, last: 60 } as const;
 
 function isPeriod(value: string): value is TeacherWalletPeriod {
   return (TEACHER_WALLET_PERIODS as readonly string[]).includes(value);

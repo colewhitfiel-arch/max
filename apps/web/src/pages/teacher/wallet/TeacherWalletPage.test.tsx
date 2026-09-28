@@ -231,6 +231,14 @@ describe('TeacherWalletPage', () => {
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
     ).toEqual(['Группа', 'ФИО ученика', 'Сумма', 'Дата']);
+    // «Группа» — самая широкая колонка (≥ 35%): название без кода не рвётся по буквам на 375px.
+    const shares = debts.style
+      .getPropertyValue('--ui-card-columns-template')
+      .match(/[\d.]+(?=fr)/g)!
+      .map(Number);
+    const total = shares.reduce((sum, share) => sum + share, 0);
+    expect(shares[0]! / total).toBeGreaterThanOrEqual(0.35);
+    expect(shares[0]).toBe(Math.max(...shares));
     expect(column(debts, 2, 2)).toEqual(['2500', '5000']);
     expect(column(debts, 3, 2)).toEqual(['24.10.20, просрочено', '01.11.99']);
 

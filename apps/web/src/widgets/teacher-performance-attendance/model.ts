@@ -1,4 +1,4 @@
-import type { ClubBrief, TeacherGroupPerformance } from '@edu/contracts';
+import type { ClubBrief, GroupBrief, TeacherGroupPerformance } from '@edu/contracts';
 import type { BarChartTone } from '@edu/ui';
 
 /** Цвета курсов по порядку появления (макет: 1-й — акцент, 2-й — зелёный), далее по кругу. */
@@ -23,4 +23,22 @@ export function courseTones(groups: readonly TeacherGroupPerformance[]): CourseT
     });
   }
   return courses;
+}
+
+/**
+ * Подпись столбца группы: код («001»), а без кода — название без названия курса в начале
+ * («Робототехника, группа А» → «группа А»): курс и так виден по цвету столбца и легенде,
+ * а места под столбцом мало. Полное название — в описании диаграммы для скринридера.
+ */
+export function barLabel(
+  group: Pick<GroupBrief, 'code' | 'title'> & { club: Pick<ClubBrief, 'title'> },
+): string {
+  if (group.code != null) return group.code;
+  const title = group.title.trim();
+  const club = group.club.title.trim();
+  const rest = title.slice(club.length);
+  // Только целым словом: курс «Робот» не отрезается от «Робототехники».
+  if (!club || !title.toLowerCase().startsWith(club.toLowerCase()) || /^[\p{L}\p{N}]/u.test(rest))
+    return title;
+  return rest.replace(/^[\s,.:;·—–-]+/, '') || title;
 }

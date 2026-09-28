@@ -53,16 +53,17 @@ function PerformanceContent({ data, stale, onOpenGroup }: PerformanceContentProp
       <DataTable
         caption={t('table.caption')}
         columns={[
-          // Доли под заголовки макета: при ширине телефона каждый — в одну строку.
-          { key: 'group', header: t('table.group'), weight: 1.1 },
+          // Группа без кода подписана названием («Робототехника, группа А»): ей ≈38% ширины,
+          // чтобы слова не рвались по буквам на 375–390px; заголовки чисел — в две строки.
+          { key: 'group', header: t('table.group'), weight: 1.9 },
           {
             key: 'correct',
             header: t('table.correct'),
             align: 'center',
-            weight: 3,
+            weight: 1.6,
             tone: 'success',
           },
-          { key: 'done', header: t('table.done'), align: 'center', weight: 2.1, tone: 'primary' },
+          { key: 'done', header: t('table.done'), align: 'center', weight: 1.5, tone: 'primary' },
         ]}
         rows={data.groups.map((row) => {
           const label = groupLabel(row.group);

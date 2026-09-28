@@ -1,6 +1,6 @@
 import type { TeacherGroupPerformance } from '@edu/contracts';
 import { describe, expect, it } from 'vitest';
-import { courseTones } from './model';
+import { barLabel, courseTones } from './model';
 
 const row = (groupId: string, clubId: string) =>
   ({
@@ -29,5 +29,30 @@ describe('courseTones', () => {
 
   it('без групп — без курсов', () => {
     expect(courseTones([])).toEqual([]);
+  });
+});
+
+describe('barLabel', () => {
+  const group = (title: string, code: string | null, club: string) => ({
+    title,
+    code,
+    club: { title: club },
+  });
+
+  it('код группы — как есть', () => {
+    expect(barLabel(group('Робототехника, группа А', '001', 'Робототехника'))).toBe('001');
+  });
+
+  it('без кода — название без курса в начале: под столбцом мало места', () => {
+    expect(barLabel(group('Робототехника, группа А', null, 'Робототехника'))).toBe('группа А');
+    expect(barLabel(group('шахматы — младшие', null, 'Шахматы'))).toBe('младшие');
+  });
+
+  it('курс не в начале, не целым словом или всё название — название целиком', () => {
+    expect(barLabel(group('Python, группа А', null, 'Программирование'))).toBe('Python, группа А');
+    expect(barLabel(group('Робототехника, группа А', null, 'Робот'))).toBe(
+      'Робототехника, группа А',
+    );
+    expect(barLabel(group('Шахматы', null, 'Шахматы'))).toBe('Шахматы');
   });
 });
