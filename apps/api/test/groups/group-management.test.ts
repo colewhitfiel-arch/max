@@ -22,7 +22,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-  const loginAs = async (maxUserId: string, role: 'TEACHER' | 'STUDENT') => {
+  const loginAs = async (maxUserId: string, role: 'TEACHER' | 'STUDENT' | 'PARENT') => {
     const res = await http()
       .post(`${base}/auth/dev`)
       .send({ maxUserId, roles: [role] })
@@ -45,6 +45,14 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
     const prisma = app.get(PrismaService);
     const groups = await prisma.group.findMany({ where: { teacherId }, select: { id: true } });
     const groupIds = groups.map((group) => group.id);
+    const enrollments = await prisma.enrollment.findMany({
+      where: { groupId: { in: groupIds } },
+      select: { id: true },
+    });
+    const enrollmentIds = enrollments.map((row) => row.id);
+    await prisma.paidPeriod.deleteMany({ where: { enrollmentId: { in: enrollmentIds } } });
+    await prisma.payment.deleteMany({ where: { enrollmentId: { in: enrollmentIds } } });
+    await prisma.teacherWalletTransaction.deleteMany({ where: { teacherId } });
     await prisma.submission.deleteMany({ where: { assignment: { groupId: { in: groupIds } } } });
     await prisma.assignment.deleteMany({ where: { groupId: { in: groupIds } } });
     await prisma.courseGenerationJob.deleteMany({ where: { groupId: { in: groupIds } } });
@@ -230,6 +238,31 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя (inte
       expect(submissions.body.rows).toHaveLength(card.studentsCount);
       expect(submissions.body.assignment).toMatchObject({ studentsCount: 1, submittedCount: 1 });
     }
+  });
+
+  it('оплата: по зачислению ушедшего из группы (LEFT) платёж не создаётся — 404', async () => {
+    const enrollment = await app.get(PrismaService).enrollment.findUniqueOrThrow({
+      where: { studentId_groupId: { studentId: DEMO_IDS.students.alexey, groupId } },
+      select: { id: true },
+    });
+    await http()
+      .delete(`${base}/teacher/groups/${groupId}/students/${DEMO_IDS.students.alexey}`)
+      .set(auth(teacher))
+      .expect(200);
+    const parent = await loginAs('max-parent-1', 'PARENT');
+    const res = await http()
+      .post(`${base}/parent/children/${DEMO_IDS.students.alexey}/payments`)
+      .set(auth(parent.accessToken))
+      .set('Idempotency-Key', `groups-left-${run}`)
+      .send({ enrollmentId: enrollment.id, periodsCount: 1 })
+      .expect(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+
+    await http()
+      .post(`${base}/teacher/groups/${groupId}/students`)
+      .set(auth(teacher))
+      .send({ studentId: DEMO_IDS.students.alexey })
+      .expect(200);
   });
 
   it('ученика не из школы и не из своих групп добавить нельзя — 404', async () => {

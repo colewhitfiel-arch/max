@@ -112,7 +112,9 @@ export class PaymentsService {
     }
 
     const enrollment = await this.groups.getEnrollmentForBilling(body.enrollmentId);
-    if (!enrollment || enrollment.studentId !== studentId) throw Errors.notFound('Зачисление');
+    // Ушедший из группы (LEFT) не платит за неё: экран оплат мог устареть, пока его убирали.
+    if (!enrollment || enrollment.studentId !== studentId || enrollment.status === 'LEFT')
+      throw Errors.notFound('Зачисление');
     const amountKopecks = enrollment.priceKopecks * body.periodsCount;
 
     const payment = await this.repo.create({

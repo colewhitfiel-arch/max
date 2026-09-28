@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   BillingPeriod,
+  EnrollmentStatus,
   GroupBrief,
   LessonDto,
   ScheduleRuleDto,
@@ -72,6 +73,8 @@ export interface EnrollmentForBilling {
   id: string;
   studentId: string;
   groupId: string;
+  /** `LEFT` — ученик ушёл из группы: новый платёж по такому зачислению не создаётся. */
+  status: EnrollmentStatus;
   teacherId: string;
   clubId: string;
   enrolledAt: Date;
@@ -85,6 +88,7 @@ type EnrollmentForBillingRow = {
   id: string;
   studentId: string;
   groupId: string;
+  status: EnrollmentStatus;
   enrolledAt: Date;
   group: Omit<GroupWithBrief, 'club'> & {
     teacherId: string;
@@ -105,6 +109,7 @@ function toEnrollmentForBilling(row: EnrollmentForBillingRow): EnrollmentForBill
     id: row.id,
     studentId: row.studentId,
     groupId: row.groupId,
+    status: row.status,
     teacherId: row.group.teacherId,
     clubId: row.group.clubId,
     enrolledAt: row.enrolledAt,

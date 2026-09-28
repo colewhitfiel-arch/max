@@ -301,6 +301,7 @@ POST   /student/parent-invites/:token/accept student → { parent: UserBrief, li
 GET  /parent/children/:studentId/payments → { periods: [{ enrollmentId, club: ClubBrief, paidUntil?, nextPaymentAt, price: Money }],
                                                history: Paginated<PaymentDto> }
 POST /parent/children/:studentId/payments { enrollmentId, periodsCount: 1..12 } → { paymentId, confirmationUrl, amount: Money }   // Idempotency-Key
+                                          // чужое зачисление или ученик ушёл из группы (LEFT) — 404 NOT_FOUND
 GET  /parent/payments/:paymentId          → PaymentDto
 GET  /parent/wallet                       → { balance: Money }
 POST /parent/wallet/top-up                { amountKopecks: 10000..10000000 } → { balance: Money }   // Idempotency-Key; ЗАГЛУШКА (docs/07 F13)
