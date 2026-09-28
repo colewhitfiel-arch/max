@@ -104,6 +104,9 @@ async function waitForSdk(timeoutMs: number): Promise<MaxWebAppSdk | null> {
  * Методы хранилища — запрос к хост-приложению: вне MAX (и если мессенджер не ответил) промис
  * не разрешается никогда. Поэтому каждый вызов ограничен таймаутом, а рядом ведётся зеркало в
  * localStorage — приложение не зависает на старте и продолжает работать с локальной копией.
+ * Зеркало читается только при таймауте или ошибке: если хранилище ответило «нет значения»,
+ * так и есть. Зеркало общее для всех MAX-аккаунтов в этом WebView, и подставлять его вместо
+ * ответа — значит отдать одному аккаунту токены другого.
  */
 function createDeviceStorage(device: MaxStorageSdk): MaxStorage {
   const local = createMockStorage('max:');
@@ -112,11 +115,17 @@ function createDeviceStorage(device: MaxStorageSdk): MaxStorage {
       Promise.resolve(value as T).catch(() => fallback),
       new Promise<T>((resolve) => setTimeout(() => resolve(fallback), STORAGE_TIMEOUT_MS)),
     ]);
+  const noAnswer = Symbol('no-answer');
   return {
     async get(key) {
-      const local_ = await local.get(key);
-      const value = await guard<unknown>(device.getItem(key), local_);
-      return typeof value === 'string' ? value : local_;
+      let value: unknown;
+      try {
+        value = await guard<unknown>(device.getItem(key), noAnswer);
+      } catch {
+        value = noAnswer;
+      }
+      if (value === noAnswer) return local.get(key);
+      return typeof value === 'string' ? value : null;
     },
     async set(key, value) {
       await local.set(key, value);

@@ -1,11 +1,12 @@
 import type { AuthResult, MeDto } from '@edu/contracts';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ClientModule from '../api/client';
 import { ApiClientError } from '../api/errors';
 import { MockMaxBridge } from '../max/mock-bridge';
 
 const mocks = vi.hoisted(() => ({
   loginDev: vi.fn(),
+  loginMax: vi.fn(),
   switchRole: vi.fn(),
   logout: vi.fn(),
   refresh: vi.fn(),
@@ -200,6 +201,130 @@ describe('auth store', () => {
     await bootstrapAuth(bridge);
     expect(useAuthStore.getState().status).toBe('anonymous');
     expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('bootstrapAuth внутри MAX: сессия привязана к MAX-пользователю запуска', () => {
+  const memory = new Map<string, string>();
+  const storage = {
+    get: async (key: string) => memory.get(key) ?? null,
+    set: async (key: string, value: string) => void memory.set(key, value),
+    remove: async (key: string) => void memory.delete(key),
+  };
+  const launchedBy = (id: string | null) =>
+    new MockMaxBridge({
+      launchParams: 'auth_date=1&hash=abc',
+      user: id ? { id, firstName: 'Ученик' } : null,
+      storage,
+    });
+  const original = config.authMode;
+
+  beforeEach(() => {
+    memory.clear();
+    resetAuthStore();
+    configureAuthStorage(storage);
+    vi.clearAllMocks();
+    // auto + launch-параметры = вход через MAX (как в мессенджере).
+    Object.defineProperty(config, 'authMode', { value: 'auto', configurable: true });
+  });
+  afterEach(() => {
+    Object.defineProperty(config, 'authMode', { value: original, configurable: true });
+  });
+
+  const storeSession = (owner: string | null) => {
+    memory.set(AUTH_STORAGE_KEYS.refresh, 'r-stored');
+    memory.set(AUTH_STORAGE_KEYS.access, 'a-stored');
+    if (owner) memory.set(AUTH_STORAGE_KEYS.maxUser, owner);
+  };
+
+  it('сессия другого MAX-аккаунта → стирается, вход по launch-параметрам этого запуска', async () => {
+    storeSession('7');
+    mocks.loginMax.mockResolvedValueOnce(
+      ok({ accessToken: 'a-8', refreshToken: 'r-8', me: me('PARENT') }),
+    );
+
+    await bootstrapAuth(launchedBy('8'));
+
+    expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(mocks.loginMax).toHaveBeenCalledWith({
+      body: { launchParams: 'auth_date=1&hash=abc' },
+    });
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(useAuthStore.getState().refreshToken).toBe('r-8');
+    expect(memory.get(AUTH_STORAGE_KEYS.refresh)).toBe('r-8');
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
+  });
+
+  it('сессия без владельца (сохранена до привязки) → тоже вход по launch-параметрам', async () => {
+    storeSession(null);
+    mocks.loginMax.mockResolvedValueOnce(
+      ok({ accessToken: 'a-8', refreshToken: 'r-8', me: me('PARENT') }),
+    );
+
+    await bootstrapAuth(launchedBy('8'));
+
+    expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(mocks.loginMax).toHaveBeenCalledTimes(1);
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
+  });
+
+  it('вход через MAX не удался → чужая сессия всё равно не восстанавливается', async () => {
+    storeSession('7');
+    mocks.loginMax.mockResolvedValueOnce({
+      status: 401,
+      body: { error: { code: 'UNAUTHORIZED', message: 'bad signature' } },
+      headers: new Headers(),
+    });
+
+    await bootstrapAuth(launchedBy('8'));
+
+    expect(useAuthStore.getState().status).toBe('anonymous');
+    expect(memory.get(AUTH_STORAGE_KEYS.refresh)).toBeUndefined();
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBeUndefined();
+  });
+
+  it('сессия этого же MAX-пользователя → refresh, без повторного входа', async () => {
+    storeSession('8');
+    mocks.refresh.mockResolvedValueOnce(ok({ accessToken: 'a-new', refreshToken: 'r-new' }));
+    mocks.getMe.mockResolvedValueOnce(ok(me('PARENT')));
+
+    await bootstrapAuth(launchedBy('8'));
+
+    expect(mocks.refresh).toHaveBeenCalledWith({ body: { refreshToken: 'r-stored' } });
+    expect(mocks.loginMax).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
+  });
+
+  it('мост не знает пользователя (mock-режим с launch-параметрами) → сессия восстанавливается', async () => {
+    storeSession(null);
+    mocks.refresh.mockResolvedValueOnce(ok({ accessToken: 'a-new', refreshToken: 'r-new' }));
+    mocks.getMe.mockResolvedValueOnce(ok(me('PARENT')));
+
+    await bootstrapAuth(launchedBy(null));
+
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+    expect(mocks.loginMax).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().status).toBe('authenticated');
+  });
+
+  it('logout стирает и владельца сессии; dev-вход сессию к MAX не привязывает', async () => {
+    mocks.loginMax.mockResolvedValueOnce(
+      ok({ accessToken: 'a-8', refreshToken: 'r-8', me: me('PARENT') }),
+    );
+    await bootstrapAuth(launchedBy('8'));
+    expect(memory.get(AUTH_STORAGE_KEYS.maxUser)).toBe('8');
+
+    mocks.logout.mockResolvedValueOnce({ status: 204, body: undefined, headers: new Headers() });
+    await useAuthStore.getState().logout();
+    expect(memory.has(AUTH_STORAGE_KEYS.maxUser)).toBe(false);
+
+    memory.set(AUTH_STORAGE_KEYS.maxUser, '8');
+    mocks.loginDev.mockResolvedValueOnce(
+      ok({ accessToken: 'a1', refreshToken: 'r1', me: me('TEACHER') }),
+    );
+    await useAuthStore.getState().loginDev('max-teacher-1', ['TEACHER']);
+    expect(memory.has(AUTH_STORAGE_KEYS.maxUser)).toBe(false);
   });
 });
 

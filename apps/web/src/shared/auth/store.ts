@@ -1,6 +1,7 @@
 /**
  * Сессия пользователя (zustand). Токены персистятся через MaxBridge.storage
  * (`auth.access`, `auth.refresh`), профиль `MeDto` — только в памяти (перезапрашивается на старте).
+ * Сессия из входа через MAX привязана к MAX-пользователю запуска (`auth.maxUser`).
  */
 import type { AuthResult, MeDto, Role, TokenPair } from '@edu/contracts';
 import { create } from 'zustand';
@@ -13,7 +14,12 @@ import type { MaxBridge, MaxStorage } from '../max/types';
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous';
 
-export const AUTH_STORAGE_KEYS = { access: 'auth.access', refresh: 'auth.refresh' } as const;
+export const AUTH_STORAGE_KEYS = {
+  access: 'auth.access',
+  refresh: 'auth.refresh',
+  /** Id MAX-пользователя, чьи launch-параметры создали сессию (`loginMax`). */
+  maxUser: 'auth.maxUser',
+} as const;
 
 export interface AuthState {
   /** idle — до bootstrap; loading — bootstrap идёт; далее authenticated | anonymous. */
@@ -39,6 +45,8 @@ export interface AuthState {
 }
 
 let storage: MaxStorage | null = null;
+/** MAX-пользователь этого запуска (задаёт `bootstrapAuth`); null — вне MAX или мост его не знает. */
+let launchUserId: string | null = null;
 
 /** Подключить хранилище токенов (обычно `bridge.storage`). */
 export function configureAuthStorage(target: MaxStorage | null): void {
@@ -54,9 +62,21 @@ async function persistTokens(tokens: TokenPair | null): Promise<void> {
     } else {
       await storage.remove(AUTH_STORAGE_KEYS.access);
       await storage.remove(AUTH_STORAGE_KEYS.refresh);
+      await storage.remove(AUTH_STORAGE_KEYS.maxUser);
     }
   } catch (cause) {
     console.warn('[auth] не удалось сохранить токены', cause);
+  }
+}
+
+/** Чья сессия: MAX-пользователь запуска для `loginMax`, null (не привязана) — для dev-входа. */
+async function persistSessionOwner(maxUserId: string | null): Promise<void> {
+  if (!storage) return;
+  try {
+    if (maxUserId) await storage.set(AUTH_STORAGE_KEYS.maxUser, maxUserId);
+    else await storage.remove(AUTH_STORAGE_KEYS.maxUser);
+  } catch (cause) {
+    console.warn('[auth] не удалось сохранить владельца сессии', cause);
   }
 }
 
@@ -91,7 +111,9 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       try {
         const result = await call(api.auth.loginDev({ body: { maxUserId, roles } }));
         queryClient.clear();
-        return await applyAuthResult(result);
+        const me = await applyAuthResult(result);
+        await persistSessionOwner(null);
+        return me;
       } catch (cause) {
         const error = apiErrorFromException(cause);
         set({ error });
@@ -112,7 +134,9 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       try {
         const result = await call(api.auth.loginMax({ body: { launchParams } }));
         queryClient.clear();
-        return await applyAuthResult(result);
+        const me = await applyAuthResult(result);
+        await persistSessionOwner(launchUserId);
+        return me;
       } catch (cause) {
         const error = apiErrorFromException(cause);
         set({ status: 'anonymous', error });
@@ -196,23 +220,49 @@ function isSessionRejected(error: ApiClientError): boolean {
   return error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429;
 }
 
+/** Id MAX-пользователя запуска: только при входе через MAX и с launch-параметрами. */
+function readLaunchUserId(bridge: MaxBridge): string | null {
+  if (effectiveAuthMode(bridge) !== 'max') return null;
+  try {
+    if (!bridge.getLaunchParams()) return null;
+    return bridge.getUser()?.id || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Старт приложения: есть refresh-токен → обновить пару и загрузить `GET /me`;
  * нет и `VITE_AUTH_MODE=max` → вход по launch-параметрам; иначе — anonymous.
+ * Внутри MAX сохранённая сессия годится, только если её создал MAX-пользователь этого запуска:
+ * хранилище WebView (или браузера с web.max.ru) бывает общим у нескольких аккаунтов.
  */
 export async function bootstrapAuth(bridge: MaxBridge): Promise<void> {
   const store = useAuthStore.getState();
   if (store.status !== 'idle') return;
   configureAuthStorage(bridge.storage);
+  launchUserId = readLaunchUserId(bridge);
   useAuthStore.setState({ status: 'loading', error: null });
 
   let refreshToken: string | null = null;
   let accessToken: string | null = null;
+  let sessionOwner: string | null = null;
   try {
     refreshToken = await bridge.storage.get(AUTH_STORAGE_KEYS.refresh);
     accessToken = await bridge.storage.get(AUTH_STORAGE_KEYS.access);
+    if (refreshToken && launchUserId) {
+      sessionOwner = await bridge.storage.get(AUTH_STORAGE_KEYS.maxUser);
+    }
   } catch {
     /* хранилище недоступно — считаем, что сессии нет */
+  }
+
+  // Сессия другого MAX-аккаунта (или сохранённая до привязки) — не восстанавливаем её, а входим
+  // по подписанным launch-параметрам этого запуска.
+  if (refreshToken && launchUserId && sessionOwner !== launchUserId) {
+    await persistTokens(null);
+    refreshToken = null;
+    accessToken = null;
   }
 
   if (refreshToken) {
@@ -271,6 +321,7 @@ export function effectiveAuthMode(bridge: MaxBridge): 'dev' | 'max' {
 
 /** Сброс для тестов. */
 export function resetAuthStore(): void {
+  launchUserId = null;
   useAuthStore.setState({
     status: 'idle',
     accessToken: null,
