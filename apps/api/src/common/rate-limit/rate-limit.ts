@@ -17,22 +17,23 @@ import { KV_STORE, type KeyValueStore } from '../kv/key-value-store';
 
 /**
  * Группы ручек с общим счётчиком: вход и обновление сессии (по IP), привязка ребёнка по коду
- * и приглашению (по пользователю — 6-символьный код иначе перебирается), вызовы GigaChat
- * (по пользователю) и запуск генерации курса — отдельно и в час: одна задача course-builder
- * делает много вызовов GigaChat (по пользователю).
+ * и приглашению (по пользователю и IP — 6-символьный код иначе перебирается, а общий
+ * демо-родитель публичного стенда у разных посетителей не должен делить один счётчик), вызовы
+ * GigaChat (по пользователю) и запуск генерации курса — отдельно и в час: одна задача
+ * course-builder делает много вызовов GigaChat (по пользователю).
  */
 export type RateLimitBucket = 'auth' | 'link' | 'ai' | 'generation';
 
 interface BucketPolicy {
-  /** Чей счётчик: IP клиента (публичные ручки) или пользователь из JWT. */
-  by: 'ip' | 'user';
+  /** Чей счётчик: IP клиента (публичные ручки), пользователь из JWT или пара пользователь + IP. */
+  by: 'ip' | 'user' | 'user+ip';
   windowSec: number;
   limit: (env: Env) => number;
 }
 
 export const RATE_LIMIT_POLICIES: Record<RateLimitBucket, BucketPolicy> = {
   auth: { by: 'ip', windowSec: 60, limit: (env) => env.RATE_LIMIT_AUTH_PER_MIN },
-  link: { by: 'user', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
+  link: { by: 'user+ip', windowSec: 60 * 60, limit: (env) => env.RATE_LIMIT_LINK_PER_HOUR },
   ai: { by: 'user', windowSec: 60, limit: (env) => env.RATE_LIMIT_AI_PER_MIN },
   generation: {
     by: 'user',
@@ -64,6 +65,14 @@ export function clientIp(req: Pick<Request, 'headers' | 'socket'>): string {
   return last || req.socket?.remoteAddress || 'unknown';
 }
 
+/** Чей счётчик: без пользователя (публичная ручка) — всегда по IP. */
+function subjectOf(policy: BucketPolicy, req: RequestWithUser): string {
+  const ip = `ip:${clientIp(req)}`;
+  if (policy.by === 'ip' || !req.user) return ip;
+  const user = `user:${req.user.userId}`;
+  return policy.by === 'user+ip' ? `${user}:${ip}` : user;
+}
+
 /**
  * Ограничение частоты (fixed window): счётчик `rl:<группа>:<кто>:<номер окна>` атомарным `incr`
  * в KeyValueStore — при KV_DRIVER=postgres общий для всех инстансов serverless. Сверх лимита —
@@ -87,8 +96,7 @@ export class RateLimitGuard implements CanActivate {
     const policy = RATE_LIMIT_POLICIES[bucket];
     const http = context.switchToHttp();
     const req = http.getRequest<RequestWithUser>();
-    const subject =
-      policy.by === 'user' && req.user ? `user:${req.user.userId}` : `ip:${clientIp(req)}`;
+    const subject = subjectOf(policy, req);
     const nowSec = Math.floor(Date.now() / 1000);
     const window = Math.floor(nowSec / policy.windowSec);
     const count = await this.kv.incr(`rl:${bucket}:${subject}:${window}`, policy.windowSec);

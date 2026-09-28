@@ -106,18 +106,40 @@ describe('RateLimitGuard', () => {
   });
 
   it('ручка пользователя: лимит на пользователя, а не на IP', async () => {
-    app = await createApp({ RATE_LIMIT_ENABLED: '1', RATE_LIMIT_LINK_PER_HOUR: '1' });
+    app = await createApp({ RATE_LIMIT_ENABLED: '1', RATE_LIMIT_AI_PER_MIN: '1' });
     const alice = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000a1' });
     const bob = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000b2' });
-    const link = (auth: string) =>
-      request(app!.getHttpServer()).get('/rl/link').set('Authorization', auth);
+    const ai = (auth: string, ip: string) =>
+      request(app!.getHttpServer())
+        .get('/rl/ai')
+        .set('Authorization', auth)
+        .set('X-Forwarded-For', ip);
 
-    await link(alice).expect(200);
-    const limited = await link(alice).expect(429);
+    await ai(alice, '198.51.100.7').expect(200);
+    // Другой IP того же пользователя — тот же счётчик
+    const limited = await ai(alice, '203.0.113.9').expect(429);
     expect(limited.body.error.code).toBe('RATE_LIMITED');
-    await link(bob).expect(200);
+    await ai(bob, '198.51.100.7').expect(200);
     // Без входа ручка по-прежнему закрыта: guard лимита не заменяет AuthGuard
-    await request(app.getHttpServer()).get('/rl/link').expect(401);
+    await request(app.getHttpServer()).get('/rl/ai').expect(401);
+  });
+
+  it('привязка ребёнка: счётчик на пару пользователь + IP (общий демо-аккаунт)', async () => {
+    app = await createApp({ RATE_LIMIT_ENABLED: '1', RATE_LIMIT_LINK_PER_HOUR: '1' });
+    const parent = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000a1' });
+    const other = await bearerFor(app, { userId: '00000000-0000-7000-8000-0000000000b2' });
+    const link = (auth: string, ip: string) =>
+      request(app!.getHttpServer())
+        .get('/rl/link')
+        .set('Authorization', auth)
+        .set('X-Forwarded-For', ip);
+
+    await link(parent, '198.51.100.7').expect(200);
+    const limited = await link(parent, '198.51.100.7').expect(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+    // Тот же (общий) аккаунт с другого адреса и другой пользователь с того же — свои счётчики
+    await link(parent, '203.0.113.9').expect(200);
+    await link(other, '198.51.100.7').expect(200);
   });
 
   it('запуск генерации курса: свой часовой счётчик, отдельный от вызовов ИИ', async () => {

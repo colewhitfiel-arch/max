@@ -51,7 +51,7 @@ export const envSchema = z
     RATE_LIMIT_ENABLED: boolFromString.optional(),
     /** Входов и обновлений сессии (/auth/max, /auth/dev, /auth/refresh) в минуту с одного IP. */
     RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(60),
-    /** Попыток привязать ребёнка по коду и принять приглашение в час на пользователя. */
+    /** Попыток привязки ребёнка (код, приглашение) в час на пару пользователь + IP. */
     RATE_LIMIT_LINK_PER_HOUR: z.coerce.number().int().positive().default(10),
     /** Запросов к ИИ (тьютор, онбординг) в минуту на пользователя. */
     RATE_LIMIT_AI_PER_MIN: z.coerce.number().int().positive().default(20),
