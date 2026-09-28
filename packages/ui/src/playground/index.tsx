@@ -36,6 +36,7 @@ import {
   Input,
   ListRow,
   LockIcon,
+  Markdown,
   LogoutIcon,
   LifebuoyIcon,
   MenuIcon,
@@ -568,6 +569,31 @@ const DEMO_TASK_STATUS: Record<Tone, string> = {
   neutral: 'позже',
   info: '',
 };
+
+/** Урок из конструктора курса: разметка GigaChat (заголовки, выделение, списки, код, ссылки). */
+const DEMO_MARKDOWN = `# Датчик расстояния
+
+**Ультразвуковой датчик** HC-SR04 измеряет *расстояние* до препятствия: пин \`trig\` посылает сигнал, \`echo\` ловит эхо.
+Переносы строк внутри абзаца сохраняются.
+
+## Что понадобится
+- плата Arduino
+- датчик HC-SR04
+  - четыре провода «папа–мама»
+
+### Шаги
+1. Подключи датчик
+2. Загрузи скетч:
+
+\`\`\`cpp
+long distance = pulseIn(ECHO, HIGH) / 58;
+\`\`\`
+
+> Сырой HTML — текстом: <b>не жирный</b>. Ссылка [javascript:](javascript:alert(1)) — тоже текст.
+
+---
+
+Подробнее — [документация Arduino](https://docs.arduino.cc).`;
 
 const DEMO_CODE = `def control_robot(distance):
     if distance <= 15:
@@ -1244,6 +1270,12 @@ function PlaygroundContent() {
             {'Первая строка ответа\nвторая строка\n\n  после пустой — с отступом'}
           </Text>
         </Row>
+      </Section>
+
+      <Section title="Markdown">
+        <Card>
+          <Markdown source={DEMO_MARKDOWN} />
+        </Card>
       </Section>
 
       <Section title="Button">
