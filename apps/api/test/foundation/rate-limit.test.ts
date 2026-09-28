@@ -169,6 +169,35 @@ describe('RateLimitGuard', () => {
     expect(isRateLimitEnabled({ NODE_ENV: 'production', RATE_LIMIT_ENABLED: false })).toBe(false);
   });
 
+  it('testEnv не берёт RATE_LIMIT_* из .env разработчика', () => {
+    // `pnpm test` подмешивает корневой .env в process.env: включённые там лимиты давали бы
+    // 429 в интеграционных тестах (много /auth/dev с одного адреса).
+    const saved = { ...process.env };
+    Object.assign(process.env, {
+      RATE_LIMIT_ENABLED: '1',
+      RATE_LIMIT_AUTH_PER_MIN: '1',
+      RATE_LIMIT_LINK_PER_HOUR: '1',
+      RATE_LIMIT_AI_PER_MIN: '1',
+      RATE_LIMIT_GENERATION_PER_HOUR: '1',
+    });
+    try {
+      const env = testEnv();
+      expect(env.RATE_LIMIT_ENABLED).toBeUndefined();
+      expect(isRateLimitEnabled(env)).toBe(false);
+      expect(env).toMatchObject({
+        RATE_LIMIT_AUTH_PER_MIN: 60,
+        RATE_LIMIT_LINK_PER_HOUR: 10,
+        RATE_LIMIT_AI_PER_MIN: 20,
+        RATE_LIMIT_GENERATION_PER_HOUR: 10,
+      });
+      // Тест, которому лимит нужен, включает его явно
+      expect(testEnv({ RATE_LIMIT_ENABLED: '1' }).RATE_LIMIT_ENABLED).toBe(true);
+    } finally {
+      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
+      Object.assign(process.env, saved);
+    }
+  });
+
   it('clientIp: последний адрес X-Forwarded-For, без заголовка — адрес сокета', () => {
     const socket = { remoteAddress: '127.0.0.1' } as never;
     expect(clientIp({ headers: { 'x-forwarded-for': ' 1.2.3.4 , 5.6.7.8 ' }, socket })).toBe(
