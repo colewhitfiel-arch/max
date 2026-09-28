@@ -95,8 +95,9 @@ export class AttendanceService {
   /**
    * Публичный сервис: посещаемость учеников группы за период, по каждому ученику. Зачётные
    * занятия (`countable`) — проведённые (`DONE`), уже начавшиеся и не раньше зачисления ученика
-   * в группу (docs/04 §4.6): неотмеченное занятие (`PLANNED`) пропуском не считается, а занятия
-   * до прихода ученика (новый или возвращённый в группу) ему не засчитываются.
+   * в группу, минус его уважительные пропуски (`EXCUSED`) (docs/04 §4.6): неотмеченное занятие
+   * (`PLANNED`) пропуском не считается, а занятия до прихода ученика (новый или возвращённый
+   * в группу) ему не засчитываются. `attended` — отметки `PRESENT|LATE` на зачётных занятиях.
    */
   async attendanceOfGroup(
     groupId: string,
@@ -117,18 +118,21 @@ export class AttendanceService {
         )
         .map((lesson) => [lesson.id, new Date(lesson.startsAt).getTime()]),
     );
-    const attended = await this.repo.listAttended([...startsAt.keys()], studentIds);
+    const marks = await this.repo.listMarks([...startsAt.keys()], studentIds);
     return new Map(
       studentIds.map((studentId) => {
         const since = enrolledAt.get(studentId)?.getTime() ?? Number.NEGATIVE_INFINITY;
         const counts = (at: number | undefined) => at !== undefined && at >= since;
+        const own = marks.filter(
+          (mark) => mark.studentId === studentId && counts(startsAt.get(mark.lessonId)),
+        );
+        const excused = own.filter((mark) => mark.status === 'EXCUSED').length;
         return [
           studentId,
           {
-            countable: [...startsAt.values()].filter(counts).length,
-            attended: attended.filter(
-              (mark) => mark.studentId === studentId && counts(startsAt.get(mark.lessonId)),
-            ).length,
+            countable: [...startsAt.values()].filter(counts).length - excused,
+            attended: own.filter((mark) => mark.status === 'PRESENT' || mark.status === 'LATE')
+              .length,
           },
         ];
       }),

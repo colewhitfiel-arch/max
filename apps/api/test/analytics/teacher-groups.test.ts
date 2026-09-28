@@ -96,6 +96,35 @@ describe.skipIf(!hasTestDatabase)('показатели групп (integration)
     expect(home.body.stats.attendanceRate).toBe(1);
   });
 
+  it('уважительный пропуск (EXCUSED) из знаменателя посещаемости исключается', async () => {
+    // Вчерашнее проведённое занятие, на котором у Алексея уважительная причина.
+    const startsAt = new Date(Date.now() - DAY_MS);
+    const lesson = await http()
+      .post(`${base}/teacher/groups/${DEMO_IDS.groups.roboticsA}/lessons`)
+      .set(auth(teacher))
+      .send({
+        startsAt: startsAt.toISOString(),
+        endsAt: new Date(startsAt.getTime() + HOUR_MS).toISOString(),
+        topic: 'Занятие с уважительным пропуском',
+      })
+      .expect(200);
+    lessonIds.push(lesson.body.id);
+    await http()
+      .put(`${base}/teacher/lessons/${lesson.body.id}/attendance`)
+      .set(auth(teacher))
+      .send({ rows: [{ studentId: DEMO_IDS.students.alexey, status: 'EXCUSED' }] })
+      .expect(200);
+
+    const detail = await groupDetail();
+    const row = rowOf(detail.students, DEMO_IDS.students.alexey);
+    expect(row?.attendanceRate).toBe(1);
+    expect(row?.needsAttention).not.toContain('Пропускает занятия');
+
+    // Та же цифра, что у ученика на главной (StudentFactsService): формула одна.
+    const home = await http().get(`${base}/student/home`).set(auth(alexey)).expect(200);
+    expect(home.body.stats.attendanceRate).toBe(1);
+  });
+
   it('новый ученик: занятия и сроки заданий до его зачисления ему не в счёт', async () => {
     // Срок задания всей группе прошёл вчера — до того, как в группу пришёл новый ученик.
     const assignment = await http()
