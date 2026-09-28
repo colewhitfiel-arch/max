@@ -3,9 +3,10 @@
  * Нужна тестовая БД (pnpm db:up, DATABASE_URL_TEST).
  */
 import type { INestApplication } from '@nestjs/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { KV_STORE, type KeyValueStore } from '../../src/common/kv/key-value-store';
 import { PostgresKeyValueStore } from '../../src/common/kv/postgres-key-value-store';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
 describe.skipIf(!hasTestDatabase)('PostgresKeyValueStore (integration)', () => {
@@ -65,6 +66,23 @@ describe.skipIf(!hasTestDatabase)('PostgresKeyValueStore (integration)', () => {
     await new Promise((r) => setTimeout(r, 1100));
     expect(await kv.setIfAbsent(expiring, 2, 60)).toBe(true);
     expect(await kv.get(expiring)).toBe(2);
+  });
+
+  it('incr тоже убирает протухшие записи (по случаю, как set)', async () => {
+    const prisma = app.get(PrismaService);
+    const stale = `test:kv:stale:${Date.now()}`;
+    await prisma.$executeRaw`
+      INSERT INTO kv_entries (key, value, expires_at, updated_at)
+      VALUES (${stale}, '1'::jsonb, now() - interval '1 minute', now())`;
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      await kv.incr(`test:kv:sweep:${Date.now()}`, 60);
+    } finally {
+      random.mockRestore();
+    }
+    const rows = await prisma.$queryRaw<{ key: string }[]>`
+      SELECT key FROM kv_entries WHERE key = ${stale}`;
+    expect(rows).toEqual([]);
   });
 
   it('decr: живой счётчик уменьшается до нуля, отсутствующий ключ не создаётся', async () => {

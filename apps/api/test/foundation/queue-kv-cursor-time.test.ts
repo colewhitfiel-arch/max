@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { MemoryKeyValueStore } from '../../src/common/kv/key-value-store';
 import {
@@ -87,6 +87,30 @@ describe('MemoryKeyValueStore', () => {
     expect(await kv.decr('cnt')).toBe(0);
     expect(await kv.decr('cnt')).toBe(0);
     expect(await kv.incr('cnt', 60)).toBe(1);
+  });
+
+  it('протухшие ключи, которые больше не читают, запись убирает не чаще раза в минуту', async () => {
+    vi.useFakeTimers({ now: 0 });
+    try {
+      const kv = new MemoryKeyValueStore();
+      // Счётчики rate-limit одного окна: после него их ключи никто не читает
+      for (let user = 0; user < 50; user += 1) await kv.incr(`rl:ai:user:${user}:0`, 60);
+      await kv.set('forever', 1);
+      await kv.set('long', 1, 3600);
+      expect(kv.size).toBe(52);
+
+      vi.setSystemTime(59_000);
+      await kv.incr('rl:ai:user:0:0', 60);
+      expect(kv.size).toBe(52);
+
+      vi.setSystemTime(61_000);
+      await kv.incr('rl:ai:user:0:1', 60);
+      expect(kv.size).toBe(3);
+      expect(await kv.get('forever')).toBe(1);
+      expect(await kv.get('long')).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
