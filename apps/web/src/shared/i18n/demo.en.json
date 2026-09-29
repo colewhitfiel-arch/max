@@ -163,7 +163,8 @@
     },
     "finish": {
       "title": "That's all!",
-      "text": "You have seen all three roles. The tour will close, and the app stays open — feel free to keep using it. To run the demo again, sign out in the settings."
+      "text": "You have seen all three roles. «Done» leaves demo mode and returns you to role selection. The cross closes the tour but keeps you in the app as the demo user.",
+      "textLogin": "You have seen all three roles. «Done» leaves demo mode and returns you to the sign-in screen. The cross closes the tour but keeps you in the app as the demo user."
     }
   }
 }

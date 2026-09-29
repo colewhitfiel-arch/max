@@ -19,6 +19,8 @@ describe('сценарий демонстрационного режима', () 
           expect(i18n.exists(key, { lng }), `${lng}: ${key}`).toBe(true);
         }
       }
+      // Итог в браузере: «Готово» ведёт на экран входа, а не к выбору роли.
+      expect(i18n.exists('demo:steps.finish.textLogin', { lng })).toBe(true);
     }
   });
 

@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useShallow } from 'zustand/react/shallow';
 import { describeApiError } from '@/shared/api/errors';
+import { useAuth } from '@/shared/auth/hooks';
+import { AUTH_PATH } from '@/shared/auth/role-routes';
+import { effectiveAuthMode } from '@/shared/auth/store';
+import { useMaxBridge } from '@/shared/max';
 import { findTourTarget, prepareStep } from '../model/prepare';
 import { DEMO_STEPS, type DemoSection, firstStepOf } from '../model/steps';
 import { useDemoTourStore } from '../model/store';
@@ -52,11 +56,18 @@ function useTargetRect(target: string | undefined, enabled: boolean): CoachmarkR
  * Демонстрационный режим (для жюри): тур по всем ролям поверх настоящего приложения. На каждом
  * шаге входит нужным демо-пользователем, открывает экран, подсвечивает функцию и объясняет её.
  * Монтируется один раз внутри роутера (корневой layout), без тура ничего не рендерит.
+ * «Готово» на последнем шаге выходит из демо-аккаунта и возвращает к началу: внутри MAX автовход
+ * по подписи ведёт к выбору роли (у нового пользователя ролей нет), в браузере — экран входа.
+ * Крестик просто закрывает тур: можно остаться в приложении демо-пользователем.
  */
 export function DemoTour() {
   const { t } = useTranslation('demo');
   const navigate = useNavigate();
   const toast = useToast();
+  const bridge = useMaxBridge();
+  const { logout } = useAuth();
+  /** Идёт выход из демо-аккаунта после «Готово». */
+  const [leaving, setLeaving] = useState(false);
   const { active, index, go, stop } = useDemoTourStore(
     useShallow((s) => ({ active: s.active, index: s.index, go: s.go, stop: s.stop })),
   );
@@ -113,19 +124,35 @@ export function DemoTour() {
   if (!active || !shown) return null;
 
   const isWelcome = shownIndex === 0;
+  const isLast = shownIndex === DEMO_STEPS.length - 1;
+  // Куда вернёт «Готово»: внутри MAX — к выбору роли, в браузере — на экран входа.
+  const textKey = isLast && effectiveAuthMode(bridge) !== 'max' ? 'textLogin' : 'text';
+
+  const finish = async () => {
+    setLeaving(true);
+    try {
+      await logout();
+    } finally {
+      // Без `state.from`: после входа — на корень (выбор роли), а не на последний экран тура.
+      void navigate(AUTH_PATH, { replace: true });
+      stop();
+      setLeaving(false);
+    }
+  };
+
   return (
     <Coachmark
       open
       // Подсвеченное можно потрогать: написать тьютору, раскрыть карточку, открыть задание.
       interactive
       overlaySide={shown.overlaySide}
-      busy={busy}
+      busy={busy || leaving}
       target={rect}
       eyebrow={t(`sections.${shown.section}`)}
       title={t(`steps.${shown.id}.title`)}
       step={shownIndex + 1}
       total={DEMO_STEPS.length}
-      onNext={() => go(shownIndex + 1)}
+      onNext={() => (isLast ? void finish() : go(shownIndex + 1))}
       onPrev={() => go(shownIndex - 1)}
       onClose={stop}
       nextLabel={t('controls.next')}
@@ -138,7 +165,7 @@ export function DemoTour() {
       data-testid="demo-tour"
     >
       <Stack gap={3}>
-        <Text variant="small">{t(`steps.${shown.id}.text`)}</Text>
+        <Text variant="small">{t(`steps.${shown.id}.${textKey}`)}</Text>
         {isWelcome && (
           <Stack gap={2}>
             <Text variant="caption" tone="muted">

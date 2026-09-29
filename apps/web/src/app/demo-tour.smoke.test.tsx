@@ -84,8 +84,12 @@ describe('демонстрационный режим (mock API)', () => {
         await user.click(within(dialog).getByRole('button', { name: last ? 'Готово' : 'Далее' }));
       }
 
-      await waitFor(() => expect(useDemoTourStore.getState().active).toBe(false));
+      // «Готово» — выход из демо-аккаунта и возврат к началу (в браузере — экран входа).
+      await waitFor(() => expect(useDemoTourStore.getState().active).toBe(false), WAIT);
       expect(screen.queryByRole('dialog')).toBeNull();
+      expect(useAuthStore.getState().status).toBe('anonymous');
+      await screen.findByRole('button', { name: 'Демонстрационный режим' }, WAIT);
+      expect(window.location.pathname).toBe('/auth');
     },
   );
 
