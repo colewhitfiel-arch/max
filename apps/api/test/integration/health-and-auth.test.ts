@@ -23,6 +23,15 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
     expect(res.headers['x-request-id']).toBeTypeOf('string');
   });
 
+  it('POST /client-errors принимает отчёт клиента без входа и отвечает 204', async () => {
+    await request(app.getHttpServer())
+      .post(`${base}/client-errors`)
+      .send({ kind: 'error', message: 'boom', stack: 'Error: boom', url: 'https://x/', at: 'now' })
+      .expect(204);
+    // Мусор вместо тела — тоже 204: телеметрия не должна отвечать ошибкой
+    await request(app.getHttpServer()).post(`${base}/client-errors`).send('garbage').expect(204);
+  });
+
   it('dev-вход учеником → /me со студенческим профилем из seed', async () => {
     const login = await request(app.getHttpServer())
       .post(`${base}/auth/dev`)
