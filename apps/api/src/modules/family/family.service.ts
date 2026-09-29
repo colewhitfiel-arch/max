@@ -147,8 +147,16 @@ export class FamilyService {
         where: { parentId_studentId: { parentId: invite.parentId, studentId } },
         select: { status: true },
       });
-      if (link?.status === 'ACTIVE')
+      if (link?.status === 'ACTIVE') {
+        // Двойное нажатие: соседний запрос прочитал ту же непогашенную ссылку, но успел её
+        // погасить и привязать ребёнка раньше — тогда это успех, а не «уже привязан».
+        const fresh = await tx.parentInvite.findUnique({
+          where: { token },
+          select: { acceptedBy: true },
+        });
+        if (fresh?.acceptedBy === studentId) return { parentId: invite.parentId };
         throw Errors.conflict('Ребёнок уже привязан к этому родителю', { alreadyLinked: true });
+      }
 
       const claimed = await tx.parentInvite.updateMany({
         where: { token, acceptedAt: null, expiresAt: { gt: now } },
