@@ -35,9 +35,35 @@ const document = generateOpenApi(
   { setOperationId: true, jsonQuery: false },
 );
 
-const out = path.resolve(__dirname, '../../../docs/api/openapi.json');
+/**
+ * ts-rest генерирует OpenAPI 3.0 с двумя неверностями (валидатор Redocly: ~1100 ошибок):
+ * `nullable: true` без `type` и числовой `exclusiveMinimum`. Обе законны в OpenAPI 3.1 —
+ * переводим документ в 3.1: `nullable` → `type: [T, 'null']` либо `anyOf` с `{ type: 'null' }`,
+ * голый `{ nullable: true }` (произвольное значение или null) → `{}`. Заодно убираем
+ * `discriminator` у inline-`oneOf`: без `$ref` он ничего не выбирает, только предупреждения.
+ */
+function toOpenApi31(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(toOpenApi31);
+  if (!node || typeof node !== 'object') return node;
+  const src = node as Record<string, unknown>;
+  const rest: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(src)) {
+    if (key === 'nullable' || key === 'discriminator') continue;
+    rest[key] = toOpenApi31(value);
+  }
+  if (src.nullable !== true) return rest;
+  if (Object.keys(rest).length === 0) return {};
+  if (typeof rest.type === 'string') return { ...rest, type: [rest.type, 'null'] };
+  if (Array.isArray(rest.type)) return { ...rest, type: [...rest.type, 'null'] };
+  return { anyOf: [rest, { type: 'null' }] };
+}
+
+const document31 = { ...(toOpenApi31(document) as Record<string, unknown>), openapi: '3.1.0' };
+
+// В корне монорепо — так его находят и жюри, и платформа автопроверки (рядом с DATA-API.yaml).
+const out = path.resolve(__dirname, '../../../openapi.json');
 mkdirSync(path.dirname(out), { recursive: true });
 // Без отступов: схемы zod разворачиваются в каждую ручку, с отступами файл — 3 МБ.
-writeFileSync(out, `${JSON.stringify(document)}\n`);
+writeFileSync(out, `${JSON.stringify(document31)}\n`);
 const paths = Object.keys(document.paths ?? {}).length;
 console.log(`openapi: ${paths} путей → ${path.relative(process.cwd(), out)}`);

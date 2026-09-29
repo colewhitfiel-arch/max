@@ -61,7 +61,7 @@ Foundation завершён (`docs/FOUNDATION.md`). Ниже — независ�
   2026-09-29: стенд «иногда падал» — Neon (free) засыпает через 5 мин и рвёт соединения Prisma
   (`PostgreSQL connection: kind: Closed`), первый запрос после паузы отвечал 500. `vercel.ts` после простоя > 30 с
   делает пробный `SELECT 1` с переподключением и добавляет `connect_timeout=15` к `DATABASE_URL`. Внешний пинг
-  `/health` раз в 4 мин держит стенд бодрым. Сдача: `docs/api/openapi.json` (генерируется `pnpm --filter @edu/contracts openapi`),
+  `/health` раз в 4 мин держит стенд бодрым. Сдача: `openapi.json` (генерируется `pnpm --filter @edu/contracts openapi`),
   `DATA-API.yaml`, README по списку требований кейса.
 
 ### Ревью 2026-09-23

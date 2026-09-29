@@ -10,7 +10,7 @@
   на экране выбора роли (первый вход в MAX): пошаговый тур по всем функциям ученика, родителя и преподавателя
   на данных демо-школы (см. [§11](#11-пошаговый-сценарий-проверки)).
 - **Мини-приложение в MAX:** <https://max.ru/se14447967_bot?startapp> (бот «Вектор»).
-- **API:** `https://max-edu.vercel.app/api/v1`, спецификация — [`docs/api/openapi.json`](docs/api/openapi.json), проверки — [`DATA-API.yaml`](DATA-API.yaml).
+- **API:** `https://max-edu.vercel.app/api/v1`, спецификация — [`openapi.json`](openapi.json) (OpenAPI 3.1, 94 пути), тестовые данные — [`test-data/demo-world.json`](test-data/demo-world.json), проверки — [`DATA-API.yaml`](DATA-API.yaml).
 - Документация — `docs/` (source of truth): продукт `docs/00`, архитектура `docs/02`, данные `docs/04`,
   API `docs/05`, сценарии `docs/07`, ADR — `docs/adr/`. Для агентов — `docs/AGENT_GUIDE.md`.
 
@@ -207,6 +207,8 @@ Seed (`packages/db/src/seed`, фикстуры — `packages/contracts/src/fixtu
 Коды: инвайт школы для роли преподавателя — `SCHOOL1`; коды привязки детей — `ALX123` (Алексей),
 `DSH456` (Даша). Пересоздать демо-мир: Docker — `docker compose restart api` (seed при старте),
 без Docker — `pnpm db:seed` (или `pnpm db:reset` для чистой базы).
+Те же данные в JSON для воспроизводимой проверки — [`test-data/demo-world.json`](test-data/demo-world.json)
+(генерируется из фикстур: `pnpm --filter @edu/contracts test-data`).
 
 ## 11. Пошаговый сценарий проверки
 
@@ -307,7 +309,8 @@ pnpm dev          # api http://localhost:3000/api/v1, web http://localhost:5173
 | `pnpm format` / `format:check` | Prettier |
 | `pnpm ownership:check` | изменения не пересекают зоны владельцев (`OWNERS.yaml`) |
 | `pnpm db:up` / `db:down` / `db:migrate` / `db:deploy` / `db:generate` / `db:seed` / `db:reset` / `db:studio` | локальный PostgreSQL и Prisma |
-| `pnpm --filter @edu/contracts openapi` | пересобрать `docs/api/openapi.json` из контрактов |
+| `pnpm --filter @edu/contracts openapi` | пересобрать `openapi.json` из контрактов |
+| `pnpm --filter @edu/contracts test-data` | пересобрать `test-data/demo-world.json` из фикстур |
 
 Тесты: `pnpm test` — все пакеты (api 214, web 421, ui 175, ai 142, contracts 49, db 8). Тестам с БД нужны
 `DATABASE_URL_TEST` и базы `edu_test`, `edu_test_seed`; пропуск — `SKIP_DB_TESTS=1`. CI (`.github/workflows/ci.yml`)

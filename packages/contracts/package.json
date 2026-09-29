@@ -39,6 +39,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "openapi": "tsx scripts/openapi.ts",
+    "test-data": "tsx scripts/test-data.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {

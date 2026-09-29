@@ -1,5 +1,5 @@
 # Описание собственного API для технической проверки (формат сдачи хакатона MAX × Минобрнауки).
-# Полная спецификация — docs/api/openapi.json (OpenAPI 3.0, генерируется из контрактов:
+# Полная спецификация — openapi.json (OpenAPI 3.0, генерируется из контрактов:
 # `pnpm --filter @edu/contracts openapi`). Стриминговые ручки (SSE) — docs/05-api-contracts.md §5.1.
 
 version: '1.0'
