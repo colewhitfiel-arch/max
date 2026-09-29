@@ -13,7 +13,12 @@ const run = (cmd, env = {}) => {
 
 // prisma generate требует, чтобы DATABASE_URL был задан; к базе при этом не подключается.
 const buildDbUrl = process.env.DATABASE_URL ?? 'postgresql://build:build@localhost:5432/build';
-run('pnpm turbo run build --filter=@edu/api --filter=@edu/web', { DATABASE_URL: buildDbUrl });
+// NODE_ENV=production явно: у Vite переменная процесса важнее .env-файла, а NODE_ENV=development
+// (из настроек проекта или загруженного .env) собирает dev-бандл React (вдвое больше и медленнее).
+run('pnpm turbo run build --filter=@edu/api --filter=@edu/web', {
+  DATABASE_URL: buildDbUrl,
+  NODE_ENV: 'production',
+});
 
 const migrateUrl =
   process.env.DATABASE_URL_UNPOOLED ??
