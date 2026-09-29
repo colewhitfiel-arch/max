@@ -19,7 +19,7 @@ import {
   TutorMessageBodySchema,
   paginated,
 } from '@edu/contracts';
-import { demoClubs } from '@edu/contracts/fixtures';
+import { DEMO_IDS } from '@edu/contracts/fixtures';
 import { http, HttpResponse } from 'msw';
 import { formatRelativeDay } from '@/shared/lib/dates';
 import { buildMe, clubCard, gamification, statsBrief, studentBrief } from '../demo';
@@ -40,7 +40,9 @@ import { db, studentOfUser, teacherOfUser } from '../state';
  * Кружки, которые онбординг рекомендует: только фикстурные (робототехника, Python) — причины ниже
  * написаны под них. Дополнительные кружки демо-мира (world-extras) в рекомендации не попадают.
  */
-const onboardingClubs = () => db.clubs.filter((club) => demoClubs.some((d) => d.id === club.id));
+/** Рекомендации мок-онбординга: диалог — про роботов и программирование, поэтому эти два кружка. */
+const ONBOARDING_CLUB_IDS: string[] = [DEMO_IDS.clubs.robotics, DEMO_IDS.clubs.programming];
+const onboardingClubs = () => db.clubs.filter((club) => ONBOARDING_CLUB_IDS.includes(club.id));
 
 /**
  * Вопросы онбординга после 1-го, 2-го и 3-го ответа (первый — в `/start`); 4-й ответ завершает

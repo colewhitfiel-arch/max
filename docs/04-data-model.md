@@ -33,7 +33,8 @@ NotificationType     LESSON_SOON | LESSON_CANCELLED | ASSIGNMENT_NEW | ASSIGNMEN
                      PAYMENT_SUCCEEDED | GENERATION_DONE | INSIGHT_READY
 ActivityType         APP_OPENED | BLOCK_OPENED | BLOCK_COMPLETED | SUBMISSION_SUBMITTED | LESSON_ATTENDED | TUTOR_MESSAGE
 TicketStatus         OPEN | ANSWERED | CLOSED
-ClubCategory         ROBOTICS | PROGRAMMING | LANGUAGES | CHESS | MATH | ART | MUSIC | SPORT | SCIENCE | OTHER
+ClubCategory         ROBOTICS | CHINESE | ENGLISH | PROGRAMMING | ENTREPRENEURSHIP | ART | PUBLIC_SPEAKING | CHESS
+                     // ровно 8 кружков; у каждого своя иконка во всех режимах (web: entities/club/icons.ts)
 ClubInterestStatus   CHOSEN | LATER | SKIPPED                         // в contracts — ClubInterestStatusSchema в routes/ai.ts (не в enums.ts)
 ```
 
@@ -58,7 +59,8 @@ StudentProfile  id PK, userId FK unique, schoolId FK?, classLabel? ("7Б"), birt
                 onboardingCompletedAt?, linkCode (unique, 6 символов, ротация по запросу)
 ParentProfile   id PK, userId FK unique
 TeacherProfile  id PK, userId FK unique, schoolId FK, qualification?, bio?, photoUrl?,
-                contactPhone?, contactEmail?, contactsVisible bool=false
+                contactPhone?, contactEmail?, contactsVisible bool=false,
+                subjects ClubCategory[]=[]         // какие кружки ведёт — выбирает сам, сколько угодно
 RefreshToken    id PK, userId FK, tokenHash (unique), activeRole Role? (восстанавливается при refresh),
                 expiresAt, revokedAt?
 ```
@@ -79,7 +81,8 @@ Club            id PK, schoolId FK, title, description, category ClubCategory, c
 
 ### groups + schedule (`groups.prisma`)
 ```
-Group           id PK, clubId FK, teacherId FK(TeacherProfile), title, isActive bool=true
+Group           id PK, clubId FK, teacherId FK(TeacherProfile), title, isActive bool=true,
+                inviteToken? (unique)              // многоразовая ссылка-приглашение /join/:token (F19)
 Enrollment      id PK, studentId FK, groupId FK, status EnrollmentStatus=ACTIVE, enrolledAt, leftAt?
                                                                         unique(studentId, groupId)
 ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:mm", room?,
@@ -87,6 +90,7 @@ ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:
 Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, room?, status LessonStatus=PLANNED,
                 cancelReason?                                           unique(ruleId, startsAt)
 ```
+Свои группы преподаватель заводит сам (`POST /teacher/groups`, docs/07 F19): вместе с группой создаётся кружок `Club` в каталоге школы (название, направление, описание и цена — из формы; кружок на группу), правила расписания (`validFrom` — сегодня) и занятия по ним на 8 недель вперёд (идемпотентно по `(ruleId, startsAt)`, уже начавшиеся слоты не создаются). `inviteToken` — 18 случайных байт (base64url), выдаётся сразу; у групп из seed — при первом запросе ссылки; сброс заменяет токен, и старая ссылка перестаёт работать. Вступление по ссылке — `Enrollment` `ACTIVE` (идемпотентно; `LEFT` снова становится `ACTIVE`) и событие `enrollment.created`.
 Занятия материализуются worker'ом из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`.
 **Планируется** `Group.code?` — короткий номер группы («001», 1–16 символов), который преподаватель видит в расписании, успеваемости и кошельке (docs/07 F16–F18). Пока есть только в контракте (`GroupBrief.code`, опционально; нет — UI показывает `title`) и в MSW-моках; поле в `groups.prisma` добавляется вместе с backend-ручками групп (workstream E).
 

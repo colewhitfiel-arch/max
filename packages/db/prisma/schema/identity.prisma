@@ -67,17 +67,19 @@ model ParentProfile {
 }
 
 model TeacherProfile {
-  id              String   @id @default(uuid(7)) @db.Uuid
-  userId          String   @unique @map("user_id") @db.Uuid
-  schoolId        String   @map("school_id") @db.Uuid
+  id              String         @id @default(uuid(7)) @db.Uuid
+  userId          String         @unique @map("user_id") @db.Uuid
+  schoolId        String         @map("school_id") @db.Uuid
   qualification   String?
   bio             String?
-  photoUrl        String?  @map("photo_url")
-  contactPhone    String?  @map("contact_phone")
-  contactEmail    String?  @map("contact_email")
-  contactsVisible Boolean  @default(false) @map("contacts_visible")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  photoUrl        String?        @map("photo_url")
+  contactPhone    String?        @map("contact_phone")
+  contactEmail    String?        @map("contact_email")
+  contactsVisible Boolean        @default(false) @map("contacts_visible")
+  /// Кружки, которые ведёт преподаватель (выбирает сам)
+  subjects        ClubCategory[] @default([])
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   school School @relation(fields: [schoolId], references: [id])

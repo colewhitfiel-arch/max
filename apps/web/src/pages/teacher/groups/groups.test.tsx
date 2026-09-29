@@ -1,16 +1,18 @@
 /**
- * Группы преподавателя: список (плюрализация «требует внимания») и карточка группы — пустые
- * расписание/ученики, чужая группа (403) — «Группа не найдена» с возвратом к списку.
+ * Группы преподавателя: список (плюрализация «требует внимания», «Новая группа») и карточка
+ * группы — пустые расписание/ученики, «Пригласить учеников» (ссылка), чужая группа (403) —
+ * «Группа не найдена» с возвратом к списку.
  */
 import { GroupDetailSchema, type GroupDetail } from '@edu/contracts';
 import { ToastProvider } from '@edu/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@/shared/api/errors';
 import '@/shared/i18n';
+import { MaxBridgeProvider, MockMaxBridge } from '@/shared/max';
 import { GroupPage } from './ui/GroupPage';
 import { GroupsPage } from './ui/GroupsPage';
 
@@ -61,15 +63,25 @@ const failed = (error: unknown) => ({
   refetch: vi.fn(),
 });
 
+const INVITE_URL = 'http://localhost/join/robotics-token-0001';
+
 const hooks = vi.hoisted(() => ({
   groups: null as unknown,
   group: null as unknown,
   lessons: null as unknown,
+  invite: null as unknown,
+  /** С каким `enabled` запрошена ссылка: шторка грузит её только открытой. */
+  inviteEnabled: [] as boolean[],
 }));
 
 vi.mock('@/entities/group', () => ({
   useTeacherGroups: () => hooks.groups,
   useTeacherGroup: () => hooks.group,
+  useGroupInvite: (_groupId: string, enabled: boolean) => {
+    hooks.inviteEnabled.push(enabled);
+    return hooks.invite;
+  },
+  useResetGroupInvite: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/entities/lesson', () => ({
   useTeacherLessons: () => hooks.lessons,
@@ -84,17 +96,20 @@ function LocationProbe() {
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={client}>
-      <ToastProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="/teacher/groups" element={<GroupsPage />} />
-            <Route path="/teacher/groups/:groupId" element={<GroupPage />} />
-          </Routes>
-          <LocationProbe />
-        </MemoryRouter>
-      </ToastProvider>
-    </QueryClientProvider>,
+    <MaxBridgeProvider bridge={new MockMaxBridge({ launchParams: null })}>
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route path="/teacher/groups" element={<GroupsPage />} />
+              <Route path="/teacher/groups/new" element={<p>Новая группа</p>} />
+              <Route path="/teacher/groups/:groupId" element={<GroupPage />} />
+            </Routes>
+            <LocationProbe />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>
+    </MaxBridgeProvider>,
   );
 }
 
@@ -102,12 +117,23 @@ beforeEach(() => {
   hooks.groups = ready({ items: [groupDetail] });
   hooks.group = ready(groupDetail);
   hooks.lessons = ready({ lessons: [] });
+  hooks.invite = ready({ token: 'robotics-token-0001', url: INVITE_URL });
+  hooks.inviteEnabled = [];
 });
 
 describe('GroupsPage', () => {
   it('«требует внимания» согласуется с числом', () => {
     renderAt('/teacher/groups');
     expect(screen.getByText('1 требует внимания')).toBeInTheDocument();
+  });
+
+  it('«Новая группа» ведёт на форму; без групп — она же в пустом состоянии', async () => {
+    const user = userEvent.setup();
+    hooks.groups = ready({ items: [] });
+    renderAt('/teacher/groups');
+    expect(screen.getByText('Групп пока нет')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Новая группа' }));
+    expect(screen.getByTestId('location').textContent).toBe('/teacher/groups/new');
   });
 });
 
@@ -116,6 +142,18 @@ describe('GroupPage', () => {
     renderAt(`/teacher/groups/${GROUP_ID}`);
     expect(screen.getByText('Расписание не задано')).toBeInTheDocument();
     expect(screen.getByText('В группе пока нет учеников')).toBeInTheDocument();
+  });
+
+  it('«Пригласить учеников» открывает ссылку группы; закрытая шторка ссылку не грузит', async () => {
+    const user = userEvent.setup();
+    renderAt(`/teacher/groups/${GROUP_ID}`);
+    expect(hooks.inviteEnabled.every((enabled) => !enabled)).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'Пригласить учеников' }));
+    const sheet = screen.getByRole('dialog', { name: 'Пригласить учеников' });
+    expect(within(sheet).getByLabelText('Ссылка на группу')).toHaveValue(INVITE_URL);
+    expect(within(sheet).getByRole('button', { name: 'Сбросить ссылку' })).toBeInTheDocument();
+    expect(hooks.inviteEnabled.at(-1)).toBe(true);
   });
 
   it('чужая группа (403) — «Группа не найдена» с возвратом к списку, без «Повторить»', async () => {

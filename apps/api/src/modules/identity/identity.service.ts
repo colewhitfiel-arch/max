@@ -1,13 +1,15 @@
 import { randomInt } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  AuthResult,
-  MeDto,
-  Role,
-  StudentBrief,
-  TokenPair,
-  UserBrief,
-  UpdateSettingsBody,
+import {
+  type AuthResult,
+  CLUB_CATEGORIES,
+  type MeDto,
+  type Role,
+  type StudentBrief,
+  type TokenPair,
+  type UserBrief,
+  type UpdateSettingsBody,
+  type UpdateTeacherProfileBody,
 } from '@edu/contracts';
 import { AUTH_PROVIDER, type AuthProvider } from '../../common/auth/auth-provider';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -169,6 +171,19 @@ export class IdentityService {
 
   async updateSettings(auth: AuthUser, body: UpdateSettingsBody): Promise<MeDto> {
     await this.repo.updateSettings(auth.userId, body);
+    return this.getMe(auth.userId, auth.activeRole);
+  }
+
+  /** Что ведёт преподаватель и кто он: кружки без повторов, в порядке `CLUB_CATEGORIES`. */
+  async updateTeacherProfile(auth: AuthUser, body: UpdateTeacherProfileBody): Promise<MeDto> {
+    const user = await this.requireUser(auth.userId);
+    if (!user.teacher) throw Errors.forbidden('Только для преподавателя');
+    const qualification =
+      body.qualification === undefined ? undefined : body.qualification?.trim() || null;
+    await this.repo.updateTeacherProfile(user.teacher.id, {
+      subjects: body.subjects && CLUB_CATEGORIES.filter((c) => body.subjects?.includes(c)),
+      qualification,
+    });
     return this.getMe(auth.userId, auth.activeRole);
   }
 
@@ -340,7 +355,14 @@ export class IdentityService {
       parent: user.parent
         ? { id: user.parent.id, childrenCount: await this.family.countChildren(user.parent.id) }
         : null,
-      teacher: user.teacher ? { id: user.teacher.id, schoolId: user.teacher.schoolId } : null,
+      teacher: user.teacher
+        ? {
+            id: user.teacher.id,
+            schoolId: user.teacher.schoolId,
+            subjects: user.teacher.subjects,
+            qualification: user.teacher.qualification,
+          }
+        : null,
     };
   }
 

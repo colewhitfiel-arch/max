@@ -117,6 +117,7 @@ export class CatalogService {
         schoolId: true,
         qualification: true,
         bio: true,
+        subjects: true,
         contactPhone: true,
         contactEmail: true,
         contactsVisible: true,
@@ -135,6 +136,7 @@ export class CatalogService {
       ...toTeacherBrief(teacher),
       qualification: teacher.qualification,
       bio: teacher.bio,
+      subjects: teacher.subjects,
       clubs: [...clubs.values()].map((club) => ({
         id: club.id,
         title: club.title,
@@ -149,6 +151,24 @@ export class CatalogService {
   }
 
   // ---------- публичный сервис ----------
+
+  /**
+   * Публичный сервис: новый кружок в каталоге школы — его создаёт модуль groups вместе с группой
+   * преподавателя (docs/07 F19). Возвращает ClubBrief.
+   */
+  async createClub(input: {
+    schoolId: string;
+    title: string;
+    description: string;
+    category: ClubCategory;
+    priceKopecks: number;
+  }): Promise<{ id: string; title: string; category: ClubCategory; coverUrl: string | null }> {
+    const club = await this.prisma.club.create({
+      data: { ...input, tags: [] },
+      select: { id: true, title: true, category: true, coverUrl: true },
+    });
+    return club;
+  }
 
   /** Публичный сервис: карточки кружков по id (кружки ребёнка у родителя). */
   async clubCardsByIds(clubIds: string[]): Promise<Map<string, ClubCard>> {

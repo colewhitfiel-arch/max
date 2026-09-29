@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   'student:tutor.chat',
   'student:trajectory.view',
   'student:parents.link',
+  'student:groups.join',
   // родитель
   'parent:children.manage',
   'parent:child.home.view',
@@ -37,6 +38,7 @@ export const PERMISSIONS = [
   // преподаватель
   'teacher:home.view',
   'teacher:groups.view',
+  'teacher:groups.manage',
   'teacher:students.view',
   'teacher:lessons.manage',
   'teacher:attendance.mark',
@@ -75,6 +77,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'student:tutor.chat',
     'student:trajectory.view',
     'student:parents.link',
+    'student:groups.join',
   ],
   PARENT: [
     ...COMMON,
@@ -91,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ...COMMON,
     'teacher:home.view',
     'teacher:groups.view',
+    'teacher:groups.manage',
     'teacher:students.view',
     'teacher:lessons.manage',
     'teacher:attendance.mark',

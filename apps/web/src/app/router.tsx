@@ -6,7 +6,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { adminRoutes } from '@/pages/admin/routes';
 import { authRoutes } from '@/pages/auth/routes';
 import { forbiddenRoute } from '@/pages/forbidden/routes';
-import { inviteRoutes } from '@/pages/invite/routes';
+import { inviteRoutes, joinRoutes } from '@/pages/invite/routes';
 import { notFoundRoute } from '@/pages/not-found/routes';
 import { notificationsRoutes } from '@/pages/notifications/routes';
 import { onboardingRoutes } from '@/pages/onboarding/routes';
@@ -107,6 +107,8 @@ export const routes: RouteObject[] = [
   { path: '/notifications', element: <RequireAuth />, children: notificationsRoutes },
   // Ссылка-приглашение родителя (F14): открывает ученик, роль проверяет сама страница.
   { path: '/invite', element: <RequireAuth />, children: inviteRoutes },
+  // Ссылка-приглашение в группу преподавателя (F19): открывает ученик, роль проверяет страница.
+  { path: '/join', element: <RequireAuth />, children: joinRoutes },
   { path: '/admin', element: <RequireAuth />, children: adminRoutes },
   ...devRoutes,
   { path: '/403', ...forbiddenRoute },

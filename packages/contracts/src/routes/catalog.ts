@@ -47,6 +47,8 @@ export type ClubDetail = z.infer<typeof ClubDetailSchema>;
 export const TeacherPublicProfileSchema = TeacherBriefSchema.extend({
   qualification: z.string().nullable(),
   bio: z.string().nullable(),
+  /** Кружки, которые преподаватель ведёт (выбрал сам); `clubs` — где он ведёт группы сейчас. */
+  subjects: z.array(ClubCategorySchema),
   clubs: z.array(ClubBriefSchema),
   contacts: TeacherContactsSchema.nullable(),
 });

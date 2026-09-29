@@ -135,3 +135,10 @@ export function weekdayName(weekday: number, locale = 'ru'): string {
   const base = new Date(2024, 0, 7 + weekday); // 7 января 2024 — воскресенье
   return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(base);
 }
+
+/** Полное название дня недели с заглавной буквы («Понедельник»); 0 — воскресенье. */
+export function weekdayLongName(weekday: number, locale = 'ru'): string {
+  const base = new Date(2024, 0, 7 + weekday); // 7 января 2024 — воскресенье
+  const name = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(base);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}

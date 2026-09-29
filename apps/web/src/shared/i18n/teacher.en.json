@@ -16,7 +16,11 @@
     "notFoundTitle": "Group not found",
     "notFoundText": "It is not among your groups — the link may be outdated",
     "toGroups": "To groups",
-    "ok": "all good"
+    "ok": "all good",
+    "emptyHint": "Create a group and send students the link — they join in one tap",
+    "create": "New group",
+    "invite": "Invite students",
+    "noStudentsHint": "Tap “Invite students” and send them the link — they join in one tap"
   },
   "courses": {
     "title": "Courses",
@@ -228,5 +232,43 @@
       "LATE": "Late",
       "EXCUSED": "Exc."
     }
+  },
+  "newGroup": {
+    "title": "New group",
+    "club": "Club",
+    "clubHint": "The ones you teach come first",
+    "name": "Group name",
+    "namePlaceholder": "For example, “{{club}}, grade 5”",
+    "price": "Monthly price, ₽",
+    "priceHint": "0 — free",
+    "invalidPrice": "Price is a whole number of roubles, up to 1,000,000",
+    "description": "Description",
+    "descriptionHint": "Optional: what you will do in class",
+    "schedule": "Schedule",
+    "scheduleHint": "Lessons appear in the calendar 8 weeks ahead. You can skip this",
+    "addDay": "Add a day",
+    "weekday": "Day of week",
+    "from": "Start",
+    "to": "End",
+    "removeDay": "Remove day",
+    "invalidTime": "A lesson must end after it starts",
+    "submit": "Create group",
+    "created": "Group created — send students the link",
+    "error": "Could not create the group"
+  },
+  "invite": {
+    "title": "Invite students",
+    "description": "Send the link to students in MAX: they open it and join the group in one tap. The link is reusable — one for the whole group.",
+    "link": "Group link",
+    "share": "Share link",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy — select the link and copy it manually",
+    "shareTitle": "Group invitation",
+    "shareText": "Join the group “{{group}}”",
+    "reset": "Reset link",
+    "resetHint": "The old link stops working — useful if it was shared with the wrong people",
+    "resetDone": "Link updated, the old one no longer works",
+    "resetError": "Could not reset the link"
   }
 }

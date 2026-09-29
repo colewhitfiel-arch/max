@@ -5,7 +5,7 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 import { IdSchema } from '../common';
-import { RoleSchema } from '../enums';
+import { ClubCategorySchema, RoleSchema } from '../enums';
 import { UserBriefSchema, UserSettingsSchema } from '../entities';
 import { contractRouterOptions, publicRoute, userRoute } from './meta';
 
@@ -32,6 +32,9 @@ export type MeParent = z.infer<typeof MeParentSchema>;
 export const MeTeacherSchema = z.object({
   id: IdSchema,
   schoolId: IdSchema,
+  /** Кружки, которые ведёт преподаватель; пусто — ещё не выбрал (экран «Что вы преподаёте?»). */
+  subjects: z.array(ClubCategorySchema),
+  qualification: z.string().nullable(),
 });
 export type MeTeacher = z.infer<typeof MeTeacherSchema>;
 
@@ -99,6 +102,18 @@ export const UpdateAvatarBodySchema = z.object({
   fileId: IdSchema.nullable(),
 });
 export type UpdateAvatarBody = z.infer<typeof UpdateAvatarBodySchema>;
+
+/** Профиль преподавателя: что он ведёт и кто он. null в qualification — очистить. */
+export const UpdateTeacherProfileBodySchema = z
+  .object({
+    /** Хотя бы один кружок; повторы сервер убирает, порядок — как в CLUB_CATEGORIES. */
+    subjects: z.array(ClubCategorySchema).min(1).optional(),
+    qualification: z.string().trim().max(200).nullable().optional(),
+  })
+  .refine((body) => body.subjects !== undefined || body.qualification !== undefined, {
+    message: 'Нечего менять',
+  });
+export type UpdateTeacherProfileBody = z.infer<typeof UpdateTeacherProfileBodySchema>;
 
 // ---------- Роуты ----------
 
@@ -174,6 +189,14 @@ export const authContract = c.router(
       responses: { 200: MeDtoSchema },
       summary: 'Сменить или убрать фото профиля',
       metadata: userRoute('common:profile.edit'),
+    },
+    updateTeacherProfile: {
+      method: 'PATCH',
+      path: '/me/teacher',
+      body: UpdateTeacherProfileBodySchema,
+      responses: { 200: MeDtoSchema },
+      summary: 'Преподаватель: какие кружки ведёт и квалификация',
+      metadata: userRoute('common:profile.edit', ['TEACHER']),
     },
     rotateLinkCode: {
       method: 'POST',

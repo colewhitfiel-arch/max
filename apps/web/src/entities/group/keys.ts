@@ -4,7 +4,11 @@ import { queryKeys } from '@/shared/api/query-keys';
 export const groupKeys = {
   list: () => [...queryKeys.teacher, 'groups'] as const,
   detail: (groupId: string) => [...queryKeys.teacher, 'groups', groupId] as const,
+  /** Ссылка-приглашение группы (у преподавателя). */
+  invite: (groupId: string) => [...queryKeys.teacher, 'groups', groupId, 'invite'] as const,
   /** «Общая успеваемость» по группам преподавателя за период. */
   performance: (period: TeacherPerformancePeriod) =>
     [...queryKeys.teacher, 'performance', period] as const,
+  /** Группа по ссылке глазами ученика. */
+  joinPreview: (token: string) => [...queryKeys.student, 'group-invite', token] as const,
 };

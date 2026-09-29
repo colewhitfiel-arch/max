@@ -409,6 +409,13 @@ export function buildMe(user: MockUser, activeRole: Role | null): MeDto {
         }
       : null,
     parent: parent ? { id: parent.id, childrenCount: childrenIdsOfParent(parent.id).length } : null,
-    teacher: teacher ? { id: teacher.id, schoolId: teacher.schoolId } : null,
+    teacher: teacher
+      ? {
+          id: teacher.id,
+          schoolId: teacher.schoolId,
+          subjects: teacher.subjects,
+          qualification: teacher.qualification,
+        }
+      : null,
   };
 }

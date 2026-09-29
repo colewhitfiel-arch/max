@@ -2,25 +2,28 @@ import type { GroupCard, TeacherStats } from '@edu/contracts';
 import {
   Avatar,
   Badge,
+  Button,
   Card,
   EmptyState,
   Grid,
-  IconTile,
+  Inline,
   ListRow,
+  PlusIcon,
   Screen,
   Skeleton,
   Stack,
   StatTile,
   Text,
-  UsersIcon,
 } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { ClubIcon } from '@/entities/club';
 import { useTeacherHome } from '@/entities/dashboard';
 import { ChangeAvatar } from '@/features/change-avatar';
 import { useMe } from '@/shared/auth/hooks';
 import { formatRate, fullName } from '@/shared/lib/format';
 import { FROM_APP_STATE } from '@/shared/lib/navigation';
+import { TEACHER_SUBJECTS_PATH, teacherGroupPaths } from '@/shared/lib/teacher-paths';
 import { AsyncState, ListSkeleton, ScreenHeader } from '@/shared/ui';
 
 /**
@@ -50,10 +53,60 @@ function ProfileHero({ stats }: { stats?: TeacherStats }) {
           <Text variant="small" tone="muted" align="center">
             {summary}
           </Text>
+          {me.teacher?.qualification && (
+            <Text variant="small" align="center">
+              {me.teacher.qualification}
+            </Text>
+          )}
         </Stack>
         <ChangeAvatar hasPhoto={Boolean(me.user.avatarUrl)} />
       </Stack>
     </Card>
+  );
+}
+
+/** «Мои кружки»: что ведёт преподаватель (выбрал сам), с иконками → «Что вы ведёте?». */
+function MySubjects() {
+  const { t } = useTranslation(['teacher-profile', 'common']);
+  const navigate = useNavigate();
+  const me = useMe();
+  const subjects = me?.teacher?.subjects ?? [];
+  const edit = () => navigate(TEACHER_SUBJECTS_PATH, { state: FROM_APP_STATE });
+  return (
+    <Stack as="section" gap={3} aria-labelledby="teacher-subjects-title">
+      <Inline justify="between" align="center" wrap={false}>
+        <Text as="h2" id="teacher-subjects-title" variant="body" weight="bold">
+          {t('subjects.title')}
+        </Text>
+        {subjects.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={edit}>
+            {t('subjects.edit')}
+          </Button>
+        )}
+      </Inline>
+      {subjects.length === 0 ? (
+        <Card>
+          <EmptyState
+            title={t('subjects.empty')}
+            description={t('subjects.emptyHint')}
+            action={<Button onClick={edit}>{t('subjects.pick')}</Button>}
+          />
+        </Card>
+      ) : (
+        <Card padding="none">
+          {subjects.map((category) => {
+            const title = t(`common:clubCategory.${category}`);
+            return (
+              <ListRow
+                key={category}
+                left={<ClubIcon category={category} title={title} />}
+                title={title}
+              />
+            );
+          })}
+        </Card>
+      )}
+    </Stack>
   );
 }
 
@@ -103,18 +156,25 @@ function MyGroups({ groups }: { groups: GroupCard[] }) {
       </Text>
       {groups.length === 0 ? (
         <Card>
-          <EmptyState title={t('groups.empty')} description={t('groups.emptyHint')} />
+          <EmptyState
+            title={t('groups.empty')}
+            description={t('groups.emptyHint')}
+            action={
+              <Button
+                leftIcon={<PlusIcon />}
+                onClick={() => navigate(teacherGroupPaths.create, { state: FROM_APP_STATE })}
+              >
+                {t('groups.create')}
+              </Button>
+            }
+          />
         </Card>
       ) : (
         <Card padding="none">
           {groups.map((group) => (
             <ListRow
               key={group.id}
-              left={
-                <IconTile tone="warning">
-                  <UsersIcon />
-                </IconTile>
-              }
+              left={<ClubIcon category={group.club.category} title={group.club.title} />}
               title={group.club.title}
               subtitle={[
                 group.code ? t('groups.code', { code: group.code }) : group.title,
@@ -132,7 +192,7 @@ function MyGroups({ groups }: { groups: GroupCard[] }) {
                 ) : undefined
               }
               chevron
-              onClick={() => navigate(`/teacher/groups/${group.id}`, { state: FROM_APP_STATE })}
+              onClick={() => navigate(teacherGroupPaths.group(group.id), { state: FROM_APP_STATE })}
             />
           ))}
         </Card>
@@ -156,8 +216,9 @@ function ProfileSkeleton() {
 }
 
 /**
- * `/teacher/profile` — фото и имя репетитора, число групп и учеников, плитки статистики и
- * «Мои группы» (→ `/teacher/groups/:id`) — всё из `GET /teacher/home` (F16).
+ * `/teacher/profile` — фото и имя репетитора, число групп и учеников, «Мои кружки» (выбирает сам,
+ * → «Что вы ведёте?»), плитки статистики и «Мои группы» (→ `/teacher/groups/:id`; нет групп —
+ * «Новая группа») — статистика и группы из `GET /teacher/home` (F16).
  */
 export function TeacherProfilePage() {
   const { t } = useTranslation('teacher-profile');
@@ -168,6 +229,7 @@ export function TeacherProfilePage() {
       <ScreenHeader title={t('title')} bell />
       <Screen gap={5}>
         <ProfileHero stats={home.data?.stats} />
+        <MySubjects />
         <AsyncState query={home} skeleton={<ProfileSkeleton />}>
           {(data) => (
             <>

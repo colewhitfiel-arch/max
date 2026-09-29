@@ -28,7 +28,7 @@ const teacher = {
   photoUrl: null,
 };
 const robotics = { id: id(0xc1), title: 'Робототехника', category: 'ROBOTICS', coverUrl: null };
-const chinese = { id: id(0xc2), title: 'Китайский', category: 'LANGUAGES', coverUrl: null };
+const chinese = { id: id(0xc2), title: 'Китайский', category: 'CHINESE', coverUrl: null };
 const roboticsGroup = {
   id: ROBOTICS,
   title: 'Робототехника, группа А',

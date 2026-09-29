@@ -160,32 +160,32 @@ export const TICKET_STATUSES = ['OPEN', 'ANSWERED', 'CLOSED'] as const;
 export const TicketStatusSchema = z.enum(TICKET_STATUSES);
 export type TicketStatus = z.infer<typeof TicketStatusSchema>;
 
+/**
+ * Кружки (предметы): у каждого своя иконка во всех режимах (ученик, родитель, преподаватель).
+ * Преподаватель выбирает из них, что ведёт (`TeacherProfile.subjects`). Порядок — порядок показа.
+ */
 export const CLUB_CATEGORIES = [
   'ROBOTICS',
+  'CHINESE',
+  'ENGLISH',
   'PROGRAMMING',
-  'LANGUAGES',
-  'CHESS',
-  'MATH',
+  'ENTREPRENEURSHIP',
   'ART',
-  'MUSIC',
-  'SPORT',
-  'SCIENCE',
-  'OTHER',
+  'PUBLIC_SPEAKING',
+  'CHESS',
 ] as const;
 export const ClubCategorySchema = z.enum(CLUB_CATEGORIES);
 export type ClubCategory = z.infer<typeof ClubCategorySchema>;
 
 export const CLUB_CATEGORY_LABELS: Record<ClubCategory, string> = {
   ROBOTICS: 'Робототехника',
+  CHINESE: 'Китайский язык',
+  ENGLISH: 'Английский язык',
   PROGRAMMING: 'Программирование',
-  LANGUAGES: 'Иностранные языки',
+  ENTREPRENEURSHIP: 'Предпринимательство',
+  ART: 'Рисование / ИЗО',
+  PUBLIC_SPEAKING: 'Ораторское мастерство',
   CHESS: 'Шахматы',
-  MATH: 'Математика',
-  ART: 'Искусство',
-  MUSIC: 'Музыка',
-  SPORT: 'Спорт',
-  SCIENCE: 'Наука',
-  OTHER: 'Другое',
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

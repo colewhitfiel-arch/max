@@ -15,9 +15,10 @@ import {
 } from '@edu/ui';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { clubIcon } from '@/entities/club';
 import { useChildHomeworkProgress } from '@/entities/student';
 import { QueryError } from '@/shared/ui';
-import { bubbleSize, clubArt } from './model';
+import { bubbleSize } from './model';
 
 export interface ParentHomeHomeworkProps {
   /** Выбранный ребёнок. */
@@ -54,7 +55,7 @@ export function ParentHomeHomework({ studentId }: ParentHomeHomeworkProps) {
             key={item.group.id}
             size={bubbleSize(item.done, item.recommended)}
             title={item.club.title}
-            image={clubArt(item.club)}
+            image={clubIcon(item.club.category, 'parent')}
             value={item.done}
             suffix={`/${item.recommended}*`}
             aria-label={t('homework.bubble', {

@@ -11,6 +11,8 @@ import {
   LogoutBodySchema,
   MeDtoSchema,
   RefreshBodySchema,
+  CLUB_CATEGORIES,
+  UpdateTeacherProfileBodySchema,
   SwitchRoleBodySchema,
   TokenPairSchema,
   UpdateAvatarBodySchema,
@@ -134,6 +136,23 @@ export const authHandlers = [
       db.settings.set(auth.user.id, { ...current, ...body.data });
       return json(MeDtoSchema, buildMe(auth.user, auth.role));
     }),
+  ),
+
+  http.patch(
+    apiUrl('/me/teacher'),
+    authed(
+      async ({ auth, request }) => {
+        const teacher = teacherOfUser(auth.user.id);
+        if (!teacher) return apiError('FORBIDDEN', 'Только для преподавателя');
+        const body = await readBody(request, UpdateTeacherProfileBodySchema);
+        if (!body.ok) return body.response;
+        const { subjects, qualification } = body.data;
+        if (subjects) teacher.subjects = CLUB_CATEGORIES.filter((c) => subjects.includes(c));
+        if (qualification !== undefined) teacher.qualification = qualification?.trim() || null;
+        return json(MeDtoSchema, buildMe(auth.user, auth.role));
+      },
+      ['TEACHER'],
+    ),
   ),
 
   http.put(

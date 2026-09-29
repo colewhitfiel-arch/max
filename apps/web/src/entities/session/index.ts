@@ -1,1 +1,6 @@
-export { useUpdateSettings, useUpdateAvatar, useRotateLinkCode } from './api';
+export {
+  useUpdateSettings,
+  useUpdateAvatar,
+  useRotateLinkCode,
+  useUpdateTeacherProfile,
+} from './api';

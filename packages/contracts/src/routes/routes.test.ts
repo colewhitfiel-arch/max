@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { GroupBriefSchema } from '../entities';
 import { API_PREFIX, type ApiContract, apiContract } from '../index';
 import { hasPermission } from '../permissions';
-import { AuthResultSchema, type MeDto } from './auth';
+import { AuthResultSchema, type MeDto, UpdateTeacherProfileBodySchema } from './auth';
 import {
   ChildAnalyticsDtoSchema,
   HomeworkProgressQuerySchema,
@@ -16,6 +16,7 @@ import {
   TeacherStudentCardSchema,
 } from './dashboards';
 import { ChildInviteSchema } from './family';
+import { CreateGroupBodySchema } from './groups';
 import {
   TEACHER_WALLET_DEFAULT_PERIOD,
   TEACHER_WITHDRAW_MIN_KOPECKS,
@@ -57,6 +58,7 @@ describe('apiContract', () => {
         "GET /me",
         "PATCH /me/settings",
         "PUT /me/avatar",
+        "PATCH /me/teacher",
         "POST /student/link-code/rotate",
         "GET /student/home",
         "GET /student/profile",
@@ -78,6 +80,11 @@ describe('apiContract', () => {
         "GET /teacher/calendar",
         "GET /teacher/groups/:groupId/lessons",
         "POST /teacher/groups/:groupId/lessons",
+        "POST /teacher/groups",
+        "GET /teacher/groups/:groupId/invite",
+        "POST /teacher/groups/:groupId/invite/reset",
+        "GET /student/group-invites/:token",
+        "POST /student/group-invites/:token/join",
         "PATCH /teacher/lessons/:lessonId",
         "GET /teacher/lessons/:lessonId/attendance",
         "PUT /teacher/lessons/:lessonId/attendance",
@@ -434,6 +441,29 @@ describe('sanity-парсинг схем', () => {
     expect(GroupBriefSchema.parse({ ...group, code: '001' }).code).toBe('001');
     expect(GroupBriefSchema.safeParse({ ...group, code: '' }).success).toBe(false);
     expect(GroupBriefSchema.safeParse({ ...group, code: 'x'.repeat(17) }).success).toBe(false);
+  });
+
+  it('CreateGroupBodySchema: кружок из списка, конец занятия позже начала, расписание по умолчанию пустое', () => {
+    const body = { category: 'CHINESE', title: ' Китайский, 5 класс ', price: rub(0) };
+    const parsed = CreateGroupBodySchema.parse(body);
+    expect(parsed.title).toBe('Китайский, 5 класс');
+    expect(parsed.schedule).toEqual([]);
+    expect(CreateGroupBodySchema.safeParse({ ...body, category: 'MATH' }).success).toBe(false);
+    const rule = { weekday: 2, startTime: '17:00', endTime: '18:00' };
+    expect(CreateGroupBodySchema.safeParse({ ...body, schedule: [rule] }).success).toBe(true);
+    expect(
+      CreateGroupBodySchema.safeParse({ ...body, schedule: [{ ...rule, endTime: '16:00' }] })
+        .success,
+    ).toBe(false);
+  });
+
+  it('UpdateTeacherProfileBodySchema: хотя бы одно поле, кружков — не меньше одного', () => {
+    expect(UpdateTeacherProfileBodySchema.safeParse({ subjects: ['ART', 'CHESS'] }).success).toBe(
+      true,
+    );
+    expect(UpdateTeacherProfileBodySchema.safeParse({ qualification: null }).success).toBe(true);
+    expect(UpdateTeacherProfileBodySchema.safeParse({ subjects: [] }).success).toBe(false);
+    expect(UpdateTeacherProfileBodySchema.safeParse({}).success).toBe(false);
   });
 
   it('TeacherStudentCardSchema: «Успеваемость» (week, homework, clubHomework) опциональна', () => {

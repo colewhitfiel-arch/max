@@ -1,6 +1,6 @@
 /**
  * Дополнения демо-мира только для MSW (не фикстуры и не seed): «Шахматы» у Даши — как в макете
- * главной родителя, ещё два кружка для витрины «Кружки для ваших детей», кошельки родителей,
+ * главной родителя (сами кружки каталога и их преподаватели — в фикстурах), кошельки родителей,
  * приглашения по ссылке и диалог родителя с тьютором; для режима репетитора — короткие номера
  * групп, второе занятие Марии сегодня, отметки её уже начавшихся сегодняшних занятий, её кошелёк
  * с историей и оплаты за недавние поступления. Собирается в `state.ts` при каждом сбросе.
@@ -9,20 +9,16 @@ import type {
   AiConversation,
   AiMessage,
   Attendance,
-  Club,
   Enrollment,
-  Group,
   Lesson,
   PaidPeriod,
   Payment,
-  ScheduleRule,
-  TeacherProfile,
   TeacherWalletTransactionKind,
 } from '@edu/contracts';
 import {
   DEMO_IDS,
   type DemoLessonSpec,
-  type DemoUser,
+  demoCatalogUsers,
   demoClubs,
   demoEnrollments,
   demoGroups,
@@ -36,19 +32,27 @@ import { roll } from './seed';
 const DAY_MS = 86_400_000;
 const T0 = '2026-09-01T00:00:00.000Z';
 
-/** Id сущностей, которых нет в фикстурах (диапазон 0x200+ не пересекается с demoId фикстур). */
+/**
+ * Id сущностей мок-мира. Кружки каталога, их группы и преподаватели — из фикстур (`DEMO_IDS`),
+ * здесь только ссылки на них; своё у моков — в диапазоне 0x240+ (не пересекается с фикстурами).
+ */
 export const MOCK_IDS = {
-  users: { chessTeacher: demoId(0x200), englishTeacher: demoId(0x201) },
-  teachers: { andrey: demoId(0x210), elena: demoId(0x211) },
-  clubs: { chess: demoId(0x220), math: demoId(0x221), english: demoId(0x222) },
-  groups: { chessA: demoId(0x230), mathA: demoId(0x231), englishA: demoId(0x232) },
-  enrollments: { dashaChess: demoId(0x240) },
-  scheduleRules: {
-    chessMon: demoId(0x250),
-    chessWed: demoId(0x251),
-    mathSat: demoId(0x252),
-    englishTue: demoId(0x253),
+  users: {
+    chessTeacher: DEMO_IDS.catalogUsers.andrey,
+    englishTeacher: DEMO_IDS.catalogUsers.elena,
   },
+  teachers: { andrey: DEMO_IDS.teachers.andrey, elena: DEMO_IDS.teachers.elena },
+  clubs: {
+    chess: DEMO_IDS.clubs.chess,
+    entrepreneurship: DEMO_IDS.clubs.entrepreneurship,
+    english: DEMO_IDS.clubs.english,
+  },
+  groups: {
+    chessA: DEMO_IDS.groups.chessA,
+    entrepreneurshipA: DEMO_IDS.groups.entrepreneurshipA,
+    englishA: DEMO_IDS.groups.englishA,
+  },
+  enrollments: { dashaChess: demoId(0x240) },
   lessons: {
     chessPast1: demoId(0x260),
     chessPast2: demoId(0x261),
@@ -91,7 +95,7 @@ export const MOCK_GROUP_CODES: Readonly<Record<string, string>> = {
   [DEMO_IDS.groups.roboticsA]: '001',
   [DEMO_IDS.groups.programmingA]: '012',
   [MOCK_IDS.groups.chessA]: '003',
-  [MOCK_IDS.groups.mathA]: '007',
+  [MOCK_IDS.groups.entrepreneurshipA]: '007',
   [MOCK_IDS.groups.englishA]: '005',
 };
 
@@ -130,117 +134,6 @@ export interface MockInvite {
   acceptedAt: string | null;
 }
 
-const mockUsers: DemoUser[] = [
-  {
-    id: MOCK_IDS.users.chessTeacher,
-    maxUserId: 'max-teacher-2',
-    firstName: 'Андрей',
-    lastName: 'Петров',
-    nickname: null,
-    avatarUrl: null,
-    locale: 'ru',
-    theme: 'SYSTEM',
-    createdAt: T0,
-    roles: ['TEACHER'],
-  },
-  {
-    id: MOCK_IDS.users.englishTeacher,
-    maxUserId: 'max-teacher-3',
-    firstName: 'Елена',
-    lastName: 'Соколова',
-    nickname: null,
-    avatarUrl: null,
-    locale: 'ru',
-    theme: 'SYSTEM',
-    createdAt: T0,
-    roles: ['TEACHER'],
-  },
-];
-
-const mockTeachers: TeacherProfile[] = [
-  {
-    id: MOCK_IDS.teachers.andrey,
-    userId: MOCK_IDS.users.chessTeacher,
-    schoolId: DEMO_IDS.school,
-    qualification: 'Кандидат в мастера спорта по шахматам, педагог по математике',
-    bio: 'Учу видеть комбинации и не бояться сложных задач.',
-    photoUrl: null,
-    contactsVisible: false,
-  },
-  {
-    id: MOCK_IDS.teachers.elena,
-    userId: MOCK_IDS.users.englishTeacher,
-    schoolId: DEMO_IDS.school,
-    qualification: 'Преподаватель английского языка, CELTA',
-    bio: 'Разговорный английский через игры и проекты.',
-    photoUrl: null,
-    contactsVisible: false,
-  },
-];
-
-const mockClubs: Club[] = [
-  {
-    id: MOCK_IDS.clubs.chess,
-    schoolId: DEMO_IDS.school,
-    title: 'Шахматы',
-    description: 'Тактика, дебюты и турнирная практика: учимся думать на несколько ходов вперёд.',
-    category: 'CHESS',
-    coverUrl: null,
-    price: { amountKopecks: 250_000, currency: 'RUB' },
-    billingPeriod: 'MONTH',
-    isActive: true,
-    tags: ['тактика', 'турниры', 'логика'],
-  },
-  {
-    id: MOCK_IDS.clubs.math,
-    schoolId: DEMO_IDS.school,
-    title: 'Олимпиадная математика',
-    description: 'Нестандартные задачи, логика и подготовка к олимпиадам.',
-    category: 'MATH',
-    coverUrl: null,
-    price: { amountKopecks: 280_000, currency: 'RUB' },
-    billingPeriod: 'MONTH',
-    isActive: true,
-    tags: ['олимпиады', 'логика', 'задачи'],
-  },
-  {
-    id: MOCK_IDS.clubs.english,
-    schoolId: DEMO_IDS.school,
-    title: 'Английский язык',
-    description: 'Разговорный английский в игровой форме, небольшие группы.',
-    category: 'LANGUAGES',
-    coverUrl: null,
-    price: { amountKopecks: 320_000, currency: 'RUB' },
-    billingPeriod: 'MONTH',
-    isActive: true,
-    tags: ['разговорный', 'игры', 'A1–B1'],
-  },
-];
-
-const mockGroups: Group[] = [
-  {
-    id: MOCK_IDS.groups.chessA,
-    clubId: MOCK_IDS.clubs.chess,
-    teacherId: MOCK_IDS.teachers.andrey,
-    title: 'Шахматы, группа А',
-    isActive: true,
-  },
-  {
-    id: MOCK_IDS.groups.mathA,
-    clubId: MOCK_IDS.clubs.math,
-    teacherId: MOCK_IDS.teachers.andrey,
-    title: 'Олимпиадная математика, группа А',
-    isActive: true,
-  },
-  {
-    id: MOCK_IDS.groups.englishA,
-    clubId: MOCK_IDS.clubs.english,
-    teacherId: MOCK_IDS.teachers.elena,
-    title: 'Английский, группа А',
-    isActive: true,
-  },
-];
-
 const mockEnrollments: Enrollment[] = [
   {
     id: MOCK_IDS.enrollments.dashaChess,
@@ -250,31 +143,6 @@ const mockEnrollments: Enrollment[] = [
     enrolledAt: T0,
     leftAt: null,
   },
-];
-
-const rule = (
-  id: string,
-  groupId: string,
-  weekday: number,
-  startTime: string,
-  endTime: string,
-  room: string,
-): ScheduleRule => ({
-  id,
-  groupId,
-  weekday,
-  startTime,
-  endTime,
-  room,
-  validFrom: '2026-09-01',
-  validTo: null,
-});
-
-const mockScheduleRules: ScheduleRule[] = [
-  rule(MOCK_IDS.scheduleRules.chessMon, MOCK_IDS.groups.chessA, 1, '19:00', '20:30', 'Каб. 7'),
-  rule(MOCK_IDS.scheduleRules.chessWed, MOCK_IDS.groups.chessA, 3, '19:00', '20:30', 'Каб. 7'),
-  rule(MOCK_IDS.scheduleRules.mathSat, MOCK_IDS.groups.mathA, 6, '11:00', '12:30', 'Каб. 3'),
-  rule(MOCK_IDS.scheduleRules.englishTue, MOCK_IDS.groups.englishA, 2, '17:30', '18:30', 'Каб. 9'),
 ];
 
 /** Занятия «Шахмат» относительно «сейчас»: сегодня в 19:00 — как в макете главной родителя. */
@@ -659,12 +527,9 @@ export function buildWorldExtras(now: Date) {
     },
   ];
   return {
-    users: mockUsers,
-    teachers: mockTeachers,
-    clubs: mockClubs,
-    groups: mockGroups,
+    // Преподаватели каталога — не в dev-входе, поэтому их пользователей добавляет мок-мир.
+    users: demoCatalogUsers,
     enrollments: mockEnrollments,
-    scheduleRules: mockScheduleRules,
     lessons,
     attendance: [
       // Отметка — в начале занятия, не раньше него.

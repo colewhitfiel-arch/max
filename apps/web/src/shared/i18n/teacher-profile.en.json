@@ -26,7 +26,8 @@
     "students_other": "{{count}} students",
     "needsAttention": "Need attention: {{count}}",
     "empty": "No groups yet",
-    "emptyHint": "Groups are assigned by the school — once they appear, their schedule will be on the home screen"
+    "emptyHint": "Create a group and invite students with a link",
+    "create": "New group"
   },
   "settings": {
     "title": "Settings",
@@ -38,6 +39,28 @@
     "courses": "Courses",
     "coursesHint": "Modules and materials for groups",
     "clubDemand": "Club demand",
-    "clubDemandHint": "What students pick during onboarding and want to try later"
+    "clubDemandHint": "What students pick during onboarding and want to try later",
+    "subjects": "My clubs",
+    "subjectsHint": "What you teach"
+  },
+  "subjects": {
+    "title": "My clubs",
+    "edit": "Edit",
+    "empty": "No clubs selected",
+    "emptyHint": "Mark what you teach — students and parents will see it",
+    "pick": "Choose clubs"
+  },
+  "subjectsPage": {
+    "title": "What do you teach?",
+    "subtitle": "Mark every club you teach. You can change this any time",
+    "list": "Clubs",
+    "qualification": "About me",
+    "qualificationHint": "For example: “English teacher, 5 years of experience”",
+    "save": "Save",
+    "saved": "Saved",
+    "saveError": "Could not save",
+    "pickOne": "Choose at least one club",
+    "selected_one": "{{count}} club selected",
+    "selected_other": "{{count}} clubs selected"
   }
 }

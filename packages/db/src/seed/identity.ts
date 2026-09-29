@@ -1,4 +1,5 @@
 import {
+  demoCatalogUsers,
   demoParentLinks,
   demoParents,
   demoSchool,
@@ -22,7 +23,8 @@ export async function seedIdentity(prisma: PrismaClient): Promise<void> {
     update: { name: demoSchool.name, timezone: demoSchool.timezone, settings: demoSchool.settings },
   });
 
-  for (const user of Object.values(demoUsers)) {
+  // Преподаватели каталога — обычные пользователи, только не в списке dev-входа.
+  for (const user of [...Object.values(demoUsers), ...demoCatalogUsers]) {
     const data = {
       maxUserId: user.maxUserId,
       firstName: user.firstName,
@@ -60,6 +62,7 @@ export async function seedIdentity(prisma: PrismaClient): Promise<void> {
       bio: teacher.bio,
       photoUrl: teacher.photoUrl,
       contactsVisible: teacher.contactsVisible,
+      subjects: teacher.subjects,
       contactPhone: contacts.phone,
       contactEmail: contacts.email,
     };

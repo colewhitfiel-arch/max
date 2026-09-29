@@ -597,10 +597,10 @@ export function homeworkOf(
   viewer: AnalyticsViewer = 'parent',
 ): HomeworkEntry[] {
   const group = db.groups.find((g) => g.id === groupId);
-  const category = db.clubs.find((c) => c.id === group?.clubId)?.category ?? 'OTHER';
+  const category = db.clubs.find((c) => c.id === group?.clubId)?.category;
   const real = realItems(studentId, groupId);
-  const total = TASKS_PER_CATEGORY[category] ?? TASKS_DEFAULT;
-  const templates = TEMPLATES_PER_CATEGORY[category] ?? DEFAULT_TASKS;
+  const total = (category && TASKS_PER_CATEGORY[category]) ?? TASKS_DEFAULT;
+  const templates = (category && TEMPLATES_PER_CATEGORY[category]) ?? DEFAULT_TASKS;
   const generated = generatedSlots(groupId, Math.max(0, total - real.length), templates).map(
     (slot) => generatedItem(studentId, slot, now),
   );

@@ -85,15 +85,13 @@
   },
   "clubCategory": {
     "ROBOTICS": "Robotics",
+    "CHINESE": "Chinese",
+    "ENGLISH": "English",
     "PROGRAMMING": "Programming",
-    "LANGUAGES": "Foreign languages",
-    "CHESS": "Chess",
-    "MATH": "Mathematics",
-    "ART": "Art",
-    "MUSIC": "Music",
-    "SPORT": "Sport",
-    "SCIENCE": "Science",
-    "OTHER": "Other"
+    "ENTREPRENEURSHIP": "Entrepreneurship",
+    "ART": "Drawing & fine art",
+    "PUBLIC_SPEAKING": "Public speaking",
+    "CHESS": "Chess"
   },
   "blockType": {
     "TEXT": "Text",

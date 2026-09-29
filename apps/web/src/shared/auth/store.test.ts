@@ -44,6 +44,8 @@ const me = (activeRole: MeDto['activeRole']): MeDto => ({
   teacher: {
     id: '00000000-0000-7000-8000-000000000020',
     schoolId: '00000000-0000-7000-8000-000000000001',
+    subjects: ['ROBOTICS', 'PROGRAMMING'],
+    qualification: null,
   },
 });
 

@@ -14,17 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { useCreateChildInvite } from '@/entities/student';
 import { describeApiError } from '@/shared/api/errors';
 import { formatDate } from '@/shared/lib/dates';
+import { canShare, isShareAbort } from '@/shared/lib/share';
 import { useMaxBridge } from '@/shared/max';
-
-/** Системное «Поделиться» (в MAX/мобильном WebView); на десктопе его обычно нет — копируем. */
-function canShare(): boolean {
-  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-}
-
-/** Пользователь закрыл системное окно «Поделиться» — это не ошибка. */
-function isShareAbort(cause: unknown): boolean {
-  return cause instanceof DOMException && cause.name === 'AbortError';
-}
 
 /**
  * Приглашение ребёнка по ссылке (docs/07 F14): `POST /parent/children/invites` → ссылка,

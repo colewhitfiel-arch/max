@@ -4,5 +4,10 @@
     "wallet": "Balance {{amount}}, open wallet",
     "walletUnknown": "Open wallet",
     "walletError": "Balance failed to load, open wallet"
+  },
+  "setup": {
+    "title": "Tell us what you teach",
+    "text": "Choose your clubs — then create groups students join with a link",
+    "action": "Choose clubs"
   }
 }

@@ -1,6 +1,7 @@
 import {
   BookIcon,
   Card,
+  GraduationCapIcon,
   IconTile,
   ListRow,
   Screen,
@@ -11,7 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { FROM_APP_STATE } from '@/shared/lib/navigation';
-import { TEACHER_WALLET_PATH } from '@/shared/lib/teacher-paths';
+import { TEACHER_SUBJECTS_PATH, TEACHER_WALLET_PATH } from '@/shared/lib/teacher-paths';
 import { ScreenHeader } from '@/shared/ui';
 import {
   AccountSettings,
@@ -24,7 +25,7 @@ import { NotificationSettings } from '@/widgets/notification-settings';
 
 /**
  * «Работа»: разделы репетитора, которых нет в нижнем меню, — кошелёк (он же открывается чипом
- * на главной), группы, курсы, конструктор курса и спрос на кружки.
+ * на главной), свои кружки, группы, курсы, конструктор курса и спрос на кружки.
  */
 function WorkSettings() {
   const { t } = useTranslation('teacher-profile');
@@ -42,6 +43,17 @@ function WorkSettings() {
           subtitle={t('settings.walletHint')}
           chevron
           onClick={() => navigate(TEACHER_WALLET_PATH, { state: FROM_APP_STATE })}
+        />
+        <ListRow
+          left={
+            <IconTile tone="info">
+              <GraduationCapIcon />
+            </IconTile>
+          }
+          title={t('settings.subjects')}
+          subtitle={t('settings.subjectsHint')}
+          chevron
+          onClick={() => navigate(TEACHER_SUBJECTS_PATH, { state: FROM_APP_STATE })}
         />
         <ListRow
           left={

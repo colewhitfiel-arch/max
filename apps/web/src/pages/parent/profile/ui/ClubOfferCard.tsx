@@ -1,8 +1,7 @@
 import { Avatar, Badge, Button, Card, Inline, Stack, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
-import type { ClubOffer } from '@/entities/club';
+import { clubIcon, type ClubOffer } from '@/entities/club';
 import { formatMoney } from '@/shared/lib/money';
-import { clubArt } from '@/widgets/parent-home-homework';
 
 /** Сколько символов описания показывать на карточке витрины. */
 const DESCRIPTION_LIMIT = 140;
@@ -32,7 +31,11 @@ export function ClubOfferCard({ offer, onEnroll }: ClubOfferCardProps) {
     <Card>
       <Stack gap={3}>
         <Inline gap={3} wrap={false}>
-          <Avatar name={club.title} src={club.coverUrl ?? clubArt(club)} size="lg" />
+          <Avatar
+            name={club.title}
+            src={club.coverUrl ?? clubIcon(club.category, 'parent')}
+            size="lg"
+          />
           <Stack gap={1}>
             <Text as="h3" weight="medium">
               {club.title}

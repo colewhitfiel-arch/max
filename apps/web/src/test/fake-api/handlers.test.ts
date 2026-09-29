@@ -174,8 +174,9 @@ describe('mock world (msw/node)', () => {
     expect(afterRead.unreadCount).toBe(0);
 
     const catalog = await call(api.catalog.listClubs({ query: {} }));
-    // 2 кружка из фикстур + шахматы, математика и английский из world-extras.
-    expect(catalog.items).toHaveLength(5);
+    // Все 8 кружков каталога (фикстуры), по одному на направление.
+    expect(catalog.items).toHaveLength(8);
+    expect(new Set(catalog.items.map((club) => club.category)).size).toBe(8);
     expect(catalog.items[0]?.schedulePreview[0]).toMatch(/^Пн /);
 
     const updated = await call(api.auth.updateSettings({ body: { theme: 'DARK' } }));

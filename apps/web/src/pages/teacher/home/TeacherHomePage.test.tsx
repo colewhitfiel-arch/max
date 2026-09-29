@@ -29,7 +29,7 @@ const teacher = {
 const club = (n: number, title: string) => ({
   id: id(100 + n),
   title,
-  category: 'OTHER' as const,
+  category: 'ENTREPRENEURSHIP' as const,
   coverUrl: null,
 });
 const robotics = {
@@ -100,7 +100,12 @@ const maria: MeDto = {
   settings: { theme: 'SYSTEM', locale: 'ru' },
   student: null,
   parent: null,
-  teacher: { id: teacher.id, schoolId: id(1) },
+  teacher: {
+    id: teacher.id,
+    schoolId: id(1),
+    subjects: ['ROBOTICS', 'CHESS'],
+    qualification: null,
+  },
 };
 
 const ready = <T,>(data: T) => ({

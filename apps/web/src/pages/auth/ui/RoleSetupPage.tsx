@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
+import { TEACHER_SUBJECTS_PATH, TEACHER_SUBJECTS_SETUP_STATE } from '@/shared/lib/teacher-paths';
 import { ADDABLE_ROLES } from '../model';
 
 /** `/auth/role`: выбор первой роли (F1) или добавление новой (`POST /auth/roles`). */
@@ -39,8 +40,13 @@ export function RoleSetupPage() {
     setPending(true);
     setError(null);
     try {
-      await addRole(selected, inviteCode.trim() || undefined);
-      navigate('/', { replace: true });
+      const me = await addRole(selected, inviteCode.trim() || undefined);
+      // Новый преподаватель сразу отмечает, что ведёт (F19); остальные — на свою главную.
+      if (selected === 'TEACHER' && me.teacher?.subjects.length === 0) {
+        navigate(TEACHER_SUBJECTS_PATH, { replace: true, state: TEACHER_SUBJECTS_SETUP_STATE });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (cause) {
       setError(describeApiError(cause));
     } finally {

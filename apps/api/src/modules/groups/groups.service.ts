@@ -10,7 +10,7 @@ import { Errors } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 /** Вложенные связи, из которых собирается `GroupBrief`. */
-const groupBriefInclude = {
+export const groupBriefInclude = {
   club: { select: { id: true, title: true, category: true, coverUrl: true } },
   teacher: {
     select: {
@@ -56,7 +56,7 @@ type GroupWithBrief = {
   };
 };
 
-function toGroupBrief(group: GroupWithBrief): GroupBrief {
+export function toGroupBrief(group: GroupWithBrief): GroupBrief {
   return {
     id: group.id,
     title: group.title,

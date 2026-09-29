@@ -1,14 +1,8 @@
-import { CLUB_CATEGORIES, type ClubCategory, type HomeworkClub } from '@edu/contracts';
+import { CLUB_CATEGORIES, type HomeworkClub } from '@edu/contracts';
 import { AppLayout, PlanetMap, type PlanetMapItem } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
+import { clubIcon } from '@/entities/club';
 import { diffCalendarDays, formatDate } from '@/shared/lib/dates';
-import planetArt from './assets/planet-art.png';
-import planetChess from './assets/planet-chess.png';
-import planetEnglish from './assets/planet-english.png';
-import planetMusic from './assets/planet-music.png';
-import planetProgramming from './assets/planet-programming.png';
-import planetRobotics from './assets/planet-robotics.png';
-import planetScience from './assets/planet-science.png';
 import stars from './assets/stars.png';
 
 /**
@@ -27,21 +21,6 @@ export function HomeworkBackdrop() {
     />
   );
 }
-
-/**
- * Планеты из макета по предмету (категории кружка). Предметы без своей планеты
- * (MATH, SPORT, OTHER) на карту заблокированных не попадают, пока для них нет картинки.
- */
-const PLANETS: Partial<Record<ClubCategory, string>> = {
-  CHESS: planetChess,
-  LANGUAGES: planetEnglish,
-  PROGRAMMING: planetProgramming,
-  ROBOTICS: planetRobotics,
-  ART: planetArt,
-  SCIENCE: planetScience,
-  MUSIC: planetMusic,
-};
-const FALLBACK_PLANETS = [planetRobotics, planetProgramming, planetEnglish, planetChess];
 
 export interface HomeworkMapProps {
   /** Кружки ученика в порядке ближайшего дедлайна (как отдаёт API). */
@@ -80,7 +59,7 @@ export function HomeworkMap({ clubs, onOpenAssignment, onOpenClub }: HomeworkMap
     const marker = index === 0 && next ? dueMarker(next.dueAt) : null;
     return {
       key: item.group.id,
-      image: PLANETS[item.club.category] ?? FALLBACK_PLANETS[index % FALLBACK_PLANETS.length]!,
+      image: clubIcon(item.club.category, 'planet'),
       value: item.points,
       label: item.club.title,
       marker,
@@ -100,10 +79,10 @@ export function HomeworkMap({ clubs, onOpenAssignment, onOpenClub }: HomeworkMap
 
   const enrolledCategories = new Set(clubs.map((item) => item.club.category));
   const locked: PlanetMapItem[] = CLUB_CATEGORIES.filter(
-    (category) => !enrolledCategories.has(category) && PLANETS[category],
+    (category) => !enrolledCategories.has(category),
   ).map((category) => ({
     key: `locked:${category}`,
-    image: PLANETS[category]!,
+    image: clubIcon(category, 'planet'),
     label: t(`common:clubCategory.${category}`),
     title: t('homework.locked', { subject: t(`common:clubCategory.${category}`) }),
     locked: true,

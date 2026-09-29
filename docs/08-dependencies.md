@@ -46,7 +46,7 @@
 |---|---|
 | identity | `getUser(id)`, `getStudentProfile(id)`, `getTeacherProfile(id)`, `getParentProfile(id)`, `findStudentByLinkCode(code)`, `briefs(userIds)` |
 | school | `getSchool(id)`, `getSettings(id)`, `timezone(schoolId)` |
-| catalog | `getClub(id)`, `listClubs(schoolId?)`, `clubBriefs(ids)`, `teacherCard(teacherId, viewerRole)` |
+| catalog | `getClub(id)`, `listClubs(schoolId?)`, `clubBriefs(ids)`, `teacherCard(teacherId, viewerRole)`, `createClub(input)` (кружок новой группы преподавателя, F19) |
 | groups | `getGroup(id)`, `groupBrief(id)`, `listGroupsByTeacher(teacherId)`, `listStudentIdsInGroup(groupId)`, `listEnrollments(studentId)`, `isEnrolled(studentId, groupId)`, `listLessons({ groupIds \| studentId, from, to })`, `getLesson(id)`, `getEnrollment(id)` |
 | attendance | `listByStudent(studentId, period)`, `listByLesson(lessonId)`, `countable(studentId, period)` |
 | courses | `listPublishedByGroups(groupIds)`, `getProgress(studentId, courseId)`, `listCourseProgress(studentId)`, `blockBrief(id)` |

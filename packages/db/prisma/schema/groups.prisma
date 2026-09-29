@@ -1,13 +1,15 @@
 // groups + schedule: группы, зачисления, правила расписания, занятия. Владелец — B2.
 
 model Group {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  clubId    String   @map("club_id") @db.Uuid
-  teacherId String   @map("teacher_id") @db.Uuid
-  title     String
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String   @id @default(uuid(7)) @db.Uuid
+  clubId      String   @map("club_id") @db.Uuid
+  teacherId   String   @map("teacher_id") @db.Uuid
+  title       String
+  isActive    Boolean  @default(true) @map("is_active")
+  /// Токен многоразовой ссылки-приглашения (/join/:token); null — ещё не выдавалась
+  inviteToken String?  @unique @map("invite_token")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   club    Club           @relation(fields: [clubId], references: [id])
   teacher TeacherProfile @relation(fields: [teacherId], references: [id])

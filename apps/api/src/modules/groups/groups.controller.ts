@@ -6,14 +6,63 @@ import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
 import { Errors } from '../../common/errors/app-error';
 import { periodBounds } from '../../common/time/period';
 import { GroupsService } from './groups.service';
+import { TeacherGroupsService } from './teacher-groups.service';
 
 /**
- * Занятия преподавателя (часть contracts/routes/groups.ts). Календари ученика и родителя —
- * за workstream E/H, здесь не реализованы и отвечают 501.
+ * Занятия преподавателя, его новые группы и вступление по ссылке (часть contracts/routes/groups.ts).
+ * Календари ученика и родителя — за workstream E/H, здесь не реализованы и отвечают 501.
  */
 @Controller()
 export class GroupsController {
-  constructor(private readonly groups: GroupsService) {}
+  constructor(
+    private readonly groups: GroupsService,
+    private readonly teacherGroups: TeacherGroupsService,
+  ) {}
+
+  @TsRestHandler(groupsContract.createGroup)
+  @RequirePermission('teacher:groups.manage')
+  createGroup(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(groupsContract.createGroup, async ({ body }) => ({
+      status: 200,
+      body: await this.teacherGroups.createGroup(requireTeacher(user), body),
+    }));
+  }
+
+  @TsRestHandler(groupsContract.getGroupInvite)
+  @RequirePermission('teacher:groups.manage')
+  groupInvite(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(groupsContract.getGroupInvite, async ({ params }) => ({
+      status: 200,
+      body: await this.teacherGroups.getInvite(requireTeacher(user), params.groupId),
+    }));
+  }
+
+  @TsRestHandler(groupsContract.resetGroupInvite)
+  @RequirePermission('teacher:groups.manage')
+  resetGroupInvite(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(groupsContract.resetGroupInvite, async ({ params }) => ({
+      status: 200,
+      body: await this.teacherGroups.resetInvite(requireTeacher(user), params.groupId),
+    }));
+  }
+
+  @TsRestHandler(groupsContract.getGroupInvitePreview)
+  @RequirePermission('student:groups.join')
+  groupInvitePreview(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(groupsContract.getGroupInvitePreview, async ({ params }) => ({
+      status: 200,
+      body: await this.teacherGroups.getInvitePreview(requireStudent(user), params.token),
+    }));
+  }
+
+  @TsRestHandler(groupsContract.joinGroup)
+  @RequirePermission('student:groups.join')
+  joinGroup(@CurrentUser() user: AuthUser) {
+    return tsRestHandler(groupsContract.joinGroup, async ({ params }) => ({
+      status: 200,
+      body: await this.teacherGroups.join(requireStudent(user), params.token),
+    }));
+  }
 
   @TsRestHandler(groupsContract.getTeacherCalendar)
   @RequirePermission('teacher:groups.view')
@@ -60,6 +109,12 @@ export class GroupsController {
       body: await this.groups.updateLesson(requireTeacher(user), params.lessonId, body),
     }));
   }
+}
+
+function requireStudent(user: AuthUser): string {
+  if (user.activeRole !== 'STUDENT' || !user.profileId)
+    throw Errors.forbidden('Только для ученика');
+  return user.profileId;
 }
 
 function requireTeacher(user: AuthUser): string {

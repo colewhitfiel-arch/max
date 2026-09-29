@@ -18,6 +18,7 @@ import { groupsHandlers } from './groups';
 import { healthHandlers } from './health';
 import { notificationsHandlers } from './notifications';
 import { paymentsHandlers } from './payments';
+import { teacherGroupsHandlers } from './teacher-groups';
 
 export const handlers = [
   ...healthHandlers,
@@ -25,6 +26,7 @@ export const handlers = [
   ...dashboardsHandlers,
   ...catalogHandlers,
   ...groupsHandlers,
+  ...teacherGroupsHandlers,
   ...coursesHandlers,
   ...courseBuilderHandlers,
   ...filesHandlers,

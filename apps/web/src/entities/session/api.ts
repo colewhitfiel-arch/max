@@ -1,4 +1,8 @@
-import type { UpdateAvatarBody, UpdateSettingsBody } from '@edu/contracts';
+import type {
+  UpdateAvatarBody,
+  UpdateSettingsBody,
+  UpdateTeacherProfileBody,
+} from '@edu/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { useAuthStore } from '@/shared/auth/store';
@@ -17,6 +21,15 @@ export function useUpdateAvatar() {
   const updateMe = useAuthStore((s) => s.updateMe);
   return useMutation({
     mutationFn: (body: UpdateAvatarBody) => call(api.auth.updateAvatar({ body })),
+    onSuccess: (me) => updateMe(me),
+  });
+}
+
+/** `PATCH /me/teacher` — какие кружки ведёт преподаватель и его квалификация; обновляет me. */
+export function useUpdateTeacherProfile() {
+  const updateMe = useAuthStore((s) => s.updateMe);
+  return useMutation({
+    mutationFn: (body: UpdateTeacherProfileBody) => call(api.auth.updateTeacherProfile({ body })),
     onSuccess: (me) => updateMe(me),
   });
 }

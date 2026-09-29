@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DateTimeSchema, IdSchema } from '../common/primitives';
+import { ClubCategorySchema } from '../enums';
 import { UserBriefSchema } from './user';
 
 export const StudentProfileSchema = z.object({
@@ -34,6 +35,8 @@ export const TeacherProfileSchema = z.object({
   bio: z.string().nullable(),
   photoUrl: z.string().nullable(),
   contactsVisible: z.boolean(),
+  /** Какие кружки ведёт — выбирает сам преподаватель, сколько угодно. */
+  subjects: z.array(ClubCategorySchema),
 });
 export type TeacherProfile = z.infer<typeof TeacherProfileSchema>;
 

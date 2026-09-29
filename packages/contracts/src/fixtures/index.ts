@@ -1,7 +1,9 @@
 /**
  * Демо-мир: единый набор данных для seed (packages/db) и MSW-моков (apps/web).
- * Владелец — contracts. Данных намеренно мало: 1 школа, 2 кружка, 2 группы, 1 преподаватель
- * (он же родитель), 2 ученика, 1 родитель, курс с 4 блоками, 3 задания, сдача, посещаемость.
+ * Владелец — contracts. Учебных данных намеренно мало: 1 школа, 1 преподаватель (он же родитель)
+ * с группами робототехники и Python, 2 ученика, 1 родитель, курс с 4 блоками, 3 задания, сдача,
+ * посещаемость. Каталог — все 8 кружков (`CLUB_CATEGORIES`): остальные 6 ведут ещё трое
+ * преподавателей (`demoCatalogUsers`, в dev-вход не попадают), учеников в их группах нет.
  *
  * Даты занятий, посещаемости и оплаты задаются относительно «сейчас» — см. materializeDemoLessons(),
  * materializeDemoAttendance(), materializeDemoPayment() и materializeDemoPaidPeriod().
@@ -47,17 +49,53 @@ export const DEMO_IDS = {
     student2: demoId(12),
     parent: demoId(13),
   },
-  teachers: { maria: demoId(20) },
+  /** Преподаватели каталога (не в dev-входе): шахматы и предпринимательство, языки, ИЗО и ораторы. */
+  catalogUsers: { andrey: demoId(0x200), elena: demoId(0x201), svetlana: demoId(0x202) },
+  teachers: {
+    maria: demoId(20),
+    andrey: demoId(0x210),
+    elena: demoId(0x211),
+    svetlana: demoId(0x212),
+  },
   students: { alexey: demoId(21), dasha: demoId(22) },
   parents: { olga: demoId(23), mariaAsParent: demoId(24) },
-  clubs: { robotics: demoId(30), programming: demoId(31) },
-  groups: { roboticsA: demoId(40), programmingA: demoId(41) },
+  clubs: {
+    robotics: demoId(30),
+    programming: demoId(31),
+    chess: demoId(0x220),
+    entrepreneurship: demoId(0x221),
+    english: demoId(0x222),
+    chinese: demoId(0x223),
+    art: demoId(0x224),
+    speaking: demoId(0x225),
+  },
+  groups: {
+    roboticsA: demoId(40),
+    programmingA: demoId(41),
+    chessA: demoId(0x230),
+    entrepreneurshipA: demoId(0x231),
+    englishA: demoId(0x232),
+    chineseA: demoId(0x233),
+    artA: demoId(0x234),
+    speakingA: demoId(0x235),
+  },
   enrollments: {
     alexeyRobotics: demoId(50),
     dashaRobotics: demoId(51),
     alexeyProgramming: demoId(52),
   },
-  scheduleRules: { roboticsMon: demoId(60), roboticsThu: demoId(61), programmingTue: demoId(62) },
+  scheduleRules: {
+    roboticsMon: demoId(60),
+    roboticsThu: demoId(61),
+    programmingTue: demoId(62),
+    chessMon: demoId(0x250),
+    chessWed: demoId(0x251),
+    entrepreneurshipSat: demoId(0x252),
+    englishTue: demoId(0x253),
+    chineseThu: demoId(0x254),
+    artFri: demoId(0x255),
+    speakingSat: demoId(0x256),
+  },
   lessons: {
     roboticsPast1: demoId(70),
     roboticsPast2: demoId(71),
@@ -148,6 +186,31 @@ export const demoUsers: Record<keyof typeof DEMO_IDS.users, DemoUser> = {
   },
 };
 
+const catalogUser = (
+  id: string,
+  maxUserId: string,
+  firstName: string,
+  lastName: string,
+): DemoUser => ({
+  id,
+  maxUserId,
+  firstName,
+  lastName,
+  nickname: null,
+  avatarUrl: null,
+  locale: 'ru',
+  theme: 'SYSTEM',
+  createdAt: T0,
+  roles: ['TEACHER'],
+});
+
+/** Преподаватели каталога: есть в seed и моках, но не в списке dev-входа (`demoLoginUsers`). */
+export const demoCatalogUsers: DemoUser[] = [
+  catalogUser(DEMO_IDS.catalogUsers.andrey, 'max-teacher-2', 'Андрей', 'Петров'),
+  catalogUser(DEMO_IDS.catalogUsers.elena, 'max-teacher-3', 'Елена', 'Соколова'),
+  catalogUser(DEMO_IDS.catalogUsers.svetlana, 'max-teacher-4', 'Светлана', 'Кузнецова'),
+];
+
 export const demoTeachers: TeacherProfile[] = [
   {
     id: DEMO_IDS.teachers.maria,
@@ -157,6 +220,37 @@ export const demoTeachers: TeacherProfile[] = [
     bio: 'Веду кружки робототехники и Python с 2019 года.',
     photoUrl: null,
     contactsVisible: true,
+    subjects: ['ROBOTICS', 'PROGRAMMING'],
+  },
+  {
+    id: DEMO_IDS.teachers.andrey,
+    userId: DEMO_IDS.catalogUsers.andrey,
+    schoolId: DEMO_IDS.school,
+    qualification: 'Кандидат в мастера спорта по шахматам, наставник школьных бизнес-проектов',
+    bio: 'Учу видеть комбинации — на доске и в собственном деле.',
+    photoUrl: null,
+    contactsVisible: false,
+    subjects: ['CHESS', 'ENTREPRENEURSHIP'],
+  },
+  {
+    id: DEMO_IDS.teachers.elena,
+    userId: DEMO_IDS.catalogUsers.elena,
+    schoolId: DEMO_IDS.school,
+    qualification: 'Преподаватель английского и китайского языков, CELTA, HSK 5',
+    bio: 'Разговорный язык через игры и проекты.',
+    photoUrl: null,
+    contactsVisible: false,
+    subjects: ['ENGLISH', 'CHINESE'],
+  },
+  {
+    id: DEMO_IDS.teachers.svetlana,
+    userId: DEMO_IDS.catalogUsers.svetlana,
+    schoolId: DEMO_IDS.school,
+    qualification: 'Художник-педагог, тренер по публичным выступлениям',
+    bio: 'Помогаю детям найти свой голос — на холсте и на сцене.',
+    photoUrl: null,
+    contactsVisible: false,
+    subjects: ['ART', 'PUBLIC_SPEAKING'],
   },
 ];
 export const demoTeacherContacts: Record<string, { phone: string | null; email: string | null }> = {
@@ -225,6 +319,29 @@ export const demoParentLinks: ParentStudentLink[] = [
   },
 ];
 
+function catalogClub(
+  id: string,
+  category: Club['category'],
+  title: string,
+  description: string,
+  amountKopecks: number,
+  tags: string[],
+): Club {
+  return {
+    id,
+    schoolId: DEMO_IDS.school,
+    title,
+    description,
+    category,
+    coverUrl: null,
+    price: { amountKopecks, currency: 'RUB' },
+    billingPeriod: 'MONTH',
+    isActive: true,
+    tags,
+  };
+}
+
+/** Все 8 кружков каталога: робототехника и Python — у Марии, остальные — у преподавателей каталога. */
 export const demoClubs: Club[] = [
   {
     id: DEMO_IDS.clubs.robotics,
@@ -250,6 +367,54 @@ export const demoClubs: Club[] = [
     isActive: true,
     tags: ['python', 'игры', 'алгоритмы'],
   },
+  catalogClub(
+    DEMO_IDS.clubs.chess,
+    'CHESS',
+    'Шахматы',
+    'Тактика, дебюты и турнирная практика: учимся думать на несколько ходов вперёд.',
+    250_000,
+    ['тактика', 'турниры', 'логика'],
+  ),
+  catalogClub(
+    DEMO_IDS.clubs.entrepreneurship,
+    'ENTREPRENEURSHIP',
+    'Юный предприниматель',
+    'От идеи до запуска: план, расчёты, команда и защита собственного проекта.',
+    300_000,
+    ['проекты', 'бизнес-план', 'команда'],
+  ),
+  catalogClub(
+    DEMO_IDS.clubs.english,
+    'ENGLISH',
+    'Английский язык',
+    'Разговорный английский в игровой форме, небольшие группы.',
+    320_000,
+    ['разговорный', 'игры', 'A1–B1'],
+  ),
+  catalogClub(
+    DEMO_IDS.clubs.chinese,
+    'CHINESE',
+    'Китайский язык',
+    'Иероглифы, тоны и первые диалоги — с нуля, в игровой форме.',
+    340_000,
+    ['иероглифы', 'HSK 1', 'разговорный'],
+  ),
+  catalogClub(
+    DEMO_IDS.clubs.art,
+    'ART',
+    'Рисование и живопись',
+    'Акварель, гуашь и графика: от набросков до собственной выставки.',
+    260_000,
+    ['акварель', 'гуашь', 'композиция'],
+  ),
+  catalogClub(
+    DEMO_IDS.clubs.speaking,
+    'PUBLIC_SPEAKING',
+    'Ораторское мастерство',
+    'Выступаем без страха: голос, аргументы, дебаты и презентации.',
+    280_000,
+    ['выступления', 'дебаты', 'уверенность'],
+  ),
 ];
 
 export const demoGroups: Group[] = [
@@ -267,6 +432,22 @@ export const demoGroups: Group[] = [
     title: 'Python, группа А',
     isActive: true,
   },
+  ...(
+    [
+      ['chessA', 'chess', 'andrey', 'Шахматы, группа А'],
+      ['entrepreneurshipA', 'entrepreneurship', 'andrey', 'Юный предприниматель, группа А'],
+      ['englishA', 'english', 'elena', 'Английский, группа А'],
+      ['chineseA', 'chinese', 'elena', 'Китайский, группа А'],
+      ['artA', 'art', 'svetlana', 'Рисование, группа А'],
+      ['speakingA', 'speaking', 'svetlana', 'Ораторское мастерство, группа А'],
+    ] as const
+  ).map(([group, club, teacher, title]): Group => ({
+    id: DEMO_IDS.groups[group],
+    clubId: DEMO_IDS.clubs[club],
+    teacherId: DEMO_IDS.teachers[teacher],
+    title,
+    isActive: true,
+  })),
 ];
 
 export const demoEnrollments: Enrollment[] = [
@@ -327,6 +508,26 @@ export const demoScheduleRules: ScheduleRule[] = [
     validFrom: '2026-09-01',
     validTo: null,
   },
+  ...(
+    [
+      ['chessMon', 'chessA', 1, '19:00', '20:30', 'Каб. 7'],
+      ['chessWed', 'chessA', 3, '19:00', '20:30', 'Каб. 7'],
+      ['entrepreneurshipSat', 'entrepreneurshipA', 6, '11:00', '12:30', 'Каб. 3'],
+      ['englishTue', 'englishA', 2, '17:30', '18:30', 'Каб. 9'],
+      ['chineseThu', 'chineseA', 4, '17:00', '18:00', 'Каб. 9'],
+      ['artFri', 'artA', 5, '16:00', '17:30', 'Изостудия'],
+      ['speakingSat', 'speakingA', 6, '13:00', '14:00', 'Актовый зал'],
+    ] as const
+  ).map(([rule, group, weekday, startTime, endTime, room]): ScheduleRule => ({
+    id: DEMO_IDS.scheduleRules[rule],
+    groupId: DEMO_IDS.groups[group],
+    weekday,
+    startTime,
+    endTime,
+    room,
+    validFrom: '2026-09-01',
+    validTo: null,
+  })),
 ];
 
 /** Занятия относительно «сейчас»: dayOffset — дней от сегодняшней даты, время — локальное для школы. */

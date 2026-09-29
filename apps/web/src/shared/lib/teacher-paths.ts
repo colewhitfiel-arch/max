@@ -25,3 +25,20 @@ export const teacherStudentPaths = {
   tasks: (studentId: string, groupId: string, task?: string) =>
     `/teacher/students/${studentId}/groups/${groupId}/tasks${task ? `?task=${encodeURIComponent(task)}` : ''}`,
 };
+
+/** «Что вы ведёте?» — выбор своих кружков (профиль, главная, сразу после выбора роли). */
+export const TEACHER_SUBJECTS_PATH = '/teacher/profile/subjects';
+
+/** Состояние перехода на выбор кружков сразу после роли: после сохранения — на главную. */
+export const TEACHER_SUBJECTS_SETUP_STATE = { teacherSetup: true } as const;
+
+export function isTeacherSetup(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && 'teacherSetup' in state;
+}
+
+/** Свои группы преподавателя: список, новая группа и группа. */
+export const teacherGroupPaths = {
+  list: '/teacher/groups',
+  create: '/teacher/groups/new',
+  group: (groupId: string) => `/teacher/groups/${groupId}`,
+};

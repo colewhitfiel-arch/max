@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Role } from '@edu/contracts';
+import type { ClubCategory, Role } from '@edu/contracts';
 import type { Prisma } from '@edu/db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { ExternalIdentity } from '../../common/auth/auth-user';
@@ -16,7 +16,7 @@ const userWithProfiles = {
     },
   },
   parent: { select: { id: true } },
-  teacher: { select: { id: true, schoolId: true } },
+  teacher: { select: { id: true, schoolId: true, subjects: true, qualification: true } },
 } satisfies Prisma.UserInclude;
 
 export type UserWithProfiles = Prisma.UserGetPayload<{ include: typeof userWithProfiles }>;
@@ -84,6 +84,13 @@ export class IdentityRepository {
       create: { userId, schoolId },
       update: {},
     });
+  }
+
+  async updateTeacherProfile(
+    teacherProfileId: string,
+    data: { subjects?: ClubCategory[]; qualification?: string | null },
+  ): Promise<void> {
+    await this.prisma.teacherProfile.update({ where: { id: teacherProfileId }, data });
   }
 
   async updateSettings(

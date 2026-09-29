@@ -22,5 +22,26 @@
   "newUserHint": "If you are a student, tap “I'm a student” and we will show your parent's invitation",
   "becomeStudent": "I'm a student",
   "becomeStudentError": "Could not continue as a student",
-  "goHome": "Go home"
+  "goHome": "Go home",
+  "join": {
+    "title": "Group invitation",
+    "teacher": "Teacher: {{teacher}}",
+    "students_one": "{{count}} student",
+    "students_other": "{{count}} students",
+    "free": "Free",
+    "schedule": "Schedule",
+    "noSchedule": "The teacher will add the schedule later",
+    "join": "Join the group",
+    "later": "Not now",
+    "joined": "Done! You are in “{{group}}”",
+    "joinError": "Could not join the group",
+    "alreadyJoined": "You are already in this group",
+    "alreadyJoinedHint": "Group lessons are in your schedule on the home screen",
+    "notFound": "The link does not work",
+    "notFoundHint": "The teacher may have reset it. Ask for a new one",
+    "notStudent": "Open the link in the student account",
+    "notStudentHint": "This is a group invitation: only a student can join",
+    "newUser": "This is a group invitation",
+    "newUserHint": "If you are a student, tap “I am a student” and we will show the group"
+  }
 }

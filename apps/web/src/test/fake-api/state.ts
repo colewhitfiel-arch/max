@@ -72,7 +72,8 @@ import {
 export type MockUser = DemoUser;
 export type MockNotification = NotificationEntity & { userId: string };
 /** Группа мок-мира: + короткий номер (`GroupBrief.code`; в модели данных пока нет — docs/04). */
-export type MockGroup = Group & { code: string | null };
+/** Группа мок-мира: короткий номер и токен ссылки-приглашения (null — ссылка ещё не выдавалась). */
+export type MockGroup = Group & { code: string | null; inviteToken: string | null };
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -183,18 +184,19 @@ function buildState() {
     users,
     students: clone(demoStudents) as StudentProfile[],
     parents: clone(demoParents) as ParentProfile[],
-    teachers: clone([...demoTeachers, ...extras.teachers]) as TeacherProfile[],
+    teachers: clone(demoTeachers) as TeacherProfile[],
     links: clone(demoParentLinks) as ParentStudentLink[],
     settings: new Map<string, UserSettings>(),
     /** Настройки уведомлений: userId → настройки (нет записи — все включены). */
     notificationSettings: new Map<string, NotificationSettings>(),
-    clubs: clone([...demoClubs, ...extras.clubs]) as Club[],
-    groups: clone([...demoGroups, ...extras.groups]).map((group): MockGroup => ({
+    clubs: clone(demoClubs) as Club[],
+    groups: clone(demoGroups).map((group): MockGroup => ({
       ...group,
       code: MOCK_GROUP_CODES[group.id] ?? null,
+      inviteToken: null,
     })),
     enrollments: clone([...demoEnrollments, ...extras.enrollments]) as Enrollment[],
-    scheduleRules: clone([...demoScheduleRules, ...extras.scheduleRules]) as ScheduleRule[],
+    scheduleRules: clone(demoScheduleRules) as ScheduleRule[],
     lessons: [...materializeDemoLessons(now, tzOffset), ...extras.lessons] as Lesson[],
     attendance: clone([
       ...materializeDemoAttendance(now, tzOffset),
@@ -483,6 +485,7 @@ export function grantRole(user: MockUser, role: Role): void {
           bio: null,
           photoUrl: null,
           contactsVisible: false,
+          subjects: [],
         });
       }
       return;

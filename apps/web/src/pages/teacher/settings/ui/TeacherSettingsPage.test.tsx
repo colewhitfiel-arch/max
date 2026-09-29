@@ -26,7 +26,7 @@ const maria: MeDto = {
   settings: { theme: 'SYSTEM', locale: 'ru' },
   student: null,
   parent: { id: id(30), childrenCount: 0 },
-  teacher: { id: id(20), schoolId: id(1) },
+  teacher: { id: id(20), schoolId: id(1), subjects: ['ROBOTICS'], qualification: null },
 };
 
 // Уведомления проверяет свой тест; здесь — что экран просит набор преподавателя.

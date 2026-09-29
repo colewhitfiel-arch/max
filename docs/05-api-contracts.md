@@ -57,6 +57,8 @@ POST /auth/logout         auth     { refreshToken } → 204
 GET  /me                  auth     → MeDto
 PATCH /me/settings        auth     { theme?: Theme, locale?: Locale } → MeDto
 PUT  /me/avatar           auth     { fileId: Id | null } → MeDto   // файл purpose AVATAR (files flow); null — убрать фото
+PATCH /me/teacher         teacher  { subjects?: ClubCategory[] (≥1), qualification?: string|null } → MeDto
+                                   // какие кружки ведёт (без повторов, в порядке CLUB_CATEGORIES) и «о себе»; F19
 POST /student/link-code/rotate  student → { linkCode }
 
 AuthResult = { accessToken, refreshToken, me: MeDto }
@@ -64,7 +66,7 @@ MeDto = { user: UserBrief, roles: Role[], activeRole: Role|null, needsRoleSetup:
           settings: { theme, locale },
           student?: { id, onboardingCompleted: boolean, schoolId?, linkCode, classLabel? },
           parent?: { id, childrenCount: number },
-          teacher?: { id, schoolId } }
+          teacher?: { id, schoolId, subjects: ClubCategory[], qualification? } }   // subjects пусто — «Что вы ведёте?»
 ```
 
 ### `dashboards.ts` — владелец B6 (модуль analytics)
@@ -146,7 +148,7 @@ HomeworkTaskDetail = HomeworkTask & { statement, code?: { language: python|cpp|j
 ```
 GET /catalog/clubs?category&cursor   → Paginated<ClubCard>
 GET /catalog/clubs/:clubId           → ClubCard & { groups: [{ id, title, teacher: TeacherBrief, schedule: ScheduleRuleDto[] }] }
-GET /teachers/:teacherId             → { ...TeacherBrief, qualification?, bio?, clubs: ClubBrief[],
+GET /teachers/:teacherId             → { ...TeacherBrief, qualification?, bio?, subjects: ClubCategory[], clubs: ClubBrief[],
                                           contacts?: { phone?, email? } /* только по политике школы */ }
 
 ClubCard = ClubBrief & { description, price: Money, billingPeriod, tags: string[], teachers: TeacherBrief[], schedulePreview: string[] }
@@ -161,6 +163,17 @@ GET  /teacher/calendar?from&to                  → { lessons: LessonDto[] }   /
                                                                             // календарь); teacher:groups.view
 POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto   // endsAt > startsAt, иначе 400 VALIDATION
 PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCELLED', cancelReason? } → LessonDto
+
+// Свои группы и вступление по ссылке (F19); teacher:groups.manage / student:groups.join
+POST /teacher/groups                    { category, title, description?, price: Money, schedule?: [{ weekday 0..6, startTime, endTime, room? }] }
+                                        → { group: GroupBrief, invite: GroupInvite }   // + кружок в каталоге и занятия на 8 недель
+GET  /teacher/groups/:groupId/invite    → GroupInvite                  // чужая группа — 403; токен выдаётся при первом запросе
+POST /teacher/groups/:groupId/invite/reset → GroupInvite               // новая ссылка, старая — 404
+GET  /student/group-invites/:token      → { token, group: GroupBrief, description, schedule: ScheduleRuleDto[], price: Money,
+                                            billingPeriod, studentsCount, joined: boolean }   // сброшенная ссылка / закрытая группа — 404
+POST /student/group-invites/:token/join → { group: GroupBrief, enrollmentId, alreadyJoined: boolean }   // идемпотентно
+
+GroupInvite = { token, url }   // url = ${WEB_URL}/join/${token}; многоразовая, бессрочная
 ```
 
 ### `attendance.ts` — владелец B3

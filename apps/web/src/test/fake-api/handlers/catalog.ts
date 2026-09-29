@@ -53,6 +53,7 @@ export const catalogHandlers = [
         ...teacherBrief(teacher.id),
         qualification: teacher.qualification,
         bio: teacher.bio,
+        subjects: teacher.subjects,
         clubs: clubIds.map(clubBrief),
         contacts: teacherContacts(teacher.id),
       });

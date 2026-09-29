@@ -34,7 +34,12 @@ const maria: MeDto = {
   settings: { theme: 'SYSTEM', locale: 'ru' },
   student: null,
   parent: null,
-  teacher: { id: teacher.id, schoolId: id(1) },
+  teacher: {
+    id: teacher.id,
+    schoolId: id(1),
+    subjects: ['ROBOTICS', 'CHESS'],
+    qualification: null,
+  },
 };
 
 const groupCard = (
@@ -48,7 +53,7 @@ const groupCard = (
   id: groupId,
   title,
   code,
-  club: { id: id(100), title: club, category: 'OTHER', coverUrl: null },
+  club: { id: id(100), title: club, category: 'ENTREPRENEURSHIP', coverUrl: null },
   teacher,
   studentsCount,
   attendanceRate: 0.92,
@@ -163,14 +168,28 @@ describe('TeacherProfilePage', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(`/teacher/groups/${ROBOTICS}`);
   });
 
-  it('нет групп — пустое состояние, статистика нулевая', () => {
+  it('нет групп — пустое состояние с «Новая группа», статистика нулевая', () => {
     hooks.home = ready(teacherHome([]));
     renderProfile();
 
     expect(screen.getByText('Преподаватель · 0 групп · 0 учеников')).toBeInTheDocument();
     const groups = screen.getByRole('region', { name: 'Мои группы' });
     expect(within(groups).getByText('Групп пока нет')).toBeInTheDocument();
-    expect(within(groups).queryByRole('button')).not.toBeInTheDocument();
+    expect(
+      within(groups)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Новая группа']);
+  });
+
+  it('«Мои кружки» — выбранные преподавателем, «Изменить» ведёт на выбор', () => {
+    hooks.home = ready(teacherHome([]));
+    renderProfile();
+
+    const subjects = screen.getByRole('region', { name: 'Мои кружки' });
+    expect(within(subjects).getByText('Робототехника')).toBeInTheDocument();
+    expect(within(subjects).getByText('Шахматы')).toBeInTheDocument();
+    expect(within(subjects).getByRole('button', { name: 'Изменить' })).toBeInTheDocument();
   });
 
   it('загрузка — только роль и скелет; ошибка — «Повторить» перезапрашивает', async () => {
