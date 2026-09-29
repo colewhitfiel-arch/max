@@ -148,7 +148,7 @@ export function DaySchedule({
       : null;
 
   return (
-    <Stack gap={5} scroll={fit}>
+    <Stack gap={5} scroll={fit} data-tour="day-schedule">
       <Inline ref={headerRef} justify="between" align="center" wrap={false}>
         <IconButton
           aria-label={calendarOpen ? t('home.calendarClose') : t('home.calendar')}

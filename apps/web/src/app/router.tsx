@@ -2,7 +2,8 @@
  * Сборка роутера (владелец — web-shell): каждая фича экспортирует `routes.tsx`,
  * здесь они подключаются одной строкой под shell своей роли.
  */
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, Outlet, type RouteObject } from 'react-router';
+import { DemoTour } from '@/features/demo-tour';
 import { adminRoutes } from '@/pages/admin/routes';
 import { authRoutes } from '@/pages/auth/routes';
 import { forbiddenRoute } from '@/pages/forbidden/routes';
@@ -114,13 +115,28 @@ export const routes: RouteObject[] = [
   { path: '*', ...notFoundRoute },
 ];
 
+/** Корневой layout: страницы и поверх них — демонстрационный режим (без тура ничего не рисует). */
+function RootLayout() {
+  return (
+    <>
+      <Outlet />
+      <DemoTour />
+    </>
+  );
+}
+
 /**
  * Pathless-корень с `errorElement`: ошибки рендера страниц и падения `lazy()` показывают наш экран,
  * а не встроенный «Unexpected Application Error!» (ErrorBoundary в providers их не видит).
  */
 export const rootRoutes: RouteObject[] = [
   // hydrateFallbackElement — пока грузится lazy-страница первого адреса (иначе пусто и предупреждение).
-  { errorElement: <RouteErrorScreen />, hydrateFallbackElement: <Splash />, children: routes },
+  {
+    element: <RootLayout />,
+    errorElement: <RouteErrorScreen />,
+    hydrateFallbackElement: <Splash />,
+    children: routes,
+  },
 ];
 
 export const router = createBrowserRouter(rootRoutes);

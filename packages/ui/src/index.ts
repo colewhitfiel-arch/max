@@ -33,6 +33,7 @@ export * from './components/BottomNavigation';
 export * from './components/Modal';
 export * from './components/Sheet';
 export * from './components/Drawer';
+export * from './components/Coachmark';
 export * from './components/DockSheet';
 export * from './components/Tabs';
 export * from './components/SegmentedControl';

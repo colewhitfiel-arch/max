@@ -26,6 +26,7 @@ export const NAMESPACES = [
   'teacher-performance',
   'teacher-profile',
   'notifications',
+  'demo',
 ] as const;
 
 const modules = import.meta.glob<Record<string, unknown>>('./*.*.json', {

@@ -1,0 +1,169 @@
+{
+  "start": {
+    "button": "Demo mode",
+    "hint": "A step-by-step tour of every feature: student, parent, teacher"
+  },
+  "sections": {
+    "intro": "Demo mode",
+    "student": "Student",
+    "parent": "Parent",
+    "teacher": "Teacher"
+  },
+  "jumpTo": "Or jump straight to a role:",
+  "loginFailed": "Could not sign in as a demo user",
+  "controls": {
+    "next": "Next",
+    "prev": "Back",
+    "done": "Done",
+    "end": "End tour",
+    "close": "Close tour",
+    "counter": "Step {{step}} of {{total}}",
+    "loading": "Opening the screen…"
+  },
+  "steps": {
+    "welcome": {
+      "title": "Welcome!",
+      "text": "We will show the app through the eyes of a student, a parent and a teacher. Each step opens a real screen with demo school data and highlights a feature — you can try it. Use Next and Back or the ← → keys; the cross closes the tour and leaves you in the app."
+    },
+    "onboarding": {
+      "title": "Meeting the AI tutor",
+      "text": "A student's first sign-in is a conversation with the AI (GigaChat), not a form. The tutor asks about interests, goals and free time, builds a profile and suggests school clubs: join now or «try later». This is Dasha — she has not met the tutor yet."
+    },
+    "studentStats": {
+      "title": "Streak and crystals",
+      "text": "Next is Alexey, who already studies here. The streak grows while the student attends lessons or submits work at least every other day. Crystals: 50 per attended lesson and 20 per assignment done above 75%."
+    },
+    "studentWeek": {
+      "title": "Attendance this week",
+      "text": "The arc of weekdays: green — attended, red — missed, blue — today, grey — no lessons."
+    },
+    "studentSchedule": {
+      "title": "Schedule",
+      "text": "Lessons of the selected day: club, group and time. Arrows change the day, the icon on the left opens the month calendar, the bell opens notifications."
+    },
+    "studentTutor": {
+      "title": "AI tutor",
+      "text": "A GigaChat chat that knows the student's schedule, assignments and progress: it explains a topic, suggests where to start and leads to the solution without doing the work. Try asking a question. Chats are kept in the history."
+    },
+    "studentRecommendations": {
+      "title": "Today's recommendations",
+      "text": "How many open assignments each club has — by the nearest deadline."
+    },
+    "studentMap": {
+      "title": "Assignment map",
+      "text": "Each planet is one of the student's clubs: the number is points earned, the arrow is the nearest deadline. Tapping opens the assignment or the club's course. Planets with a lock are clubs the student has not chosen yet."
+    },
+    "studentCourse": {
+      "title": "Course",
+      "text": "A teacher's course consists of modules and blocks: text, video, quiz, homework. You can see which blocks are done and which are required."
+    },
+    "studentAssignment": {
+      "title": "Submitting work",
+      "text": "The student writes an answer and attaches a photo of the solution or a document. The teacher reviews it, and the comment appears on this screen."
+    },
+    "studentProfile": {
+      "title": "Progress",
+      "text": "Homework results: correct, incorrect, upcoming. Above is this week's attendance, below — assignments in each club."
+    },
+    "studentTrajectory": {
+      "title": "AI trajectory",
+      "text": "From lessons and assignments the AI builds the student's trajectory: strengths, areas to grow and next steps. Expand the card with the button on the right."
+    },
+    "studentSettings": {
+      "title": "Settings",
+      "text": "Theme (as in MAX, light or dark), role switching, support chat and signing out. Parents and teachers have similar settings."
+    },
+    "parentChildren": {
+      "title": "Children",
+      "text": "Now it is Olga, the mother. Her children are the hearts at the top: swipe them, and the home screen shows the schedule and assignments of the selected child. «+» at the end of the row links another child."
+    },
+    "parentSchedule": {
+      "title": "Child's schedule",
+      "text": "The child's lessons by day: club, teacher and time. «Add a club» leads to the school's clubs."
+    },
+    "parentHomework": {
+      "title": "Completed assignments",
+      "text": "How many assignments the child completed in a day, 7 or 30 days in each club; the number with an asterisk is how many are recommended."
+    },
+    "parentWallet": {
+      "title": "Wallet",
+      "text": "The parent's balance and a top-up in a couple of taps. Top-up is in demo mode for now: no money is charged."
+    },
+    "parentClubs": {
+      "title": "Child's clubs",
+      "text": "The selected child's clubs: schedule, price, paid-until date and the next payment, the teacher's card."
+    },
+    "parentPayments": {
+      "title": "Payments",
+      "text": "What is due for each club and the payment history. «Pay» opens the payment provider's page, and the payment goes to the teacher's wallet."
+    },
+    "parentAnalytics": {
+      "title": "Child's progress",
+      "text": "Assignments in each club: «More» shows each of the child's assignments. Above are this week's attendance and homework results."
+    },
+    "parentTutor": {
+      "title": "AI tutor for parents",
+      "text": "Tells how the child is doing: attendance, homework and where support is needed. The child can be changed in the header."
+    },
+    "parentLink": {
+      "title": "Linking a child",
+      "text": "The parent creates an invitation link and sends it to the child in MAX — or enters the code from the child's profile."
+    },
+    "parentCatalog": {
+      "title": "School clubs",
+      "text": "A catalogue of clubs with schedule and price: first the ones the child does not attend yet."
+    },
+    "teacherHome": {
+      "title": "Teacher's home",
+      "text": "Now it is Maria, the teacher. Her groups' schedule by day; the wallet balance is at the top."
+    },
+    "teacherAssignments": {
+      "title": "Assignments",
+      "text": "Open and closed assignments and how many students submitted each."
+    },
+    "teacherActions": {
+      "title": "Assign homework and mark attendance",
+      "text": "The teacher's two main actions are always at hand."
+    },
+    "teacherAssign": {
+      "title": "Assign homework",
+      "text": "Three steps: to whom (group and students), what (one assignment or a whole course) and the material — your own files or a description. The AI builder then assembles the material, and the student sees it in the course."
+    },
+    "teacherBuilder": {
+      "title": "AI course builder",
+      "text": "Describe a topic in your own words or upload materials (pdf, docx, txt, md) — the AI writes a summary, breaks it into knowledge atoms and assembles a course with lessons and practice."
+    },
+    "teacherAttendance": {
+      "title": "Attendance",
+      "text": "Pick a lesson and mark each student: present, absent, late or excused — or «Everyone came» in one tap."
+    },
+    "teacherPerformance": {
+      "title": "Group progress",
+      "text": "Attendance by club and homework by group for a day, 7 or 30 days or the whole course. From a group you can open each student."
+    },
+    "teacherStudent": {
+      "title": "Student card",
+      "text": "The student's attendance, homework results and assignments by club."
+    },
+    "teacherWallet": {
+      "title": "Teacher's wallet",
+      "text": "Balance and its change over a period, transactions, who owes how much for lessons, withdrawals."
+    },
+    "teacherGroups": {
+      "title": "Groups",
+      "text": "The teacher's groups: number of students, attendance and the next lesson. Groups, students and schedules are managed here too."
+    },
+    "teacherCourses": {
+      "title": "Courses",
+      "text": "Group courses and their publication status; a new course is created here too."
+    },
+    "teacherDemand": {
+      "title": "Club demand",
+      "text": "Results of students meeting the AI tutor: how many joined, want to try later or skipped, AI relevance and «future» directions — ideas for new clubs."
+    },
+    "finish": {
+      "title": "That's all!",
+      "text": "You have seen all three roles. The tour will close, and the app stays open — feel free to keep using it. To run the demo again, sign out in the settings."
+    }
+  }
+}

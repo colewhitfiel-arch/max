@@ -20,7 +20,7 @@ export function SettingsPage() {
     <>
       <ScreenHeader title={t('settings.title')} bell />
       <Screen gap={5}>
-        <Stack gap={5}>
+        <Stack gap={5} data-tour="settings">
           <ProfileCard to="/student/profile" />
           <AppearanceSettings />
           <AccountSettings supportUrl={config.supportUrl} />

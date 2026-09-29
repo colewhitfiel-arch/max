@@ -55,7 +55,7 @@ export function TeacherAssignmentsPage() {
           }
         >
           {(page) => (
-            <Card padding="none">
+            <Card padding="none" data-tour="teacher-assignments">
               {page.items.map((assignment) => (
                 <AssignmentCard
                   key={assignment.id}
@@ -81,23 +81,25 @@ export function TeacherAssignmentsPage() {
 
         {/* Действия экрана прижаты к низу: до них дотягивается большой палец. */}
         <Stack gap={2} justify="end" grow>
-          <Button
-            fullWidth
-            size="lg"
-            leftIcon={<ClipboardListIcon />}
-            onClick={() => navigate('/teacher/assignments/new')}
-          >
-            {t('assignments.actions.assign')}
-          </Button>
-          <Button
-            fullWidth
-            size="lg"
-            variant="secondary"
-            leftIcon={<GraduationCapIcon />}
-            onClick={() => navigate('/teacher/attendance')}
-          >
-            {t('assignments.actions.attendance')}
-          </Button>
+          <Stack gap={2} data-tour="teacher-assignment-actions">
+            <Button
+              fullWidth
+              size="lg"
+              leftIcon={<ClipboardListIcon />}
+              onClick={() => navigate('/teacher/assignments/new')}
+            >
+              {t('assignments.actions.assign')}
+            </Button>
+            <Button
+              fullWidth
+              size="lg"
+              variant="secondary"
+              leftIcon={<GraduationCapIcon />}
+              onClick={() => navigate('/teacher/attendance')}
+            >
+              {t('assignments.actions.attendance')}
+            </Button>
+          </Stack>
         </Stack>
       </Screen>
     </>

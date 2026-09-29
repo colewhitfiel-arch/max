@@ -78,6 +78,7 @@ export function ParentProfilePage() {
           ref={offersRef}
           id={OFFERS_ANCHOR}
           gap={3}
+          data-tour="club-catalog"
           aria-labelledby="parent-offers-title"
         >
           <Stack gap={1}>

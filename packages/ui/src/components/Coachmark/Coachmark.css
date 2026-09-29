@@ -1,0 +1,180 @@
+/* Тур поверх приложения: выше модалок, ниже тостов (ошибки перехода видны поверх). */
+.ui-coachmark {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ui-z-coachmark);
+  /* Клики ловит «щит» (весь экран или всё вокруг «окна» у interactive), а не сам слой. */
+  pointer-events: none;
+  overflow: hidden;
+  animation: ui-fade-in var(--ui-duration-normal) var(--ui-easing);
+}
+
+/* «Окно» подсветки: сам прямоугольник прозрачный, огромная тень затемняет всё вокруг. */
+.ui-coachmark__spotlight {
+  position: absolute;
+  border-radius: var(--ui-radius-lg);
+  box-shadow:
+    0 0 0 2px var(--ui-color-primary),
+    0 0 0 200vmax rgba(0, 0, 0, 0.62);
+  pointer-events: none;
+  transition:
+    top var(--ui-duration-normal) var(--ui-easing),
+    left var(--ui-duration-normal) var(--ui-easing),
+    width var(--ui-duration-normal) var(--ui-easing),
+    height var(--ui-duration-normal) var(--ui-easing);
+}
+
+/* Щит от кликов по приложению под затемнением. */
+.ui-coachmark__shield {
+  position: absolute;
+  pointer-events: auto;
+}
+
+/* Без цели: только затемнение, без обводки. */
+.ui-coachmark__spotlight[data-empty='true'] {
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.62);
+}
+
+.ui-coachmark__busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  /* Спиннер — только если переход затянулся: быстрые шаги обходятся без мелькания. */
+  animation: ui-fade-in var(--ui-duration-normal) var(--ui-easing) 300ms backwards;
+}
+
+.ui-coachmark__card {
+  position: absolute;
+  pointer-events: auto;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+  width: min(400px, calc(100vw - 2 * var(--ui-space-4)));
+  max-height: calc(100vh - 2 * var(--ui-space-4));
+  padding: var(--ui-space-5);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  box-shadow: var(--ui-shadow-md);
+  outline: none;
+  visibility: hidden;
+}
+
+.ui-coachmark__card[data-placed='true'] {
+  visibility: visible;
+  animation: ui-coachmark-in var(--ui-duration-normal) var(--ui-easing);
+}
+
+/* Стрелка — квадрат, повёрнутый на 45°, наполовину под карточкой; смотрит на цель. */
+.ui-coachmark__arrow {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  background: var(--ui-color-surface);
+  transform: rotate(45deg);
+}
+
+.ui-coachmark__card[data-side='bottom'] .ui-coachmark__arrow {
+  top: -7px;
+}
+
+.ui-coachmark__card[data-side='top'] .ui-coachmark__arrow {
+  bottom: -7px;
+}
+
+.ui-coachmark__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-2);
+}
+
+.ui-coachmark__heading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+
+.ui-coachmark__eyebrow {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ui-coachmark__title {
+  color: var(--ui-color-primary-text);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1.3;
+}
+
+.ui-coachmark__close {
+  flex: none;
+  margin: calc(-1 * var(--ui-space-1)) calc(-1 * var(--ui-space-2)) 0 0;
+}
+
+.ui-coachmark__body {
+  min-height: 0;
+  overflow-y: auto;
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height);
+}
+
+.ui-coachmark__footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding-top: var(--ui-space-3);
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.ui-coachmark__footer > .ui-button:first-child {
+  justify-self: start;
+}
+
+.ui-coachmark__footer > .ui-button:last-child {
+  justify-self: end;
+  min-width: 96px;
+}
+
+.ui-coachmark__counter {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ui-coachmark-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-coachmark,
+  .ui-coachmark__card[data-placed='true'] {
+    animation: none;
+  }
+
+  .ui-coachmark__busy {
+    animation-duration: 1ms;
+  }
+
+  .ui-coachmark__spotlight {
+    transition: none;
+  }
+}

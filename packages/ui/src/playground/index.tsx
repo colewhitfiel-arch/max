@@ -17,6 +17,8 @@ import {
   ChevronUpIcon,
   Checkbox,
   Chip,
+  Coachmark,
+  type CoachmarkRect,
   ClipboardIcon,
   Divider,
   DockSheet,
@@ -290,6 +292,54 @@ function OverlaysDemo() {
           <ListRow title="Отметить пропуск" onClick={() => setSheetOpen(false)} />
         </Stack>
       </Sheet>
+    </>
+  );
+}
+
+/** Тур из трёх шагов: подсветка кнопок строки и шаг без цели по центру. */
+function CoachmarkDemo() {
+  const refs = [useRef<HTMLButtonElement>(null), useRef<HTMLButtonElement>(null)];
+  const [step, setStep] = useState<number | null>(null);
+  const [rect, setRect] = useState<CoachmarkRect | null>(null);
+  const steps = [
+    {
+      title: 'Первая кнопка',
+      text: 'Подсветка следует за элементом, карточка — под ним или над ним.',
+    },
+    { title: 'Вторая кнопка', text: '← и → листают шаги, Escape закрывает тур.' },
+    { title: 'Шаг без цели', text: 'Карточка по центру на затемнённом фоне.' },
+  ];
+  useEffect(() => {
+    if (step === null) return;
+    const el = refs[step]?.current;
+    setRect(el ? el.getBoundingClientRect() : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+  const current = step === null ? null : steps[step];
+  return (
+    <>
+      <Row>
+        <Button onClick={() => setStep(0)}>Запустить тур</Button>
+        <Button ref={refs[0]} variant="secondary">
+          Цель 1
+        </Button>
+        <Button ref={refs[1]} variant="secondary">
+          Цель 2
+        </Button>
+      </Row>
+      <Coachmark
+        open={current !== null}
+        target={rect}
+        eyebrow="Демо"
+        title={current?.title}
+        step={(step ?? 0) + 1}
+        total={steps.length}
+        onNext={() => setStep((s) => (s === null || s + 1 >= steps.length ? null : s + 1))}
+        onPrev={() => setStep((s) => (s === null ? null : Math.max(0, s - 1)))}
+        onClose={() => setStep(null)}
+      >
+        {current?.text}
+      </Coachmark>
     </>
   );
 }
@@ -1697,6 +1747,10 @@ function PlaygroundContent() {
 
       <Section title="Modal, Sheet">
         <OverlaysDemo />
+      </Section>
+
+      <Section title="Coachmark (тур)">
+        <CoachmarkDemo />
       </Section>
 
       <Section title="Toast">

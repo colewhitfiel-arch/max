@@ -7,7 +7,7 @@
 export const breakpoints = { sm: 480, md: 768, lg: 1024 } as const;
 
 /** Слои наложения; совпадают с --ui-z-*. */
-export const zIndex = { sheet: 100, modal: 200, toast: 300 } as const;
+export const zIndex = { sheet: 100, modal: 200, coachmark: 250, toast: 300 } as const;
 
 /** Длительности анимаций, мс; совпадают с --ui-duration-*. */
 export const durations = { fast: 120, normal: 200 } as const;

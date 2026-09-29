@@ -116,6 +116,8 @@ owners:
     - apps/web/src/entities/session/**
     - apps/web/src/features/dev-login/**
     - apps/web/src/features/switch-role/**
+    # Демонстрационный режим: тур по всем ролям поверх приложения (кнопка на экране входа).
+    - apps/web/src/features/demo-tour/**
     - apps/web/src/widgets/account-section/**
 
   ui:

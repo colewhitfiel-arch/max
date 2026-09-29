@@ -53,7 +53,7 @@ function ChildAnalyticsContent({
       {clubs.length === 0 ? (
         <EmptyState title={t('child.clubsEmptyTitle')} description={t('child.clubsEmptyText')} />
       ) : (
-        <Stack gap={4} role="group" aria-label={t('child.clubsLabel')}>
+        <Stack gap={4} role="group" aria-label={t('child.clubsLabel')} data-tour="club-homework">
           {clubs.map((item) => (
             <ClubHomeworkBand
               key={item.group.id}

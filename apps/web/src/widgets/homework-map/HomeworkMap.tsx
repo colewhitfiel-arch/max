@@ -109,5 +109,13 @@ export function HomeworkMap({ clubs, onOpenAssignment, onOpenClub }: HomeworkMap
     locked: true,
   }));
 
-  return <PlanetMap items={[...enrolled, ...locked]} grow bleed aria-label={t('homework.map')} />;
+  return (
+    <PlanetMap
+      items={[...enrolled, ...locked]}
+      grow
+      bleed
+      aria-label={t('homework.map')}
+      data-tour="homework-map"
+    />
+  );
 }

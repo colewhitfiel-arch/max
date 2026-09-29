@@ -45,7 +45,7 @@ export function TeacherCoursesPage() {
           empty={<EmptyState title={t('courses.empty')} description={t('courses.emptyHint')} />}
         >
           {(list) => (
-            <Stack gap={3}>
+            <Stack gap={3} data-tour="teacher-courses">
               {list.items.map((course) => (
                 <TeacherCourseCardView
                   key={course.id}

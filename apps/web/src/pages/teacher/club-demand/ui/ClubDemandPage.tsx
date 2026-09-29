@@ -71,10 +71,10 @@ export function ClubDemandPage() {
         <AsyncState
           query={query}
           isEmpty={(data) => data.students === 0}
-          empty={<EmptyState title={t('clubDemand.empty')} />}
+          empty={<EmptyState title={t('clubDemand.empty')} data-tour="club-demand" />}
         >
           {(data) => (
-            <Stack gap={3}>
+            <Stack gap={3} data-tour="club-demand">
               <Text variant="caption" tone="muted">
                 {t('clubDemand.students', { count: data.students })}
               </Text>

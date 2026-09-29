@@ -16,7 +16,7 @@ export function CourseBuilderPage() {
     <>
       <ScreenHeader title={t('courseBuilder.title')} back="/teacher/assignments" />
       <Screen>
-        <Card>
+        <Card data-tour="course-builder">
           <Stack gap={3}>
             <Text tone="muted">{t('courseBuilder.description')}</Text>
             <GenerateCourseForm

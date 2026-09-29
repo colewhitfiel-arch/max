@@ -195,7 +195,7 @@ export function TutorChat({
 
   // `grow`: чат забирает место под шапкой внутри `Screen fill` страницы (TutorPage).
   return (
-    <Screen grow>
+    <Screen grow data-tour="chat">
       <Stack gap={3} grow justify="end">
         {fromServer ? <AsyncState query={query}>{() => feed}</AsyncState> : feed}
         <div ref={bottomRef} aria-hidden="true" />

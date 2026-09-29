@@ -107,7 +107,7 @@ export function ParentTutorChat({
     messageCount === 0 && !pendingUserText && !stream.text && stream.status !== 'error';
 
   return (
-    <Screen grow>
+    <Screen grow data-tour="chat">
       <Stack gap={3} grow justify="end" aria-live="polite">
         <AsyncState query={query}>
           {(page) =>

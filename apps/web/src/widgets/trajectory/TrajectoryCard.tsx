@@ -191,7 +191,7 @@ export function TrajectoryCard() {
     });
 
   return (
-    <Stack gap={2}>
+    <Stack gap={2} data-tour="student-trajectory">
       <Header
         pending={refresh.isPending}
         onRefresh={onRefresh}

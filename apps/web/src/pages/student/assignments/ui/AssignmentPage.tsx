@@ -83,7 +83,7 @@ export function AssignmentPage() {
                 </Stack>
               )}
 
-              <Stack gap={2}>
+              <Stack gap={2} data-tour="assignment-answer">
                 <SectionTitle>
                   {assignment.submission ? t('assignments.resubmitTitle') : t('assignments.answer')}
                 </SectionTitle>

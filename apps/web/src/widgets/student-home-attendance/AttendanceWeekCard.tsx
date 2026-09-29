@@ -24,7 +24,7 @@ export function AttendanceWeekCard({ week }: AttendanceWeekCardProps) {
   const fullWeekday = (date: string) =>
     new Intl.DateTimeFormat(i18n.language, { weekday: 'long' }).format(parseDateOnly(date));
   return (
-    <Card>
+    <Card data-tour="student-week">
       <Stack gap={3}>
         <Text as="h2" variant="body" weight="bold" align="center">
           {t('home.attendance')}

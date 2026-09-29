@@ -367,7 +367,7 @@ export function AssignHomeworkPage() {
         back={step === 'group' ? '/teacher/assignments' : true}
       />
       <Screen fixed>
-        <Inline gap={2}>
+        <Inline gap={2} data-tour="assign-steps">
           {steps.map((item, index) => (
             <Badge key={item} tone={index <= stepIndex ? 'info' : 'neutral'}>
               {t(`assign.steps.${item}`)}

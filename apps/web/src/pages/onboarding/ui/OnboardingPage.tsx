@@ -136,7 +136,7 @@ function ChatStage({
   const showOptions = clubOptions.length > 0 && canSend && !streaming && !pendingUserText;
 
   return (
-    <Screen fill>
+    <Screen fill data-tour="chat">
       <Stack gap={3} grow justify="end" aria-live="polite">
         <Hero />
         {startError != null && <QueryError error={startError} onRetry={onRetryStart} />}

@@ -48,7 +48,7 @@ interface PerformanceContentProps {
 function PerformanceContent({ data, stale, onOpenGroup }: PerformanceContentProps) {
   const { t } = useTranslation('teacher-performance');
   return (
-    <Stack gap={6} aria-busy={stale || undefined}>
+    <Stack gap={6} aria-busy={stale || undefined} data-tour="teacher-performance">
       <TeacherPerformanceAttendance groups={data.groups} />
       <DataTable
         caption={t('table.caption')}

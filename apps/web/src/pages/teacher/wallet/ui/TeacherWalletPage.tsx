@@ -124,7 +124,7 @@ export function TeacherWalletPage() {
         }
       />
       <Screen gap={3}>
-        <Inline gap={6} align="start" wrap={false}>
+        <Inline gap={6} align="start" wrap={false} data-tour="teacher-wallet">
           <WalletHero
             amount={balance ? wholeRubles(balance, locale) : failed ? '—' : '…'}
             aria-label={

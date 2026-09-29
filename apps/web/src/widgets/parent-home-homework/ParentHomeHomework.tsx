@@ -69,7 +69,7 @@ export function ParentHomeHomework({ studentId }: ParentHomeHomeworkProps) {
   }
 
   return (
-    <Stack gap={2} as="section" aria-labelledby={titleId}>
+    <Stack gap={2} as="section" aria-labelledby={titleId} data-tour="parent-homework">
       <Inline justify="between" align="center" wrap={false} gap={2}>
         <Text id={titleId} as="h2" variant="caption" weight="bold">
           {t('homework.title')}

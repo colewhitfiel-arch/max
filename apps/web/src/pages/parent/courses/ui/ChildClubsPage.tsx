@@ -45,7 +45,7 @@ export function ChildClubsPage() {
             empty={<EmptyState title={t('courses.empty')} />}
           >
             {(list) => (
-              <Stack gap={3}>
+              <Stack gap={3} data-tour="parent-clubs">
                 {list.items.map((item) => (
                   <ClubCard
                     key={item.enrollmentId}

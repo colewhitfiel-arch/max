@@ -24,7 +24,7 @@ export function GroupsPage() {
           empty={<EmptyState title={t('groups.empty')} description={t('groups.emptyHint')} />}
         >
           {(list) => (
-            <Card padding="none">
+            <Card padding="none" data-tour="teacher-groups">
               {list.items.map((group) => (
                 <ListRow
                   key={group.id}

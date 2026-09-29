@@ -57,6 +57,7 @@ export function ParentHomePage() {
   else
     hearts = (
       <HeartCarousel
+        data-tour="parent-children"
         aria-label={t('children.label')}
         items={children.map((child) => ({
           key: child.student.id,

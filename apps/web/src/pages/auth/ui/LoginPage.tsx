@@ -2,6 +2,7 @@ import { AppLayout, Button, ErrorState, PageHeader, Screen, Spinner, Stack, Text
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate } from 'react-router';
+import { StartDemoButton } from '@/features/demo-tour';
 import { DevLoginForm } from '@/features/dev-login';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
@@ -19,7 +20,10 @@ function returnPath(state: unknown): string {
   return typeof from === 'string' && from.startsWith('/') && !from.startsWith('/auth') ? from : '/';
 }
 
-/** `/auth`: dev — демо-пользователи; max — автовход по launch-параметрам и ошибка при неудаче. */
+/**
+ * `/auth`: dev — демо-пользователи; max — автовход по launch-параметрам и ошибка при неудаче.
+ * Сверху — «Демонстрационный режим»: тур по всем ролям для жюри (features/demo-tour).
+ */
 export function LoginPage() {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
@@ -70,6 +74,8 @@ export function LoginPage() {
     >
       <AppLayout.Content>
         <Screen>
+          {/* Демонстрационный режим — над всеми кнопками; пока идёт вход через MAX, не мешает. */}
+          {(authMode !== 'max' || error) && <StartDemoButton />}
           {authMode === 'max' ? (
             error ? (
               <ErrorState

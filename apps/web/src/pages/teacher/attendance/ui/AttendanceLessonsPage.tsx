@@ -70,22 +70,28 @@ export function AttendanceLessonsPage() {
         >
           {(data) => {
             const { today, unmarked, upcoming } = lessonsToMark(data.lessons);
+            // Демонстрационный режим подсвечивает первую непустую секцию.
+            const tour = (section: 'today' | 'unmarked' | 'upcoming') =>
+              section ===
+              (today.length > 0 ? 'today' : unmarked.length > 0 ? 'unmarked' : 'upcoming')
+                ? 'attendance-lessons'
+                : undefined;
             return (
               <Stack gap={4}>
                 {today.length > 0 && (
-                  <Stack gap={2}>
+                  <Stack gap={2} data-tour={tour('today')}>
                     <SectionTitle>{t('attendance.sections.today')}</SectionTitle>
                     <Card padding="none">{today.map((lesson) => row(lesson))}</Card>
                   </Stack>
                 )}
                 {unmarked.length > 0 && (
-                  <Stack gap={2}>
+                  <Stack gap={2} data-tour={tour('unmarked')}>
                     <SectionTitle>{t('attendance.sections.unmarked')}</SectionTitle>
                     <Card padding="none">{unmarked.map((lesson) => row(lesson, 'overdue'))}</Card>
                   </Stack>
                 )}
                 {upcoming.length > 0 && (
-                  <Stack gap={2}>
+                  <Stack gap={2} data-tour={tour('upcoming')}>
                     <SectionTitle>{t('attendance.sections.upcoming')}</SectionTitle>
                     <Card padding="none">{upcoming.map((lesson) => row(lesson))}</Card>
                   </Stack>

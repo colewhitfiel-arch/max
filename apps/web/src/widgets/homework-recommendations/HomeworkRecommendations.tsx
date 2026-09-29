@@ -11,13 +11,14 @@ export function HomeworkRecommendations({ clubs }: { clubs: HomeworkClub[] }) {
   const rows = clubs.filter((item) => item.openCount > 0);
   if (rows.length === 0) {
     return (
-      <Text variant="small" tone="muted">
+      <Text variant="small" tone="muted" data-tour="homework-recommendations">
         {t('homework.noOpen')}
       </Text>
     );
   }
   return (
     <CardColumns
+      data-tour="homework-recommendations"
       aria-label={t('homework.recommendations')}
       columns={[
         { key: 'club', header: t('homework.columns.club'), fit: true },

@@ -74,28 +74,31 @@ export function ChildrenPage() {
           )}
         </AsyncState>
 
-        <Stack gap={2}>
-          <SectionTitle>{t('addChild.invite.title')}</SectionTitle>
-          <Card>
-            <Stack gap={3}>
-              <Text variant="small" tone="muted">
-                {t('addChild.invite.description')}
-              </Text>
-              <ChildInviteLink />
-            </Stack>
-          </Card>
-        </Stack>
+        {/* Оба способа привязки — одним блоком (подсветка демонстрационного режима). */}
+        <Stack gap={4} data-tour="link-child">
+          <Stack gap={2}>
+            <SectionTitle>{t('addChild.invite.title')}</SectionTitle>
+            <Card>
+              <Stack gap={3}>
+                <Text variant="small" tone="muted">
+                  {t('addChild.invite.description')}
+                </Text>
+                <ChildInviteLink />
+              </Stack>
+            </Card>
+          </Stack>
 
-        <Stack gap={2}>
-          <SectionTitle>{t('children.linkTitle')}</SectionTitle>
-          <Card>
-            <LinkChildForm
-              onLinked={(studentId) => {
-                setSelectedChildId(studentId);
-                navigate(PARENT_HOME_PATH);
-              }}
-            />
-          </Card>
+          <Stack gap={2}>
+            <SectionTitle>{t('children.linkTitle')}</SectionTitle>
+            <Card>
+              <LinkChildForm
+                onLinked={(studentId) => {
+                  setSelectedChildId(studentId);
+                  navigate(PARENT_HOME_PATH);
+                }}
+              />
+            </Card>
+          </Stack>
         </Stack>
       </Screen>
     </>
