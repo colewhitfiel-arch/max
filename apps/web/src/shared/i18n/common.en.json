@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Clubs",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "slowStart": "The server is waking up after a pause — a few more seconds"
   },
   "notifications": "Notifications",
   "chat": {
