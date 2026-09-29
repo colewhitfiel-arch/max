@@ -6,6 +6,7 @@ import {
   ListRow,
   PlusIcon,
   Sheet,
+  SparkIcon,
   Stack,
   useToast,
   UsersIcon,
@@ -13,6 +14,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { startDemoTour } from '@/features/demo-tour';
 import { SwitchRole } from '@/features/switch-role';
 import { useAuth } from '@/shared/auth/hooks';
 import { ROLE_SETUP_PATH } from '@/shared/auth/role-routes';
@@ -32,6 +34,7 @@ export interface AccountSettingsProps {
 /** «Аккаунт»: текущая роль (строка → sheet со сменой/добавлением роли) и поддержка. */
 export function AccountSettings({ supportUrl }: AccountSettingsProps = {}) {
   const { t } = useTranslation('common');
+  const { t: tDemo } = useTranslation('demo');
   const { me } = useAuth();
   const navigate = useNavigate();
   const bridge = useMaxBridge();
@@ -70,6 +73,18 @@ export function AccountSettings({ supportUrl }: AccountSettingsProps = {}) {
           title={t('settings.support')}
           subtitle={t('settings.supportHint')}
           onClick={openSupport}
+        />
+        {/* Внутри MAX у аккаунта с ролью экранов входа и выбора роли нет — тур запускается отсюда (F20) */}
+        <ListRow
+          left={
+            <IconTile tone="info">
+              <SparkIcon />
+            </IconTile>
+          }
+          title={tDemo('start.button')}
+          subtitle={tDemo('start.hint')}
+          chevron
+          onClick={() => startDemoTour()}
         />
       </Card>
 

@@ -14,6 +14,7 @@ import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import '@/shared/i18n';
 import { MaxBridgeProvider } from '@/shared/max';
 import { MockMaxBridge } from '@/shared/max/mock-bridge';
+import { resetDemoTour, useDemoTourStore } from '@/features/demo-tour/model/store';
 import { AccountSettings } from './AccountSettings';
 
 const hooks = vi.hoisted(() => ({ supportUrl: 'https://max.ru/edu_support_test' }));
@@ -91,4 +92,20 @@ describe('AccountSettings: поддержка', () => {
       expect(await screen.findByText('Чат поддержки в MAX пока не подключён')).toBeVisible();
     },
   );
+});
+
+describe('AccountSettings → «Демонстрационный режим» (F20)', () => {
+  beforeEach(() => {
+    resetAuthStore();
+    useAuthStore.setState({ status: 'authenticated', me: meOf('TEACHER') });
+  });
+  afterEach(() => resetDemoTour());
+
+  it('строка в настройках запускает тур — внутри MAX это единственный вход для аккаунта с ролью', async () => {
+    renderAccount();
+    expect(useDemoTourStore.getState().active).toBe(false);
+    await userEvent.setup().click(screen.getByRole('button', { name: /Демонстрационный режим/ }));
+    expect(useDemoTourStore.getState().active).toBe(true);
+    expect(useDemoTourStore.getState().index).toBe(0);
+  });
 });

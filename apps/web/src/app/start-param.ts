@@ -1,5 +1,16 @@
+import { startDemoTour } from '@/features/demo-tour';
 import { invitePathFromStartParam } from '@/pages/invite/start-param';
 import type { MaxBridge } from '@/shared/max';
+
+/**
+ * `https://max.ru/<бот>?startapp=demo` — запуск сразу в демонстрационном режиме (F20): жюри
+ * попадает в тур из мессенджера, не ища кнопку, которой у аккаунта с выбранной ролью на пути нет.
+ */
+export const DEMO_START_PARAM = 'demo';
+
+export function isDemoStartParam(startParam: string | null | undefined): boolean {
+  return typeof startParam === 'string' && startParam.trim().toLowerCase() === DEMO_START_PARAM;
+}
 
 /** Минимум роутера, который нужен для перехода по диплинку (data router из `router.tsx`). */
 export interface StartParamRouter {
@@ -48,8 +59,14 @@ async function navigateToStartParam(bridge: MaxBridge, router: StartParamRouter)
   } catch {
     return false;
   }
+  if (router.state.location.pathname !== '/') return false;
+  if (isDemoStartParam(startParam)) {
+    // Тур сам входит демо-пользователем и открывает экраны — переход роутера не нужен
+    startDemoTour();
+    return false;
+  }
   const path = startParamPath(startParam);
-  if (!path || router.state.location.pathname !== '/') return false;
+  if (!path) return false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<false>((resolve) => {
     timer = setTimeout(() => resolve(false), START_PARAM_WAIT_MS);

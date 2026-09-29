@@ -2,8 +2,10 @@
 import { createMemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MaxBridge } from '@/shared/max';
+import { resetDemoTour, useDemoTourStore } from '@/features/demo-tour/model/store';
 import {
   applyStartParam,
+  isDemoStartParam,
   resetStartParamForTests,
   START_PARAM_WAIT_MS,
   startParamPath,
@@ -112,5 +114,29 @@ describe('applyStartParam', () => {
       },
     } as unknown as MaxBridge;
     expect(await applyStartParam(bridge, routerAt('/'))).toBe(false);
+  });
+});
+
+describe('startapp=demo (F20)', () => {
+  afterEach(() => resetDemoTour());
+
+  it('распознаёт demo без учёта регистра и пробелов, прочее — нет', () => {
+    expect(isDemoStartParam('demo')).toBe(true);
+    expect(isDemoStartParam(' Demo ')).toBe(true);
+    expect(isDemoStartParam('demo_1')).toBe(false);
+    expect(isDemoStartParam(null)).toBe(false);
+  });
+
+  it('запуск на корне с demo — стартует тур с первого шага, роутер не переводит', async () => {
+    const router = routerAt('/');
+    expect(await applyStartParam(bridgeWith('demo'), router)).toBe(false);
+    expect(useDemoTourStore.getState().active).toBe(true);
+    expect(useDemoTourStore.getState().index).toBe(0);
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('demo не с корня (перезагрузка внутреннего экрана) — тур не стартует', async () => {
+    expect(await applyStartParam(bridgeWith('demo'), routerAt('/student/tutor'))).toBe(false);
+    expect(useDemoTourStore.getState().active).toBe(false);
   });
 });
