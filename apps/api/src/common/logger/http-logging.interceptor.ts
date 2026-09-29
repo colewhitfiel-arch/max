@@ -7,8 +7,9 @@ import {
 import type { Request, Response } from 'express';
 import { type Observable, tap } from 'rxjs';
 import { AppLogger } from './logger.service';
+import { redactPath } from './redact-path';
 
-/** Одна строка лога на HTTP-запрос: метод, путь, статус, длительность. Без тел запросов. */
+/** Одна строка лога на HTTP-запрос: метод, путь (без токенов в сегментах), статус, длительность. Без тел. */
 @Injectable()
 export class HttpLoggingInterceptor implements NestInterceptor {
   private readonly log;
@@ -26,7 +27,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
       const ms = Number(process.hrtime.bigint() - started) / 1e6;
       const entry = {
         method: req.method,
-        path: req.originalUrl ?? req.url,
+        path: redactPath(req.originalUrl ?? req.url),
         status: res.statusCode,
         ms: Math.round(ms),
       };

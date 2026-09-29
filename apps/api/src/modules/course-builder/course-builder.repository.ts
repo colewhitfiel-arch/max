@@ -20,7 +20,12 @@ export const TERMINAL_STAGES: readonly GenerationStage[] = [
   'CANCELLED',
 ];
 /** Стадии выполняющегося пайплайна (после старта runJob). */
-const RUNNING_STAGES: GenerationStage[] = ['EXTRACTING', 'OUTLINING', 'GENERATING', 'ASSEMBLING'];
+export const RUNNING_STAGES: GenerationStage[] = [
+  'EXTRACTING',
+  'OUTLINING',
+  'GENERATING',
+  'ASSEMBLING',
+];
 
 type JobPatch = {
   stage?: GenerationStage;

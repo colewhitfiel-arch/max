@@ -2,11 +2,14 @@
  * Демо-мир: единый набор данных для seed (packages/db) и MSW-моков (apps/web).
  * Владелец — contracts. Учебных данных намеренно мало: 1 школа, 1 преподаватель (он же родитель)
  * с группами робототехники и Python, 2 ученика, 1 родитель, курс с 4 блоками, 3 задания, сдача,
- * посещаемость. Каталог — все 8 кружков (`CLUB_CATEGORIES`): остальные 6 ведут ещё трое
- * преподавателей (`demoCatalogUsers`, в dev-вход не попадают), учеников в их группах нет.
+ * посещаемость, спрос на кружки из онбординга, оплата с поступлением в кошелёк, уведомления всех
+ * ролей. Каталог — все 8 кружков (`CLUB_CATEGORIES`): остальные 6 ведут ещё трое преподавателей
+ * (`demoCatalogUsers`, в dev-вход не попадают), учеников в их группах нет.
  *
- * Даты занятий, посещаемости и оплаты задаются относительно «сейчас» — см. materializeDemoLessons(),
- * materializeDemoAttendance(), materializeDemoPayment() и materializeDemoPaidPeriod().
+ * Даты занятий, посещаемости, сдач, оплаты и уведомлений задаются относительно «сейчас» — см.
+ * materializeDemoLessons(), materializeDemoAttendance(), materializeDemoSubmissions(),
+ * materializeDemoPayment(), materializeDemoPaidPeriod(), materializeDemoWalletIncome()
+ * и materializeDemoRoleNotifications().
  */
 import type {
   Assignment,
@@ -32,7 +35,7 @@ import type {
   TeacherProfile,
   User,
 } from '../entities';
-import type { Role } from '../enums';
+import type { ClubInterestStatus, Role } from '../enums';
 
 /** Детерминированный uuid v7-подобного формата по номеру. */
 export function demoId(n: number): string {
@@ -102,6 +105,7 @@ export const DEMO_IDS = {
     roboticsToday: demoId(72),
     roboticsNext: demoId(73),
     programmingTomorrow: demoId(74),
+    programmingPast: demoId(75),
   },
   course: demoId(80),
   modules: { intro: demoId(81), sensors: demoId(82) },
@@ -118,12 +122,18 @@ export const DEMO_IDS = {
     p1Dasha: demoId(121),
     p2Alexey: demoId(122),
     p2Dasha: demoId(123),
+    pyPastAlexey: demoId(124),
   },
   conversation: demoId(130),
   messages: { m1: demoId(131), m2: demoId(132) },
   payment: demoId(140),
   paidPeriod: demoId(141),
+  /** Поступление в кошелёк Марии от демо-оплаты (INCOME). */
+  walletIncome: demoId(142),
   notification: demoId(150),
+  parentNotification: demoId(151),
+  teacherNotification: demoId(152),
+  clubInterests: { alexeyRobotics: demoId(160), alexeyProgramming: demoId(161) },
 } as const;
 
 export type DemoUser = User & { maxUserId: string; roles: Role[] };
@@ -547,7 +557,8 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
   {
     id: DEMO_IDS.lessons.roboticsPast1,
     groupId: DEMO_IDS.groups.roboticsA,
-    // Дата плавает относительно «сейчас» и с днём недели правила не совпадает — занятие разовое.
+    // Дата плавает относительно «сейчас» — занятие разовое; если оно легло на слот правила,
+    // материализация этот слот пропускает, а seed удаляет занятие из правила (docs/05 §5.5).
     ruleId: null,
     dayOffset: -7,
     startTime: '15:00',
@@ -599,6 +610,18 @@ export const demoLessonSpecs: DemoLessonSpec[] = [
     topic: 'Циклы в Python',
     room: 'Каб. 5',
     status: 'PLANNED',
+  },
+  {
+    // Вчерашнее занятие Python с отметкой: у кружка есть посещаемость, у Алексея — живая серия.
+    id: DEMO_IDS.lessons.programmingPast,
+    groupId: DEMO_IDS.groups.programmingA,
+    ruleId: null,
+    dayOffset: -1,
+    startTime: '16:00',
+    durationMin: 60,
+    topic: 'Переменные и ввод',
+    room: 'Каб. 5',
+    status: 'DONE',
   },
 ];
 
@@ -692,6 +715,15 @@ export const demoAttendance: Attendance[] = [
     lessonId: DEMO_IDS.lessons.roboticsPast2,
     studentId: DEMO_IDS.students.dasha,
     status: 'LATE',
+    comment: null,
+    markedById: DEMO_IDS.teachers.maria,
+    markedAt: T0,
+  },
+  {
+    id: DEMO_IDS.attendance.pyPastAlexey,
+    lessonId: DEMO_IDS.lessons.programmingPast,
+    studentId: DEMO_IDS.students.alexey,
+    status: 'PRESENT',
     comment: null,
     markedById: DEMO_IDS.teachers.maria,
     markedAt: T0,
@@ -872,9 +904,14 @@ export const demoAssignments: Assignment[] = [
 /** Дедлайны заданий относительно «сейчас» (дней), применяются при seed/моках. */
 export const demoAssignmentDueOffsets: Record<string, number> = {
   [DEMO_IDS.assignments.homework]: 5,
-  [DEMO_IDS.assignments.simpleHomework]: 2,
+  // Срок прошёл, сдача — до срока: задание видно в выполненных и в успеваемости групп.
+  [DEMO_IDS.assignments.simpleHomework]: -2,
 };
 
+/**
+ * Сдачи демо-мира. `submittedAt`/`gradedAt` здесь — заглушки; настоящие даты — относительно
+ * «сейчас», см. `materializeDemoSubmissions`.
+ */
 export const demoSubmissions: Submission[] = [
   {
     id: DEMO_IDS.submissions.alexeySimpleHomework,
@@ -893,6 +930,33 @@ export const demoSubmissions: Submission[] = [
     isLate: false,
   },
 ];
+
+/** Когда сдана и проверена каждая демо-сдача: дни от сегодняшнего и время по часам школы. */
+const demoSubmissionTimes: Record<
+  string,
+  { submitted: [number, string]; graded: [number, string] }
+> = {
+  // До срока (−2 дня): задача сдана 3 дня назад вечером, проверена на следующее утро.
+  [DEMO_IDS.submissions.alexeySimpleHomework]: { submitted: [-3, '18:00'], graded: [-2, '10:00'] },
+};
+
+/** Сдачи демо-мира с датами относительно `now` (как занятия): не старятся от деплоя к деплою. */
+export function materializeDemoSubmissions(
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): Submission[] {
+  return demoSubmissions.map((submission) => {
+    const times = demoSubmissionTimes[submission.id];
+    if (!times) return submission;
+    const at = ([dayOffset, time]: [number, string]) =>
+      atSchoolTime(now, tzOffsetMinutes, dayOffset, time).toISOString();
+    return {
+      ...submission,
+      submittedAt: at(times.submitted),
+      gradedAt: submission.gradedAt ? at(times.graded) : null,
+    };
+  });
+}
 
 export const demoConversation: AiConversation = {
   id: DEMO_IDS.conversation,
@@ -982,6 +1046,114 @@ export const demoNotification: Notification = {
 };
 /** Кому адресовано демо-уведомление (User.id). */
 export const demoNotificationUserId = DEMO_IDS.users.student1;
+
+/** Поступление в кошелёк преподавателя от демо-оплаты (`TeacherWalletTransaction`, INCOME). */
+export interface DemoWalletIncome {
+  id: string;
+  teacherId: string;
+  kind: 'INCOME';
+  amount: Payment['amount'];
+  groupId: string;
+  studentId: string;
+  paymentId: string;
+  at: string;
+}
+
+/**
+ * Каждая оплата закрывается поступлением преподавателю группы (docs/07 F17): у демо-оплаты
+ * Ольги — INCOME Марии на ту же сумму в момент оплаты. Иначе кошелёк Марии пуст, хотя
+ * родитель видит оплату.
+ */
+export function materializeDemoWalletIncome(
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): DemoWalletIncome {
+  const payment = materializeDemoPayment(now, tzOffsetMinutes);
+  return {
+    id: DEMO_IDS.walletIncome,
+    teacherId: DEMO_IDS.teachers.maria,
+    kind: 'INCOME',
+    amount: payment.amount,
+    groupId: DEMO_IDS.groups.roboticsA,
+    studentId: payment.studentId,
+    paymentId: payment.id,
+    at: payment.paidAt ?? payment.createdAt,
+  };
+}
+
+/** Уведомление с адресатом (User.id). */
+export type DemoNotification = Notification & { userId: string };
+
+/**
+ * Уведомления родителя и преподавателя (у ученика — `demoNotification`): Ольге — об оплате,
+ * Марии — о сдаче Алексея. Время — момент самого события (оплаты, сдачи) относительно `now`.
+ */
+export function materializeDemoRoleNotifications(
+  now: Date = new Date(),
+  tzOffsetMinutes = 180,
+): DemoNotification[] {
+  const payment = materializeDemoPayment(now, tzOffsetMinutes);
+  const submission = materializeDemoSubmissions(now, tzOffsetMinutes).find(
+    (row) => row.id === DEMO_IDS.submissions.alexeySimpleHomework,
+  );
+  const homework = DEMO_IDS.assignments.simpleHomework;
+  return [
+    {
+      id: DEMO_IDS.parentNotification,
+      userId: DEMO_IDS.users.parent,
+      type: 'PAYMENT_SUCCEEDED',
+      title: 'Оплата прошла',
+      body: 'Робототехника, Алексей — 3 500 ₽ за месяц',
+      payload: { entityType: 'payment', entityId: payment.id, route: '/parent/payments' },
+      readAt: null,
+      createdAt: payment.paidAt ?? payment.createdAt,
+    },
+    {
+      id: DEMO_IDS.teacherNotification,
+      userId: DEMO_IDS.users.teacher,
+      type: 'SUBMISSION_RECEIVED',
+      title: 'Новая сдача',
+      body: '«Задачи 1–10, стр. 52»',
+      payload: { entityType: 'assignment', entityId: homework, route: '/teacher/assignments' },
+      readAt: null,
+      createdAt: submission?.submittedAt ?? payment.createdAt,
+    },
+  ];
+}
+
+/** Спрос на кружки из онбординга (`StudentClubInterest`). */
+export interface DemoClubInterest {
+  id: string;
+  studentId: string;
+  clubId: string;
+  status: ClubInterestStatus;
+  /** Оценка ИИ 0..1. */
+  score: number | null;
+  reason: string | null;
+}
+
+/**
+ * Онбординг Алексея пройден — значит, выбор кружков записан, как его пишет завершение
+ * онбординга: он записался в оба кружка. На этом строится «Спрос на кружки» преподавателя.
+ */
+export const demoClubInterests: DemoClubInterest[] = [
+  {
+    id: DEMO_IDS.clubInterests.alexeyRobotics,
+    studentId: DEMO_IDS.students.alexey,
+    clubId: DEMO_IDS.clubs.robotics,
+    status: 'CHOSEN',
+    score: 0.92,
+    reason: 'Любит собирать роботов и решать практические задачи',
+  },
+  {
+    id: DEMO_IDS.clubInterests.alexeyProgramming,
+    studentId: DEMO_IDS.students.alexey,
+    clubId: DEMO_IDS.clubs.programming,
+    status: 'CHOSEN',
+    score: 0.85,
+    reason: 'Хочет научиться программировать и делать свои игры',
+  },
+];
 
 /** Все пользователи для dev-входа: кого можно выбрать на экране «Войти как». */
 export const demoLoginUsers = Object.values(demoUsers).map((u) => ({

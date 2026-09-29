@@ -16,6 +16,23 @@
   flex: 1 0 auto;
 }
 
+/* overlap: панель поднимается на глубину кривой (402:52 от своей ширины). Процент в margin
+ * считается от ширины родителя, поэтому у bleed-панели к нему добавлены боковые поля Screen.
+ * В зоне наезда касания проходят к блоку сверху (лента сердец листается), содержимое панели
+ * их снова принимает. */
+.ui-scoop-panel[data-overlap] {
+  margin-top: calc(-1 * 100% * 52 / 402);
+  pointer-events: none;
+}
+
+.ui-scoop-panel[data-overlap][data-bleed] {
+  margin-top: calc(-1 * (100% + 2 * var(--ui-space-4)) * 52 / 402);
+}
+
+.ui-scoop-panel[data-overlap] .ui-scoop-panel__body > * {
+  pointer-events: auto;
+}
+
 .ui-scoop-panel__backdrop {
   position: absolute;
   inset: 0;
@@ -56,4 +73,44 @@
   display: block;
   margin: 0 calc(-1 * var(--ui-space-4)) var(--ui-space-3);
   aspect-ratio: 402 / 52;
+}
+
+/* scroll: панель занимает остаток высоты `Screen fit` (но не меньше --ui-scoop-panel-min-height),
+ * фон доходит до низа экрана (поверх нижнего поля Screen), а прокручивается только область
+ * под распоркой кривой: содержимое не заезжает в ложбину и под ленту над панелью.
+ * Прокрутка — на всю ширину панели, чтобы тени и фокус карточек не обрезались по бокам. */
+.ui-scoop-panel[data-scroll] {
+  flex: 1 1 0;
+  min-height: var(--ui-scoop-panel-min-height, 240px);
+}
+
+/* Перебивает `flex-shrink: 0` у детей `Screen fit`. */
+.ui-screen[data-fit] > .ui-scoop-panel[data-scroll] {
+  flex-shrink: 1;
+}
+
+.ui-scoop-panel[data-scroll][data-bleed] {
+  margin-bottom: calc(-1 * var(--ui-space-4));
+}
+
+.ui-scoop-panel[data-scroll] .ui-scoop-panel__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+.ui-scoop-panel[data-scroll] .ui-scoop-panel__body::before {
+  flex: none;
+}
+
+.ui-scoop-panel__scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-inline: calc(-1 * var(--ui-space-4));
+  padding: 0 var(--ui-space-4) var(--ui-space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }

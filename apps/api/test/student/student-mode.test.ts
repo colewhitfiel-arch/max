@@ -177,6 +177,14 @@ describe.skipIf(!hasTestDatabase)('режим ученика (integration)', () 
       .expect(200);
     expect(list.body.unreadCount).toBeGreaterThanOrEqual(0);
 
+    // Фильтр «только непрочитанные» — строка 'true' в query, как её шлёт клиент.
+    const unread = await http()
+      .get(`${base}/notifications`)
+      .query({ unreadOnly: 'true' })
+      .set('Authorization', `Bearer ${alexey}`)
+      .expect(200);
+    expect(unread.body.items.every((n: { readAt: string | null }) => n.readAt === null)).toBe(true);
+
     const read = await http()
       .post(`${base}/notifications/read`)
       .set('Authorization', `Bearer ${alexey}`)

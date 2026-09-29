@@ -22,6 +22,7 @@ import {
 import type { AuthUser } from '../../common/auth/auth-user';
 import { Errors } from '../../common/errors/app-error';
 import { DomainEventBus } from '../../common/events/domain-events';
+import { runIdempotent } from '../../common/kv/idempotency';
 import { KV_STORE, type KeyValueStore } from '../../common/kv/key-value-store';
 import { AppLogger } from '../../common/logger/logger.service';
 import { decodeCursor, normalizeLimit, toPage } from '../../common/pagination/cursor';
@@ -366,41 +367,45 @@ export class AssignmentsService {
     if (!row) throw Errors.notFound('Задание');
 
     // Повтор того же запроса (сеть) отдаёт прежний результат; тот же ключ на другое задание — конфликт.
+    // Ключ занимается атомарно до сдачи: параллельный запрос с тем же ключом не потратит попытку.
     const replayKey = `submit:${studentId}:${idempotencyKey}`;
-    const replay = await this.kv.get<{ assignmentId: string; result: SubmissionDto }>(replayKey);
-    if (replay) {
-      if (replay.assignmentId !== row.id)
-        throw Errors.conflict('Ключ идемпотентности уже использован для другого задания');
-      return replay.result;
-    }
+    const { value: stored, replayed } = await runIdempotent(
+      this.kv,
+      replayKey,
+      SUBMIT_REPLAY_TTL_SEC,
+      async (): Promise<{ assignmentId: string; result: SubmissionDto }> => {
+        const existing = await this.repo.findSubmission(row.id, studentId);
+        if (row.allowedAttempts !== null && (existing?.attemptsCount ?? 0) >= row.allowedAttempts)
+          throw Errors.businessRule('Попытки закончились');
+        if (body.fileIds?.length)
+          await this.files.listOwnedByPurpose(user.userId, body.fileIds, 'SUBMISSION');
 
-    const existing = await this.repo.findSubmission(row.id, studentId);
-    if (row.allowedAttempts !== null && (existing?.attemptsCount ?? 0) >= row.allowedAttempts)
-      throw Errors.businessRule('Попытки закончились');
-    if (body.fileIds?.length)
-      await this.files.listOwnedByPurpose(user.userId, body.fileIds, 'SUBMISSION');
-
-    const submittedAt = new Date();
-    const text = body.text?.trim() || null;
-    const submission = await this.repo.submit({
-      assignmentId: row.id,
-      studentId,
-      answers: body.answers ?? (text ? { text } : null),
-      text,
-      fileIds: body.fileIds ?? [],
-      isLate: !!row.dueAt && row.dueAt.getTime() < submittedAt.getTime(),
-      submittedAt,
-    });
-    const result = submissionDto(submission);
-    await this.kv.set(replayKey, { assignmentId: row.id, result }, SUBMIT_REPLAY_TTL_SEC);
+        const submittedAt = new Date();
+        const text = body.text?.trim() || null;
+        const submission = await this.repo.submit({
+          assignmentId: row.id,
+          studentId,
+          answers: body.answers ?? (text ? { text } : null),
+          text,
+          fileIds: body.fileIds ?? [],
+          isLate: !!row.dueAt && row.dueAt.getTime() < submittedAt.getTime(),
+          submittedAt,
+        });
+        return { assignmentId: row.id, result: submissionDto(submission) };
+      },
+    );
+    if (stored.assignmentId !== row.id)
+      throw Errors.conflict('Ключ идемпотентности уже использован для другого задания');
+    const { result } = stored;
+    if (replayed) return result;
     await this.events.emit('submission.submitted', {
-      submissionId: submission.id,
+      submissionId: result.id,
       assignmentId: row.id,
       studentId,
       groupId: row.groupId,
-      isLate: submission.isLate,
-      attempt: submission.attemptsCount,
-      at: submittedAt.toISOString(),
+      isLate: result.isLate,
+      attempt: result.attemptsCount,
+      at: result.submittedAt ?? new Date().toISOString(),
     });
     return result;
   }
@@ -606,7 +611,8 @@ export class AssignmentsService {
 
   /**
    * Публичный сервис: выполнение заданий по ученикам группы. Знаменатель — задания со сроком
-   * в прошлом, адресованные ученику; числитель — сданные не позже срока (docs/04 §4.6).
+   * в прошлом, адресованные ученику, и срок не раньше его зачисления в группу; числитель —
+   * сданные не позже срока (docs/04 §4.6).
    */
   async completionOfGroup(
     groupId: string,
@@ -616,9 +622,10 @@ export class AssignmentsService {
     const result = new Map(studentIds.map((id) => [id, { doneOnTime: 0, due: 0 }]));
     const assignments = await this.repo.listDueOfGroup(groupId, before);
     if (assignments.length === 0) return result;
-    const submissions = await this.repo.listSubmissionsOfAssignments(
-      assignments.map((row) => row.id),
-    );
+    const [submissions, enrolledAt] = await Promise.all([
+      this.repo.listSubmissionsOfAssignments(assignments.map((row) => row.id)),
+      this.groups.enrolledAtInGroup(groupId),
+    ]);
     const byKey = new Map(submissions.map((s) => [`${s.assignmentId}:${s.studentId}`, s]));
     for (const assignment of assignments) {
       const targets =
@@ -628,6 +635,9 @@ export class AssignmentsService {
       for (const studentId of targets) {
         const entry = result.get(studentId);
         if (!entry) continue;
+        // Срок прошёл до прихода ученика в группу — задание ему не в счёт.
+        const since = enrolledAt.get(studentId);
+        if (since && assignment.dueAt && assignment.dueAt.getTime() < since.getTime()) continue;
         entry.due += 1;
         const submission = byKey.get(`${assignment.id}:${studentId}`);
         if (submission && !submission.isLate && isDone(submission)) entry.doneOnTime += 1;
@@ -658,7 +668,7 @@ export class AssignmentsService {
   // ---------- внутреннее ----------
 
   /** Адресаты: пустой список — весь состав группы, иначе только выбранные (и ещё зачисленные). */
-  private targetsOf(row: AssignmentRow, roster: Awaited<ReturnType<GroupsService['listRoster']>>) {
+  private targetsOf<T extends { id: string }>(row: AssignmentRow, roster: T[]): T[] {
     if (row.studentIds.length === 0) return roster;
     const chosen = new Set(row.studentIds);
     return roster.filter((student) => chosen.has(student.id));
@@ -678,11 +688,18 @@ export class AssignmentsService {
 
   private async toCards(rows: AssignmentRow[]): Promise<TeacherAssignmentCard[]> {
     if (rows.length === 0) return [];
-    const [groupsById, counts, rosterSizes] = await Promise.all([
+    const [groupsById, rosters] = await Promise.all([
       this.groups.groupBriefsByIds(rows.map((row) => row.groupId)),
-      this.repo.countsByAssignment(rows.map((row) => row.id)),
-      this.rosterSizes(rows.map((row) => row.groupId)),
+      this.rosterIds(rows.map((row) => row.groupId)),
     ]);
+    // Адресаты — текущий состав, как на экране сдач: убранные из группы в счётчики не входят.
+    const targets = new Map(
+      rows.map((row) => [
+        row.id,
+        this.targetsOf(row, rosters.get(row.groupId) ?? []).map((student) => student.id),
+      ]),
+    );
+    const counts = await this.repo.countsByAssignment(targets);
     return rows.flatMap((row) => {
       const group = groupsById.get(row.groupId);
       if (!group) return [];
@@ -700,8 +717,7 @@ export class AssignmentsService {
           publishedAt: row.publishedAt?.toISOString() ?? null,
           studentIds: row.studentIds,
           courseId: row.courseId,
-          studentsCount:
-            row.studentIds.length > 0 ? row.studentIds.length : (rosterSizes.get(row.groupId) ?? 0),
+          studentsCount: targets.get(row.id)?.length ?? 0,
           submittedCount: count.submitted,
           gradedCount: count.graded,
         },
@@ -709,15 +725,16 @@ export class AssignmentsService {
     });
   }
 
-  private async rosterSizes(groupIds: string[]): Promise<Map<string, number>> {
+  /** Текущий состав (ACTIVE) групп: `groupId → [{ id }]`. */
+  private async rosterIds(groupIds: string[]): Promise<Map<string, Array<{ id: string }>>> {
     const unique = [...new Set(groupIds)];
-    const sizes = await Promise.all(
+    const rosters = await Promise.all(
       unique.map(async (groupId) => {
         const ids = await this.groups.listStudentIdsInGroup(groupId);
-        return [groupId, ids.length] as const;
+        return [groupId, ids.map((id) => ({ id }))] as const;
       }),
     );
-    return new Map(sizes);
+    return new Map(rosters);
   }
 
   private brief(

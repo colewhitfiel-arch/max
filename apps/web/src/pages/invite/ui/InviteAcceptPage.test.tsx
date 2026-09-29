@@ -2,6 +2,7 @@
  * `/invite/:token` на MSW-моках: ученик принимает приглашение родителя; истёкшая, неизвестная
  * ссылка и открытие не из роли ученика — понятные сообщения.
  */
+import { DEMO_IDS } from '@edu/contracts/fixtures';
 import { ToastProvider } from '@edu/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -14,7 +15,7 @@ import { api, call } from '@/shared/api/client';
 import { buildMe } from '@/test/fake-api/demo';
 import { handlers } from '@/test/fake-api/handlers';
 import { issueTokens } from '@/test/fake-api/lib';
-import { createUser, resetMockDb } from '@/test/fake-api/state';
+import { createUser, db, resetMockDb } from '@/test/fake-api/state';
 import { MOCK_INVITE_TOKENS } from '@/test/fake-api/world-extras';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
@@ -58,6 +59,13 @@ function renderInvite(token: string) {
   return router;
 }
 
+/** Приглашение Марии в моках принято этим учеником (как после его `accept`). */
+function acceptInviteAs(studentId: string) {
+  const invite = db.invites.find((i) => i.token === MOCK_INVITE_TOKENS.pending)!;
+  invite.acceptedByStudentId = studentId;
+  invite.acceptedAt = new Date().toISOString();
+}
+
 describe('InviteAcceptPage', () => {
   it('ученик подтверждает приглашение → связь ACTIVE и переход на главную', async () => {
     // Приглашение Марии в моках; Алексей его ещё не принимал.
@@ -80,18 +88,79 @@ describe('InviteAcceptPage', () => {
     expect(invite.status).toBe('ACCEPTED');
   });
 
-  it('ребёнок уже привязан к родителю (CONFLICT) — «Ты уже привязан», без «Подтвердить»', async () => {
-    // Даша (max-student-2) уже привязана к Марии — автору приглашения.
+  it('ребёнок уже привязан к родителю — сразу «Ты уже привязан», без «Подтвердить»', async () => {
+    // Даша (max-student-2) уже привязана к Марии — автору приглашения: сервер сообщает это
+    // в самом приглашении (`alreadyLinked`), принимать нечего.
     await useAuthStore.getState().loginDev('max-student-2', ['STUDENT']);
+    renderInvite(MOCK_INVITE_TOKENS.pending);
+
+    expect(await screen.findByText('Ты уже привязан к этому родителю', {}, WAIT)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'На главную' })).toBeEnabled();
+  });
+
+  it('привязали, пока экран был открыт (CONFLICT на «Подтвердить») — «Ты уже привязан»', async () => {
+    await useAuthStore.getState().loginDev('max-student-2', ['STUDENT']);
+    // Приглашение открыто до привязки: связи ещё нет, «Подтвердить» на экране.
+    const link = db.links.find(
+      (l) =>
+        l.parentId === DEMO_IDS.parents.mariaAsParent && l.studentId === DEMO_IDS.students.dasha,
+    )!;
+    db.links.splice(db.links.indexOf(link), 1);
     const user = userEvent.setup();
     renderInvite(MOCK_INVITE_TOKENS.pending);
 
-    await user.click(await screen.findByRole('button', { name: 'Подтвердить' }, WAIT));
+    const confirm = await screen.findByRole('button', { name: 'Подтвердить' }, WAIT);
+    // …а пока экран открыт, ребёнка привязали по коду.
+    db.links.push(link);
+    await user.click(confirm);
 
     expect(await screen.findByText('Ты уже привязан к этому родителю', {}, WAIT)).toBeVisible();
     expect(screen.queryByText('Данные уже изменились, нужно обновить экран')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
     expect(screen.getByRole('button', { name: 'На главную' })).toBeEnabled();
+  });
+
+  it('ссылку уже принял другой ученик — «Приглашение уже принято» и просьба о новой ссылке', async () => {
+    // Приглашение Марии приняла Даша; Алексей к Марии не привязан.
+    acceptInviteAs(DEMO_IDS.students.dasha);
+    await useAuthStore.getState().loginDev('max-student-1', ['STUDENT']);
+    renderInvite(MOCK_INVITE_TOKENS.pending);
+
+    expect(await screen.findByText('Приглашение уже принято', {}, WAIT)).toBeVisible();
+    expect(
+      screen.getByText('Ссылку уже использовали. Попроси родителя отправить новую ссылку в MAX'),
+    ).toBeVisible();
+    expect(screen.queryByText(/ничего делать не нужно/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
+  });
+
+  it('другой ученик принял ссылку, пока экран был открыт (CONFLICT) — просьба о новой ссылке', async () => {
+    await useAuthStore.getState().loginDev('max-student-1', ['STUDENT']);
+    const user = userEvent.setup();
+    renderInvite(MOCK_INVITE_TOKENS.pending);
+
+    const confirm = await screen.findByRole('button', { name: 'Подтвердить' }, WAIT);
+    acceptInviteAs(DEMO_IDS.students.dasha);
+    await user.click(confirm);
+
+    expect(await screen.findByText('Приглашение уже принято', {}, WAIT)).toBeVisible();
+    expect(
+      screen.getByText('Ссылку уже использовали. Попроси родителя отправить новую ссылку в MAX'),
+    ).toBeVisible();
+    expect(screen.queryByText(/ничего делать не нужно/)).toBeNull();
+  });
+
+  it('своё принятое приглашение при живой связи — «ничего делать не нужно»', async () => {
+    // Даша приняла приглашение Марии и привязана к ней.
+    acceptInviteAs(DEMO_IDS.students.dasha);
+    await useAuthStore.getState().loginDev('max-student-2', ['STUDENT']);
+    renderInvite(MOCK_INVITE_TOKENS.pending);
+
+    expect(await screen.findByText('Приглашение уже принято', {}, WAIT)).toBeVisible();
+    expect(
+      screen.getByText('Связь с родителем уже подтверждена — ничего делать не нужно'),
+    ).toBeVisible();
   });
 
   it('истёкшая и неизвестная ссылки — сообщение и «На главную»', async () => {

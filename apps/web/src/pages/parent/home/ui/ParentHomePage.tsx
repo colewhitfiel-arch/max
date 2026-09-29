@@ -31,6 +31,7 @@ const OFFERS_PATH = '/parent/profile#offers';
  * (свайп выбирает ребёнка, «+» — добавить по ссылке или коду), под вогнутой панелью —
  * расписание выбранного ребёнка как у ученика и круги «Выполненные задания». Без детей —
  * только «+» и приглашение добавить ребёнка; расписание и задания не запрашиваются (F9).
+ * Экран фиксированный (ровно в окно): прокручивается только содержимое панели.
  */
 export function ParentHomePage() {
   const { t } = useTranslation('parent-home');
@@ -56,6 +57,7 @@ export function ParentHomePage() {
   else
     hearts = (
       <HeartCarousel
+        data-tour="parent-children"
         aria-label={t('children.label')}
         items={children.map((child) => ({
           key: child.student.id,
@@ -73,7 +75,7 @@ export function ParentHomePage() {
   let panel = null;
   if (selected) {
     panel = (
-      <Stack gap={6}>
+      <Stack gap={5}>
         <ParentHomeSchedule
           key={selected.student.id}
           studentId={selected.student.id}
@@ -97,13 +99,17 @@ export function ParentHomePage() {
   }
 
   return (
-    <Screen gap={4} fill>
+    <Screen gap={4} fit>
       <VisuallyHidden as="h1">{t('title')}</VisuallyHidden>
       <ParentHomeHeader
         onOpenWallet={() => navigate(PARENT_WALLET_PATH, { state: FROM_APP_STATE })}
       />
       {hearts}
-      <ScoopPanel grow>{panel}</ScoopPanel>
+      {/* Экран стоит: кривая панели заходит под ленту сердец, как в макете, а расписание и
+          задания прокручиваются внутри панели, если не влезли в окно (в MAX оно ниже). */}
+      <ScoopPanel grow overlap scroll>
+        {panel}
+      </ScoopPanel>
       <AddChildSheet
         open={addOpen}
         onClose={() => setAddOpen(false)}

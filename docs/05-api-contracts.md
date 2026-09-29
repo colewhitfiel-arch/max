@@ -11,7 +11,8 @@
 - Ошибки: `{ error: { code: ErrorCode, message: string, details?: unknown } }`. HTTP: 400 `VALIDATION`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 422 `BUSINESS_RULE`, 429 `RATE_LIMITED`, 500 `INTERNAL`, 501 `NOT_IMPLEMENTED`, 502 `EXTERNAL_INTEGRATION`. Ручка, которая есть в контракте, но ещё не реализована в API, отвечает 501 `NOT_IMPLEMENTED` (фильтр ошибок сверяет метод и путь с `apiContract`, `common/errors/contract-routes.ts`); неизвестный путь — 404 `NOT_FOUND`. Клиент 4xx и `NOT_IMPLEMENTED` не ретраит.
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
-- Идемпотентность: заголовок `Idempotency-Key` (1–128 символов, `IdempotencyKeyHeadersSchema`) **обязателен** на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`; без него — 400 `VALIDATION`. Повтор с тем же ключом отдаёт первый результат. Клиент держит один ключ на попытку (ретрай и двойной клик — тот же ключ), новый — на новую попытку.
+- Идемпотентность: заголовок `Idempotency-Key` (1–128 символов, `IdempotencyKeyHeadersSchema`) **обязателен** на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`; без него — 400 `VALIDATION`. Повтор с тем же ключом отдаёт первый результат; пока первый запрос с этим ключом ещё выполняется — 409 `CONFLICT` (ключ занимается атомарно до операции, `common/kv/idempotency.ts`). Клиент держит один ключ на попытку (ретрай и двойной клик — тот же ключ), новый — на новую попытку.
+- Лимиты частоты (`common/rate-limit`, fixed window в `KeyValueStore`): вход и обновление сессии (`/auth/max`, `/auth/dev`, `/auth/refresh`) — `RATE_LIMIT_AUTH_PER_MIN` в минуту с IP (последний адрес `X-Forwarded-For`: его ставит Vercel или дописывает nginx стенда — за доверенным TLS-прокси это настоящий клиент, модуль realip; README «Хостинг»); привязка ребёнка по коду и принятие приглашения — `RATE_LIMIT_LINK_PER_HOUR` в час на пару пользователь + IP (посетители публичного стенда под общим демо-родителем не мешают друг другу) и не больше `RATE_LIMIT_LINK_USER_PER_HOUR` в час на пользователя с любых адресов (по умолчанию 50: смена IP перебор кода не открывает; в потолок идут только попытки, прошедшие лимит своего адреса, — общий на всех посетителей демо-аккаунта); вызовы ИИ (сообщения тьютору ученика и родителя, онбординг: реплики и рекомендации) — `RATE_LIMIT_AI_PER_MIN` в минуту на пользователя; создание задачи course-builder (одна задача — много вызовов GigaChat) — отдельно, `RATE_LIMIT_GENERATION_PER_HOUR` в час на пользователя (по умолчанию 10). Сверх лимита — 429 `RATE_LIMITED` и `Retry-After` (секунды до конца окна).
 - Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `routes/streaming.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
@@ -104,7 +105,7 @@ GET /parent/children/:studentId/groups/:groupId/tasks
 GET /teacher/home        → { today: LessonDto[], upcoming: LessonDto[], groups: GroupCard[],
                              toGrade: [{ assignment: AssignmentBrief, pendingCount }],
                              events: NotificationDto[] /* последние 5 */,
-                             stats: { groupsCount, studentsCount, avgAttendanceRate, avgCompletionRate, needsAttentionCount } }
+                             stats: { groupsCount, studentsCount /* разных учеников во всех группах */, avgAttendanceRate, avgCompletionRate, needsAttentionCount } }
 GET /teacher/groups      → { items: GroupCard[] }
 GET /teacher/groups/:groupId
                          → GroupDetail = GroupCard & { schedule: ScheduleRuleDto[],
@@ -164,14 +165,25 @@ GET  /teacher/calendar?from&to                  → { lessons: LessonDto[] }   /
 POST /teacher/groups/:groupId/lessons           { startsAt, endsAt, topic?, room? } → LessonDto   // endsAt > startsAt, иначе 400 VALIDATION
 PATCH /teacher/lessons/:lessonId                { topic?, room?, status?: 'CANCELLED', cancelReason? } → LessonDto
 
-// Свои группы и вступление по ссылке (F19); teacher:groups.manage / student:groups.join
-POST /teacher/groups                    { category, title, description?, price: Money, schedule?: [{ weekday 0..6, startTime, endTime, room? }] }
-                                        → { group: GroupBrief, invite: GroupInvite }   // + кружок в каталоге и занятия на 8 недель
-GET  /teacher/groups/:groupId/invite    → GroupInvite                  // чужая группа — 403; токен выдаётся при первом запросе
-POST /teacher/groups/:groupId/invite/reset → GroupInvite               // новая ссылка, старая — 404
-GET  /student/group-invites/:token      → { token, group: GroupBrief, description, schedule: ScheduleRuleDto[], price: Money,
-                                            billingPeriod, studentsCount, joined: boolean }   // сброшенная ссылка / закрытая группа — 404
-POST /student/group-invites/:token/join → { group: GroupBrief, enrollmentId, alreadyJoined: boolean }   // идемпотентно
+// Группы преподавателя и вступление по ссылке (F19); teacher:groups.manage (чужая группа — 403) / student:groups.join
+POST   /teacher/groups                          { category, title, description?, price: Money, schedule?: [{ weekday 0..6, startTime, endTime, room? }] }
+                                                → { group: GroupBrief, invite: GroupInvite }   // + свой кружок в каталоге школы и занятия
+                                                // по расписанию; title 1..100 (trim); название уже есть среди его активных групп
+                                                // (без учёта регистра) — 409 CONFLICT
+PATCH  /teacher/groups/:groupId                 { title } → GroupBrief
+GET    /teacher/groups/:groupId/candidates?q    → { items: StudentBrief[] }   // ученики школы преподавателя (школа в профиле ученика или
+                                                                            // зачисление не LEFT в активную группу кружка этой школы) и его
+                                                                            // активных групп, не в составе этой группы; q — подстрока
+                                                                            // имени/фамилии/ника; по алфавиту, до 50
+POST   /teacher/groups/:groupId/students        { studentId } → GroupRoster { groupId, students: StudentBrief[] }
+                                                // идемпотентно; ученик не из кандидатов — 404; новое/возвращённое после ухода
+                                                // зачисление → событие enrollment.created
+DELETE /teacher/groups/:groupId/students/:studentId → GroupRoster   // зачисление → LEFT (leftAt), оплаты и история остаются; идемпотентно
+GET    /teacher/groups/:groupId/invite          → GroupInvite                  // токен выдаётся при первом запросе
+POST   /teacher/groups/:groupId/invite/reset    → GroupInvite                  // новая ссылка, старая — 404
+GET    /student/group-invites/:token            → { token, group: GroupBrief, description, schedule: ScheduleRuleDto[], price: Money,
+                                                    billingPeriod, studentsCount, joined: boolean }   // сброшенная ссылка / закрытая группа — 404
+POST   /student/group-invites/:token/join       → { group: GroupBrief, enrollmentId, alreadyJoined: boolean }   // идемпотентно
 
 GroupInvite = { token, url }   // url = ${WEB_URL}/join/${token}; многоразовая, бессрочная
 ```
@@ -241,24 +253,30 @@ POST /teacher/submissions/:id/grade      { score: number, feedback?: string, sta
 
 SubmissionDto = { id, assignmentId, status, score?, isLate, attemptsCount, submittedAt?, gradedAt?, feedback?, text?, fileIds: Id[] }
 TeacherAssignmentCard = AssignmentBrief & { description?, publishedAt?, studentIds: Id[] /* пусто — всей группе */, courseId?,
-                                            studentsCount /* адресаты или весь состав */, submittedCount, gradedCount }
+                                            studentsCount /* адресаты или весь состав — только текущий (ACTIVE) */,
+                                            submittedCount, gradedCount /* сдачи этих же учеников */ }
 HomeworkClub = { club: ClubBrief, group: GroupBrief, openCount /* открытые задания */, points /* баллы по кружку, формула — analytics */,
                  nextAssignment?: AssignmentBrief /* ближайшее открытое по дедлайну */ }
 ```
 
 ### `ai.ts` — владелец B10 (секции — A1/A2/A4)
 ```
-POST /student/onboarding/start           → { conversationId, message: AiMessageDto }
-POST /student/onboarding/messages        { conversationId, text } → SSE; done { messageId, isComplete: boolean, profileDraft?: OnboardingProfileDraft }
+POST /student/onboarding/start           → { conversationId, message: AiMessageDto, history?: AiMessageDto[], profileDraft?, clubOptions?: ClubCard[] }
+                                          // незавершённое знакомство (kind ONBOARDING) продолжается: history — вся лента,
+                                          // profileDraft — если диалог уже собрал профиль, clubOptions — кнопки последней реплики
+POST /student/onboarding/messages        { conversationId, text } → SSE; done { messageId, isComplete: boolean, profileDraft?: OnboardingProfileDraft, clubOptions?: ClubCard[] }
+                                          // clubOptions — кружки школы, предложенные репликой (модель называет их в `clubOptions`,
+                                          // плюс упомянутые в тексте); клиент показывает кнопками, нажатие отправляет название
 GET  /student/onboarding/recommendations → { items: [{ club: ClubCard, reason: string, score: number }] }   // после isComplete
 POST /student/onboarding/complete        { selectedClubIds: Id[], laterClubIds?: Id[], profileDraft: OnboardingProfileDraft } → MeDto
                                           // selected — запись сейчас; later — «попробовать позже» (спрос, без записи);
-                                          // показанные, но не выбранные → SKIPPED. Диалог знакомства становится чатом тьютора (kind TUTOR)
+                                          // показанные, но не выбранные → SKIPPED. Диалог знакомства становится чатом тьютора
+                                          // (kind TUTOR, title «Знакомство с тьютором» — так он виден в истории чатов)
 GET  /teacher/clubs/demand               → { students, futureInterests: [{ label, count }], items: [{ club: ClubCard, chosen, later, skipped, avgScore?, reasons[] }] }
                                           // Enrollment в первую активную группу каждого кружка (MVP)
 
-GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>
-POST /ai/conversations                   { kind: 'TUTOR' } → ConversationDto
+GET  /ai/conversations?kind=TUTOR&cursor → Paginated<ConversationDto>   // история чатов: свежие сверху; title — по первому вопросу
+POST /ai/conversations                   { kind: 'TUTOR' } → ConversationDto   // клиент создаёт диалог первой отправкой нового чата
 GET  /ai/conversations/:id/messages?cursor → Paginated<AiMessageDto>   // лента с конца: первая страница — последние
                                           // limit сообщений (внутри — по возрастанию времени), nextCursor ведёт к более старым
 POST /ai/conversations/:id/messages      { text } → SSE token/done/error      // rate limit: AI_TUTOR_DAILY_LIMIT
@@ -287,16 +305,17 @@ DELETE /parent/children/:studentId       → 204 (REVOKED)
 GET    /parent/children/:studentId/clubs → { items: [{ club: ClubCard, group: GroupBrief, enrollmentId, schedule: ScheduleRuleDto[],
                                               progress: ClubProgress, paidUntil?: string, nextPaymentAt: string, price: Money }] }
 POST   /parent/children/invites          → { token, url, expiresAt }   // ссылка-приглашение ребёнку, живёт 7 дней
-GET    /student/parent-invites/:token    student → { token, parent: UserBrief, expiresAt, status: PENDING|ACCEPTED|EXPIRED }
+GET    /student/parent-invites/:token    student → { token, parent: UserBrief, expiresAt, status: PENDING|ACCEPTED|EXPIRED, alreadyLinked? }
 POST   /student/parent-invites/:token/accept student → { parent: UserBrief, linkStatus }   // связь → ACTIVE
 ```
-`url` строит сервер: сейчас `${origin}/invite/${token}` (экран `/invite/:token`); формат deep link MAX — TODO (workstream J). Поток — docs/07 F14.
+`url` строит сервер: с `MAX_BOT_NAME` — диплинк мини-приложения MAX `https://max.ru/<MAX_BOT_NAME>?startapp=invite_<token>` (хелперы `childInviteStartParam` / `parseChildInviteStartParam` в `family.ts`), без него — `${WEB_URL}/invite/<token>` (экран `/invite/:token`). `alreadyLinked` — ученик уже привязан к этому родителю. `accept`: повтор тем же учеником — 200, пока связь ACTIVE (после отвязки — 422); чужой по принятой ссылке и уже привязанный ребёнок — 409 `CONFLICT` (во втором случае ссылка не гасится); истёкшая и своё же приглашение — 422 `BUSINESS_RULE`; нет такого — 404. Поток — docs/07 F14.
 
 ### `payments.ts` — владелец B8
 ```
 GET  /parent/children/:studentId/payments → { periods: [{ enrollmentId, club: ClubBrief, paidUntil?, nextPaymentAt, price: Money }],
                                                history: Paginated<PaymentDto> }
 POST /parent/children/:studentId/payments { enrollmentId, periodsCount: 1..12 } → { paymentId, confirmationUrl, amount: Money }   // Idempotency-Key
+                                          // чужое зачисление или ученик ушёл из группы (LEFT) — 404 NOT_FOUND
 GET  /parent/payments/:paymentId          → PaymentDto
 GET  /parent/wallet                       → { balance: Money }
 POST /parent/wallet/top-up                { amountKopecks: 10000..10000000 } → { balance: Money }   // Idempotency-Key; ЗАГЛУШКА (docs/07 F13)
@@ -326,7 +345,7 @@ POST /files/upload-url     { fileName, mime, sizeBytes, purpose: FilePurpose } �
 POST /files/:fileId/confirm → FileDto
 GET  /files/:fileId         → FileDto        // доступ по policies владельца/группы
 ```
-Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ. Текст извлекается пока только из pdf, docx, txt, md: задачу course-builder с материалами png/jpg/pptx сервер отклоняет сразу (422 `BUSINESS_RULE`).
+Лимиты: MATERIAL ≤ 50 МБ (pdf, docx, pptx, txt, md, png, jpg), SUBMISSION ≤ 20 МБ, BLOCK_MEDIA ≤ 200 МБ, AVATAR ≤ 2 МБ. Заявленные `sizeBytes` и `mime` входят в подпись ссылки загрузки (S3: `Content-Length` и `Content-Type`, локально — токен), ссылка живёт 15 мин; `confirm` объект больше заявленного не подтверждает (400 `VALIDATION`) и удаляет. Текст извлекается пока только из pdf, docx, txt, md: задачу course-builder с материалами png/jpg/pptx сервер отклоняет сразу (422 `BUSINESS_RULE`).
 
 ### `course-builder.ts` — владелец A5 (скелет в F4)
 ```
@@ -388,12 +407,15 @@ NotificationSettingsDto = { lessons, assignments, grades, attendance, insights, 
 
 ## 5.5. Моки и фикстуры
 
-`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO, намеренно маленький (фактический состав — шапка `fixtures/index.ts` и `FOUNDATION.md` §5): 1 школа (`Europe/Moscow`), 4 пользователя, 2 кружка (робототехника, программирование), 2 группы, 1 преподаватель (он же родитель), 2 ученика, 1 родитель (у него 2 ребёнка), 3 зачисления, 3 правила расписания (робототехника пн/чт, программирование вт), 5 занятий со смещением −7…+4 дня от «сегодня» и 4 отметки посещаемости на двух прошедших, курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, диалог с ИИ, платёж с оплаченным периодом, уведомление. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
+`packages/contracts/src/fixtures/` — «демо-мир» в виде DTO, намеренно маленький (фактический состав — шапка `fixtures/index.ts` и `FOUNDATION.md` §5): 1 школа (`Europe/Moscow`), 4 пользователя, 2 кружка (робототехника, программирование), 2 группы, 1 преподаватель (он же родитель), 2 ученика, 1 родитель (у него 2 ребёнка), 3 зачисления, 3 правила расписания (робототехника пн/чт, программирование вт), 6 занятий со смещением −7…+4 дня от «сегодня» и 5 отметок посещаемости на трёх прошедших (в том числе вчерашний Python), курс с 4 блоками (TEXT/VIDEO/QUIZ/HOMEWORK), 3 задания, 1 сдача, спрос на кружки из онбординга Алексея (`demoClubInterests`: записался в оба), диалог с ИИ, платёж с оплаченным периодом и поступлением в кошелёк Марии, уведомления ученика, родителя и преподавателя. MSW-хендлеры (`apps/web/src/shared/api/mocks/handlers/<domain>.ts`) и seed (`packages/db/src/seed`) строятся из одних фикстур, чтобы FE на моках и на реальном API видел одно и то же.
 
 Даты, которые должны «жить» относительно сегодняшнего дня, задаются смещением и материализуются функциями (`now`, смещение пояса школы — по умолчанию 180 мин):
-- `materializeLessons(specs, now, tz)` — общая функция (её используют и моки); `materializeDemoLessons(now, tz)` — обёртка над `demoLessonSpecs`. День считается по часам школы. Все 5 демо-занятий разовые (`ruleId: null`): их даты плавают и с днём недели правил не совпадают.
+- `materializeLessons(specs, now, tz)` — общая функция (её используют и моки); `materializeDemoLessons(now, tz)` — обёртка над `demoLessonSpecs`. День считается по часам школы. Все 6 демо-занятий разовые (`ruleId: null`): их даты плавают вместе с «сегодня» и могут лечь на слот правила — своей группы или другой группы того же преподавателя (Мария ведёт обе демо-группы, Алексей ходит в обе). Занятия из правил создаёт api (`schedule.materialize`, docs/04) и такие слоты пропускает; seed при переезде демо-занятия удаляет неотменённые занятия демо-правил под ним во всех демо-группах этого преподавателя.
 - `materializeDemoAttendance(now, tz)` — посещаемость с `markedAt` = начало занятия. У константы `demoAttendance` `markedAt` — заглушка, напрямую её не брать.
 - `materializeDemoPayment(now, tz)` / `materializeDemoPaidPeriod(now, tz)` — оплата Ольги за робототехнику Алексея 22 дня назад (10:00 по часам школы), период 30 дней с дня оплаты. Констант `demoPayment`/`demoPaidPeriod` больше нет.
-- `demoAssignmentDueOffsets` — дедлайны заданий в днях от «сейчас».
+- `demoAssignmentDueOffsets` — дедлайны заданий в днях от «сейчас» (задачи по Python — срок 2 дня назад).
+- `materializeDemoSubmissions(now, tz)` — сдача Алексея 3 дня назад в 18:00 (до срока), проверена на следующий день в 10:00. У константы `demoSubmissions` даты — заглушки.
+- `materializeDemoWalletIncome(now, tz)` — поступление Марии (INCOME) от демо-оплаты: та же сумма, момент оплаты.
+- `materializeDemoRoleNotifications(now, tz)` — уведомления Ольги (оплата прошла) и Марии (новая сдача) с временем самих событий.
 
-Остальные даты (`createdAt`, `publishedAt`, сдача, диалог) — фиксированная `T0 = 2026-09-01`.
+Остальные даты (`createdAt`, `publishedAt`, диалог) — фиксированная `T0 = 2026-09-01`.

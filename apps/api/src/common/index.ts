@@ -5,6 +5,7 @@ export * from './kv';
 export * from './logger';
 export * from './pagination/cursor';
 export * from './prisma';
+export * from './rate-limit';
 export * from './queue';
 export * from './time/time';
 export * from './validation/zod-validation.pipe';

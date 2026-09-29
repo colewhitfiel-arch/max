@@ -1,28 +1,16 @@
-import { LOCALES, THEMES, type Locale, type Theme } from '@edu/contracts';
-import {
-  Card,
-  CheckIcon,
-  GlobeIcon,
-  IconTile,
-  ListRow,
-  MoonIcon,
-  SegmentedControl,
-  Sheet,
-  Text,
-  useToast,
-} from '@edu/ui';
-import { useState } from 'react';
+import { THEMES, type Theme } from '@edu/contracts';
+import { Card, IconTile, ListRow, MoonIcon, SegmentedControl, useToast } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useUpdateSettings } from '@/entities/session';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
-import { setLanguage } from '@/shared/i18n';
 import { useUiStore } from '@/shared/store/ui-store';
 import { SettingsGroup } from './SettingsGroup';
 
 /**
- * «Внешний вид»: тема (`SegmentedControl` внутри строки) и язык (строка → bottom sheet со списком).
- * Сохраняет через `PATCH /me/settings`; тема и язык применяются сразу и откатываются при ошибке.
+ * «Внешний вид»: тема (`SegmentedControl` внутри строки). Выбора языка нет ни у одной роли
+ * (docs/00 §1.4): интерфейс всегда на русском. Тема сохраняется через `PATCH /me/settings`,
+ * применяется сразу и откатывается при ошибке.
  */
 export function AppearanceSettings() {
   const { t } = useTranslation('common');
@@ -31,7 +19,6 @@ export function AppearanceSettings() {
   const updateSettings = useUpdateSettings();
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
-  const [languageOpen, setLanguageOpen] = useState(false);
 
   if (!me) return null;
 
@@ -43,26 +30,6 @@ export function AppearanceSettings() {
       {
         onError: (error) => {
           setTheme(prev);
-          toast.show({
-            tone: 'danger',
-            title: t('account.settingsError'),
-            description: describeApiError(error),
-          });
-        },
-      },
-    );
-  };
-
-  const onLocale = (locale: Locale) => {
-    setLanguageOpen(false);
-    const prev = me.settings.locale;
-    if (locale === prev) return;
-    void setLanguage(locale);
-    updateSettings.mutate(
-      { locale },
-      {
-        onError: (error) => {
-          void setLanguage(prev);
           toast.show({
             tone: 'danger',
             title: t('account.settingsError'),
@@ -94,47 +61,7 @@ export function AppearanceSettings() {
             />
           }
         />
-        <ListRow
-          left={
-            <IconTile tone="success">
-              <GlobeIcon />
-            </IconTile>
-          }
-          title={t('settings.language')}
-          right={t(`locale.${me.settings.locale}`)}
-          chevron
-          onClick={() => setLanguageOpen(true)}
-        />
       </Card>
-
-      <Sheet
-        open={languageOpen}
-        onClose={() => setLanguageOpen(false)}
-        title={t('settings.languageSheet')}
-        closeLabel={t('actions.close')}
-      >
-        <Card padding="none">
-          {LOCALES.map((value) => {
-            const active = value === me.settings.locale;
-            return (
-              <ListRow
-                key={value}
-                title={t(`locale.${value}`)}
-                right={
-                  active ? (
-                    <Text as="span" tone="primary">
-                      <CheckIcon />
-                    </Text>
-                  ) : undefined
-                }
-                chevron={false}
-                onClick={() => onLocale(value)}
-                aria-current={active ? 'true' : undefined}
-              />
-            );
-          })}
-        </Card>
-      </Sheet>
     </SettingsGroup>
   );
 }

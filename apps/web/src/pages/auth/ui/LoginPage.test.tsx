@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useDemoTourStore } from '@/features/demo-tour';
 import { ApiClientError } from '@/shared/api/errors';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import type * as ConfigModule from '@/shared/config';
@@ -48,6 +49,7 @@ describe('LoginPage (max)', () => {
 
   afterEach(() => {
     resetAuthStore();
+    useDemoTourStore.getState().stop();
   });
 
   it('после выхода вход через MAX запускается сам и один раз (StrictMode)', async () => {
@@ -63,5 +65,23 @@ describe('LoginPage (max)', () => {
     renderLogin();
     await user.click(await screen.findByRole('button', { name: 'Повторить' }));
     expect(loginMax).toHaveBeenCalledTimes(2);
+  });
+
+  it('пока идёт вход через MAX — без демонстрационного режима, после ошибки — кнопка запускает тур', async () => {
+    const user = userEvent.setup();
+    loginMax.mockImplementation(() => new Promise<never>(() => {}));
+    const { unmount } = renderLogin();
+    await waitFor(() => expect(loginMax).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Демонстрационный режим' })).toBeNull();
+    unmount();
+
+    loginMax.mockImplementation(() => {
+      const error = new ApiClientError({ code: 'UNAUTHORIZED', message: 'нет', status: 401 });
+      useAuthStore.setState({ status: 'anonymous', error });
+      return Promise.reject(error);
+    });
+    renderLogin();
+    await user.click(await screen.findByRole('button', { name: 'Демонстрационный режим' }));
+    expect(useDemoTourStore.getState()).toMatchObject({ active: true, index: 0 });
   });
 });

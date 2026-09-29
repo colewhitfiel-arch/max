@@ -29,7 +29,11 @@ export type UnreadCount = z.infer<typeof UnreadCountSchema>;
 // ---------- Query и тела запросов ----------
 
 /** Булев query-параметр: в строке запроса приходит `true`/`false`. */
-const BooleanQuerySchema = z.enum(['true', 'false']).transform((value) => value === 'true');
+// Сервер разбирает query как JSON (`jsonQuery`), поэтому `?unreadOnly=true` приходит уже булевым;
+// клиент же типизирован строкой — принимаем оба вида, на выходе всегда boolean.
+const BooleanQuerySchema = z
+  .union([z.boolean(), z.enum(['true', 'false'])])
+  .transform((value) => value === true || value === 'true');
 
 export const ListNotificationsQuerySchema = PaginationQuerySchema.extend({
   unreadOnly: BooleanQuerySchema.optional(),

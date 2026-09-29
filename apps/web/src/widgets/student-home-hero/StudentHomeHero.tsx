@@ -28,5 +28,6 @@ export function StudentHomeHero({ subjects, allSubjects }: StudentHomeHeroProps)
     shown.length > 0
       ? shown.map((subject) => ({ key: subject.id, src: clubIcon(subject.category) }))
       : [{ key: 'placeholder', src: projectAlt }];
-  return <IllustrationRow items={items} muted={muted} aria-hidden="true" />;
+  // fluid: на главной без скролла (`Screen fit`) ряд забирает оставшуюся высоту экрана.
+  return <IllustrationRow items={items} muted={muted} fluid aria-hidden="true" />;
 }

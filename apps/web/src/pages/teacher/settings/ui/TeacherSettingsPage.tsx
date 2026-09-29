@@ -21,7 +21,6 @@ import {
   ProfileCard,
   SettingsGroup,
 } from '@/widgets/account-section';
-import { NotificationSettings } from '@/widgets/notification-settings';
 
 /**
  * «Работа»: разделы репетитора, которых нет в нижнем меню, — кошелёк (он же открывается чипом
@@ -94,9 +93,9 @@ function WorkSettings() {
 }
 
 /**
- * `/teacher/settings` — как у родителя (F16): карточка профиля, «Работа», внешний вид (тема и
- * язык), уведомления преподавателя, роль (смена на другую роль) и поддержка, выход. Заменяет
- * прежний экран «Ещё» (`/teacher/more` — редирект сюда).
+ * `/teacher/settings` — карточка профиля, «Работа», внешний вид (только тема), роль (смена на
+ * другую роль) и поддержка, выход. Уведомлений, языка и подписи о приложении у преподавателя
+ * нет. Заменяет прежний экран «Ещё» (`/teacher/more` — редирект сюда).
  */
 export function TeacherSettingsPage() {
   const { t } = useTranslation('teacher-profile');
@@ -107,9 +106,8 @@ export function TeacherSettingsPage() {
         <ProfileCard to="/teacher/profile" />
         <WorkSettings />
         <AppearanceSettings />
-        <NotificationSettings role="TEACHER" />
         <AccountSettings />
-        <LogoutButton />
+        <LogoutButton showAbout={false} />
       </Screen>
     </>
   );

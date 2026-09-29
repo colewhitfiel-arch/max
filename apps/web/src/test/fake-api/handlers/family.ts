@@ -43,8 +43,9 @@ function activateLink(parentId: string, studentId: string): void {
 }
 
 /**
- * Ссылка на экран `/invite/:token` мини-аппа. Формат deep link MAX — TODO (workstream J);
- * в Node-тестах `location` нет — берём http://localhost.
+ * Ссылка на экран `/invite/:token` — как у сервера без `MAX_BOT_NAME` (с ним сервер отдаёт
+ * диплинк `https://max.ru/<бот>?startapp=invite_<token>`). В Node-тестах `location` нет —
+ * берём http://localhost.
  */
 function inviteUrl(token: string): string {
   const origin =
@@ -145,15 +146,17 @@ export const familyHandlers = [
   http.get<{ token: string }>(
     apiUrl('/student/parent-invites/:token'),
     authed(
-      ({ params }) => {
+      ({ auth, params }) => {
         const invite = db.invites.find((i) => i.token === params.token);
         const parentUserId = invite && parentUserIdOf(invite.parentId);
         if (!invite || !parentUserId) return apiError('NOT_FOUND', 'Приглашение не найдено');
+        const student = studentOfUser(auth.user.id);
         return json(ParentInviteSchema, {
           token: invite.token,
           parent: userBrief(parentUserId),
           expiresAt: invite.expiresAt,
           status: inviteStatus(invite),
+          alreadyLinked: student ? isLinked(invite.parentId, student.id) : false,
         });
       },
       ['STUDENT'],

@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { IdSchema } from '../common';
 import { OnboardingProfileDraftSchema } from './ai';
+import { ClubCardSchema } from './catalog';
 import { type RouteMeta, userRoute } from './meta';
 
 export { AiStreamEventSchema, type AiStreamEvent } from '../entities';
@@ -54,6 +55,11 @@ export const OnboardingStreamEventSchema = z.discriminatedUnion('type', [
     /** true — профиль собран, можно запрашивать рекомендации. */
     isComplete: z.boolean(),
     profileDraft: OnboardingProfileDraftSchema.optional(),
+    /**
+     * Кружки, которые тьютор предложил в этой реплике: клиент показывает их кнопками, ученик
+     * выбирает кружок одним нажатием, без ввода названия. Только кружки школы ученика.
+     */
+    clubOptions: z.array(ClubCardSchema).optional(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
 ]);

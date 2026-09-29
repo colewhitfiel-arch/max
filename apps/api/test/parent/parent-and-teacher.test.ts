@@ -57,7 +57,9 @@ describe.skipIf(!hasTestDatabase)('родитель и преподавател�
   });
 
   it('приглашение по ссылке: ученик видит его и принимает', async () => {
-    const invitingParent = await loginAs('max-parent-invite', 'PARENT');
+    // Новый родитель на каждый прогон: тестовая БД не сбрасывается, а уже привязанного ребёнка
+    // повторное приглашение того же родителя не принимает (409, docs/07 F14).
+    const invitingParent = await loginAs(`max-parent-invite-${Date.now()}`, 'PARENT');
     const invite = await http()
       .post(`${base}/parent/children/invites`)
       .set('Authorization', `Bearer ${invitingParent}`)
@@ -147,6 +149,25 @@ describe.skipIf(!hasTestDatabase)('родитель и преподавател�
     expect(second.body.paymentId).toBe(first.body.paymentId);
   });
 
+  it('параллельные пополнения с одним Idempotency-Key зачисляют сумму один раз', async () => {
+    const wallet = () =>
+      http().get(`${base}/parent/wallet`).set('Authorization', `Bearer ${parent}`).expect(200);
+    const before = await wallet();
+    const key = `test-topup-parallel-${Date.now()}`;
+    const topUp = () =>
+      http()
+        .post(`${base}/parent/wallet/top-up`)
+        .set('Authorization', `Bearer ${parent}`)
+        .set('Idempotency-Key', key)
+        .send({ amountKopecks: 500_00 });
+    const responses = await Promise.all([topUp(), topUp(), topUp(), topUp()]);
+    // Пока первый выполняется — 409, после — повтор отдаёт тот же баланс
+    expect(responses.every((r) => r.status === 200 || r.status === 409)).toBe(true);
+    expect(responses.some((r) => r.status === 200)).toBe(true);
+    const after = await wallet();
+    expect(after.body.balance.amountKopecks).toBe(before.body.balance.amountKopecks + 500_00);
+  });
+
   it('вывод больше баланса — BUSINESS_RULE', async () => {
     const wallet = await http()
       .get(`${base}/teacher/wallet`)
@@ -184,6 +205,19 @@ describe.skipIf(!hasTestDatabase)('родитель и преподавател�
     expect(res.body.groups.length).toBeGreaterThan(0);
     expect(res.body.stats.groupsCount).toBe(res.body.groups.length);
     expect(Array.isArray(res.body.toGrade)).toBe(true);
+
+    // Ученики — разные люди, а не зачисления: Алексей в двух группах считается один раз.
+    const details = await Promise.all(
+      res.body.groups.map((group: { id: string }) =>
+        http().get(`${base}/teacher/groups/${group.id}`).set('Authorization', `Bearer ${teacher}`),
+      ),
+    );
+    const distinct = new Set(
+      details.flatMap((detail) =>
+        (detail.body.students as Array<{ student: { id: string } }>).map((row) => row.student.id),
+      ),
+    );
+    expect(res.body.stats.studentsCount).toBe(distinct.size);
   });
 
   it('карточка ученика преподавателя показывает только его группы', async () => {

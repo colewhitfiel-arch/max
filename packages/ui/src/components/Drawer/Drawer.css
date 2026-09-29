@@ -65,6 +65,23 @@
   padding: 0 var(--ui-space-4) var(--ui-space-4);
 }
 
+/* Слева (история чатов): зеркально — у левого края колонки контента. */
+.ui-drawer__dialog[data-side='left'] {
+  right: auto;
+  left: max(0px, calc((100% - var(--ui-content-max-width)) / 2));
+  border-radius: 0 var(--ui-radius-xl) var(--ui-radius-xl) 0;
+  animation-name: ui-drawer-in-left;
+}
+
+@keyframes ui-drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
 @keyframes ui-drawer-in {
   from {
     transform: translateX(100%);

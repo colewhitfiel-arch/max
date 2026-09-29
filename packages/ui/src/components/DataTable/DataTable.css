@@ -36,7 +36,9 @@
   line-height: 1.25;
   text-align: start;
   vertical-align: middle;
+  /* Переносы — между словами; слово шире колонки — по слогам с дефисом, а не по буквам. */
   overflow-wrap: break-word;
+  hyphens: auto;
   font-variant-numeric: tabular-nums;
   transition: background-color var(--ui-duration-fast) var(--ui-easing);
 }

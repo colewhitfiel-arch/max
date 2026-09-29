@@ -45,6 +45,15 @@ export const OnboardingStartResultSchema = z.object({
   conversationId: IdSchema,
   /** Первое сообщение ассистента. */
   message: AiMessageDtoSchema,
+  /**
+   * Незавершённый диалог знакомства продолжается (обновили страницу, вернулись позже): вся
+   * лента по возрастанию времени. Нет поля — диалог новый, лента = `[message]`.
+   */
+  history: z.array(AiMessageDtoSchema).optional(),
+  /** Диалог уже собрал профиль (`done.isComplete` был) — сразу к выбору кружков. */
+  profileDraft: OnboardingProfileDraftSchema.optional(),
+  /** Кружки, которые тьютор предложил в последней реплике (кнопки быстрого ответа). */
+  clubOptions: z.array(ClubCardSchema).optional(),
 });
 export type OnboardingStartResult = z.infer<typeof OnboardingStartResultSchema>;
 

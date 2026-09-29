@@ -33,6 +33,7 @@ export function ParentHomeHeader({ onOpenWallet }: ParentHomeHeaderProps) {
         </Text>
       </Inline>
       <WalletChip
+        data-tour="wallet-chip"
         amount={
           balance ? wholeRubles(balance.amountKopecks, i18n.language) : wallet.isError ? '—' : '…'
         }

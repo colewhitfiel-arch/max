@@ -1,74 +1,115 @@
-import type { ConversationDto } from '@edu/contracts';
-import { Screen, Skeleton, Stack } from '@edu/ui';
-import { useEffect, useRef, useState } from 'react';
+import { EditIcon, IconButton, MenuIcon, Screen, Text } from '@edu/ui';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useConversations, useCreateConversation } from '@/entities/ai';
-import { QueryError, ScreenHeader } from '@/shared/ui';
+import { useNavigate, useParams } from 'react-router';
+import { ScreenHeader } from '@/shared/ui';
+import { ChatHistoryDrawer } from './ChatHistoryDrawer';
 import { TutorChat } from './TutorChat';
 
-/** Самый свежий диалог по времени последнего сообщения (без сообщений — по порядку сервера). */
-function latestConversation(items: ConversationDto[]): ConversationDto | undefined {
-  return [...items].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''))[0];
-}
+/** Корень чата: новый чат. Открытый диалог — `/student/tutor/:conversationId`. */
+const TUTOR_PATH = '/student/tutor';
 
-/** Скелет чата: пара пузырей с обеих сторон и поле ввода. */
-function ChatSkeleton() {
-  return (
-    <Screen fill>
-      <Stack gap={3} grow justify="end" aria-busy="true">
-        <Skeleton height={56} width="70%" />
-        <Stack align="end">
-          <Skeleton height={40} width="55%" />
-        </Stack>
-        <Skeleton height={72} width="80%" />
-        <Skeleton height={52} />
-      </Stack>
-    </Screen>
-  );
+interface ChatSession {
+  /** Диалог из адреса, для которого посчитан `key`. */
+  urlId: string | undefined;
+  /** Ключ ленты: меняется, когда пользователь открывает другой чат или новый. */
+  key: number;
+  /** Диалог, который создала первая отправка текущей ленты: переход на его адрес — та же лента. */
+  adopted: string | null;
 }
 
 /**
- * `/student/tutor` — один непрерывный чат с тьютором (F4), без списка диалогов:
- * берём самый свежий диалог, а если его нет — создаём и сразу открываем ленту.
+ * `/student/tutor[/:conversationId]` — чаты с ИИ-тьютором (F4) в духе ChatGPT: пункт меню
+ * «ИИ-тьютор» открывает новый чат, «Новый чат» в шапке — тоже; слева — история прошлых чатов
+ * (боковая панель), из неё открывается любой старый чат. Диалоги и сообщения хранятся в БД;
+ * новый чат создаётся на сервере первой отправкой, адрес сразу переходит на него.
  */
 export function TutorPage() {
   const { t } = useTranslation('student');
-  const conversations = useConversations();
-  const create = useCreateConversation();
+  const navigate = useNavigate();
+  const { conversationId } = useParams<{ conversationId?: string }>();
   const [streaming, setStreaming] = useState(false);
-  // Guard от повторного создания (StrictMode вызывает эффекты дважды).
-  const createdRef = useRef(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [session, setSession] = useState<ChatSession>({
+    urlId: conversationId,
+    key: 0,
+    adopted: null,
+  });
 
-  const latest = conversations.data ? latestConversation(conversations.data.items) : undefined;
-  const conversationId = latest?.id ?? create.data?.id;
+  // Смена адреса = другой чат, кроме перехода нового чата на только что созданный им диалог:
+  // там лента та же (идёт первый ответ), пересоздавать её нельзя.
+  if (session.urlId !== conversationId) {
+    const adopted = session.urlId === undefined && conversationId === session.adopted;
+    setSession({
+      urlId: conversationId,
+      key: adopted ? session.key : session.key + 1,
+      adopted: null,
+    });
+  }
 
-  useEffect(() => {
-    if (!conversations.isSuccess || latest || createdRef.current) return;
-    createdRef.current = true;
-    create.mutate();
-  }, [conversations.isSuccess, latest, create]);
+  const startNewChat = () => {
+    setHistoryOpen(false);
+    if (conversationId) navigate(TUTOR_PATH);
+    else setSession((current) => ({ ...current, key: current.key + 1, adopted: null }));
+  };
 
+  const openChat = (id: string) => {
+    setHistoryOpen(false);
+    if (id !== conversationId) navigate(`${TUTOR_PATH}/${id}`);
+  };
+
+  // Шапка и чат — одна колонка ровно в высоту области (`fill` + `grow`): пустой чат не
+  // прокручивается на высоту шапки, длинная лента прокручивается под липкими шапкой и полем.
   return (
-    <>
+    <Screen padding="none" gap={0} fill>
       <ScreenHeader
         title={t('tutor.title')}
         subtitle={streaming ? t('tutor.typing') : t('tutor.online')}
+        leading={
+          <IconButton
+            aria-label={t('tutor.history')}
+            aria-haspopup="dialog"
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen(true)}
+          >
+            <Text as="span" tone="muted">
+              <MenuIcon size={26} />
+            </Text>
+          </IconButton>
+        }
+        actions={
+          <IconButton
+            aria-label={t('tutor.newChat')}
+            title={t('tutor.newChat')}
+            onClick={startNewChat}
+          >
+            <Text as="span" tone="muted">
+              <EditIcon size={24} />
+            </Text>
+          </IconButton>
+        }
         bell
         sticky
       />
-      {conversations.isError ? (
-        <Screen>
-          <QueryError error={conversations.error} onRetry={() => void conversations.refetch()} />
-        </Screen>
-      ) : create.isError ? (
-        <Screen>
-          <QueryError error={create.error} onRetry={() => create.mutate()} />
-        </Screen>
-      ) : conversationId ? (
-        <TutorChat conversationId={conversationId} onStreamingChange={setStreaming} />
-      ) : (
-        <ChatSkeleton />
-      )}
-    </>
+      <TutorChat
+        key={session.key}
+        conversationId={conversationId ?? null}
+        onStreamingChange={setStreaming}
+        onConversationCreated={(id) => {
+          setSession((current) => ({ ...current, adopted: id }));
+          navigate(`${TUTOR_PATH}/${id}`, { replace: true });
+        }}
+      />
+      <ChatHistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        activeId={conversationId ?? null}
+        onSelect={openChat}
+        onNewChat={startNewChat}
+        onDeleted={(id) => {
+          if (id === conversationId) navigate(TUTOR_PATH, { replace: true });
+        }}
+      />
+    </Screen>
   );
 }

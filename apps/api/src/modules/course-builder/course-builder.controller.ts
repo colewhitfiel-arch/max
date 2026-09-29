@@ -3,6 +3,7 @@ import { courseBuilderContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
+import { RateLimit } from '../../common/rate-limit/rate-limit';
 import { CourseBuilderService } from './course-builder.service';
 
 /** Реализация contracts/routes/course-builder.ts. */
@@ -11,6 +12,7 @@ import { CourseBuilderService } from './course-builder.service';
 export class CourseBuilderController {
   constructor(private readonly service: CourseBuilderService) {}
 
+  @RateLimit('generation')
   @TsRestHandler(courseBuilderContract.createGenerationJob)
   create(@CurrentUser() user: AuthUser) {
     return tsRestHandler(courseBuilderContract.createGenerationJob, async ({ body }) => ({

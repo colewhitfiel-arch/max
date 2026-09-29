@@ -1,12 +1,16 @@
 export { groupKeys } from './keys';
 export {
-  useCreateGroup,
-  useGroupInvite,
-  useGroupInvitePreview,
-  useJoinGroup,
-  useResetGroupInvite,
   useTeacherGroups,
   useTeacherGroup,
   useTeacherPerformance,
+  useCreateGroup,
+  useUpdateGroup,
+  useGroupCandidates,
+  useAddGroupStudent,
+  useRemoveGroupStudent,
+  useGroupInvite,
+  useResetGroupInvite,
+  useGroupInvitePreview,
+  useJoinGroup,
 } from './api';
 export { groupLabel } from './model';

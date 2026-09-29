@@ -2,7 +2,7 @@ import type { TeacherGroupPerformance } from '@edu/contracts';
 import { BarChart, Text } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { groupLabel } from '@/entities/group';
-import { courseTones } from './model';
+import { barLabel, courseTones } from './model';
 
 export interface TeacherPerformanceAttendanceProps {
   /** Группы преподавателя со счётчиками посещений за выбранный период. */
@@ -12,7 +12,8 @@ export interface TeacherPerformanceAttendanceProps {
 /**
  * Карточка «Посещения» общей успеваемости по макету: слева легенда по курсам («посетили» —
  * цвет курса, «пропустили» — темнее), справа по столбцу на группу (подпись — номер группы,
- * над столбцом — всего отметок). Значения для скринридера — в названии диаграммы.
+ * без номера — название без курса; над столбцом — всего отметок). Значения для скринридера —
+ * в названии диаграммы.
  */
 export function TeacherPerformanceAttendance({ groups }: TeacherPerformanceAttendanceProps) {
   const { t } = useTranslation('teacher-performance');
@@ -45,7 +46,7 @@ export function TeacherPerformanceAttendance({ groups }: TeacherPerformanceAtten
       }))}
       bars={groups.map(({ group, attended, missed }) => ({
         key: group.id,
-        label: groupLabel(group),
+        label: barLabel(group),
         tone: toneOf(group.club.id),
         segments: [
           { key: 'attended', value: attended },

@@ -141,6 +141,114 @@ describe('MaxSdkBridge', () => {
     expect(await bridge.storage.get('k')).toBe('v');
   }, 15000);
 
+  it('DeviceStorage ответил «нет значения» — локальная копия не подставляется', async () => {
+    // В WebView остались токены (в том числе другого MAX-аккаунта), а в DeviceStorage — пусто.
+    localStorage.setItem('max:auth.refresh', 'r-other-account');
+    localStorage.setItem('max:7:auth.refresh', 'r-mirror');
+    installSdk();
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('auth.refresh')).toBeNull();
+  });
+
+  it('DeviceStorage отвечает объектом { key, value } (как в типах MAX Bridge) — берём value', async () => {
+    const store = new Map<string, string>([['auth.refresh', 'r-device']]);
+    localStorage.setItem('max:7:auth.refresh', 'r-mirror');
+    installSdk({
+      DeviceStorage: {
+        setItem: async (key: string, value: string) => {
+          store.set(key, value);
+          return { status: 'updated' };
+        },
+        getItem: async (key: string) => ({ key, value: store.get(key) ?? '' }),
+        removeItem: async (key: string) => {
+          store.delete(key);
+          return { status: 'removed' };
+        },
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('auth.refresh')).toBe('r-device');
+    await bridge.storage.set('theme', 'DARK');
+    expect(await bridge.storage.get('theme')).toBe('DARK');
+    await bridge.storage.remove('theme');
+    expect(await bridge.storage.get('theme')).toBeNull();
+  });
+
+  it('DeviceStorage ответил { value: "" } / { value: null } / "" — «нет значения», копия не подставляется', async () => {
+    localStorage.setItem('max:7:empty', 'mirror');
+    localStorage.setItem('max:7:missing', 'mirror');
+    localStorage.setItem('max:7:bare', 'mirror');
+    const answers: Record<string, unknown> = {
+      empty: { key: 'empty', value: '' },
+      missing: { key: 'missing', value: null },
+      bare: '',
+    };
+    installSdk({
+      DeviceStorage: {
+        setItem: async () => ({ status: 'updated' }),
+        getItem: async (key: string) => answers[key],
+        removeItem: async () => ({ status: 'removed' }),
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('empty')).toBeNull();
+    expect(await bridge.storage.get('missing')).toBeNull();
+    expect(await bridge.storage.get('bare')).toBeNull();
+  });
+
+  it('DeviceStorage упал с ошибкой — читаем локальную копию этого MAX-аккаунта', async () => {
+    localStorage.setItem('max:7:k', 'v');
+    localStorage.setItem('max:8:other', 'v-8');
+    localStorage.setItem('max:other', 'v-shared');
+    installSdk({
+      DeviceStorage: {
+        setItem: () => Promise.reject(new Error('host')),
+        getItem: () => Promise.reject(new Error('host')),
+        removeItem: () => Promise.reject(new Error('host')),
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(await bridge.storage.get('k')).toBe('v');
+    // Копии другого аккаунта и общая (до разделения по аккаунтам) не читаются.
+    expect(await bridge.storage.get('other')).toBeNull();
+  });
+
+  it('DeviceStorage не ответил про токены, но ответил про владельца — чужие токены из копии не берутся', async () => {
+    // Аккаунт 8 входил в этом WebView раньше; сейчас запуск аккаунта 7, и хост отвечает с перебоями.
+    localStorage.setItem('max:8:auth.refresh', 'r-8');
+    localStorage.setItem('max:auth.refresh', 'r-shared');
+    installSdk({
+      DeviceStorage: {
+        setItem: async () => ({ status: 'updated' }),
+        getItem: (key: string) =>
+          key === 'auth.maxUser' ? Promise.resolve({ key, value: '7' }) : new Promise(() => {}),
+        removeItem: async () => ({ status: 'removed' }),
+      },
+    });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    vi.useFakeTimers();
+    try {
+      const refresh = bridge.storage.get('auth.refresh');
+      const owner = bridge.storage.get('auth.maxUser');
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(await refresh).toBeNull();
+      expect(await owner).toBe('7');
+
+      // Своя копия аккаунта 7 при таймауте читается.
+      localStorage.setItem('max:7:auth.refresh', 'r-7');
+      const own = bridge.storage.get('auth.refresh');
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(await own).toBe('r-7');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('вне MAX хранилище мессенджера не используется', async () => {
     const { store } = installSdk({ initData: '' });
     const bridge = new MaxSdkBridge();
@@ -161,11 +269,28 @@ describe('MaxSdkBridge', () => {
     expect(await bridge.storage.get('auth.access')).toBeNull();
   });
 
-  it('без DeviceStorage падает на localStorage', async () => {
+  it('без DeviceStorage падает на localStorage — с префиксом MAX-аккаунта', async () => {
+    localStorage.setItem('max:auth.refresh', 'r-shared');
     installSdk({ DeviceStorage: undefined });
     const bridge = new MaxSdkBridge();
     await bridge.init();
     await bridge.storage.set('k', 'v');
+    expect(localStorage.getItem('max:7:k')).toBe('v');
+    expect(localStorage.getItem('max:k')).toBeNull();
+    // Общая копия (до разделения по аккаунтам) не читается: один раз войдём заново.
+    expect(await bridge.storage.get('auth.refresh')).toBeNull();
+    // И стирается: её токены ещё действительны, а общий префикс читается вне MAX.
+    expect(localStorage.getItem('max:auth.refresh')).toBeNull();
+  });
+
+  it('внутри MAX без id пользователя — общий префикс, как раньше', async () => {
+    localStorage.setItem('max:auth.refresh', 'r-shared');
+    installSdk({ DeviceStorage: undefined, initDataUnsafe: { start_param: 'club-42' } });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    await bridge.storage.set('k', 'v');
     expect(localStorage.getItem('max:k')).toBe('v');
+    // Без аккаунта общая копия — рабочая: не стирается.
+    expect(await bridge.storage.get('auth.refresh')).toBe('r-shared');
   });
 });

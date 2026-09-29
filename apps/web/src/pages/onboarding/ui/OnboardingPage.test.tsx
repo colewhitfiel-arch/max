@@ -1,9 +1,12 @@
 /**
  * Онбординг: провал старта — «Повторить» вместо тупика; ошибка стрима возвращает ответ
- * в поле ввода; «Остановить» до первого токена не добавляет пустой пузырь тьютора.
+ * в поле ввода; «Остановить» до первого токена не добавляет пустой пузырь тьютора. Кружки,
+ * предложенные тьютором, — кнопки: одно нажатие отправляет название; кружок отмечается к записи,
+ * только если ответ принят. Незавершённое знакомство продолжается с той же ленты.
  */
+import type { ClubCard } from '@edu/contracts';
 import { ToastProvider } from '@edu/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +17,12 @@ import '@/shared/i18n';
 import { OnboardingPage } from './OnboardingPage';
 
 type StartOptions = {
-  onSuccess?: (result: { conversationId: string; message: unknown }) => void;
+  onSuccess?: (result: {
+    conversationId: string;
+    message: unknown;
+    history?: unknown[];
+    clubOptions?: unknown[];
+  }) => void;
 };
 
 const hooks = vi.hoisted(() => ({
@@ -25,6 +33,14 @@ const hooks = vi.hoisted(() => ({
     isPending: false,
   },
   streamStart: vi.fn<(path: string, body: unknown) => Promise<unknown>>(),
+  /** Подборка на экране выбора кружков: пустая (запрос включается, когда профиль собран). */
+  recommendations: {
+    data: { items: [] as unknown[] },
+    error: null,
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  },
 }));
 
 vi.mock('@/entities/ai', async (importOriginal) => ({
@@ -36,7 +52,8 @@ vi.mock('@/entities/ai', async (importOriginal) => ({
   ),
   useStartOnboarding: () => hooks.start,
   useCompleteOnboarding: () => ({ mutate: vi.fn(), isPending: false }),
-  useOnboardingRecommendations: () => ({ data: undefined, isPending: true, isError: false }),
+  useOnboardingRecommendations: (enabled: boolean) =>
+    enabled ? hooks.recommendations : { data: undefined, isPending: true, isError: false },
 }));
 
 vi.mock('@/shared/api/sse', () => ({
@@ -61,6 +78,54 @@ const greeting = {
   createdAt: '2026-09-23T09:00:00.000Z',
 };
 
+const robotics: ClubCard = {
+  id: '0190a000-0000-7000-8000-000000000501',
+  title: 'Робототехника',
+  category: 'ROBOTICS',
+  coverUrl: null,
+  description: 'Собираем и программируем роботов',
+  price: { amountKopecks: 300000, currency: 'RUB' },
+  billingPeriod: 'MONTH',
+  tags: [],
+  teachers: [],
+  schedulePreview: [],
+};
+
+/** Реплика тьютора с кнопкой кружка. */
+const offerRobotics = {
+  status: 'done',
+  text: 'Тебе может подойти Робототехника. Что ближе?',
+  messageId: '0190a000-0000-7000-8000-000000000002',
+  done: {
+    type: 'done',
+    messageId: '0190a000-0000-7000-8000-000000000002',
+    isComplete: false,
+    clubOptions: [robotics],
+  },
+};
+
+/** Последняя реплика: профиль собран — дальше экран выбора кружков. */
+const profileComplete = {
+  status: 'done',
+  text: 'Спасибо! Вот что я понял.',
+  messageId: '0190a000-0000-7000-8000-000000000003',
+  done: {
+    type: 'done',
+    messageId: '0190a000-0000-7000-8000-000000000003',
+    isComplete: true,
+    profileDraft: {
+      interests: ['Роботы'],
+      goals: [],
+      weeklyHours: 0,
+      preferredFormats: [],
+      futureInterests: [],
+      summary: '',
+    },
+  },
+};
+
+const PICKED_REASON = 'Ты выбрал этот кружок в разговоре с тьютором';
+
 function renderPage() {
   return render(
     <ToastProvider>
@@ -75,6 +140,7 @@ describe('OnboardingPage', () => {
   beforeEach(() => {
     // jsdom не реализует прокрутку — лента скроллится к последнему сообщению.
     Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.scrollTo = vi.fn();
     hooks.start.isError = false;
     hooks.start.error = null;
     hooks.start.mutate.mockReset();
@@ -126,5 +192,156 @@ describe('OnboardingPage', () => {
     const roles = screen.getAllByTestId('message').map((m) => m.dataset.role);
     expect(roles).toEqual(['ASSISTANT', 'USER']);
     expect(input).toHaveValue('');
+  });
+
+  it('кружки из реплики тьютора — кнопки: одно нажатие отправляет название кружка', async () => {
+    const robotics = { id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' };
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Тебе может подойти Робототехника. Что ближе?',
+      messageId: '0190a000-0000-7000-8000-000000000002',
+      done: {
+        type: 'done',
+        messageId: '0190a000-0000-7000-8000-000000000002',
+        isComplete: false,
+        clubOptions: [robotics],
+      },
+    });
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Отлично!',
+      messageId: '0190a000-0000-7000-8000-000000000003',
+      done: { type: 'done', messageId: '0190a000-0000-7000-8000-000000000003', isComplete: false },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    const options = await screen.findByRole('group', { name: 'Кружки на выбор' });
+
+    await user.click(within(options).getByRole('button', { name: 'Робототехника' }));
+    expect(hooks.streamStart).toHaveBeenLastCalledWith(expect.any(String), {
+      conversationId: 'c1',
+      text: 'Робототехника',
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('group', { name: 'Кружки на выбор' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Робототехника', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('новая реплика с кнопками кружков: скролл-область прокручена до конца, не под поле ввода', async () => {
+    const robotics = { id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' };
+    hooks.streamStart.mockResolvedValueOnce({
+      status: 'done',
+      text: 'Тебе может подойти Робототехника. Что ближе?',
+      messageId: '0190a000-0000-7000-8000-000000000002',
+      done: {
+        type: 'done',
+        messageId: '0190a000-0000-7000-8000-000000000002',
+        isComplete: false,
+        clubOptions: [robotics],
+      },
+    });
+    const user = userEvent.setup();
+    // Скролл-область раскладки (в приложении — AppLayout.Content).
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <div data-testid="scroller" style={{ overflowY: 'auto' }}>
+            <OnboardingPage />
+          </div>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    const scroller = screen.getByTestId('scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 900 });
+    const scrollTo = vi.mocked(Element.prototype.scrollTo);
+    scrollTo.mockClear();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('group', { name: 'Кружки на выбор' });
+
+    // Прокручена сама область до полной высоты: конец реплики и кнопки над «пилюлей» ввода.
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 900 });
+    expect(scrollTo.mock.contexts.at(-1)).toBe(scroller);
+  });
+
+  it('кружок кнопкой, ответ принят: на экране выбора он с причиной и отмечен «Записаться»', async () => {
+    hooks.streamStart.mockResolvedValueOnce(offerRobotics).mockResolvedValueOnce(profileComplete);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    const options = await screen.findByRole('group', { name: 'Кружки на выбор' });
+    await user.click(within(options).getByRole('button', { name: 'Робототехника' }));
+
+    // Подборка пустая, но выбранный в разговоре кружок на экране — и уже отмечен.
+    const choice = await screen.findByRole('group', { name: 'Робототехника' });
+    expect(within(choice).getByRole('button', { name: 'Записаться' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText(PICKED_REASON)).toBeInTheDocument();
+  });
+
+  it('кружок кнопкой, но ответ не ушёл: к записи он не отмечается', async () => {
+    hooks.streamStart
+      .mockResolvedValueOnce(offerRobotics)
+      .mockResolvedValueOnce({ status: 'error', text: '', messageId: null })
+      .mockResolvedValueOnce(profileComplete);
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = screen.getByRole('textbox', { name: 'Сообщение' });
+    await user.type(input, 'Роботы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+    const options = await screen.findByRole('group', { name: 'Кружки на выбор' });
+
+    // Нажатие не ушло: название вернулось в поле — ученик отвечает иначе.
+    await user.click(within(options).getByRole('button', { name: 'Робототехника' }));
+    await waitFor(() => expect(input).toHaveValue('Робототехника'));
+    await user.clear(input);
+    await user.type(input, 'Шахматы');
+    await user.click(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Экран выбора: подборка пуста, Робототехника не подставлена как выбранная в разговоре.
+    expect(await screen.findByText('В школе пока нет активных кружков')).toBeInTheDocument();
+    expect(screen.queryByText(PICKED_REASON)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Робототехника' })).not.toBeInTheDocument();
+  });
+
+  it('незавершённое знакомство продолжается: лента и кнопки кружков восстановлены', async () => {
+    const answer = {
+      ...greeting,
+      id: '0190a000-0000-7000-8000-000000000011',
+      role: 'USER',
+      content: 'Роботы',
+    };
+    const question = {
+      ...greeting,
+      id: '0190a000-0000-7000-8000-000000000012',
+      content: 'Робототехника или шахматы?',
+    };
+    hooks.start.mutate.mockImplementation((_vars, options) =>
+      options?.onSuccess?.({
+        conversationId: 'c1',
+        message: greeting,
+        history: [greeting, answer, question],
+        clubOptions: [{ id: '0190a000-0000-7000-8000-000000000501', title: 'Робототехника' }],
+      }),
+    );
+    renderPage();
+
+    const roles = screen.getAllByTestId('message').map((m) => m.dataset.role);
+    expect(roles).toEqual(['ASSISTANT', 'USER', 'ASSISTANT']);
+    expect(
+      within(screen.getByRole('group', { name: 'Кружки на выбор' })).getByRole('button', {
+        name: 'Робототехника',
+      }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { corsOrigin } from '../../src/bootstrap';
 import { loadEnv } from '../../src/config/env';
 import { testEnv } from '../helpers/env';
 
@@ -38,6 +39,23 @@ describe('env', () => {
         JWT_SECRET: 'dev-only-secret-change-me-please-32chars',
       }),
     ).toThrow(/AUTH_PROVIDER|JWT_SECRET/);
+  });
+
+  it('вне development dev-секрет JWT запрещён: публичный стенд — staging (ADR-014)', () => {
+    const devSecret = 'dev-only-secret-change-me-please-32chars';
+    expect(() => testEnv({ APP_ENV: 'staging', JWT_SECRET: devSecret })).toThrow(/JWT_SECRET/);
+    expect(testEnv({ JWT_SECRET: devSecret }).JWT_SECRET).toBe(devSecret);
+    // Заглушки и dev-вход на staging остаются допустимыми
+    const staging = testEnv({ APP_ENV: 'staging', PAYMENT_PROVIDER: 'fake', AI_PROVIDER: 'mock' });
+    expect(staging.AUTH_PROVIDER).toBe('dev');
+  });
+
+  it('пустой CORS_ORIGINS разрешает любой origin только в development', () => {
+    expect(corsOrigin(testEnv({ CORS_ORIGINS: '' }))).toBe(true);
+    expect(corsOrigin(testEnv({ APP_ENV: 'staging', CORS_ORIGINS: '' }))).toBe(false);
+    expect(corsOrigin(testEnv({ APP_ENV: 'staging', CORS_ORIGINS: 'https://a.example' }))).toEqual([
+      'https://a.example',
+    ]);
   });
 
   it('в production запрещены заглушки оплаты и ИИ', () => {

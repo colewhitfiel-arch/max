@@ -93,26 +93,50 @@ export class AttendanceService {
   }
 
   /**
-   * Публичный сервис: посещаемость учеников группы за период. Зачётные занятия (`countable`) —
-   * те, что уже начались и не отменены (docs/04 §4.6); неотмеченные в посещённые не попадают.
+   * Публичный сервис: посещаемость учеников группы за период, по каждому ученику. Зачётные
+   * занятия (`countable`) — проведённые (`DONE`), уже начавшиеся и не раньше зачисления ученика
+   * в группу, минус его уважительные пропуски (`EXCUSED`) (docs/04 §4.6): неотмеченное занятие
+   * (`PLANNED`) пропуском не считается, а занятия до прихода ученика (новый или возвращённый
+   * в группу) ему не засчитываются. `attended` — отметки `PRESENT|LATE` на зачётных занятиях.
    */
   async attendanceOfGroup(
     groupId: string,
     studentIds: string[],
     period: { from: Date; to: Date },
-  ): Promise<{ countable: number; attendedByStudent: Map<string, number> }> {
+  ): Promise<Map<string, { countable: number; attended: number }>> {
     const now = new Date();
     const to = period.to.getTime() < now.getTime() ? period.to : now;
-    const lessons = await this.groups.listLessons([groupId], period.from, to);
-    const countableLessons = lessons.filter(
-      (lesson) =>
-        lesson.status !== 'CANCELLED' && new Date(lesson.startsAt).getTime() <= now.getTime(),
+    const [lessons, enrolledAt] = await Promise.all([
+      this.groups.listLessons([groupId], period.from, to),
+      this.groups.enrolledAtInGroup(groupId),
+    ]);
+    const startsAt = new Map(
+      lessons
+        .filter(
+          (lesson) =>
+            lesson.status === 'DONE' && new Date(lesson.startsAt).getTime() <= now.getTime(),
+        )
+        .map((lesson) => [lesson.id, new Date(lesson.startsAt).getTime()]),
     );
-    const attendedByStudent = await this.repo.countPresentByStudent(
-      countableLessons.map((lesson) => lesson.id),
-      studentIds,
+    const marks = await this.repo.listMarks([...startsAt.keys()], studentIds);
+    return new Map(
+      studentIds.map((studentId) => {
+        const since = enrolledAt.get(studentId)?.getTime() ?? Number.NEGATIVE_INFINITY;
+        const counts = (at: number | undefined) => at !== undefined && at >= since;
+        const own = marks.filter(
+          (mark) => mark.studentId === studentId && counts(startsAt.get(mark.lessonId)),
+        );
+        const excused = own.filter((mark) => mark.status === 'EXCUSED').length;
+        return [
+          studentId,
+          {
+            countable: [...startsAt.values()].filter(counts).length - excused,
+            attended: own.filter((mark) => mark.status === 'PRESENT' || mark.status === 'LATE')
+              .length,
+          },
+        ];
+      }),
     );
-    return { countable: countableLessons.length, attendedByStudent };
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   BillingPeriod,
+  EnrollmentStatus,
   GroupBrief,
   LessonDto,
   ScheduleRuleDto,
@@ -72,6 +73,8 @@ export interface EnrollmentForBilling {
   id: string;
   studentId: string;
   groupId: string;
+  /** `LEFT` — ученик ушёл из группы: новый платёж по такому зачислению не создаётся. */
+  status: EnrollmentStatus;
   teacherId: string;
   clubId: string;
   enrolledAt: Date;
@@ -85,6 +88,7 @@ type EnrollmentForBillingRow = {
   id: string;
   studentId: string;
   groupId: string;
+  status: EnrollmentStatus;
   enrolledAt: Date;
   group: Omit<GroupWithBrief, 'club'> & {
     teacherId: string;
@@ -105,6 +109,7 @@ function toEnrollmentForBilling(row: EnrollmentForBillingRow): EnrollmentForBill
     id: row.id,
     studentId: row.studentId,
     groupId: row.groupId,
+    status: row.status,
     teacherId: row.group.teacherId,
     clubId: row.group.clubId,
     enrolledAt: row.enrolledAt,
@@ -193,6 +198,18 @@ export class GroupsService {
           'ru',
         ),
       );
+  }
+
+  /**
+   * Даты зачисления состава группы (ACTIVE, `studentId → enrolledAt`): посещаемость и задания
+   * ученика считаются только с этого дня (docs/04 §4.6).
+   */
+  async enrolledAtInGroup(groupId: string): Promise<Map<string, Date>> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: { groupId, status: 'ACTIVE' },
+      select: { studentId: true, enrolledAt: true },
+    });
+    return new Map(rows.map((row) => [row.studentId, row.enrolledAt]));
   }
 
   /** Группы ученика (ACTIVE-зачисления) — по ним видны задания и курсы. */

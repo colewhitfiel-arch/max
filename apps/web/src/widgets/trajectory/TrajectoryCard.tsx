@@ -2,6 +2,8 @@ import type { TrajectoryDto } from '@edu/contracts';
 import {
   Button,
   Card,
+  ChevronDownIcon,
+  ChevronUpIcon,
   EmptyState,
   IconButton,
   IconTile,
@@ -13,15 +15,24 @@ import {
   Text,
   useToast,
 } from '@edu/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRefreshTrajectory, useTrajectory } from '@/entities/ai';
 import { describeApiError } from '@/shared/api/errors';
 import { formatDateTime } from '@/shared/lib/dates';
 import { AsyncState } from '@/shared/ui';
 
-/** Заголовок секции с иконкой ИИ и кнопкой пересчёта. */
-function Header({ pending, onRefresh }: { pending: boolean; onRefresh: () => void }) {
+interface HeaderProps {
+  pending: boolean;
+  onRefresh: () => void;
+  expanded: boolean;
+  onToggle: () => void;
+  /** id содержимого, которое раскрывает кнопка (`aria-controls`). */
+  bodyId: string;
+}
+
+/** Заголовок секции: иконка ИИ, пересчёт (в раскрытом виде) и кнопка «показать / скрыть». */
+function Header({ pending, onRefresh, expanded, onToggle, bodyId }: HeaderProps) {
   const { t } = useTranslation('student');
   const { t: tc } = useTranslation('common');
   return (
@@ -34,11 +45,25 @@ function Header({ pending, onRefresh }: { pending: boolean; onRefresh: () => voi
           {t('profile.trajectory')}
         </Text>
       </Inline>
-      <IconButton aria-label={tc('actions.refresh')} loading={pending} onClick={onRefresh}>
-        <Text as="span" tone="muted">
-          <RefreshIcon />
-        </Text>
-      </IconButton>
+      <Inline gap={1} wrap={false}>
+        {expanded && (
+          <IconButton aria-label={tc('actions.refresh')} loading={pending} onClick={onRefresh}>
+            <Text as="span" tone="muted">
+              <RefreshIcon />
+            </Text>
+          </IconButton>
+        )}
+        <IconButton
+          aria-label={expanded ? t('profile.trajectoryCollapse') : t('profile.trajectoryExpand')}
+          aria-expanded={expanded}
+          aria-controls={bodyId}
+          onClick={onToggle}
+        >
+          <Text as="span" tone="muted">
+            {expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          </Text>
+        </IconButton>
+      </Inline>
     </Inline>
   );
 }
@@ -133,11 +158,16 @@ function TrajectoryBody({ value, queued }: { value: TrajectoryDto; queued: boole
 /** Сколько ждать пересчёта траектории после «Обновить» (подпись обещает «через минуту»). */
 const QUEUE_TIMEOUT_MS = 60_000;
 
-/** Карточка «Моя траектория» (F5): `GET /student/trajectory` + пересчёт по кнопке. */
+/**
+ * Карточка «Моя траектория» (F5): `GET /student/trajectory` + пересчёт по кнопке. Свёрнута по
+ * умолчанию (профиль короче): кнопка-шеврон в заголовке раскрывает и скрывает содержимое.
+ */
 export function TrajectoryCard() {
   const { t } = useTranslation('student');
   const { t: tc } = useTranslation('common');
   const toast = useToast();
+  const bodyId = useId();
+  const [expanded, setExpanded] = useState(false);
   const refresh = useRefreshTrajectory();
   // Момент постановки в очередь: пока generatedAt старше — «пересчитываем» и опрос. Не дольше
   // QUEUE_TIMEOUT_MS: worker может ничего не перегенерировать (данные не изменились), и
@@ -161,33 +191,43 @@ export function TrajectoryCard() {
     });
 
   return (
-    <Stack gap={2}>
-      <Header pending={refresh.isPending} onRefresh={onRefresh} />
-      <AsyncState
-        query={trajectory}
-        isEmpty={(value) => value === null}
-        empty={
-          <Card>
-            <EmptyState
-              icon={<SparkIcon size={40} />}
-              title={t('profile.trajectoryEmpty')}
-              description={queued ? t('profile.trajectoryQueued') : t('profile.trajectoryHint')}
-              action={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={refresh.isPending}
-                  onClick={onRefresh}
-                >
-                  {tc('actions.refresh')}
-                </Button>
-              }
-            />
-          </Card>
-        }
-      >
-        {(value) => value && <TrajectoryBody value={value} queued={queued} />}
-      </AsyncState>
+    <Stack gap={2} data-tour="student-trajectory">
+      <Header
+        pending={refresh.isPending}
+        onRefresh={onRefresh}
+        expanded={expanded}
+        onToggle={() => setExpanded((value) => !value)}
+        bodyId={bodyId}
+      />
+      <div id={bodyId} hidden={!expanded}>
+        {expanded && (
+          <AsyncState
+            query={trajectory}
+            isEmpty={(value) => value === null}
+            empty={
+              <Card>
+                <EmptyState
+                  icon={<SparkIcon size={40} />}
+                  title={t('profile.trajectoryEmpty')}
+                  description={queued ? t('profile.trajectoryQueued') : t('profile.trajectoryHint')}
+                  action={
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={refresh.isPending}
+                      onClick={onRefresh}
+                    >
+                      {tc('actions.refresh')}
+                    </Button>
+                  }
+                />
+              </Card>
+            }
+          >
+            {(value) => value && <TrajectoryBody value={value} queued={queued} />}
+          </AsyncState>
+        )}
+      </div>
     </Stack>
   );
 }

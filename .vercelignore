@@ -1,0 +1,31 @@
+# Что `vercel deploy` (CLI) НЕ отправляет в Vercel: сборка идёт на сервере из исходников
+# (scripts/vercel-build.mjs), а локальное окружение разработчика в прод попадать не должно.
+# Без этого файла CLI загружал и локальный .env: NODE_ENV=development из него превращал
+# `vite build` в dev-бандл, а VITE_* и секреты разработчика уезжали в сборку.
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# deps, сборки, сгенерированное — пересобирается на сервере
+node_modules/
+.pnpm-store/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+packages/db/generated/
+apps/web/public/mockServiceWorker.js
+
+# локальные данные (embedded postgres, файлы, логи)
+.data/
+*.log
+
+# редакторы, тесты, агенты
+.idea/
+.vscode/
+.claude/
+playwright-report/
+test-results/

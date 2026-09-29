@@ -12,6 +12,7 @@ import { RequestValidationError } from '@ts-rest/nest';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { AppLogger } from '../logger/logger.service';
+import { redactPath } from '../logger/redact-path';
 import { getRequestId } from '../logger/request-context';
 import { AppError } from './app-error';
 import { isContractRoute } from './contract-routes';
@@ -166,7 +167,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     const entry = {
       method: req.method,
-      path: req.originalUrl ?? req.url,
+      path: redactPath(req.originalUrl ?? req.url),
       status: n.status,
       code: n.code,
     };

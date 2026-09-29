@@ -1,6 +1,7 @@
 /**
  * Экран заданий преподавателя: две кнопки внизу (задать ДЗ, посещаемость), адресат в подписи
- * задания; мастер «Задать ДЗ» — группа → ученики → материал, и что уходит в create.
+ * задания; мастер «Задать ДЗ» — группа → ученики → материал, и что уходит в create; без групп —
+ * к созданию группы, пустая группа — к её составу.
  */
 import {
   GroupDetailSchema,
@@ -108,6 +109,7 @@ function renderAt(path: string) {
             <Route path="/teacher/assignments" element={<TeacherAssignmentsPage />} />
             <Route path="/teacher/assignments/new" element={<AssignHomeworkPage />} />
             <Route path="/teacher/attendance" element={<div>экран посещаемости</div>} />
+            <Route path="*" element={<div>другой экран</div>} />
           </Routes>
         </MemoryRouter>
       </ToastProvider>
@@ -205,6 +207,41 @@ describe('Мастер «Задать ДЗ»', () => {
   it('без группы дальше не пускает', () => {
     renderAt('/teacher/assignments/new');
     expect(screen.getByRole('button', { name: 'Далее' })).toBeDisabled();
+  });
+
+  it('групп нет — предлагает создать группу', async () => {
+    const user = userEvent.setup();
+    hooks.groups = ready(TeacherGroupsListSchema.parse({ items: [] }));
+    renderAt('/teacher/assignments/new');
+
+    expect(screen.getByText('Сначала создайте группу')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Далее' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Создать группу' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/teacher/groups/new');
+  });
+
+  it('в группе нет учеников — подсказка и переход к составу группы', async () => {
+    const user = userEvent.setup();
+    hooks.groups = ready(
+      TeacherGroupsListSchema.parse({
+        items: [
+          {
+            ...group,
+            studentsCount: 0,
+            attendanceRate: null,
+            completionRate: null,
+            needsAttentionCount: 0,
+            nextLesson: null,
+          },
+        ],
+      }),
+    );
+    renderAt('/teacher/assignments/new');
+    await pickGroup(user);
+
+    expect(screen.getByText(/В группе пока нет учеников/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Добавить учеников' }));
+    expect(screen.getByTestId('location')).toHaveTextContent(`/teacher/groups/${GROUP_ID}/edit`);
   });
 
   it('по умолчанию — вся группа; можно выбрать конкретных учеников', async () => {

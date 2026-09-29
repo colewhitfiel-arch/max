@@ -42,7 +42,7 @@ ClubInterestStatus   CHOSEN | LATER | SKIPPED                         // в cont
 
 Обозначения: `PK` — id (uuid v7), `FK` — ссылка, `?` — nullable, `[]` — массив, `json` — jsonb со схемой в contracts. У всех таблиц есть `createdAt`, `updatedAt`, если не сказано иное. Исключения (как в схеме):
 - только `createdAt` — `UserRole`, `RefreshToken`, `AiMessage`, `PaidPeriod`, `Notification`, `AuditLog`;
-- только `updatedAt` — `CourseProgress`, `StudentStatsDaily`, `NotificationSettings`, `ParentStudentLink` (время создания — `requestedAt`);
+- только `updatedAt` — `CourseProgress`, `StudentStatsDaily`, `NotificationSettings`, `ParentStudentLink` (время создания — `requestedAt`), `KvEntry`;
 - без обоих — `ActivityEvent` (`occurredAt`), `SubmissionAttempt` (`submittedAt`), `AiInsight`, `Trajectory` (`generatedAt`).
 
 Индексы, кроме PK и `unique`, перечислены в §4.2.1.
@@ -90,8 +90,12 @@ ScheduleRule    id PK, groupId FK, weekday 0..6, startTime "HH:mm", endTime "HH:
 Lesson          id PK, groupId FK, ruleId FK?, startsAt, endsAt, topic?, room?, status LessonStatus=PLANNED,
                 cancelReason?                                           unique(ruleId, startsAt)
 ```
-Свои группы преподаватель заводит сам (`POST /teacher/groups`, docs/07 F19): вместе с группой создаётся кружок `Club` в каталоге школы (название, направление, описание и цена — из формы; кружок на группу), правила расписания (`validFrom` — сегодня) и занятия по ним на 8 недель вперёд (идемпотентно по `(ruleId, startsAt)`, уже начавшиеся слоты не создаются). `inviteToken` — 18 случайных байт (base64url), выдаётся сразу; у групп из seed — при первом запросе ссылки; сброс заменяет токен, и старая ссылка перестаёт работать. Вступление по ссылке — `Enrollment` `ACTIVE` (идемпотентно; `LEFT` снова становится `ACTIVE`) и событие `enrollment.created`.
-Занятия материализуются worker'ом из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`.
+Свои группы преподаватель заводит сам (`POST /teacher/groups`, docs/07 F19): по любому из 8 кружков вместе с группой создаётся кружок `Club` в каталоге школы (название, направление, описание и цена — из формы; кружок на группу), правила расписания (`validFrom` — сегодня по часам школы) и сразу — занятия по ним (та же материализация, что ниже). Название уникально среди активных групп преподавателя (без учёта регистра). `inviteToken` — 18 случайных байт (base64url), выдаётся сразу; у групп из seed — при первом запросе ссылки; сброс заменяет токен, и старая ссылка перестаёт работать. Вступление по ссылке — `Enrollment` `ACTIVE` (идемпотентно; `LEFT` снова становится `ACTIVE`) и событие `enrollment.created`.
+Занятия материализуются из правил на 8 недель вперёд (job `schedule.materialize`, ежедневно, идемпотентно по `(ruleId, startsAt)`). Ручные занятия — `ruleId = null`. Реализация — `modules/groups` (`ScheduleMaterializerService`, очередь `schedule`), пока нет отдельного модуля `schedule`:
+- правила только активных групп, дни — с сегодняшнего по часам школы (`School.timezone` школы преподавателя группы) на 8 недель, в пределах `validFrom…validTo` включительно;
+- занятие из правила создаётся один раз (`createMany` с пропуском дублей по `(ruleId, startsAt)`): повтор ничего не дублирует, отменённое не воскрешает;
+- слот пропускается, если у преподавателя группы уже есть неотменённое занятие любой его активной группы, пересекающееся с ним (например, разовое — в том числе плавающие демо-занятия seed'а): преподаватель не ведёт две группы одновременно, а занятия одной группы не пересекаются (инвариант §4.5 п. 9);
+- запуск: HTTP-процесс api (и функция Vercel) ставит job при старте и затем проверяет раз в час; отметка `schedule:materialized:<дата UTC>` в `KeyValueStore` (TTL 26 ч) оставляет одну материализацию в сутки на все процессы и холодные старты, при сбое снимается. Выполняет очередь: inline — сам api, bullmq — worker. При `NODE_ENV=test` сам не запускается (тесты вызывают сервис).
 **Планируется** `Group.code?` — короткий номер группы («001», 1–16 символов), который преподаватель видит в расписании, успеваемости и кошельке (docs/07 F16–F18). Пока есть только в контракте (`GroupBrief.code`, опционально; нет — UI показывает `title`) и в MSW-моках; поле в `groups.prisma` добавляется вместе с backend-ручками групп (workstream E).
 
 ### attendance (`attendance.prisma`)
@@ -125,7 +129,7 @@ SubmissionAttempt id PK, submissionId FK, n int, answers json, score int?, submi
 ```
 Простое задание преподавателя («до пятницы решить 1–10») — `Assignment(type=HOMEWORK, courseId=null, blockId=null)`. Задание из блока курса — `blockId != null`, создаётся при публикации курса.
 
-`studentIds` — адресаты внутри группы: пустой массив (по умолчанию) означает «всей группе», непустой — задание видят, сдают и считаются в `studentsCount` только перечисленные ученики. Список фиксируется в момент создания и не меняется при изменении состава группы.
+`studentIds` — адресаты внутри группы: пустой массив (по умолчанию) означает «всей группе», непустой — задание видят, сдают и считаются в `studentsCount` только перечисленные ученики. Список фиксируется в момент создания и не меняется при изменении состава группы; ученик, убранный из группы (`LEFT`), в `studentsCount`, `submittedCount` и `gradedCount` карточки задания не входит.
 
 ### analytics (`analytics.prisma`)
 ```
@@ -175,7 +179,7 @@ ParentStudentLink parentId FK, studentId FK, status LinkStatus=ACTIVE, requested
 ParentInvite      token PK, parentId FK, expiresAt, acceptedAt?, acceptedBy?
 ```
 Привязка: ребёнок показывает `linkCode` → родитель вводит → link сразу `ACTIVE` (MVP; подтверждение школой — позже).
-Второй способ — ссылка-приглашение (docs/07 F14): родитель создаёт токен (24 случайных байта, живёт 7 дней), ребёнок открывает ссылку и подтверждает → link `ACTIVE`. Ссылка одноразовая: повтор тем же учеником возвращает прежний результат, другим — `CONFLICT`.
+Второй способ — ссылка-приглашение (docs/07 F14): родитель создаёт токен (24 случайных байта, base64url, живёт 7 дней), ребёнок открывает ссылку и подтверждает → link `ACTIVE`, `acceptedAt/acceptedBy` заполняются в той же транзакции (условное обновление `acceptedAt IS NULL` — из двух одновременных принятий проходит одно). Ссылка одноразовая: повтор тем же учеником возвращает прежний результат, пока связь `ACTIVE`, другим — `CONFLICT`; уже привязанный к этому родителю ребёнок получает `CONFLICT`, и токен не гасится.
 
 ### payments (`payments.prisma`)
 ```
@@ -187,7 +191,7 @@ ParentWallet    parentId PK, balanceKopecks int=0, currency "RUB"
 TeacherWalletTransaction id PK, teacherId FK, kind WalletTransactionKind, amountKopecks int,
                 currency "RUB", groupId? FK, studentId? FK, paymentId? , at
 ```
-«Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment; если периодов нет — сегодня.
+«Следующая дата оплаты» = `max(PaidPeriod.periodEnd) + 1 день` для активного enrollment, но не раньше `Enrollment.enrolledAt` (у вернувшегося в группу после ухода старые периоды остаются, а время вне группы не оплачивается); если периодов нет — сегодня.
 Платёж создаётся через порт `PaymentProvider` (`fake` в dev, `yookassa` в бою): наш `Payment.id` — ключ идемпотентности у провайдера, статус закрывается вебхуком `POST /webhooks/payments/:provider` или опросом при `GET /parent/payments/:id`; закрытие идемпотентно (обновление статуса и запись `PaidPeriod` — в одной транзакции). Оплаченные периоды продолжают уже оплаченные, а если те истекли — начинаются с сегодняшнего дня.
 
 Кошелёк родителя (`ParentWallet`, `GET /parent/wallet`, `POST /parent/wallet/top-up`) — баланс настоящий, а **пополнение — заглушка**: сумма зачисляется сразу, без оплаты (100 ₽ … 100 000 ₽ за раз, идемпотентно по `Idempotency-Key`). Поэтому ручка работает только при `PAYMENT_PROVIDER=fake`; с настоящим провайдером она отвечает 501 (docs/07 F13).
@@ -199,7 +203,7 @@ TeacherWalletTransaction id PK, teacherId FK, kind WalletTransactionKind, amount
   - `WITHDRAWAL` — вывод: от 100 ₽ до баланса, идемпотентно по `Idempotency-Key`; `group = student = null`. Реального перевода нет, поэтому ручка работает только при `PAYMENT_PROVIDER=fake`, иначе 501.
 - Период `day | week | month` (по умолчанию `day`) — скользящее окно до «сейчас» (в отличие от календарных окон успеваемости групп в §4.6): `day` — последние 24 часа (в «1 день» попадают и вчерашние вечерние операции, как в макете), `week` — 7 × 24 часа, `month` — 30 × 24 часа. Транзакции — с `at` в `(from, to]`.
 - `history` — баланс в равноотстоящих точках окна: `day` — 7 точек через 4 часа, `week` — 8 точек через сутки, `month` — 31 точка через сутки. Первая точка — баланс на `from`, последняя — текущий. Подписи оси X экран строит сам по периоду.
-- «Вам должны» (`debts`) — активные `Enrollment` групп преподавателя, у которых следующий платёж уже просрочен или наступит в ближайшие 45 дней. Следующий платёж (`dueAt`) — `max(PaidPeriod.periodEnd) + 1 день`; если оплаченных периодов нет — дата зачисления (долг с начала занятий, то есть просрочено; у родителя в этом случае «следующая дата оплаты» — сегодня, см. выше). Сумма — `Club.priceKopecks`, порядок — по `dueAt`.
+- «Вам должны» (`debts`) — активные `Enrollment` групп преподавателя, у которых следующий платёж уже просрочен или наступит в ближайшие 45 дней. Следующий платёж (`dueAt`) — `max(PaidPeriod.periodEnd) + 1 день`, но не раньше даты зачисления; если оплаченных периодов нет — дата зачисления (долг с начала занятий, то есть просрочено; у родителя в этом случае «следующая дата оплаты» — сегодня, см. выше). Сумма — `Club.priceKopecks`, порядок — по `dueAt`.
 
 Осталось до полноценных выплат (workstream I): доля школы в поступлении и вывод со статусом через провайдера — сейчас `WITHDRAWAL` списывает баланс сразу и никуда не переводит.
 
@@ -211,6 +215,12 @@ NotificationSettings userId PK, lessons bool, assignments bool, grades bool, att
 SupportTicket   id PK, userId FK, subject, message, status TicketStatus=OPEN
 AuditLog        id PK, actorUserId FK, action, entityType, entityId, diff json?
 ```
+
+### kv (`kv.prisma`) — владелец core
+```
+KvEntry         key PK (строка, не uuid), value json, expiresAt?, updatedAt
+```
+Хранилище порта `KeyValueStore` (`apps/api/src/common/kv`) при `KV_DRIVER=postgres`: идемпотентность, дневные лимиты, кэш контекста, отметка ежедневной материализации расписания, общие для всех инстансов serverless (ADR-014). Запись с прошедшим `expiresAt` не читается; протухшие удаляются по случаю при записи (`set`, `incr` — в том числе счётчиками rate-limit, которые после своего окна никто не читает). При `KV_DRIVER=memory` таблица пустует, а протухшие ключи из памяти процесса запись убирает раз в минуту. Ни один модуль не читает её напрямую — только через порт.
 
 ### 4.2.1. Индексы
 
@@ -244,6 +254,7 @@ paid_periods            (enrollmentId, periodEnd); (paymentId)
 notifications           (userId, createdAt); (userId, readAt)
 support_tickets         (userId, createdAt)
 audit_logs              (entityType, entityId); (actorUserId, createdAt)
+kv_entries              (expiresAt)                       // key — PK
 ```
 FK покрыт, если он первая колонка индекса, `unique` или PK. Сейчас не покрыты: `Attendance.markedById`, `Submission.gradedById`, `CourseGenerationJob.groupId`, `AiInsight.studentId` (в `unique(kind, studentId, …)` он второй) — выборок «все строки по этому FK» нет; индекс добавляется вместе с первой такой выборкой.
 
@@ -297,7 +308,7 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
 
 - **Посещаемость** `attendanceRate = attended / countable`. `countable` — занятия со статусом `DONE` в периоде, на которые ученик был зачислен (`Enrollment.enrolledAt <= lesson.startsAt`), минус `EXCUSED`. `attended` — `PRESENT | LATE`. Нет `countable` → `null`.
 - **Пропуски** `absences = count(ABSENT)`.
-- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
+- **Выполнение заданий** `completionRate = doneOnTime / due`. `due` — задания с `dueAt` в периоде (или без `dueAt`, но опубликованные в периоде), срок (публикация) которых не раньше зачисления ученика в группу (`Enrollment.enrolledAt <= dueAt`), `doneOnTime` — `SUBMITTED|GRADED` и `!isLate`. Отдельно `lateCount`. Нет `due` → `null`.
 - **Активность** `activityScore` (0–100) за неделю: `min(100, 10*blocksCompleted + 15*submissions + 5*lessonsAttended + 2*tutorMessages + 1*appOpens)`. Отображается как «низкая (<30) / средняя / высокая (≥70)» + число. Формула — одна (`apps/api/src/modules/analytics/metrics.ts`), окно выбирает вызывающий. **Исключение:** снимок ученика для ИИ (`StudentContext.stats30d`, `modules/ai/context-builder.ts`) считает её за 30 дней и без `appOpens` (событий открытия приложения в снимке нет) — осознанное расхождение с недельным окном экранов.
 - **Прогресс по кружку** `clubProgress = avg(CourseProgress.percent по PUBLISHED курсам группы)`; если курсов нет — `completionRate` по заданиям группы.
 - **Динамика** — те же метрики по неделям из `StudentStatsDaily`; `trend` = разница с предыдущим периодом такой же длины.
@@ -322,4 +333,4 @@ INTERACTIVE { kind: 'FLASHCARDS'|'MATCHING'|'FILL_GAPS', data: <схема по 
   - `attended` — отметки `PRESENT | LATE` на занятиях группы в периоде, которые уже начались и не отменены; `missed` — `ABSENT | EXCUSED` на тех же занятиях. Неотмеченные занятия не входят ни в один счётчик. `attended + missed` — высота столбца «Посещения».
   - `homeworkDone` — сдачи по заданиям группы с `dueAt` в календарных днях периода (включая сегодняшние задания со сроком позже «сейчас»): пары задание × ученик, у которых есть сдача (лучшая попытка, статус `DONE` или проверенный `FAILED`).
   - `homeworkCorrect` — сдачи из `homeworkDone` со статусом `DONE` по порогу преподавателя (≥ 30% или ещё не проверено), поэтому `homeworkCorrect ≤ homeworkDone`.
-- **Требуют внимания** (для преподавателя, с причинами): `attendanceRate < 0.7` за 30 дней; ≥2 просроченных сдачи подряд; 14 дней без `ActivityEvent`; средний балл < 50% по последним 3 проверенным.
+- **Требуют внимания** (для преподавателя, с причинами): `attendanceRate < 0.7` за 30 дней; ≥2 просроченных сдачи подряд (сроки, прошедшие до зачисления ученика в группу, не считаются); 14 дней без `ActivityEvent` (окно — не раньше зачисления в первую из групп преподавателя); средний балл < 50% по последним 3 проверенным.

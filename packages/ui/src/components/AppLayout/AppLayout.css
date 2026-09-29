@@ -45,6 +45,30 @@
   overscroll-behavior: contain;
 }
 
+/* `AppLayout.Content fit`: колонка «шапка экрана + Screen» ровно по высоте области. */
+.ui-app-layout__content[data-fit] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-app-layout__content[data-fit] > * {
+  flex-shrink: 0;
+}
+
+/* fill — остаток под шапкой экрана; длинный контент растягивает экран и прокручивает область. */
+.ui-app-layout__content[data-fit] > .ui-screen[data-fill] {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+/* fixed — ровно остаток области; прокручивается только вложенный `Stack scroll`. */
+.ui-app-layout__content[data-fit] > .ui-screen[data-fixed] {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Нижнее меню «плавает» над фоном: боковые отступы как у контента, safe-area снизу. */
 .ui-app-layout__nav {
   flex: none;

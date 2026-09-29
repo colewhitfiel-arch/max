@@ -1,17 +1,23 @@
 /**
  * Интеграция: преподаватель выбирает, какие кружки ведёт, заводит свою группу и зовёт учеников
- * по ссылке; ученик вступает в один тап (docs/07 F19). Нужна тестовая БД.
+ * по ссылке; ученик вступает в один тап (docs/07 F19). Пользователи теста — свои на каждый прогон,
+ * после — их группы, кружки, занятия и зачисления удаляются, чтобы не менять демо-мир для других
+ * тестов. Нужна тестовая БД.
  */
 import type { INestApplication } from '@nestjs/common';
 import { CLUB_CATEGORIES } from '@edu/contracts';
 import { DEMO_IDS } from '@edu/contracts/fixtures';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
 describe.skipIf(!hasTestDatabase)('группы преподавателя и ссылки (integration)', () => {
   let app: INestApplication;
   const base = '/api/v1';
+  const run = Date.now();
+  /** Преподаватели теста: после — их группы и всё созданное удаляются. */
+  const teacherIds: string[] = [];
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -20,6 +26,8 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
       .post(`${base}/auth/dev`)
       .send({ maxUserId, roles: [role] })
       .expect(200);
+    if (role === 'TEACHER' && maxUserId.endsWith(`-${run}`))
+      teacherIds.push(res.body.me.teacher.id as string);
     return res.body.accessToken as string;
   };
 
@@ -28,6 +36,16 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
   });
 
   afterAll(async () => {
+    const prisma = app.get(PrismaService);
+    const groups = await prisma.group.findMany({
+      where: { teacherId: { in: teacherIds } },
+      select: { id: true, clubId: true },
+    });
+    const groupIds = groups.map((group) => group.id);
+    await prisma.lesson.deleteMany({ where: { groupId: { in: groupIds } } });
+    await prisma.enrollment.deleteMany({ where: { groupId: { in: groupIds } } });
+    await prisma.group.deleteMany({ where: { id: { in: groupIds } } });
+    await prisma.club.deleteMany({ where: { id: { in: groups.map((group) => group.clubId) } } });
     await app.close();
   });
 
@@ -39,8 +57,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
   });
 
   it('новый преподаватель выбирает кружки: без повторов, в порядке списка', async () => {
-    // Тестовая БД живёт между прогонами — каждый раз новый преподаватель.
-    const teacher = await loginAs(`max-teacher-subjects-${Date.now()}`, 'TEACHER');
+    const teacher = await loginAs(`max-teacher-subjects-${run}`, 'TEACHER');
     const before = await http().get(`${base}/me`).set(auth(teacher)).expect(200);
     expect(before.body.teacher.subjects).toEqual([]);
 
@@ -73,7 +90,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
   });
 
   it('группа со ссылкой: ученик видит её, вступает, повтор ничего не меняет', async () => {
-    const teacher = await loginAs('max-teacher-groups', 'TEACHER');
+    const teacher = await loginAs(`max-teacher-own-groups-${run}`, 'TEACHER');
     const created = await http()
       .post(`${base}/teacher/groups`)
       .set(auth(teacher))
@@ -112,7 +129,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
       .expect(200);
     expect(again.body.token).toBe(invite.token);
 
-    const student = await loginAs(`max-student-join-${Date.now()}`, 'STUDENT');
+    const student = await loginAs(`max-student-join-${run}`, 'STUDENT');
     const preview = await http()
       .get(`${base}/student/group-invites/${invite.token}`)
       .set(auth(student))
@@ -180,7 +197,7 @@ describe.skipIf(!hasTestDatabase)('группы преподавателя и с
   });
 
   it('чужая группа — 403, преподаватель по ссылке не вступает', async () => {
-    const stranger = await loginAs('max-teacher-stranger', 'TEACHER');
+    const stranger = await loginAs(`max-teacher-stranger-${run}`, 'TEACHER');
     await http()
       .get(`${base}/teacher/groups/${DEMO_IDS.groups.roboticsA}/invite`)
       .set(auth(stranger))

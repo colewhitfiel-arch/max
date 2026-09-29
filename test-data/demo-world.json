@@ -1,0 +1,550 @@
+{
+  "$comment": "Демо-мир для проверки. Вход без пароля: POST /api/v1/auth/dev {\"maxUserId\",\"roles\"} или экран /auth в браузере. Занятия (lessons) привязаны к дате генерации; seed на стенде пересоздаёт их относительно текущего дня.",
+  "generatedAt": "2026-09-29T19:37:18.453Z",
+  "testAccounts": [
+    {
+      "id": "00000000-0000-7000-8000-00000000000a",
+      "maxUserId": "max-teacher-1",
+      "name": "Мария Иванова",
+      "roles": [
+        "TEACHER",
+        "PARENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000b",
+      "maxUserId": "max-student-1",
+      "name": "Алексей Смирнов",
+      "roles": [
+        "STUDENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000c",
+      "maxUserId": "max-student-2",
+      "name": "Даша Иванова",
+      "roles": [
+        "STUDENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000d",
+      "maxUserId": "max-parent-1",
+      "name": "Ольга Смирнова",
+      "roles": [
+        "PARENT"
+      ]
+    }
+  ],
+  "codes": {
+    "schoolInviteCode": "SCHOOL1",
+    "childLinkCodes": {
+      "max-student-1": "ALX123",
+      "max-student-2": "DSH456"
+    }
+  },
+  "school": {
+    "id": "00000000-0000-7000-8000-000000000001",
+    "name": "Школа № 1 (демо)",
+    "timezone": "Europe/Moscow",
+    "settings": {
+      "showTeacherContacts": true
+    }
+  },
+  "users": [
+    {
+      "id": "00000000-0000-7000-8000-00000000000a",
+      "maxUserId": "max-teacher-1",
+      "firstName": "Мария",
+      "lastName": "Иванова",
+      "nickname": null,
+      "avatarUrl": null,
+      "locale": "ru",
+      "theme": "SYSTEM",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "roles": [
+        "TEACHER",
+        "PARENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000b",
+      "maxUserId": "max-student-1",
+      "firstName": "Алексей",
+      "lastName": "Смирнов",
+      "nickname": "alex",
+      "avatarUrl": null,
+      "locale": "ru",
+      "theme": "SYSTEM",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "roles": [
+        "STUDENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000c",
+      "maxUserId": "max-student-2",
+      "firstName": "Даша",
+      "lastName": "Иванова",
+      "nickname": null,
+      "avatarUrl": null,
+      "locale": "ru",
+      "theme": "SYSTEM",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "roles": [
+        "STUDENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000000d",
+      "maxUserId": "max-parent-1",
+      "firstName": "Ольга",
+      "lastName": "Смирнова",
+      "nickname": null,
+      "avatarUrl": null,
+      "locale": "ru",
+      "theme": "SYSTEM",
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "roles": [
+        "PARENT"
+      ]
+    }
+  ],
+  "teachers": [
+    {
+      "id": "00000000-0000-7000-8000-000000000014",
+      "userId": "00000000-0000-7000-8000-00000000000a",
+      "schoolId": "00000000-0000-7000-8000-000000000001",
+      "qualification": "Педагог дополнительного образования, робототехника и программирование",
+      "bio": "Веду кружки робототехники и Python с 2019 года.",
+      "photoUrl": null,
+      "contactsVisible": true
+    }
+  ],
+  "students": [
+    {
+      "id": "00000000-0000-7000-8000-000000000015",
+      "userId": "00000000-0000-7000-8000-00000000000b",
+      "schoolId": "00000000-0000-7000-8000-000000000001",
+      "classLabel": "7Б",
+      "birthYear": 2013,
+      "interests": [
+        "роботы",
+        "игры",
+        "программирование"
+      ],
+      "goals": [
+        "научиться программировать"
+      ],
+      "weeklyHours": 4,
+      "preferredFormats": [
+        "практика",
+        "проекты"
+      ],
+      "futureInterests": [
+        "3D-моделирование"
+      ],
+      "aiProfileSummary": "Интересуется робототехникой и программированием, любит практические задачи.",
+      "onboardingCompletedAt": "2026-09-01T00:00:00.000Z",
+      "linkCode": "ALX123"
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000016",
+      "userId": "00000000-0000-7000-8000-00000000000c",
+      "schoolId": "00000000-0000-7000-8000-000000000001",
+      "classLabel": "7Б",
+      "birthYear": 2013,
+      "interests": [
+        "рисование",
+        "роботы"
+      ],
+      "goals": [],
+      "weeklyHours": null,
+      "preferredFormats": [],
+      "futureInterests": [],
+      "aiProfileSummary": null,
+      "onboardingCompletedAt": null,
+      "linkCode": "DSH456"
+    }
+  ],
+  "parentLinks": [
+    {
+      "parentId": "00000000-0000-7000-8000-000000000017",
+      "studentId": "00000000-0000-7000-8000-000000000015",
+      "status": "ACTIVE",
+      "requestedAt": "2026-09-01T00:00:00.000Z",
+      "confirmedAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "parentId": "00000000-0000-7000-8000-000000000017",
+      "studentId": "00000000-0000-7000-8000-000000000016",
+      "status": "ACTIVE",
+      "requestedAt": "2026-09-01T00:00:00.000Z",
+      "confirmedAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "parentId": "00000000-0000-7000-8000-000000000018",
+      "studentId": "00000000-0000-7000-8000-000000000016",
+      "status": "ACTIVE",
+      "requestedAt": "2026-09-01T00:00:00.000Z",
+      "confirmedAt": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "clubs": [
+    {
+      "id": "00000000-0000-7000-8000-00000000001e",
+      "schoolId": "00000000-0000-7000-8000-000000000001",
+      "title": "Робототехника",
+      "description": "Собираем и программируем роботов на Arduino.",
+      "category": "ROBOTICS",
+      "coverUrl": null,
+      "price": {
+        "amountKopecks": 350000,
+        "currency": "RUB"
+      },
+      "billingPeriod": "MONTH",
+      "isActive": true,
+      "tags": [
+        "arduino",
+        "электроника",
+        "проекты"
+      ]
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000001f",
+      "schoolId": "00000000-0000-7000-8000-000000000001",
+      "title": "Программирование на Python",
+      "description": "От первых программ до небольших игр.",
+      "category": "PROGRAMMING",
+      "coverUrl": null,
+      "price": {
+        "amountKopecks": 300000,
+        "currency": "RUB"
+      },
+      "billingPeriod": "MONTH",
+      "isActive": true,
+      "tags": [
+        "python",
+        "игры",
+        "алгоритмы"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "00000000-0000-7000-8000-000000000028",
+      "clubId": "00000000-0000-7000-8000-00000000001e",
+      "teacherId": "00000000-0000-7000-8000-000000000014",
+      "title": "Робототехника, группа А",
+      "isActive": true
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000029",
+      "clubId": "00000000-0000-7000-8000-00000000001f",
+      "teacherId": "00000000-0000-7000-8000-000000000014",
+      "title": "Python, группа А",
+      "isActive": true
+    }
+  ],
+  "enrollments": [
+    {
+      "id": "00000000-0000-7000-8000-000000000032",
+      "studentId": "00000000-0000-7000-8000-000000000015",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "status": "ACTIVE",
+      "enrolledAt": "2026-09-01T00:00:00.000Z",
+      "leftAt": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000033",
+      "studentId": "00000000-0000-7000-8000-000000000016",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "status": "ACTIVE",
+      "enrolledAt": "2026-09-01T00:00:00.000Z",
+      "leftAt": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000034",
+      "studentId": "00000000-0000-7000-8000-000000000015",
+      "groupId": "00000000-0000-7000-8000-000000000029",
+      "status": "ACTIVE",
+      "enrolledAt": "2026-09-01T00:00:00.000Z",
+      "leftAt": null
+    }
+  ],
+  "scheduleRules": [
+    {
+      "id": "00000000-0000-7000-8000-00000000003c",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "weekday": 1,
+      "startTime": "15:00",
+      "endTime": "16:30",
+      "room": "Каб. 12",
+      "validFrom": "2026-09-01",
+      "validTo": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000003d",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "weekday": 4,
+      "startTime": "15:00",
+      "endTime": "16:30",
+      "room": "Каб. 12",
+      "validFrom": "2026-09-01",
+      "validTo": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000003e",
+      "groupId": "00000000-0000-7000-8000-000000000029",
+      "weekday": 2,
+      "startTime": "16:00",
+      "endTime": "17:00",
+      "room": "Каб. 5",
+      "validFrom": "2026-09-01",
+      "validTo": null
+    }
+  ],
+  "lessons": [
+    {
+      "id": "00000000-0000-7000-8000-000000000046",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "ruleId": null,
+      "startsAt": "2026-09-22T12:00:00.000Z",
+      "endsAt": "2026-09-22T13:30:00.000Z",
+      "topic": "Знакомство с Arduino",
+      "room": "Каб. 12",
+      "status": "DONE",
+      "cancelReason": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000047",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "ruleId": null,
+      "startsAt": "2026-09-26T12:00:00.000Z",
+      "endsAt": "2026-09-26T13:30:00.000Z",
+      "topic": "Светодиоды и кнопки",
+      "room": "Каб. 12",
+      "status": "DONE",
+      "cancelReason": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000048",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "ruleId": null,
+      "startsAt": "2026-09-29T12:00:00.000Z",
+      "endsAt": "2026-09-29T13:30:00.000Z",
+      "topic": "Датчики расстояния",
+      "room": "Каб. 12",
+      "status": "PLANNED",
+      "cancelReason": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000049",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "ruleId": null,
+      "startsAt": "2026-10-03T12:00:00.000Z",
+      "endsAt": "2026-10-03T13:30:00.000Z",
+      "topic": "Моторы и движение",
+      "room": "Каб. 12",
+      "status": "PLANNED",
+      "cancelReason": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000004a",
+      "groupId": "00000000-0000-7000-8000-000000000029",
+      "ruleId": null,
+      "startsAt": "2026-09-30T13:00:00.000Z",
+      "endsAt": "2026-09-30T14:00:00.000Z",
+      "topic": "Циклы в Python",
+      "room": "Каб. 5",
+      "status": "PLANNED",
+      "cancelReason": null
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000004b",
+      "groupId": "00000000-0000-7000-8000-000000000029",
+      "ruleId": null,
+      "startsAt": "2026-09-28T13:00:00.000Z",
+      "endsAt": "2026-09-28T14:00:00.000Z",
+      "topic": "Переменные и ввод",
+      "room": "Каб. 5",
+      "status": "DONE",
+      "cancelReason": null
+    }
+  ],
+  "course": {
+    "id": "00000000-0000-7000-8000-000000000050",
+    "groupId": "00000000-0000-7000-8000-000000000028",
+    "teacherId": "00000000-0000-7000-8000-000000000014",
+    "title": "Основы робототехники",
+    "description": "Первые шаги: плата, датчики, движение.",
+    "status": "PUBLISHED",
+    "version": 1,
+    "publishedAt": "2026-09-01T00:00:00.000Z",
+    "generationJobId": null
+  },
+  "modules": [
+    {
+      "id": "00000000-0000-7000-8000-000000000051",
+      "courseId": "00000000-0000-7000-8000-000000000050",
+      "order": 0,
+      "title": "Знакомство с платой",
+      "summary": "Что такое Arduino и как её подключить."
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000052",
+      "courseId": "00000000-0000-7000-8000-000000000050",
+      "order": 1,
+      "title": "Датчики",
+      "summary": "Считываем данные с датчиков."
+    }
+  ],
+  "blocks": [
+    {
+      "id": "00000000-0000-7000-8000-00000000005a",
+      "moduleId": "00000000-0000-7000-8000-000000000051",
+      "order": 0,
+      "type": "TEXT",
+      "title": "Что такое Arduino",
+      "estimatedMinutes": 10,
+      "isRequired": true,
+      "content": {
+        "markdown": "# Arduino\n\nArduino — это небольшая плата с микроконтроллером, которую можно программировать."
+      }
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000005b",
+      "moduleId": "00000000-0000-7000-8000-000000000051",
+      "order": 1,
+      "type": "VIDEO",
+      "title": "Подключаем плату",
+      "estimatedMinutes": 8,
+      "isRequired": false,
+      "content": {
+        "provider": "youtube",
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "durationSec": 480
+      }
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000005c",
+      "moduleId": "00000000-0000-7000-8000-000000000052",
+      "order": 0,
+      "type": "QUIZ",
+      "title": "Проверь себя: датчики",
+      "estimatedMinutes": 5,
+      "isRequired": true,
+      "content": {
+        "passScore": 60,
+        "questions": [
+          {
+            "id": "q1",
+            "text": "Какой датчик измеряет расстояние?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Ультразвуковой"
+              },
+              {
+                "id": "b",
+                "text": "Температурный"
+              },
+              {
+                "id": "c",
+                "text": "Фоторезистор"
+              }
+            ],
+            "correctOptionIds": [
+              "a"
+            ],
+            "explanation": "Ультразвуковой датчик измеряет время отражения звука.",
+            "multiple": false
+          },
+          {
+            "id": "q2",
+            "text": "Что нужно для подключения датчика к плате?",
+            "options": [
+              {
+                "id": "a",
+                "text": "Провода"
+              },
+              {
+                "id": "b",
+                "text": "Питание"
+              },
+              {
+                "id": "c",
+                "text": "Интернет"
+              }
+            ],
+            "correctOptionIds": [
+              "a",
+              "b"
+            ],
+            "multiple": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "00000000-0000-7000-8000-00000000005d",
+      "moduleId": "00000000-0000-7000-8000-000000000052",
+      "order": 1,
+      "type": "HOMEWORK",
+      "title": "Домашнее задание: схема с датчиком",
+      "estimatedMinutes": 30,
+      "isRequired": true,
+      "content": {
+        "instructions": "Нарисуй схему подключения ультразвукового датчика и сфотографируй.",
+        "submissionType": "BOTH"
+      }
+    }
+  ],
+  "assignments": [
+    {
+      "id": "00000000-0000-7000-8000-000000000064",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "teacherId": "00000000-0000-7000-8000-000000000014",
+      "courseId": "00000000-0000-7000-8000-000000000050",
+      "blockId": "00000000-0000-7000-8000-00000000005c",
+      "studentIds": [],
+      "title": "Проверь себя: датчики",
+      "description": null,
+      "type": "QUIZ",
+      "dueAt": null,
+      "maxScore": 100,
+      "allowedAttempts": 3,
+      "publishedAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000065",
+      "groupId": "00000000-0000-7000-8000-000000000028",
+      "teacherId": "00000000-0000-7000-8000-000000000014",
+      "courseId": "00000000-0000-7000-8000-000000000050",
+      "blockId": "00000000-0000-7000-8000-00000000005d",
+      "studentIds": [],
+      "title": "Домашнее задание: схема с датчиком",
+      "description": "Нарисуй схему подключения ультразвукового датчика и сфотографируй.",
+      "type": "HOMEWORK",
+      "dueAt": null,
+      "maxScore": 100,
+      "allowedAttempts": null,
+      "publishedAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-7000-8000-000000000066",
+      "groupId": "00000000-0000-7000-8000-000000000029",
+      "teacherId": "00000000-0000-7000-8000-000000000014",
+      "courseId": null,
+      "blockId": null,
+      "studentIds": [],
+      "title": "Задачи 1–10, стр. 52",
+      "description": "До пятницы решить задачи 1–10 на странице 52.",
+      "type": "HOMEWORK",
+      "dueAt": null,
+      "maxScore": 100,
+      "allowedAttempts": null,
+      "publishedAt": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}

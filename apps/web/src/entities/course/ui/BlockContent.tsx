@@ -4,7 +4,7 @@ import {
   type StudentBlockDetail,
   type VideoContent,
 } from '@edu/contracts';
-import { Button, Card, Divider, LinkIcon, Stack, Text } from '@edu/ui';
+import { Button, Card, Divider, LinkIcon, Markdown, Stack, Text, useToast } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useMaxBridge } from '@/shared/max';
 
@@ -38,6 +38,27 @@ function VideoBlock({ content }: { content: VideoContent }) {
         </Text>
       )}
     </Stack>
+  );
+}
+
+/**
+ * Текстовый блок: Markdown из конструктора курса (GigaChat) — заголовки, выделение, списки,
+ * код. Ссылки (только http(s)) открываются через MaxBridge, как видео.
+ */
+function TextBlock({ markdown }: { markdown: string }) {
+  const { t } = useTranslation('student');
+  const bridge = useMaxBridge();
+  const toast = useToast();
+  return (
+    <Markdown
+      source={markdown}
+      onLinkClick={(href) => bridge.openLink(href)}
+      copyLabel={t('courses.copyCode')}
+      copiedLabel={t('courses.codeCopied')}
+      onCopyResult={(ok) => {
+        if (!ok) toast.show({ tone: 'danger', title: t('courses.copyCodeFailed') });
+      }}
+    />
   );
 }
 
@@ -86,7 +107,7 @@ export function BlockContent({ block, card = false }: BlockContentProps) {
   const body = (() => {
     switch (block.type) {
       case 'TEXT':
-        return <Text preserveLines>{block.content.markdown}</Text>;
+        return <TextBlock markdown={block.content.markdown} />;
       case 'VIDEO':
         return <VideoBlock content={block.content} />;
       case 'QUIZ':

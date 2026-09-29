@@ -99,6 +99,8 @@
   /* Слои (дублируются в src/tokens.ts) */
   --ui-z-sheet: 100;
   --ui-z-modal: 200;
+  /* Тур (Coachmark) — поверх модалок, под тостами. */
+  --ui-z-coachmark: 250;
   --ui-z-toast: 300;
 
   /* Анимации (дублируются в src/tokens.ts) */

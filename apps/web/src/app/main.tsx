@@ -6,6 +6,7 @@ import { config } from '@/shared/config';
 import { i18n } from '@/shared/i18n';
 import { createMaxBridge, type MaxBridge } from '@/shared/max';
 import { App } from './App';
+import { installClientErrorReporting } from './client-errors';
 import { Providers } from './providers';
 
 function renderFatal(root: ReturnType<typeof createRoot>, error: unknown) {
@@ -25,6 +26,11 @@ async function bootstrap(): Promise<void> {
   const container = document.getElementById('root');
   if (!container) throw new Error('Нет элемента #root');
   const root = createRoot(container);
+  // Необработанные ошибки — в логи стенда и на экран, а не чёрный экран (в WebView MAX консоли нет)
+  installClientErrorReporting({
+    apiUrl: config.apiUrl,
+    onFatal: (error) => renderFatal(root, error),
+  });
 
   let bridge: MaxBridge;
   try {

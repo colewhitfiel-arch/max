@@ -65,7 +65,13 @@
 
 .ui-page-header[data-variant='plain'][data-sticky] {
   padding-bottom: var(--ui-space-3);
-  background: linear-gradient(to top, transparent, var(--ui-color-bg) 45%);
+  /* Под текстом шапки фон непрозрачный (лента чата не просвечивает сквозь подзаголовок),
+   * растушёвка — только в нижнем отступе. */
+  background: linear-gradient(
+    to bottom,
+    var(--ui-color-bg) calc(100% - var(--ui-space-3)),
+    transparent
+  );
 }
 
 .ui-page-header[data-variant='plain'] .ui-page-header__lead,

@@ -29,4 +29,19 @@ describe('Drawer', () => {
     );
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('side="left" — панель слева; по умолчанию справа', () => {
+    const { rerender } = render(
+      <Drawer open onClose={vi.fn()} title="История чатов" side="left">
+        текст
+      </Drawer>,
+    );
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-side', 'left');
+    rerender(
+      <Drawer open onClose={vi.fn()} title="Уведомления">
+        текст
+      </Drawer>,
+    );
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-side', 'right');
+  });
 });

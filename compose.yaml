@@ -42,7 +42,8 @@ services:
     environment:
       NODE_ENV: production
       # APP_ENV=production включает строгие проверки в apps/api/src/config/env.ts:
-      # запрещает AUTH_PROVIDER=dev и дефолтный JWT_SECRET, требует CORS_ORIGINS.
+      # запрещает AUTH_PROVIDER=dev и дефолтный JWT_SECRET, требует CORS_ORIGINS
+      # (дефолтный JWT_SECRET запрещён и в staging).
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       API_PORT: '3000'
@@ -51,6 +52,9 @@ services:
       WEB_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
       CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-edu}?schema=public
+      # Seed демо-мира после миграций при каждом старте (идемпотентен; без него нет школы SCHOOL1,
+      # и демо-преподаватель не входит). Для чистой боевой базы — SEED_ON_START=0 в .env.
+      SEED_ON_START: ${SEED_ON_START:-1}
       # Redis не нужен: задачи выполняются в процессе api.
       QUEUE_DRIVER: inline
       REDIS_URL: ''
@@ -76,14 +80,21 @@ services:
         # Vite инлайнит эти значения в бандл на этапе сборки.
         VITE_API_URL: /api/v1
         VITE_API_MODE: real
-        VITE_MAX_MODE: ${VITE_MAX_MODE:-real}
+        # Образ — боевой: мост MAX всегда настоящий (production-сборка web и так не берёт mock).
+        VITE_MAX_MODE: real
         VITE_AUTH_MODE: ${VITE_AUTH_MODE:-auto}
+        # Чат поддержки в MAX (https://max.ru/<ник>) для кнопки «Поддержка» в настройках всех ролей;
+        # пусто — подсказка, что чат не подключён.
+        VITE_SUPPORT_URL: ${VITE_SUPPORT_URL:-}
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
+    # По умолчанию только loopback: снаружи стенд открывают через TLS-прокси или туннель на этой
+    # же машине (README, «Хостинг»). Открыть порт наружу напрямую — WEB_BIND=0.0.0.0; тогда
+    # клиенты, пришедшие через docker-proxy (IPv6, rootless), могут подменить X-Forwarded-For.
     ports:
-      - '8080:80'
+      - '${WEB_BIND:-127.0.0.1}:8080:80'
 
 # Отдельный сервис worker не нужен при QUEUE_DRIVER=inline. Если понадобится bullmq:
 # поднять redis, задать QUEUE_DRIVER=bullmq и REDIS_URL=redis://redis:6379 у api и добавить

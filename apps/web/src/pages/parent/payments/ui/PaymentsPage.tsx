@@ -95,7 +95,7 @@ export function PaymentsPage() {
             {(data) => (
               <>
                 {data.periods.length > 0 && (
-                  <Stack gap={2}>
+                  <Stack gap={2} data-tour="parent-payments">
                     <SectionTitle>{t('payments.periods')}</SectionTitle>
                     <Card padding="none">
                       {data.periods.map((period) => (
@@ -130,7 +130,10 @@ export function PaymentsPage() {
                 )}
 
                 {data.history.items.length > 0 && (
-                  <Stack gap={2}>
+                  <Stack
+                    gap={2}
+                    data-tour={data.periods.length === 0 ? 'parent-payments' : undefined}
+                  >
                     <SectionTitle>{t('payments.history')}</SectionTitle>
                     <Card padding="none">
                       {data.history.items.map((payment) => (

@@ -120,4 +120,20 @@ describe('BarChart', () => {
       [...container.querySelectorAll('.ui-bar-chart__tick-label')].map((l) => l.textContent),
     ).toEqual(['0', '25', '50']);
   });
+
+  it('длинные подписи (названия групп) раздвигают столбцы на равные доли; коды — нет', () => {
+    const named = bars.map((bar, index) => ({
+      ...bar,
+      label: ['Робототехника, группа А', 'Python, группа А'][index],
+    }));
+    const { container, rerender } = render(<BarChart aria-label="Посещения" bars={named} />);
+    const figure = () => container.querySelector('.ui-bar-chart__figure');
+    expect(figure()).toHaveAttribute('data-spread');
+    expect(
+      [...container.querySelectorAll('.ui-bar-chart__label')].map((label) => label.textContent),
+    ).toEqual(['Робототехника, группа А', 'Python, группа А']);
+
+    rerender(<BarChart aria-label="Посещения" bars={bars} />);
+    expect(figure()).not.toHaveAttribute('data-spread');
+  });
 });

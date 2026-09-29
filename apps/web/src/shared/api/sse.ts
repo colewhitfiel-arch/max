@@ -129,10 +129,15 @@ const INITIAL: AiStreamState = {
   error: null,
 };
 
-/** Хук стрима: `start(path, body)` копит токены в `text`, `abort()` прерывает, `reset()` очищает. */
+/**
+ * Хук стрима: `start(path, body)` копит токены в `text`, `abort()` прерывает, `reset()` очищает.
+ * Размонтирование прерывает стрим; его хвост состояние уже не трогает, а промис `start` не
+ * разрешается — продолжать после `await` (перезапрос ленты, setState экрана) некому.
+ */
 export function useAiStream() {
   const [state, setState] = useState<AiStreamState>(INITIAL);
   const controllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   // Поколение стрима: прерванный предыдущий `start` не должен затирать состояние нового.
   // `abort()` поколение не меняет — после «Стоп» текущий стрим сам выставит status: 'done'.
   const generationRef = useRef(0);
@@ -146,7 +151,7 @@ export function useAiStream() {
     abort();
     // Прерванный стрим не должен вернуть свой текст поверх очищенного состояния.
     generationRef.current += 1;
-    setState(INITIAL);
+    if (mountedRef.current) setState(INITIAL);
   }, [abort]);
 
   const start = useCallback(
@@ -159,7 +164,7 @@ export function useAiStream() {
       setState(current);
       const update = (patch: Partial<AiStreamState>) => {
         current = { ...current, ...patch };
-        if (generation === generationRef.current) setState(current);
+        if (generation === generationRef.current && mountedRef.current) setState(current);
       };
       try {
         await streamSse({
@@ -186,12 +191,19 @@ export function useAiStream() {
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
       }
+      if (!mountedRef.current) return new Promise<AiStreamState>(() => {});
       return current;
     },
     [abort],
   );
 
-  useEffect(() => abort, [abort]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abort();
+    };
+  }, [abort]);
 
   return { ...state, start, abort, reset, isStreaming: state.status === 'streaming' };
 }

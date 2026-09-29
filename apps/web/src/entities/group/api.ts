@@ -1,4 +1,4 @@
-import type { CreateGroupBody, TeacherPerformancePeriod } from '@edu/contracts';
+import type { CreateGroupBody, TeacherPerformancePeriod, UpdateGroupBody } from '@edu/contracts';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
@@ -12,11 +12,12 @@ export function useTeacherGroups() {
   });
 }
 
-/** `GET /teacher/groups/:groupId`. */
+/** `GET /teacher/groups/:groupId`. Пока группа не выбрана (`''`), запроса нет. */
 export function useTeacherGroup(groupId: string) {
   return useQuery({
     queryKey: groupKeys.detail(groupId),
     queryFn: () => call(api.dashboards.getTeacherGroup({ params: { groupId } })),
+    enabled: !!groupId,
   });
 }
 
@@ -35,16 +36,42 @@ export function useTeacherPerformance(period: TeacherPerformancePeriod) {
 }
 
 /**
- * `POST /teacher/groups` — своя группа (и кружок в каталоге) сразу со ссылкой-приглашением.
- * Списки групп, главная и календарь преподавателя после этого перезапрашиваются.
+ * Группы меняют главную, списки, успеваемость и мастер «Задать ДЗ» преподавателя — после
+ * любой правки группы перезапрашиваем всё под префиксом `teacher`.
+ */
+function useInvalidateTeacher() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.teacher });
+}
+
+/**
+ * `POST /teacher/groups` — своя группа по любому из 8 кружков (и кружок в каталоге) сразу со
+ * ссылкой-приглашением: ссылку кладём в кэш, шторка «Пригласить учеников» открывается без запроса.
  */
 export function useCreateGroup() {
   const queryClient = useQueryClient();
+  const invalidate = useInvalidateTeacher();
   return useMutation({
     mutationFn: (body: CreateGroupBody) => call(api.groups.createGroup({ body })),
     onSuccess: (created) => {
       queryClient.setQueryData(groupKeys.invite(created.group.id), created.invite);
-      return queryClient.invalidateQueries({ queryKey: queryKeys.teacher });
+      return invalidate();
+    },
+  });
+}
+
+/**
+ * `PATCH /teacher/groups/:groupId` — переименовать группу. Перезапрос не ждём: новое название
+ * перемонтирует форму (`key={title}`), и колбэк `mutate(…, { onSuccess })` с тостом «Название
+ * сохранено» до конца перезапроса уже не дожил бы.
+ */
+export function useUpdateGroup(groupId: string) {
+  const invalidate = useInvalidateTeacher();
+  return useMutation({
+    mutationFn: (body: UpdateGroupBody) =>
+      call(api.groups.updateGroup({ params: { groupId }, body })),
+    onSuccess: () => {
+      void invalidate();
     },
   });
 }
@@ -84,5 +111,41 @@ export function useJoinGroup() {
   return useMutation({
     mutationFn: (token: string) => call(api.groups.joinGroup({ params: { token } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.student }),
+  });
+}
+
+/** `GET /teacher/groups/:groupId/candidates?q` — кого можно добавить в группу. */
+export function useGroupCandidates(groupId: string, q: string) {
+  const search = q.trim();
+  return useQuery({
+    queryKey: groupKeys.candidates(groupId, search),
+    queryFn: () =>
+      call(
+        api.groups.listGroupCandidates({
+          params: { groupId },
+          query: search ? { q: search } : {},
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** `POST /teacher/groups/:groupId/students` — добавить ученика в группу. */
+export function useAddGroupStudent(groupId: string) {
+  const invalidate = useInvalidateTeacher();
+  return useMutation({
+    mutationFn: (studentId: string) =>
+      call(api.groups.addGroupStudent({ params: { groupId }, body: { studentId } })),
+    onSuccess: invalidate,
+  });
+}
+
+/** `DELETE /teacher/groups/:groupId/students/:studentId` — убрать ученика из группы. */
+export function useRemoveGroupStudent(groupId: string) {
+  const invalidate = useInvalidateTeacher();
+  return useMutation({
+    mutationFn: (studentId: string) =>
+      call(api.groups.removeGroupStudent({ params: { groupId, studentId } })),
+    onSuccess: invalidate,
   });
 }

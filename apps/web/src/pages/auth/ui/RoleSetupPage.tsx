@@ -15,12 +15,16 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { StartDemoButton } from '@/features/demo-tour';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
 import { TEACHER_SUBJECTS_PATH, TEACHER_SUBJECTS_SETUP_STATE } from '@/shared/lib/teacher-paths';
 import { ADDABLE_ROLES } from '../model';
 
-/** `/auth/role`: выбор первой роли (F1) или добавление новой (`POST /auth/roles`). */
+/**
+ * `/auth/role`: выбор первой роли (F1) или добавление новой (`POST /auth/roles`). При первом
+ * выборе сверху — «Демонстрационный режим» (F20).
+ */
 export function RoleSetupPage() {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
@@ -66,6 +70,8 @@ export function RoleSetupPage() {
     >
       <AppLayout.Content>
         <Screen>
+          {/* Первый вход: демонстрационный режим над выбором роли; «Готово» в конце тура вернёт сюда. */}
+          {!isAdding && <StartDemoButton />}
           {isAdding && (
             <Stack gap={2}>
               <Text variant="caption" tone="muted">

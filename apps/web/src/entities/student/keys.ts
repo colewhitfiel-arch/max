@@ -3,6 +3,8 @@ import { queryKeys } from '@/shared/api/query-keys';
 
 export const studentKeys = {
   children: () => [...queryKeys.parentRoot, 'children'] as const,
+  /** Ключ мутации привязки по коду (не запроса): по нему видно, кого привязали по коду. */
+  linkChild: () => ['family', 'link-child'] as const,
   parentHome: (studentId: string) => [...queryKeys.parent(studentId), 'home'] as const,
   childAnalytics: (studentId: string, period: PeriodQuery) =>
     [...queryKeys.parent(studentId), 'analytics', period] as const,

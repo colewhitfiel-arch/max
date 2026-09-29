@@ -53,6 +53,22 @@
   color: var(--ui-color-primary-contrast);
 }
 
+/* Появление нового сообщения: подъём со стороны автора и проявление. */
+.ui-chat-bubble[data-appear] {
+  animation: ui-chat-bubble-in calc(var(--ui-duration-normal) * 1.5) var(--ui-easing) both;
+}
+
+@keyframes ui-chat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Курсор стрима после текста. */
 .ui-chat-bubble[data-streaming] .ui-chat-bubble__content::after {
   content: '';
@@ -122,6 +138,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ui-chat-bubble[data-appear],
   .ui-typing__dot,
   .ui-chat-bubble[data-streaming] .ui-chat-bubble__content::after {
     animation: none;

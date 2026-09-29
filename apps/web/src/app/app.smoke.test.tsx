@@ -6,9 +6,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import '@/shared/i18n';
+import { i18n, setLanguage } from '@/shared/i18n';
 import { handlers } from '@/test/fake-api/handlers';
-import { resetMockDb } from '@/test/fake-api/state';
+import { db, findUserByMaxId, resetMockDb } from '@/test/fake-api/state';
+import { MOCK_INVITE_TOKENS } from '@/test/fake-api/world-extras';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import { MockMaxBridge } from '@/shared/max/mock-bridge';
@@ -16,6 +17,7 @@ import { useUiStore } from '@/shared/store/ui-store';
 import { App } from './App';
 import { Providers } from './providers';
 import { router } from './router';
+import { resetStartParamForTests } from './start-param';
 
 const server = setupServer(...handlers);
 const WAIT = { timeout: 10_000 };
@@ -32,9 +34,29 @@ function createBridge() {
   });
 }
 
+/**
+ * Как в браузере: прерванный переход роутера отменяется. Общий shim в `test/setup.ts` убирает
+ * `signal` у `Request` (jsdom и undici несовместимы), и прерванный переход там всё равно
+ * фиксируется — гонка перехода по диплинку с редиректом с `/` была бы не видна.
+ */
+function abortableNavigations(): () => void {
+  const Base = globalThis.Request;
+  class AbortableRequest extends Base {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(input, init);
+      if (init?.signal) Object.defineProperty(this, 'signal', { value: init.signal });
+    }
+  }
+  globalThis.Request = AbortableRequest;
+  return () => {
+    globalThis.Request = Base;
+  };
+}
+
 async function resetApp() {
   await router.navigate('/', { replace: true });
   resetAuthStore();
+  resetStartParamForTests();
   queryClient.clear();
   resetMockDb();
   useUiStore.setState({ theme: 'SYSTEM', selectedChildId: null, hydrated: false });
@@ -94,10 +116,11 @@ describe('foundation smoke (mock API)', () => {
       await expectPage('Курсы');
       await findText('Основы робототехники');
 
-      // Профиль: траектория и код для родителя.
+      // Профиль: траектория (свёрнута — раскрывается кнопкой) и код для родителя.
       await user.click(nav().getByRole('button', { name: 'Профиль' }));
       await expectPage('Профиль');
       await findText('ALX123');
+      await user.click(screen.getByRole('button', { name: 'Показать траекторию' }));
       await findText(/Сильные стороны/);
 
       // Настройки → выход → снова экран входа.
@@ -208,6 +231,63 @@ describe('foundation smoke (mock API)', () => {
 
       await router.navigate('/parent/unknown-page');
       await findText('Страница не найдена');
+    },
+  );
+
+  it(
+    'диплинк приглашения без сессии (?startapp=invite_…): вход → экран приглашения',
+    { timeout: 40_000 },
+    async () => {
+      const restoreRequest = abortableNavigations();
+      try {
+        const token = MOCK_INVITE_TOKENS.pending;
+        const bridge = createBridge();
+        bridge.getStartParam = () => `invite_${token}`;
+        const user = userEvent.setup();
+        render(
+          <Providers bridge={bridge}>
+            <App />
+          </Providers>,
+        );
+
+        // Аноним уходит на вход с экрана приглашения, а не с корня: путь запомнен в state.from.
+        await expectPage('Вход');
+        expect(router.state.location.state).toEqual({ from: `/invite/${token}` });
+
+        // После входа ученик возвращается на приглашение, а не на главную или онбординг.
+        await user.click(await findText('Алексей Смирнов'));
+        await expectPage('Приглашение');
+        expect(router.state.location.pathname).toBe(`/invite/${token}`);
+        await findText('Мария Иванова хочет следить за твоими успехами');
+      } finally {
+        restoreRequest();
+      }
+    },
+  );
+
+  it(
+    'язык интерфейса — всегда русский, даже если в настройках на сервере сохранён en',
+    { timeout: 40_000 },
+    async () => {
+      // Так бывает у пользователя из английского клиента MAX или выбравшего en раньше:
+      // выбора языка в настройках нет, вернуть русский он бы не смог.
+      const parent = findUserByMaxId('max-parent-1');
+      expect(parent).toBeDefined();
+      db.settings.set(parent!.id, { theme: 'SYSTEM', locale: 'en' });
+      try {
+        const user = userEvent.setup();
+        renderApp();
+        await expectPage('Вход');
+        await user.click(await findText('Ольга Смирнова'));
+        await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
+        expect(useAuthStore.getState().me?.settings.locale).toBe('en');
+
+        await expectPage('Главная');
+        expect(i18n.language).toBe('ru');
+        expect(nav().getByRole('button', { name: 'Аналитика' })).toBeInTheDocument();
+      } finally {
+        await setLanguage('ru');
+      }
     },
   );
 });

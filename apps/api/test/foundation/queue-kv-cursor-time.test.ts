@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { MemoryKeyValueStore } from '../../src/common/kv/key-value-store';
 import {
@@ -39,6 +39,21 @@ describe('InlineJobQueue', () => {
     await q.drain();
     expect(attempts).toBe(2);
   });
+
+  it('keepAlive получает промис задачи и дожидается её завершения (serverless)', async () => {
+    const kept: Promise<unknown>[] = [];
+    const q = new InlineJobQueue(silent, { keepAlive: (p) => kept.push(p) });
+    let done = false;
+    q.process('course-builder', 'generate', async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      done = true;
+    });
+    await q.enqueue('course-builder', 'generate', {}, { jobId: 'j1' });
+    expect(kept).toHaveLength(1);
+    expect(done).toBe(false);
+    await kept[0];
+    expect(done).toBe(true);
+  });
 });
 
 describe('MemoryKeyValueStore', () => {
@@ -50,6 +65,52 @@ describe('MemoryKeyValueStore', () => {
     expect(await kv.incr('cnt', 60)).toBe(2);
     await kv.set('exp', 1, -1);
     expect(await kv.get('exp')).toBeUndefined();
+  });
+
+  it('setIfAbsent занимает ключ один раз; протухший — можно занять заново', async () => {
+    const kv = new MemoryKeyValueStore();
+    const claims = await Promise.all([1, 2, 3].map((n) => kv.setIfAbsent('claim', n, 60)));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await kv.setIfAbsent('claim', 'другое', 60)).toBe(false);
+    await kv.set('old', 'x', -1);
+    expect(await kv.setIfAbsent('old', 'y', 60)).toBe(true);
+    expect(await kv.get('old')).toBe('y');
+  });
+
+  it('decr возвращает попытку живому счётчику, не создаёт ключ и не уходит ниже нуля', async () => {
+    const kv = new MemoryKeyValueStore();
+    expect(await kv.decr('none')).toBe(0);
+    expect(await kv.get('none')).toBeUndefined();
+    await kv.incr('cnt', 60);
+    await kv.incr('cnt', 60);
+    expect(await kv.decr('cnt')).toBe(1);
+    expect(await kv.decr('cnt')).toBe(0);
+    expect(await kv.decr('cnt')).toBe(0);
+    expect(await kv.incr('cnt', 60)).toBe(1);
+  });
+
+  it('протухшие ключи, которые больше не читают, запись убирает не чаще раза в минуту', async () => {
+    vi.useFakeTimers({ now: 0 });
+    try {
+      const kv = new MemoryKeyValueStore();
+      // Счётчики rate-limit одного окна: после него их ключи никто не читает
+      for (let user = 0; user < 50; user += 1) await kv.incr(`rl:ai:user:${user}:0`, 60);
+      await kv.set('forever', 1);
+      await kv.set('long', 1, 3600);
+      expect(kv.size).toBe(52);
+
+      vi.setSystemTime(59_000);
+      await kv.incr('rl:ai:user:0:0', 60);
+      expect(kv.size).toBe(52);
+
+      vi.setSystemTime(61_000);
+      await kv.incr('rl:ai:user:0:1', 60);
+      expect(kv.size).toBe(3);
+      expect(await kv.get('forever')).toBe(1);
+      expect(await kv.get('long')).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

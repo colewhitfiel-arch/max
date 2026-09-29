@@ -11,7 +11,7 @@ export function StudentHomeStats({ streakDays, points }: StudentHomeStatsProps) 
   const { t } = useTranslation('student');
   if (streakDays === undefined && points === undefined) return null;
   return (
-    <Inline gap={5} justify="center" wrap={false}>
+    <Inline gap={5} justify="center" wrap={false} data-tour="student-stats">
       {streakDays !== undefined && (
         <Inline gap={1} wrap={false}>
           <VisuallyHidden>{t('home.streak', { count: streakDays })}</VisuallyHidden>

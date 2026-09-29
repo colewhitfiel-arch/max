@@ -25,6 +25,11 @@ export const OnboardingTurnSchema = z.object({
   reply: z.string().min(1),
   isComplete: z.boolean(),
   profileDraft: OnboardingProfileSchema.nullable().default(null),
+  /**
+   * Названия кружков из списка школы, которые реплика предлагает на выбор: клиент покажет их
+   * кнопками быстрого ответа. Пусто — реплика кружки не предлагает.
+   */
+  clubOptions: z.array(z.string()).nullable().default([]),
 });
 export type OnboardingTurn = z.infer<typeof OnboardingTurnSchema>;
 
@@ -42,7 +47,7 @@ const MAX_CLUBS_SUMMARY_LENGTH = 500;
 
 export const onboardingTurnPrompt = definePrompt({
   id: 'onboarding.turn',
-  version: 3,
+  version: 4,
   description: 'Реплика онбординга: следующий вопрос или завершение с черновиком профиля',
   system: (vars: OnboardingVars) =>
     [
@@ -60,7 +65,10 @@ export const onboardingTurnPrompt = definePrompt({
       'Когда информации достаточно (или достигнут максимум) — заверши: короткая благодарность + скажи, что сейчас подберёшь кружки,',
       'и заполни profileDraft: interests (3–6 слов/фраз), goals, weeklyHours (целое число, 0 если не сказал), preferredFormats,',
       'futureInterests (направления «на потом», 0–4 фразы; пусто, если ученик ничего такого не назвал), summary (2 предложения о ученике).',
-      'Отвечай строго JSON: {"reply": string, "isComplete": boolean, "profileDraft": {...} | null}. Пока не завершено — profileDraft: null.',
+      'Если в реплике предлагаешь ученику кружки на выбор (или спрашиваешь, какой ближе), перечисли их точные названия',
+      'из списка кружков школы в clubOptions (не больше 4) — ученик выберет кружок кнопкой. Иначе clubOptions: [].',
+      'Отвечай строго JSON: {"reply": string, "isComplete": boolean, "profileDraft": {...} | null, "clubOptions": string[]}.',
+      'Пока не завершено — profileDraft: null.',
     ].join('\n'),
   schema: OnboardingTurnSchema,
   temperature: 0.7,
@@ -152,9 +160,25 @@ export function parseClubsFromPrompt(text: string): Array<{ id: string; title: s
 const byPrompt = (id: string) => (req: AiChatRequest) =>
   req.metadata?.promptId?.startsWith(`${id}@`) ?? false;
 
+/** Сколько кружков школы mock предлагает кнопками в вопросе о целях. */
+const MOCK_CLUB_OPTIONS = 3;
+
+/** Кружки школы из system-промпта онбординга («В школе есть кружки: A, B, C.»). */
+function mockClubTitles(req: AiChatRequest): string[] {
+  const system = req.messages.find((m) => m.role === 'system')?.content ?? '';
+  const match = /В школе есть кружки: (.+)\.$/m.exec(system);
+  if (!match?.[1] || match[1] === 'разные направления') return [];
+  return match[1]
+    .split(',')
+    .map((title) => title.trim())
+    .filter(Boolean)
+    .slice(0, MOCK_CLUB_OPTIONS);
+}
+
 /**
- * Вопросы mock-онбординга после приветствия (оно спрашивает об интересах): цели → часы/формат →
- * «на потом». Порядок совпадает с web-моком; `ONBOARDING_OPENING` + вопросы = ONBOARDING_MIN_ANSWERS ответов.
+ * Вопросы mock-онбординга после приветствия (оно спрашивает об интересах): цели (с кружками школы
+ * кнопками) → часы/формат → «на потом». Порядок совпадает с web-моком; `ONBOARDING_OPENING` +
+ * вопросы = ONBOARDING_MIN_ANSWERS ответов.
  */
 const MOCK_QUESTIONS = [
   'Здорово! А какие у тебя цели на этот год?',
@@ -170,10 +194,17 @@ export const onboardingMockRules: MockResponseRule[] = [
       const answered = answers.length;
       // Ответ i (с 1) — на приветствие (i = 1) или на MOCK_QUESTIONS[i - 2]; пока вопросы есть — задаём следующий.
       if (answered <= MOCK_QUESTIONS.length) {
+        const question = MOCK_QUESTIONS[Math.max(answered - 1, 0)] ?? MOCK_QUESTIONS[0]!;
+        // Вопрос о целях предлагает кружки школы — как настоящая модель, кнопками быстрого ответа.
+        const clubs = answered <= 1 ? mockClubTitles(req) : [];
         const turn: OnboardingTurn = {
-          reply: MOCK_QUESTIONS[Math.max(answered - 1, 0)] ?? MOCK_QUESTIONS[0]!,
+          reply:
+            clubs.length > 0
+              ? `${question} Из кружков школы тебе могут подойти: ${clubs.join(', ')}. Что ближе?`
+              : question,
           isComplete: false,
           profileDraft: null,
+          clubOptions: clubs,
         };
         return JSON.stringify(turn);
       }
@@ -195,6 +226,7 @@ export const onboardingMockRules: MockResponseRule[] = [
           futureInterests: futureAnswer ? [futureAnswer.slice(0, 60)] : [],
           summary: `Ученик рассказал о себе: ${answers[0]?.content.slice(0, 80) ?? ''}. Любит практику и проекты.`,
         },
+        clubOptions: [],
       };
       return JSON.stringify(turn);
     },

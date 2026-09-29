@@ -12,9 +12,13 @@ import {
   Card,
   ChatBubble,
   ChatComposer,
+  ChevronDownIcon,
   ChevronsDownIcon,
+  ChevronUpIcon,
   Checkbox,
   Chip,
+  Coachmark,
+  type CoachmarkRect,
   ClipboardIcon,
   Divider,
   DockSheet,
@@ -34,8 +38,11 @@ import {
   Input,
   ListRow,
   LockIcon,
+  Markdown,
   LogoutIcon,
   LifebuoyIcon,
+  MenuIcon,
+  EditIcon,
   Modal,
   MoonIcon,
   PageHeader,
@@ -285,6 +292,54 @@ function OverlaysDemo() {
           <ListRow title="Отметить пропуск" onClick={() => setSheetOpen(false)} />
         </Stack>
       </Sheet>
+    </>
+  );
+}
+
+/** Тур из трёх шагов: подсветка кнопок строки и шаг без цели по центру. */
+function CoachmarkDemo() {
+  const refs = [useRef<HTMLButtonElement>(null), useRef<HTMLButtonElement>(null)];
+  const [step, setStep] = useState<number | null>(null);
+  const [rect, setRect] = useState<CoachmarkRect | null>(null);
+  const steps = [
+    {
+      title: 'Первая кнопка',
+      text: 'Подсветка следует за элементом, карточка — под ним или над ним.',
+    },
+    { title: 'Вторая кнопка', text: '← и → листают шаги, Escape закрывает тур.' },
+    { title: 'Шаг без цели', text: 'Карточка по центру на затемнённом фоне.' },
+  ];
+  useEffect(() => {
+    if (step === null) return;
+    const el = refs[step]?.current;
+    setRect(el ? el.getBoundingClientRect() : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+  const current = step === null ? null : steps[step];
+  return (
+    <>
+      <Row>
+        <Button onClick={() => setStep(0)}>Запустить тур</Button>
+        <Button ref={refs[0]} variant="secondary">
+          Цель 1
+        </Button>
+        <Button ref={refs[1]} variant="secondary">
+          Цель 2
+        </Button>
+      </Row>
+      <Coachmark
+        open={current !== null}
+        target={rect}
+        eyebrow="Демо"
+        title={current?.title}
+        step={(step ?? 0) + 1}
+        total={steps.length}
+        onNext={() => setStep((s) => (s === null || s + 1 >= steps.length ? null : s + 1))}
+        onPrev={() => setStep((s) => (s === null ? null : Math.max(0, s - 1)))}
+        onClose={() => setStep(null)}
+      >
+        {current?.text}
+      </Coachmark>
     </>
   );
 }
@@ -564,6 +619,31 @@ const DEMO_TASK_STATUS: Record<Tone, string> = {
   neutral: 'позже',
   info: '',
 };
+
+/** Урок из конструктора курса: разметка GigaChat (заголовки, выделение, списки, код, ссылки). */
+const DEMO_MARKDOWN = `# Датчик расстояния
+
+**Ультразвуковой датчик** HC-SR04 измеряет *расстояние* до препятствия: пин \`trig\` посылает сигнал, \`echo\` ловит эхо.
+Переносы строк внутри абзаца сохраняются.
+
+## Что понадобится
+- плата Arduino
+- датчик HC-SR04
+  - четыре провода «папа–мама»
+
+### Шаги
+1. Подключи датчик
+2. Загрузи скетч:
+
+\`\`\`cpp
+long distance = pulseIn(ECHO, HIGH) / 58;
+\`\`\`
+
+> Сырой HTML — текстом: <b>не жирный</b>. Ссылка [javascript:](javascript:alert(1)) — тоже текст.
+
+---
+
+Подробнее — [документация Arduino](https://docs.arduino.cc).`;
 
 const DEMO_CODE = `def control_robot(distance):
     if distance <= 15:
@@ -1161,6 +1241,66 @@ function TutorDemo() {
           ],
         }))}
       />
+      <Text variant="caption" tone="muted">
+        BarChart: группы без кода — подписи длиннее 5 символов раздвигают столбцы на равные доли, не
+        влезающая подпись обрезается многоточием
+      </Text>
+      <BarChart
+        title="Посещения"
+        aria-label="Робототехника, группа А: посетили 12, пропустили 3; Python, группа А: посетили 8, пропустили 2"
+        legend={[
+          {
+            key: 'robotics',
+            title: 'Робототехника',
+            tone: 'primary',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+          {
+            key: 'python',
+            title: 'Программирование',
+            tone: 'success',
+            items: [{ label: 'посетили' }, { label: 'пропустили', dim: true }],
+          },
+        ]}
+        bars={[
+          {
+            key: 'a',
+            label: 'группа А',
+            tone: 'primary',
+            segments: [
+              { key: 'attended', value: 12 },
+              { key: 'missed', value: 3, dim: true },
+            ],
+          },
+          {
+            key: 'b',
+            label: 'Python, группа А',
+            tone: 'success',
+            segments: [
+              { key: 'attended', value: 8 },
+              { key: 'missed', value: 2, dim: true },
+            ],
+          },
+        ]}
+      />
+      <DataTable
+        caption="Домашние задания по группам без кода"
+        columns={[
+          { key: 'group', header: 'Группа', weight: 1.9 },
+          {
+            key: 'correct',
+            header: 'Правильно выполненные дз',
+            align: 'center',
+            weight: 1.6,
+            tone: 'success',
+          },
+          { key: 'done', header: 'Выполненные дз', align: 'center', weight: 1.5, tone: 'primary' },
+        ]}
+        rows={['Робототехника, группа А', 'Python, группа А'].map((group, index) => ({
+          key: group,
+          cells: { group, correct: 3 + index, done: 7 + index },
+        }))}
+      />
       <DataTable
         caption="Домашние задания по группам"
         columns={[
@@ -1240,6 +1380,12 @@ function PlaygroundContent() {
             {'Первая строка ответа\nвторая строка\n\n  после пустой — с отступом'}
           </Text>
         </Row>
+      </Section>
+
+      <Section title="Markdown">
+        <Card>
+          <Markdown source={DEMO_MARKDOWN} />
+        </Card>
       </Section>
 
       <Section title="Button">
@@ -1540,6 +1686,10 @@ function PlaygroundContent() {
           <SparkIcon />
           <StarIcon />
           <ClipboardIcon />
+          <MenuIcon />
+          <EditIcon />
+          <ChevronDownIcon />
+          <ChevronUpIcon />
         </Row>
         <Row label="Заливочные (Figma)">
           <HomeIcon size={32} />
@@ -1597,6 +1747,10 @@ function PlaygroundContent() {
 
       <Section title="Modal, Sheet">
         <OverlaysDemo />
+      </Section>
+
+      <Section title="Coachmark (тур)">
+        <CoachmarkDemo />
       </Section>
 
       <Section title="Toast">

@@ -27,8 +27,12 @@ export function CoursePage() {
               <Text variant="caption" tone="muted">
                 {course.group.title}
               </Text>
-              {course.modules.map((module) => (
-                <Stack key={module.id} gap={2}>
+              {course.modules.map((module, index) => (
+                <Stack
+                  key={module.id}
+                  gap={2}
+                  data-tour={index === 0 ? 'course-modules' : undefined}
+                >
                   <SectionTitle>{module.title}</SectionTitle>
                   {module.blocks.length === 0 ? (
                     <Text variant="caption" tone="muted">

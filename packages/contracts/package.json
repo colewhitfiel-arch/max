@@ -38,6 +38,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "openapi": "tsx scripts/openapi.ts",
+    "test-data": "tsx scripts/test-data.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -46,9 +48,11 @@
   },
   "devDependencies": {
     "@edu/config": "workspace:*",
+    "@ts-rest/open-api": "~3.52.1",
     "eslint": "^9.30.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "vitest": "^3.2.4"
   }

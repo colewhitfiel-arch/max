@@ -6,6 +6,7 @@ import {
   Inline,
   LinkIcon,
   ListRow,
+  PlusIcon,
   Screen,
   Stack,
   Text,
@@ -22,13 +23,14 @@ import { isApiClientError } from '@/shared/api/errors';
 import { nextDaysPeriod, weekdayName } from '@/shared/lib/dates';
 import { formatPercent, formatRate } from '@/shared/lib/format';
 import { FROM_APP_STATE, isFromApp } from '@/shared/lib/navigation';
-import { teacherStudentPaths } from '@/shared/lib/teacher-paths';
+import { teacherGroupPaths, teacherStudentPaths } from '@/shared/lib/teacher-paths';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 import { shouldOpenInvite } from '../model';
 
 /**
- * `/teacher/groups/:groupId` — `GET /teacher/groups/:id` + занятия на 14 дней и «Пригласить
- * учеников» (ссылка группы, F19; сразу после создания группы шторка открыта). Открыта из
+ * `/teacher/groups/:groupId` — `GET /teacher/groups/:id` + занятия на 14 дней, «Пригласить
+ * учеников» (ссылка группы, F19; сразу после создания группы шторка открыта) и «Изменить» у
+ * учеников — название и состав группы (`/teacher/groups/:id/edit`). Открыта из
  * приложения (список групп, «Мои группы» в профиле) — «назад» по истории, иначе — к списку групп.
  */
 export function GroupPage() {
@@ -44,6 +46,7 @@ export function GroupPage() {
   // Чужая (или несуществующая — сервер отдаёт её так же, docs/05) группа — 403. Прочие ошибки
   // («не найдено», «раздел в разработке» — нет ручки) показывает AsyncState (AGENT_GUIDE §3).
   const notFound = isApiClientError(query.error) && query.error.code === 'FORBIDDEN';
+  const onManage = () => navigate(teacherGroupPaths.edit(groupId), { state: FROM_APP_STATE });
 
   return (
     <>
@@ -104,11 +107,24 @@ export function GroupPage() {
                   </Stack>
 
                   <Stack gap={2}>
-                    <SectionTitle>{t('groups.studentsList')}</SectionTitle>
+                    <SectionTitle
+                      action={
+                        <Button variant="link" size="sm" onClick={onManage}>
+                          {t('groups.manage')}
+                        </Button>
+                      }
+                    >
+                      {t('groups.studentsList')}
+                    </SectionTitle>
                     {group.students.length === 0 ? (
                       <EmptyState
                         title={t('groups.noStudents')}
-                        description={t('groups.noStudentsHint')}
+                        description={t('groups.noStudentsInviteHint')}
+                        action={
+                          <Button leftIcon={<PlusIcon />} onClick={onManage}>
+                            {t('groups.addStudents')}
+                          </Button>
+                        }
                       />
                     ) : (
                       <Card padding="none">

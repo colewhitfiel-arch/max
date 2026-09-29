@@ -25,6 +25,7 @@
     "paidUntil": "Paid until {{date}}",
     "notPaid": "No payments yet",
     "nextPayment": "Next payment {{date}}",
+    "paymentOverdue": "Payment overdue since {{date}}",
     "teacher": "Teacher",
     "schedule": "Schedule",
     "contacts": "Contacts",
@@ -62,7 +63,9 @@
       "hint": "Send the link to your child in MAX — they open it and confirm",
       "expires": "Valid until {{date}}",
       "shareTitle": "Invitation to Kruzhki",
-      "shareText": "Open the link and confirm I am your parent — then I can see your schedule and progress"
+      "shareText": "Open the link and confirm I am your parent — then I can see your schedule and progress",
+      "waiting": "Waiting for your child to open the link and confirm. The link works once: create a new one for another child",
+      "accepted": "Your child accepted the invitation: {{name}}"
     },
     "code": {
       "title": "Enter a code",

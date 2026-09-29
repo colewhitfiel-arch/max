@@ -1,6 +1,8 @@
 import { AppLayout, Button, ErrorState, Screen } from '@edu/ui';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { config } from '@/shared/config';
 import { i18n } from '@/shared/i18n';
+import { reportClientError } from './client-errors';
 
 interface Props {
   children: ReactNode;
@@ -24,6 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[app] необработанная ошибка', error, info.componentStack);
+    reportClientError(config.apiUrl, 'render', error);
   }
 
   override render(): ReactNode {

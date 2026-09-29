@@ -11,9 +11,11 @@ import {
   Card,
   Checkbox,
   Divider,
+  EmptyState,
   Field,
   Inline,
   Input,
+  PlusIcon,
   Screen,
   SegmentedControl,
   Select,
@@ -30,6 +32,8 @@ import { useCreateGenerationJob } from '@/entities/generation';
 import { useTeacherGroup, useTeacherGroups } from '@/entities/group';
 import { MaterialUploader } from '@/features/upload-file';
 import { describeApiError } from '@/shared/api/errors';
+import { FROM_APP_STATE } from '@/shared/lib/navigation';
+import { teacherGroupPaths } from '@/shared/lib/teacher-paths';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 
 type Step = 'group' | 'what' | 'source';
@@ -47,7 +51,9 @@ const today = () => new Date().toISOString().slice(0, 10);
  * `/teacher/assignments/new` — единственная точка, где преподаватель создаёт учебный материал
  * (docs/07 F7, F8): группа и адресаты → что задаём (одно ДЗ или целый курс) и в какой курс →
  * материалы или описание. Дальше работает пайплайн course-builder; для ученика результат всегда
- * выглядит курсом, который просто пополняется.
+ * выглядит курсом, который просто пополняется. Групп нет — ведёт создать группу, в группе нет
+ * учеников — добавить их. Экран ровно по высоте области (`Screen fixed`): прокручивается только
+ * поле шага, «Далее»/«Назад» всегда видны внизу.
  */
 export function AssignHomeworkPage() {
   const { t } = useTranslation('teacher');
@@ -85,6 +91,10 @@ export function AssignHomeworkPage() {
     (wholeGroup || studentIds.length > 0) &&
     (source === 'topic' ? topicValid : files.length > 0 && !extraTopicInvalid);
 
+  const groupItems = groups.data?.items ?? [];
+  const selectedGroup = groupItems.find((item) => item.id === groupId);
+  const openGroupScreen = (path: string) => navigate(path, { state: FROM_APP_STATE });
+
   // Курсы, которые можно дополнить: архивные не предлагаем.
   const appendable = (courses.data?.items ?? []).filter((course) => course.status !== 'ARCHIVED');
 
@@ -119,93 +129,121 @@ export function AssignHomeworkPage() {
 
   // ---------- шаги ----------
 
-  const groupStep = (
-    <Stack gap={4}>
-      <Stack gap={1}>
-        <Field
-          label={t('assign.group')}
-          required
-          disabled={groups.isPending || groups.isError}
-          hint={groups.isPending ? tc('states.loading') : undefined}
-          error={groups.isError ? describeApiError(groups.error) : undefined}
-        >
-          <Select
-            value={groupId}
-            onChange={(event) => {
-              setGroupId(event.target.value);
-              // Состав и курсы у новой группы свои — прежний выбор к ней не относится.
-              setStudentIds([]);
-              setWholeGroup(true);
-              setCourseId(NEW_COURSE);
-            }}
-            placeholder={t('assign.groupPlaceholder')}
-            options={(groups.data?.items ?? []).map((item) => ({
-              value: item.id,
-              label: item.title,
-            }))}
-          />
-        </Field>
-        {groups.isError && (
-          <Button variant="ghost" size="sm" onClick={() => void groups.refetch()}>
-            {tc('actions.retry')}
+  const groupStep =
+    groups.isSuccess && groupItems.length === 0 ? (
+      <EmptyState
+        title={t('assign.noGroups')}
+        description={t('assign.noGroupsHint')}
+        action={
+          <Button leftIcon={<PlusIcon />} onClick={() => openGroupScreen(teacherGroupPaths.create)}>
+            {t('assign.createGroup')}
           </Button>
-        )}
-      </Stack>
-
-      {groupId && (
-        <Stack gap={2}>
-          <Text variant="title">{t('assign.whoTitle')}</Text>
-          <SegmentedControl
-            fullWidth
-            aria-label={t('assign.whoTitle')}
-            value={wholeGroup ? 'all' : 'some'}
-            onChange={(value) => setWholeGroup(value === 'all')}
-            options={[
-              { value: 'all', label: t('assign.wholeGroup') },
-              { value: 'some', label: t('assign.someStudents') },
-            ]}
-          />
-          {!wholeGroup && (
-            <AsyncState query={group}>
-              {(detail) => (
-                <Card>
-                  <Stack gap={3}>
-                    <Inline justify="between">
-                      <Text tone="muted">{t('assign.selected', { count: studentIds.length })}</Text>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() =>
-                          setStudentIds(
-                            studentIds.length === detail.students.length
-                              ? []
-                              : detail.students.map((row) => row.student.id),
-                          )
-                        }
-                      >
-                        {studentIds.length === detail.students.length
-                          ? t('assign.clearAll')
-                          : t('assign.selectAll')}
-                      </Button>
-                    </Inline>
-                    <Divider />
-                    {detail.students.map((row) => (
-                      <Checkbox
-                        key={row.student.id}
-                        label={studentName(row.student)}
-                        checked={studentIds.includes(row.student.id)}
-                        onChange={(event) => toggleStudent(row.student.id, event.target.checked)}
-                      />
-                    ))}
-                  </Stack>
-                </Card>
-              )}
-            </AsyncState>
+        }
+      />
+    ) : (
+      <Stack gap={4}>
+        <Stack gap={1}>
+          <Field
+            label={t('assign.group')}
+            required
+            disabled={groups.isPending || groups.isError}
+            hint={groups.isPending ? tc('states.loading') : undefined}
+            error={groups.isError ? describeApiError(groups.error) : undefined}
+          >
+            <Select
+              value={groupId}
+              onChange={(event) => {
+                setGroupId(event.target.value);
+                // Состав и курсы у новой группы свои — прежний выбор к ней не относится.
+                setStudentIds([]);
+                setWholeGroup(true);
+                setCourseId(NEW_COURSE);
+              }}
+              placeholder={t('assign.groupPlaceholder')}
+              options={groupItems.map((item) => ({
+                value: item.id,
+                label: item.title,
+              }))}
+            />
+          </Field>
+          {groups.isError && (
+            <Button variant="ghost" size="sm" onClick={() => void groups.refetch()}>
+              {tc('actions.retry')}
+            </Button>
           )}
         </Stack>
-      )}
-    </Stack>
-  );
+
+        {selectedGroup && selectedGroup.studentsCount === 0 && (
+          <Stack gap={1} align="start">
+            <Text variant="caption" tone="muted">
+              {t('assign.groupEmpty')}
+            </Text>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => openGroupScreen(teacherGroupPaths.edit(selectedGroup.id))}
+            >
+              {t('assign.manageGroup')}
+            </Button>
+          </Stack>
+        )}
+
+        {groupId && (
+          <Stack gap={2}>
+            <Text variant="title">{t('assign.whoTitle')}</Text>
+            <SegmentedControl
+              fullWidth
+              aria-label={t('assign.whoTitle')}
+              value={wholeGroup ? 'all' : 'some'}
+              onChange={(value) => setWholeGroup(value === 'all')}
+              options={[
+                { value: 'all', label: t('assign.wholeGroup') },
+                { value: 'some', label: t('assign.someStudents') },
+              ]}
+            />
+            {!wholeGroup && (
+              <AsyncState query={group}>
+                {(detail) => (
+                  <Card>
+                    <Stack gap={3}>
+                      <Inline justify="between">
+                        <Text tone="muted">
+                          {t('assign.selected', { count: studentIds.length })}
+                        </Text>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() =>
+                            setStudentIds(
+                              studentIds.length === detail.students.length
+                                ? []
+                                : detail.students.map((row) => row.student.id),
+                            )
+                          }
+                        >
+                          {studentIds.length === detail.students.length
+                            ? t('assign.clearAll')
+                            : t('assign.selectAll')}
+                        </Button>
+                      </Inline>
+                      <Divider />
+                      {detail.students.map((row) => (
+                        <Checkbox
+                          key={row.student.id}
+                          label={studentName(row.student)}
+                          checked={studentIds.includes(row.student.id)}
+                          onChange={(event) => toggleStudent(row.student.id, event.target.checked)}
+                        />
+                      ))}
+                    </Stack>
+                  </Card>
+                )}
+              </AsyncState>
+            )}
+          </Stack>
+        )}
+      </Stack>
+    );
 
   const whatStep = (
     <Stack gap={4}>
@@ -328,8 +366,8 @@ export function AssignHomeworkPage() {
         subtitle={t('assign.step', { current: stepIndex + 1, total: steps.length })}
         back={step === 'group' ? '/teacher/assignments' : true}
       />
-      <Screen fill>
-        <Inline gap={2}>
+      <Screen fixed>
+        <Inline gap={2} data-tour="assign-steps">
           {steps.map((item, index) => (
             <Badge key={item} tone={index <= stepIndex ? 'info' : 'neutral'}>
               {t(`assign.steps.${item}`)}
@@ -337,11 +375,15 @@ export function AssignHomeworkPage() {
           ))}
         </Inline>
 
-        {step === 'group' && groupStep}
-        {step === 'what' && whatStep}
-        {step === 'source' && sourceStep}
+        {/* Экран не прокручивается: длинный шаг (ученики, материалы) листается здесь. Новый шаг —
+            с начала (key): иначе он открылся бы на прокрутке прошлого, с заголовком за краем. */}
+        <Stack key={step} gap={4} scroll>
+          {step === 'group' && groupStep}
+          {step === 'what' && whatStep}
+          {step === 'source' && sourceStep}
+        </Stack>
 
-        <Stack gap={2} justify="end" grow>
+        <Stack gap={2}>
           {step === 'source' ? (
             <Button
               fullWidth

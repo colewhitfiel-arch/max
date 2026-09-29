@@ -26,22 +26,16 @@ export class AttendanceRepository {
     });
   }
 
-  /** Отметки `PRESENT|LATE` по ученикам на перечисленных занятиях. */
-  async countPresentByStudent(
+  /** Отметки учеников на перечисленных занятиях (занятие × ученик → статус). */
+  async listMarks(
     lessonIds: string[],
     studentIds: string[],
-  ): Promise<Map<string, number>> {
-    if (lessonIds.length === 0 || studentIds.length === 0) return new Map();
-    const rows = await this.prisma.attendance.groupBy({
-      by: ['studentId'],
-      where: {
-        lessonId: { in: lessonIds },
-        studentId: { in: studentIds },
-        status: { in: ['PRESENT', 'LATE'] },
-      },
-      _count: { _all: true },
+  ): Promise<Array<{ lessonId: string; studentId: string; status: AttendanceStatus }>> {
+    if (lessonIds.length === 0 || studentIds.length === 0) return [];
+    return this.prisma.attendance.findMany({
+      where: { lessonId: { in: lessonIds }, studentId: { in: studentIds } },
+      select: { lessonId: true, studentId: true, status: true },
     });
-    return new Map(rows.map((row) => [row.studentId, row._count._all]));
   }
 
   /** Отметки одного ученика на перечисленных занятиях (`lessonId → status`). */

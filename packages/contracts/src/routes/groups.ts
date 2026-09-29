@@ -1,5 +1,6 @@
 /**
- * Календарь и занятия групп, создание группы преподавателем и вступление по ссылке. Владелец — B2.
+ * Календарь и занятия групп, свои группы преподавателя (создание, название, состав) и вступление
+ * по ссылке. Владелец — B2.
  * docs/05-api-contracts.md §5.3 `groups.ts`.
  */
 import { initContract } from '@ts-rest/core';
@@ -11,7 +12,12 @@ import {
   PeriodQuerySchema,
   TimeOfDaySchema,
 } from '../common';
-import { GroupBriefSchema, LessonDtoSchema, ScheduleRuleDtoSchema } from '../entities';
+import {
+  GroupBriefSchema,
+  LessonDtoSchema,
+  ScheduleRuleDtoSchema,
+  StudentBriefSchema,
+} from '../entities';
 import { BillingPeriodSchema, ClubCategorySchema } from '../enums';
 import { contractRouterOptions, userRoute } from './meta';
 
@@ -22,6 +28,22 @@ const c = initContract();
 export const LessonsListSchema = z.object({ lessons: z.array(LessonDtoSchema) });
 export type LessonsList = z.infer<typeof LessonsListSchema>;
 
+/** Ограничение длины названия группы (форма создания и переименования). */
+export const GROUP_TITLE_MAX_LENGTH = 100;
+
+/** Состав группы: активные ученики по алфавиту. */
+export const GroupRosterSchema = z.object({
+  groupId: IdSchema,
+  students: z.array(StudentBriefSchema),
+});
+export type GroupRoster = z.infer<typeof GroupRosterSchema>;
+
+/**
+ * Кого можно добавить в группу: ученики школы преподавателя и ученики его других групп,
+ * которых в этой группе ещё нет.
+ */
+export const GroupCandidatesSchema = z.object({ items: z.array(StudentBriefSchema) });
+export type GroupCandidates = z.infer<typeof GroupCandidatesSchema>;
 /**
  * Ссылка-приглашение в группу (docs/07 F19): многоразовая и бессрочная — преподаватель
  * рассылает её всем ученикам. Сброс выдаёт новую, старая перестаёт работать. `url` строит сервер
@@ -86,6 +108,8 @@ export const UpdateLessonBodySchema = z.object({
 });
 export type UpdateLessonBody = z.infer<typeof UpdateLessonBodySchema>;
 
+const GroupTitleSchema = z.string().trim().min(1).max(GROUP_TITLE_MAX_LENGTH);
+
 /** Правило расписания новой группы: день недели (0 — воскресенье … 6 — суббота) и время. */
 export const NewScheduleRuleSchema = z
   .object({
@@ -101,19 +125,32 @@ export const NewScheduleRuleSchema = z
 export type NewScheduleRule = z.infer<typeof NewScheduleRuleSchema>;
 
 /**
- * Новая группа преподавателя. Вместе с ней создаётся кружок в каталоге школы (название, кружок,
- * описание и цена — те же), поэтому группа сразу видна ученикам и родителям.
+ * Новая группа преподавателя по любому из 8 кружков. Вместе с ней создаётся кружок в каталоге
+ * школы (название, направление, описание и цена — те же), поэтому группа сразу видна ученикам
+ * и родителям; занятия по расписанию — на 8 недель вперёд.
  */
 export const CreateGroupBodySchema = z.object({
   category: ClubCategorySchema,
   /** «Английский для 5–6 классов». */
-  title: z.string().trim().min(1).max(80),
+  title: GroupTitleSchema,
   description: z.string().trim().max(500).optional(),
   /** Цена за месяц; 0 — бесплатно. */
   price: MoneySchema,
   schedule: z.array(NewScheduleRuleSchema).max(14).default([]),
 });
 export type CreateGroupBody = z.input<typeof CreateGroupBodySchema>;
+
+export const UpdateGroupBodySchema = z.object({ title: GroupTitleSchema });
+export type UpdateGroupBody = z.infer<typeof UpdateGroupBodySchema>;
+
+/** Поиск по имени/фамилии; пусто — все кандидаты. */
+export const GroupCandidatesQuerySchema = z.object({
+  q: z.string().trim().max(100).optional(),
+});
+export type GroupCandidatesQuery = z.infer<typeof GroupCandidatesQuerySchema>;
+
+export const AddGroupStudentBodySchema = z.object({ studentId: IdSchema });
+export type AddGroupStudentBody = z.infer<typeof AddGroupStudentBodySchema>;
 
 // ---------- Роуты ----------
 
@@ -212,6 +249,42 @@ export const groupsContract = c.router(
       responses: { 200: LessonDtoSchema },
       summary: 'Изменить тему/кабинет занятия или отменить его',
       metadata: userRoute('teacher:lessons.manage'),
+    },
+    updateGroup: {
+      method: 'PATCH',
+      path: '/teacher/groups/:groupId',
+      pathParams: z.object({ groupId: IdSchema }),
+      body: UpdateGroupBodySchema,
+      responses: { 200: GroupBriefSchema },
+      summary: 'Переименовать группу',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    listGroupCandidates: {
+      method: 'GET',
+      path: '/teacher/groups/:groupId/candidates',
+      pathParams: z.object({ groupId: IdSchema }),
+      query: GroupCandidatesQuerySchema,
+      responses: { 200: GroupCandidatesSchema },
+      summary: 'Ученики, которых можно добавить в группу',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    addGroupStudent: {
+      method: 'POST',
+      path: '/teacher/groups/:groupId/students',
+      pathParams: z.object({ groupId: IdSchema }),
+      body: AddGroupStudentBodySchema,
+      responses: { 200: GroupRosterSchema },
+      summary: 'Добавить ученика в группу (идемпотентно)',
+      metadata: userRoute('teacher:groups.manage'),
+    },
+    removeGroupStudent: {
+      method: 'DELETE',
+      path: '/teacher/groups/:groupId/students/:studentId',
+      pathParams: z.object({ groupId: IdSchema, studentId: IdSchema }),
+      body: c.noBody(),
+      responses: { 200: GroupRosterSchema },
+      summary: 'Убрать ученика из группы (зачисление → LEFT, история сохраняется)',
+      metadata: userRoute('teacher:groups.manage'),
     },
   },
   contractRouterOptions,

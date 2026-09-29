@@ -285,14 +285,21 @@ export const aiHandlers = [
           (m) => m.conversationId === conversation.id && m.role === 'USER',
         );
         const isComplete = userMessages.length > ONBOARDING_QUESTIONS.length;
+        // Вопрос о целях предлагает кружки школы кнопками — как mock-провайдер `packages/ai`.
+        const clubOptions =
+          userMessages.length === 1 ? onboardingClubs().map((club) => clubCard(club.id)) : [];
+        const question = ONBOARDING_QUESTIONS[userMessages.length - 1];
         const reply = isComplete
           ? 'Спасибо! Я понял твои интересы. Сейчас подберу кружки, которые тебе подойдут.'
-          : ONBOARDING_QUESTIONS[userMessages.length - 1]!;
+          : clubOptions.length > 0
+            ? `${question} Из кружков школы тебе могут подойти: ${clubOptions.map((c) => c.title).join(', ')}. Что ближе?`
+            : question!;
         const message = addMessage(conversation.id, 'ASSISTANT', reply);
         return sseResponse(reply, {
           type: 'done',
           messageId: message.id,
           isComplete,
+          ...(clubOptions.length > 0 ? { clubOptions } : {}),
           ...(isComplete
             ? {
                 profileDraft: {
@@ -610,7 +617,9 @@ export const aiHandlers = [
       ({ auth }) => {
         const student = studentOfUser(auth.user.id);
         const trajectory = student && db.trajectories.find((t) => t.studentId === student.id);
-        return json(TrajectoryDtoSchema.nullable(), trajectory ?? null);
+        // Как у настоящего api: Nest отдаёт null пустым телом, а не JSON `null`.
+        if (!trajectory) return new HttpResponse(null, { status: 200 });
+        return json(TrajectoryDtoSchema, trajectory);
       },
       ['STUDENT'],
     ),

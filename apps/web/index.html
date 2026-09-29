@@ -6,11 +6,14 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f4f5f7" />
     <title>Кружки</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!--
       SDK мини-приложений MAX: кладёт в окно глобальный `WebApp` (dev.max.ru/docs/webapps).
       Грузится всегда: вне MAX просто ничего не даёт, а режим моста решает VITE_MAX_MODE.
+      defer — не блокирует отрисовку, если st.max.ru медленный; отложенные скрипты выполняются по
+      порядку документа, так что `WebApp` появляется до модуля приложения (мост ещё и ждёт его).
     -->
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script defer src="https://st.max.ru/js/max-web-app.js"></script>
   </head>
   <body>
     <div id="root"></div>

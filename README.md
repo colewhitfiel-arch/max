@@ -1,176 +1,398 @@
 # Мини-приложение дополнительного образования в MAX
 
-Приложение для кружков и дополнительных занятий в школах: ученик, родитель и преподаватель работают с общими данными внутри мессенджера MAX; интеллектуальный слой — GigaChat. Сейчас репозиторий содержит **foundation**: каркас, контракты, БД, auth, права, интеграционные порты и dev-моки. Продуктовые модули реализуются отдельными агентами (`docs/12-workstreams.md`).
+Мини-приложение мессенджера MAX для кружков и дополнительных занятий в школе. Ученик, родитель
+и преподаватель работают с общими данными: расписание, задания, посещаемость, прогресс. Интеллектуальный
+слой — GigaChat: онбординг-диалог и подбор кружков, ИИ-тьютор, траектория развития, конструктор курса
+из материалов преподавателя или по теме.
 
-Документация — `docs/` (source of truth), для агентов — `docs/AGENT_GUIDE.md`, что построено — `docs/FOUNDATION.md`.
+- **Живой стенд:** <https://max-edu.vercel.app> (в браузере — экран демо-входа; внутри MAX — вход по подписи).
+- **Демонстрационный режим (для жюри):** диплинк <https://max.ru/se14447967_bot?startapp=demo> (тур стартует сразу),
+  кнопка «Демонстрационный режим» на экране входа (браузер), над ролями на экране выбора роли (первый вход в MAX)
+  и строка в настройках любой роли (если роль уже выбрана): пошаговый тур по всем функциям ученика, родителя и преподавателя
+  на данных демо-школы (см. [§11](#11-пошаговый-сценарий-проверки)).
+- **Мини-приложение в MAX:** <https://max.ru/se14447967_bot?startapp> (бот «Вектор»).
+- **API:** `https://max-edu.vercel.app/api/v1`, спецификация — [`openapi.json`](openapi.json) (OpenAPI 3.1, 94 пути), тестовые данные — [`test-data/demo-world.json`](test-data/demo-world.json), проверки — [`DATA-API.yaml`](DATA-API.yaml).
+- Документация — `docs/` (source of truth): продукт `docs/00`, архитектура `docs/02`, данные `docs/04`,
+  API `docs/05`, сценарии `docs/07`, ADR — `docs/adr/`. Для агентов — `docs/AGENT_GUIDE.md`.
 
-## Стек
+Содержание: [Назначение](#1-назначение-решения) · [Сценарий](#2-основной-пользовательский-сценарий) ·
+[Архитектура](#3-состав-и-архитектура-решения) · [Запуск в Docker](#4-запуск-одной-командой-docker) ·
+[Порты](#5-порты) · [Окружение](#6-переменные-окружения) · [Зависимости](#7-зависимости) ·
+[Интеграции](#8-внешние-сервисы-и-интеграции) · [Данные](#9-работа-с-данными) ·
+[Тестовые данные](#10-тестовые-данные) · [Проверка](#11-пошаговый-сценарий-проверки) ·
+[Ожидаемое поведение](#12-примеры-ожидаемого-поведения) · [Ограничения](#13-известные-ограничения) ·
+[Остановка](#14-остановка-и-повторный-запуск) · [Разработка](#15-разработка-без-docker) ·
+[ИИ](#16-ии-функции-gigachat) · [MAX](#17-мини-приложение-max) · [Vercel](#18-живой-стенд-на-vercel) ·
+[Хостинг](#19-хостинг)
 
-TypeScript, pnpm workspaces + Turborepo · **web:** React 19, Vite 7, react-router 7, TanStack Query 5, zustand, MSW, i18next · **api:** NestJS 11, ts-rest, zod, pino · **db:** PostgreSQL 16+ (локально — embedded PostgreSQL 18), Prisma 6 · **ai:** GigaChat за портом (`@edu/ai`) · **ui:** собственная дизайн-система на обычном CSS (`@edu/ui`) · тесты: Vitest, Testing Library, Supertest.
+## 1. Назначение решения
 
-## Структура
+Школьные кружки живут в чатах и тетрадях: расписание — в одном месте, задания — в другом, посещаемость —
+у преподавателя в голове, а родитель узнаёт о прогрессе ребёнка раз в четверть. Приложение собирает это
+в одном мини-приложении внутри MAX, где школьные чаты уже есть («Сферум» переехал в MAX):
+
+- **ученик** видит занятия на сегодня, выполняет задания-«планеты», спрашивает ИИ-тьютора, следит за прогрессом;
+- **родитель** привязывает ребёнка по коду или ссылке-приглашению, видит посещаемость, задания и оплату кружков;
+- **преподаватель** ведёт группы, отмечает посещаемость, задаёт домашние задания и собирает курс
+  из своих материалов или по теме за пару минут на GigaChat.
+
+Аудитория пилота — ученики 5–8 классов, их родители и педагоги кружков одной школы (модель масштабирования —
+в презентации). Целевая платформа — MAX (мобильные и веб-версия).
+
+## 2. Основной пользовательский сценарий
+
+Приоритетный сценарий — **ученик**: от входа до сделанного задания и вопроса тьютору.
+
+1. Открыть бота «Вектор» в MAX → кнопка «Открыть». Вход происходит автоматически по подписи MAX
+   (`WebApp.initData`); в браузере вместо этого — экран выбора демо-пользователя.
+2. Первый вход — онбординг-диалог с ИИ: интересы, цели, время → подбор кружков школы («записаться» / «попробовать позже»).
+3. Главная: занятия на сегодня, посещаемость, блок «Моя траектория».
+4. «Домашка» → карта-«планеты» по кружкам → открыть задание → ответить → сдать. Ответ виден преподавателю.
+5. «Тьютор» → вопрос по теме занятия → ответ GigaChat стримится в чат с учётом расписания и заданий ученика.
+6. Профиль → прогресс по кружкам, траектория.
+
+Смежные сценарии (полный список — `docs/07-user-flows.md`): преподаватель — «Задать ДЗ» → конструктор курса
+«по теме» → черновик → публикация; «Отметить посещаемость»; родитель — привязка ребёнка, аналитика, оплата (заглушка).
+
+## 3. Состав и архитектура решения
+
+Модульный монолит в TypeScript-монорепо (pnpm workspaces + Turborepo), контракт-first: все ручки API описаны
+zod-схемами в общем пакете, фронт и бэк типизированы от одного источника (ADR-004).
+
+```
+Мессенджер MAX (iOS / Android / desktop / web)
+   └─ apps/web — React 19 SPA, MAX SDK (initData, BackButton, haptic, DeviceStorage, диплинки)
+         │ HTTPS JSON + SSE, один origin (/api/* → api)
+   nginx (Docker) | Vercel (статика + функция api/index.js)
+   └─ apps/api — NestJS 11, модули: identity, groups, catalog, courses, assignments, attendance,
+      analytics, course-builder, files, ai, parent (family), payments, notifications, support
+         ├─ PostgreSQL 16 — Prisma 6, 41 модель, миграции, seed
+         ├─ GigaChat API — OAuth, сертификат НУЦ Минцифры, retry/timeout, семафор параллельности
+         └─ порты: AuthProvider · AiService · StorageProvider · JobQueue · KeyValueStore · PaymentProvider
+```
 
 ```
 apps/web            React мини-приложение (роли: student / parent / teacher)
-apps/api            NestJS: HTTP (main.ts) + worker (worker.ts)
-packages/contracts  zod + ts-rest контракты, enum'ы, события, permissions, фикстуры
-packages/db         Prisma multi-file schema, миграции, seed, embedded PostgreSQL
-packages/ai         AiProvider порт: mock + GigaChat, retry/timeout/json, промпты
-packages/ui         Компоненты, токены, тема, playground
+apps/api            NestJS: HTTP (main.ts), worker (worker.ts), serverless-вход (vercel.ts)
+packages/contracts  zod + ts-rest контракты, enum'ы, события, permissions, фикстуры, OpenAPI
+packages/db         Prisma multi-file schema, миграции, seed, embedded PostgreSQL для dev
+packages/ai         AiProvider порт: mock + GigaChat, retry/timeout/json, промпты (id@version)
+packages/ui         Собственная дизайн-система на обычном CSS, токены, тема, playground
 packages/config     Общие ESLint-конфиги
-docs/               Архитектура, ADR, гайд для агентов
-infra/              docker-compose (если есть Docker)
-scripts/            Утилиты: check-ownership, ensure-env
+docs/               Продукт, архитектура, данные, API, сценарии, ADR, гайд для агентов
+infra/              nginx.conf для Docker, dev-инфраструктура (postgres + redis + minio)
+scripts/            check-ownership, ensure-env, vercel-build
 ```
 
-## Быстрый старт
+Ключевые решения: один origin для мини-приложения (nginx в Docker, rewrites на Vercel); вход по подписи
+launch-параметров MAX (HMAC-SHA256 токеном бота, ADR-006) и JWT 15 мин + refresh 30 дней; роли и 33
+permission-правила на каждой ручке; внешние системы только за портами с mock-реализациями; конструктор курса
+цитирует пронумерованные «атомы» материала, а код проверяет цитаты (`docs/13-course-pipeline.md`).
+Схема и ADR — `docs/02-architecture.md`, `docs/adr/`.
 
-Требования: Node ≥ 22, pnpm 10 (`npm i -g pnpm`). Docker не нужен.
+## 4. Запуск одной командой (Docker)
+
+Нужны Docker Engine с Compose ≥ 2.24 и BuildKit (Docker Desktop подходит). Сборка — 3–4 минуты
+(без учёта загрузки базовых образов `node:22-alpine`, `nginx:alpine`, `postgres:16-alpine`).
 
 ```bash
-pnpm run setup
+cp .env.example .env        # если файла ещё нет; значений по умолчанию достаточно
+docker compose up -d --build
 ```
 
-Именно `pnpm run setup`: `pnpm setup` — встроенная команда самого pnpm (настраивает `PNPM_HOME`), скрипт репозитория она не запускает.
+Приложение — <http://localhost:8080>: nginx отдаёт SPA и проксирует `/api/` в контейнер api (один origin).
+При старте api применяет миграции и сеет демо-мир (`SEED_ON_START=1`), поэтому через ~40 секунд после
+`up` открывается экран выбора демо-пользователя. Проверка: `curl http://localhost:8080/api/v1/health`.
 
-`setup` = создать `.env` из `.env.example` → `pnpm install` → поднять локальный PostgreSQL → применить миграции (`pnpm db:deploy`) → засеять демо-мир. Затем:
+Без ключа GigaChat (`AI_PROVIDER=mock` по умолчанию) ИИ-функции отвечают детерминированными заготовками —
+все экраны работают. Для настоящего GigaChat — `AI_PROVIDER=gigachat`, `GIGACHAT_AUTH_KEY` и сертификат НУЦ
+(см. §16). Для входа изнутри MAX — `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN` и https-адрес (см. §17, §19).
+
+Файлы: `Dockerfile` (multi-stage: deps → build → runtime-api / runtime-web), `compose.yaml`,
+`.dockerignore`, `infra/nginx.conf`. `infra/docker-compose.yml` — отдельная dev-инфраструктура, к сдаче
+не относится.
+
+## 5. Порты
+
+| Сервис | Что | Порт |
+|---|---|---|
+| `web` (nginx) | SPA + прокси `/api/` → api | **8080** наружу, только `127.0.0.1` (адрес — `WEB_BIND`) |
+| `api` (NestJS) | HTTP API `/api/v1`, inline-очередь | 3000 внутри сети compose, наружу не публикуется |
+| `postgres` | PostgreSQL 16, том `pg-data` | 5432 внутри сети compose, наружу не публикуется |
+
+Разработка без Docker: web `5173`, api `3000`, embedded PostgreSQL `5432`.
+
+## 6. Переменные окружения
+
+Все переменные — в корневом `.env`; шаблон с описанием каждой — [`.env.example`](.env.example).
+Api не стартует при невалидном окружении и печатает список проблемных переменных. В Docker адрес БД,
+порты и пути заданы в `compose.yaml` и `.env` не читаются.
+
+| Переменная | Значения | По умолчанию / примечание |
+|---|---|---|
+| `APP_ENV` | `development` / `staging` / `production` | `development`. В `production` запрещены dev-вход, dev-секрет, пустой `CORS_ORIGINS`, `AI_PROVIDER=mock`, `PAYMENT_PROVIDER=fake` |
+| `DATABASE_URL`, `DATABASE_URL_TEST` | строка подключения | локальный PostgreSQL, базы `edu` / `edu_test` |
+| `AUTH_PROVIDER` | `dev` / `max` | `dev` — `POST /auth/dev`; `max` — подпись MAX, нужен `MAX_BOT_TOKEN`. Демо-вход остаётся доступен вне `production` |
+| `MAX_BOT_TOKEN`, `MAX_BOT_NAME` | токен и ник бота | токен — секрет подписи; ник — для диплинков-приглашений |
+| `JWT_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL` | секрет ≥ 32 символов, `15m`, `30d` | dev-секрет допустим только в `development` |
+| `AI_PROVIDER` | `mock` / `gigachat` | `mock`. GigaChat: `GIGACHAT_AUTH_KEY`, `GIGACHAT_SCOPE`, `GIGACHAT_MODEL`, `GIGACHAT_CA_CERT_PATH` (или `GIGACHAT_CA_CERT_B64`), `GIGACHAT_MAX_CONCURRENCY` |
+| `AI_TUTOR_DAILY_LIMIT`, `COURSE_BUILDER_MAX_PARALLEL`, `COURSE_BUILDER_STALE_AFTER_SEC` | числа | лимит сообщений тьютору в сутки; параллельность и таймаут генерации курса |
+| `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` — задачи в процессе api |
+| `KV_DRIVER` | `memory` / `postgres` | `memory`; `postgres` — общий стор для нескольких инстансов (serverless) |
+| `STORAGE_DRIVER` | `local` / `s3` (+ `S3_*`) | `local` — файлы в `STORAGE_LOCAL_DIR` |
+| `PAYMENT_PROVIDER` | `fake` / `yookassa` (+ `YOOKASSA_*`) | `fake` — платёж закрывается сразу, без денег |
+| `RATE_LIMIT_*` | числа, `RATE_LIMIT_ENABLED` | лимиты частоты: вход, привязка ребёнка, вызовы ИИ, генерация курса |
+| `CORS_ORIGINS`, `API_URL`, `WEB_URL`, `PUBLIC_ORIGIN` | адреса | в Docker `PUBLIC_ORIGIN` подставляется во все три |
+| `VITE_API_URL`, `VITE_MAX_MODE`, `VITE_AUTH_MODE`, `VITE_SUPPORT_URL` | инлайнятся в сборку web | `/api/v1`, `real`, `auto` (внутри MAX — подпись, в браузере — демо-экран) |
+
+Секреты в репозитории не хранятся: `.env`, сертификаты и `.data/` — в `.gitignore`; в логах маскируются
+токены, ключи и тексты сообщений ИИ.
+
+## 7. Зависимости
+
+- **Сборка и запуск:** Docker Engine + Compose ≥ 2.24 (BuildKit). Без Docker — Node.js ≥ 22, pnpm 10
+  (`corepack enable`; версия закреплена в `package.json#packageManager`).
+- **Версии библиотек** зафиксированы в [`pnpm-lock.yaml`](pnpm-lock.yaml) (`pnpm install --frozen-lockfile`
+  в Docker и CI). Ключевые: React 19, Vite 7, react-router 7, TanStack Query 5, zustand, i18next ·
+  NestJS 11, ts-rest 3.52, zod, pino, Prisma 6.19, `@aws-sdk/client-s3`, `pdf-parse`, `mammoth` · Vitest,
+  Testing Library, Supertest · Turborepo, ESLint, Prettier.
+- **Образы:** `node:22-alpine`, `nginx:alpine`, `postgres:16-alpine`.
+
+## 8. Внешние сервисы и интеграции
+
+| Система | Как используется | Статус на стенде |
+|---|---|---|
+| **MAX SDK (MAX Bridge)** | `initData` для входа по подписи, `start_param` диплинка, кнопка «назад», haptic, `DeviceStorage`, `openLink` / `openMaxLink` | реальная |
+| **MAX Bot API** | бот «Вектор» — точка входа; уведомления через бота — следующий шаг | реальная (бот) |
+| **GigaChat (Сбер)** | тьютор ученика и родителя (SSE), онбординг и подбор кружков, траектория, конструктор курса. Модель `GigaChat-2`, OAuth, сертификат НУЦ Минцифры (системные CA не подходят) | реальная |
+| **PostgreSQL** | основная БД: Docker — контейнер, стенд — Neon (serverless) | реальная |
+| **Извлечение текста** | `pdf-parse`, `mammoth` — материалы PDF/DOCX/TXT/MD | реальная; на стенде загрузка файлов выключена (нет S3) |
+| **S3-совместимое хранилище** | файлы материалов по presigned URL (`STORAGE_DRIVER=s3`) | реализовано; на стенде и в Docker — `local` |
+| **ЮKassa** | оплата кружков родителем (`PAYMENT_PROVIDER=yookassa`) | **модельная**: `fake` отмечает платёж оплаченным сразу |
+| **Redis / BullMQ** | очередь для горизонтального масштаба | реализовано; в MVP — `inline` |
+
+Смоделированные интеграции указаны явно: **платежи** (заглушка) и **загрузка файлов на стенде** (выключена).
+Все остальные — настоящие.
+
+## 9. Работа с данными
+
+- **Модель** — `docs/04-data-model.md`, схема — `packages/db/prisma/schema/*.prisma` (по файлу на модуль,
+  41 модель): пользователи, роли и профили; школа, кружки, группы, зачисления, расписание, занятия;
+  курсы → модули → блоки (9 типов), прогресс, задания, сдачи, посещаемость; диалоги ИИ, траектории,
+  задачи генерации курса с базой знаний; аналитические события и дневная статистика; платежи, кошельки,
+  уведомления, обращения в поддержку, файлы, key-value с TTL.
+- **Персональные данные** минимальны: из MAX берутся только id, имя, никнейм и аватар (`user` из
+  launch-параметров). На стенде и в Docker — синтетический демо-мир, реальных детей нет.
+- **Доступ** — по роли из JWT и permission-правилам; родитель видит только привязанных детей, преподаватель —
+  только свои группы (проверки на сервере, тесты на 403).
+- **Миграции** — `packages/db/prisma/schema/migrations`, применяются автоматически при старте api в Docker
+  и при сборке на Vercel. **Seed** идемпотентен и при каждом запуске возвращает демо-мир к фикстурам.
+- **Файлы** — в `local` лежат в томе `api-storage` (Docker) и раздаются по подписанным ссылкам; в `s3` —
+  presigned URL напрямую в бакет, api байты не проксирует.
+- **Логи** — pino JSON с `requestId`; токены, ключи и содержимое сообщений ИИ маскируются.
+
+## 10. Тестовые данные
+
+Seed (`packages/db/src/seed`, фикстуры — `packages/contracts/src/fixtures`) создаёт «Школу № 1 (демо)»,
+кружки «Робототехника» и «Программирование на Python», группы, расписание, курс с блоками, задания, сдачи,
+посещаемость, уведомления, платёж и четырёх демо-пользователей. Пароля нет: вход — экран `/auth`
+в браузере или `POST /api/v1/auth/dev` с `{"maxUserId": "...", "roles": ["..."]}`.
+
+| Роль | `maxUserId` | Имя | Что показывает |
+|---|---|---|---|
+| Ученик | `max-student-1` | Алексей Смирнов | главная, домашка-«планеты», тьютор, траектория |
+| Ученик | `max-student-2` | Даша Иванова | второй ребёнок родителя |
+| Родитель | `max-parent-1` | Ольга Смирнова | дети, аналитика, кружки, оплата (заглушка) |
+| Преподаватель + родитель | `max-teacher-1` | Мария Иванова | группы, задания, посещаемость, конструктор курса, переключение роли |
+
+Коды: инвайт школы для роли преподавателя — `SCHOOL1`; коды привязки детей — `ALX123` (Алексей),
+`DSH456` (Даша). Пересоздать демо-мир: Docker — `docker compose restart api` (seed при старте),
+без Docker — `pnpm db:seed` (или `pnpm db:reset` для чистой базы).
+Те же данные в JSON для воспроизводимой проверки — [`test-data/demo-world.json`](test-data/demo-world.json)
+(генерируется из фикстур: `pnpm --filter @edu/contracts test-data`).
+
+## 11. Пошаговый сценарий проверки
+
+Быстрый вариант — **«Демонстрационный режим»**: на экране «Вход» в браузере или над ролями на экране выбора
+роли при первом входе в MAX. Тур из 36 шагов сам входит демо-пользователями (Даша — онбординг, Алексей — ученик, Ольга —
+родитель, Мария — преподаватель), открывает экраны и подсвечивает функции; подсвеченное можно потрогать
+(например, написать ИИ-тьютору). «Далее» / «Назад» или ← →, с первого шага — переход сразу к роли. «Готово»
+на последнем шаге выходит из демо-аккаунта и возвращает к началу (в MAX — к выбору роли, в браузере — к экрану
+входа); крестик закрывает тур раньше, оставляя в приложении. Перезагрузка страницы продолжает тур с того же шага. Ручной сценарий:
+
+1. `docker compose up -d --build`, дождаться `docker compose ps` со статусом `healthy` у `api`
+   (или открыть живой стенд <https://max-edu.vercel.app>).
+2. `curl http://localhost:8080/api/v1/health` → `{"status":"ok","db":"ok",...}`.
+3. Открыть <http://localhost:8080> → экран «Вход» → выбрать **Алексей Смирнов** (ученик).
+4. Главная: карточки занятий на сегодня («Робототехника», «Датчики расстояния»), посещаемость, траектория.
+5. Нижнее меню → «Домашка» → карта-«планеты» → открыть задание → ввести ответ → «Сдать» → статус «Сдано».
+6. «Тьютор» → написать «Что такое датчик расстояния?» → ответ приходит потоком (mock — заготовка,
+   GigaChat — живой ответ).
+7. Профиль → «Выйти» → выбрать **Мария Иванова** (преподаватель) → «Задания» → «Задать ДЗ» → режим «по теме»,
+   тема «Датчики расстояния, 2 занятия» → черновик через 1–2 мин → «Опубликовать».
+8. «Отметить посещаемость» → выбрать занятие → отметить учеников → сохранить.
+9. Профиль → переключить роль на **Родитель** → дети → Алексей → главная ребёнка, аналитика, кружки.
+10. Внутри MAX: открыть бота «Вектор» → «Открыть» — вход происходит без выбора пользователя (подпись MAX);
+    при первом входе — выбор роли.
+
+Автоматическая проверка API — [`DATA-API.yaml`](DATA-API.yaml): health, демо-вход, `/me`, главная ученика,
+задания, уведомления, диалог тьютора, ручки преподавателя и родителя, 401 без токена, 403 на чужую роль.
+
+## 12. Примеры ожидаемого поведения
+
+```http
+GET /api/v1/health
+200 {"status":"ok","db":"ok","version":"0.1.0","time":"2026-09-29T12:24:28.069Z"}
+
+POST /api/v1/auth/dev            {"maxUserId":"max-student-1","roles":["STUDENT"]}
+200 {"accessToken":"eyJ…","refreshToken":"…","me":{"activeRole":"STUDENT","user":{"firstName":"Алексей",…},…}}
+
+GET /api/v1/me                    (без Authorization)
+401 {"error":{"code":"UNAUTHORIZED","message":"Требуется вход","requestId":"…"}}
+
+GET /api/v1/teacher/home          (токен ученика)
+403 {"error":{"code":"FORBIDDEN",…}}
+
+POST /api/v1/auth/max             {"launchParams":"<initData с неверной подписью>"}
+401 {"error":{"code":"UNAUTHORIZED","message":"Подпись launch-параметров неверна",…}}
+
+POST /api/v1/ai/conversations/{id}/messages   {"text":"Что такое датчик?"}     (SSE)
+data: {"type":"token","text":"Датчик — "}
+data: {"type":"done","messageId":"…"}
+```
+
+Ошибки пользователя (пустой ответ, неверный код привязки, лимит запросов) показываются в интерфейсе
+понятным сообщением, состояние экрана сохраняется — перезапуск не нужен. Сеть моргнула — запросы чтения
+повторяются автоматически (до 2 раз), сессия обновляется по refresh-токену без повторного входа.
+
+## 13. Известные ограничения
+
+- **Платежи — заглушка** (`fake`): оплата отмечается успешной без денег; ЮKassa — порт готов, ключей нет.
+- **Загрузка файлов на стенде выключена** (`STORAGE_DRIVER=local` на serverless): конструктор курса работает
+  в режиме «по теме»; из файлов — в Docker или с S3. `pptx` и OCR не поддерживаются.
+- **Живой стенд — `APP_ENV=staging`** с демо-входом в браузере; production-режим требует настоящий провайдер оплаты.
+- **Стенд засыпает**: бесплатные тарифы Vercel и Neon останавливают функцию и базу через ~5 минут простоя,
+  первый запрос после паузы занимает 3–6 с (см. §18). Дальше — 0,3–0,5 с.
+- **GigaChat на персональном тарифе** принимает один запрос за раз (`GIGACHAT_MAX_CONCURRENCY=1`): при
+  нескольких одновременных пользователях ответы тьютора встают в очередь; генерация большого курса может
+  не уложиться в 300 с функции Vercel (в Docker лимита нет).
+- **Уведомления через бота MAX** ещё не отправляются — только внутри приложения.
+- **Inline-очередь** не переживает рестарт процесса; для горизонтального масштаба — `bullmq` + Redis.
+- Не реализованы: редакторы блоков курса на клиенте, ИИ-инсайты для главной родителя/преподавателя,
+  ИИ-резюме ученика для преподавателя. Полный список — `docs/12-workstreams.md`.
+
+## 14. Остановка и повторный запуск
 
 ```bash
-pnpm dev
+docker compose down            # остановить, данные (база, файлы) сохраняются в томах
+docker compose up -d           # запустить снова без пересборки
+docker compose up -d --build   # пересобрать после изменения кода или .env
+docker compose down -v         # остановить и удалить данные (при следующем старте — чистый демо-мир)
+docker compose logs -f api     # логи api; web — nginx, postgres — база
+docker compose restart api     # перезапуск api: миграции + seed заново
 ```
 
-Поднимает пакеты в watch-режиме, api на http://localhost:3000/api/v1 и web на http://localhost:5173. Открой web, выбери демо-пользователя (ученик / родитель / преподаватель) на экране входа. Песочница UI-компонентов — http://localhost:5173/dev/ui. Проверка api: http://localhost:3000/api/v1/health.
+## 15. Разработка без Docker
 
-Моков в приложении нет: web всегда ходит в api по `VITE_API_URL`, данные — из базы (`pnpm db:seed`). Контрактный фейковый сервер на MSW остался только в тестах (`apps/web/src/test/fake-api`).
+Требования: Node ≥ 22, pnpm 10. Локальная база — embedded PostgreSQL без Docker.
 
-## Команды (из корня)
+```bash
+pnpm run setup    # .env из шаблона → install → локальный PostgreSQL → миграции → seed
+pnpm dev          # api http://localhost:3000/api/v1, web http://localhost:5173
+```
+
+Именно `pnpm run setup`: `pnpm setup` — встроенная команда самого pnpm. Песочница UI — `/dev/ui`.
 
 | Команда | Что делает |
 |---|---|
-| `pnpm dev` / `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:worker` | Всё / только web / только api / worker (нужен при `QUEUE_DRIVER=bullmq`) |
-| `pnpm build` | Сборка всех пакетов и приложений |
-| `pnpm lint` / `pnpm typecheck` / `pnpm test` | Проверки во всех пакетах |
-| `pnpm check` | lint + typecheck + test + build |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm ownership:check` | Изменения не пересекают зоны разных владельцев (`OWNERS.yaml`) |
-| `pnpm env:init` | Создать `.env` из шаблона |
-| `pnpm db:up` / `pnpm db:down` | Запустить / остановить локальный PostgreSQL (данные в `.data/pg`) |
-| `pnpm db:migrate` | Создать и применить миграцию (`prisma migrate dev`, нужен терминал) |
-| `pnpm db:deploy` | Применить миграции (CI/prod) |
-| `pnpm db:generate` | Сгенерировать Prisma-клиент |
-| `pnpm db:seed` | Засеять демо-мир (идемпотентно) |
-| `pnpm db:reset` | Сбросить БД, применить миграции, засеять |
-| `pnpm db:studio` | Prisma Studio |
+| `pnpm dev` / `dev:web` / `dev:api` / `dev:worker` | всё / только web / только api / worker (для `bullmq`) |
+| `pnpm build` · `pnpm lint` · `pnpm typecheck` · `pnpm test` | сборка и проверки всех пакетов; `pnpm check` — всё сразу |
+| `pnpm format` / `format:check` | Prettier |
+| `pnpm ownership:check` | изменения не пересекают зоны владельцев (`OWNERS.yaml`) |
+| `pnpm db:up` / `db:down` / `db:migrate` / `db:deploy` / `db:generate` / `db:seed` / `db:reset` / `db:studio` | локальный PostgreSQL и Prisma |
+| `pnpm --filter @edu/contracts openapi` | пересобрать `openapi.json` из контрактов |
+| `pnpm --filter @edu/contracts test-data` | пересобрать `test-data/demo-world.json` из фикстур |
 
-## Переменные окружения
+Тесты: `pnpm test` — все пакеты (api 214, web 421, ui 175, ai 142, contracts 49, db 8). Тестам с БД нужны
+`DATABASE_URL_TEST` и базы `edu_test`, `edu_test_seed`; пропуск — `SKIP_DB_TESTS=1`. CI (`.github/workflows/ci.yml`)
+гоняет ownership-check, миграции, lint, typecheck и тесты на каждый push в `main`.
 
-Все — в корневом `.env` (шаблон и описание каждой переменной — `.env.example`). Ключевые переключатели:
+## 16. ИИ-функции (GigaChat)
 
-| Переменная | Значения | По умолчанию |
-|---|---|---|
-| `DATABASE_URL`, `DATABASE_URL_TEST` | строка подключения | локальный embedded PostgreSQL, базы `edu` / `edu_test` |
-| `AUTH_PROVIDER` | `dev` / `max` | `dev` — вход по `POST /auth/dev` |
-| `AI_PROVIDER` | `mock` / `gigachat` | `mock` (детерминированные ответы; в production запрещён) |
-| `QUEUE_DRIVER` | `inline` / `bullmq` (+ `REDIS_URL`) | `inline` |
-| `STORAGE_DRIVER` | `local` / `s3` | `local` (`.data/storage`) |
-| `PAYMENT_PROVIDER` | `fake` / `yookassa` | `fake` (платёж закрывается сразу; в production запрещён) |
-| `VITE_MAX_MODE` | `mock` / `real` | `mock` |
-| `VITE_AUTH_MODE` | `dev` / `max` | `dev` |
+- **Конструктор курса** (`/teacher/course-builder`): по теме без конспекта или из файлов (pdf, docx, txt, md) →
+  атомы знаний → узлы с проверяемыми цитатами → уроки с тестами, пропусками и практикой → ревью → курс.
+  Схема — `docs/13-course-pipeline.md`.
+- **Онбординг ученика** (`/onboarding`): диалог с ИИ-тьютором, черновик профиля, подбор кружков школы;
+  выбор фиксируется как спрос, преподаватель видит его на `/teacher/clubs/demand`.
+- **ИИ-тьютор** (`/student/tutor`, у родителя — о ребёнке): SSE-чат с учётом расписания, заданий, посещаемости
+  и прогресса; лимит `AI_TUTOR_DAILY_LIMIT` в сутки.
+- **Моя траектория** (`/student/profile`): строится job'ом по данным ученика, обновляется после онбординга
+  и по кнопке (раз в сутки).
 
-Api не стартует при невалидном окружении и печатает список проблемных переменных. При `APP_ENV=production` дополнительно запрещены dev-секрет JWT, dev-вход, пустой `CORS_ORIGINS` и заглушки `AI_PROVIDER=mock` / `PAYMENT_PROVIDER=fake`.
+Реальный GigaChat: `AI_PROVIDER=gigachat` + `GIGACHAT_AUTH_KEY`. Сертификат НУЦ Минцифры обязателен
+(`GIGACHAT_CA_CERT_PATH`, pem с root + sub CA; для serverless — `GIGACHAT_CA_CERT_B64`): системные CA
+`*.devices.sberbank.ru` не доверяют. Персональный тариф — один запрос за раз (`GIGACHAT_MAX_CONCURRENCY=1`).
+Модель по умолчанию `GigaChat-2`; для качества конспектов — `GIGACHAT_MODEL=GigaChat-2-Pro`.
+Без ключа всё работает на mock-провайдере (детерминированные ответы по каждому промпту).
 
-## ИИ-функции (GigaChat через `@edu/ai`)
-
-- **Конструктор курса** (`/teacher/course-builder`): по теме/практике без конспекта или из файлов (pdf, docx, txt, md) →
-  атомы знаний → узлы с проверяемыми цитатами → уроки с тестами, пропусками и практикой → ревью → курс. Схема — `docs/13-course-pipeline.md`.
-- **Онбординг ученика** (`/onboarding`): диалог с ИИ-тьютором, черновик профиля, подбор кружков школы: «записаться»
-  или «попробовать позже». Выбор фиксируется как спрос (записался / хочет позже / пропустил), диалог знакомства
-  продолжается как чат с тьютором. Преподаватель видит спрос на `/teacher/clubs/demand`.
-- **ИИ-тьютор** (`/student/tutor`): SSE-чат с учётом расписания, заданий, посещаемости и прогресса; лимит `AI_TUTOR_DAILY_LIMIT`.
-- **Моя траектория** (`/student/profile`): строится job'ом по данным ученика, обновляется после онбординга и по кнопке (раз в сутки).
-
-Реальный GigaChat: `AI_PROVIDER=gigachat` + `GIGACHAT_AUTH_KEY`; без ключа всё работает на mock-провайдере.
-Сертификат НУЦ Минцифры (`GIGACHAT_CA_CERT_PATH`, pem с root + sub CA) нужен, если системные CA не доверяют
-`*.devices.sberbank.ru`. Персональный тариф принимает один запрос за раз — `GIGACHAT_MAX_CONCURRENCY=1`
-(по умолчанию), на B2B можно поднять. Модель по умолчанию `GigaChat-2` (lite); для качества конспектов и уроков —
-`GIGACHAT_MODEL=GigaChat-2-Pro`.
-
-## База данных
-
-Локально используется embedded PostgreSQL без Docker (`packages/db/scripts/pg.mjs`). С Docker: `docker compose -f infra/docker-compose.yml up -d` (Postgres, Redis, MinIO) и те же `DATABASE_URL`.
-
-Схема — `packages/db/prisma/schema/*.prisma` (по файлу на модуль). Миграции — `packages/db/prisma/schema/migrations` (Prisma ищет их рядом со схемой). Новая миграция: измени схему → `pnpm --filter @edu/db migrate:dev --name <name>` → `pnpm db:generate`. Без интерактивного терминала — см. `docs/AGENT_GUIDE.md` §16.
-
-Seed создаёт школу, 4 демо-пользователей (`max-student-1`, `max-student-2`, `max-parent-1`, `max-teacher-1`), кружки, группы, занятия, курс, задания, платёж. Данные лежат в `packages/contracts/src/fixtures` и используются также MSW-моками.
-
-## Тесты
-
-`pnpm test` — все пакеты. Тесты, которым нужна БД (`packages/db`, интеграционные в `apps/api`), используют `DATABASE_URL_TEST` (база `edu_test`, создаётся `pnpm db:up`) и пропускаются при `SKIP_DB_TESTS=1`.
-
-## Запуск в Docker (одна команда)
-
-```bash
-cp .env.example .env     # если файла ещё нет
-docker compose up -d --build
-```
-
-Приложение — на <http://localhost:8080>. Это **один origin**: nginx отдаёт статику и проксирует
-`/api/` в контейнер api (мини-приложение MAX иначе не подключить). Миграции применяются
-автоматически при старте api. Нужен Docker Compose ≥ 2.24 с BuildKit.
-
-| Сервис | Что | Порт наружу |
-|---|---|---|
-| `web` | nginx: SPA + прокси `/api/` | 8080 |
-| `api` | NestJS + inline-очередь | нет (только внутри сети) |
-| `postgres` | PostgreSQL 16, том `pg-data` | нет |
-
-Остановить — `docker compose down`, вместе с данными — `docker compose down -v`,
-логи — `docker compose logs -f api`. Файлы `Dockerfile`, `compose.yaml`, `infra/nginx.conf`.
-`infra/docker-compose.yml` — это отдельная dev-инфраструктура, она не связана с `compose.yaml`.
-
-## Мини-приложение MAX
+## 17. Мини-приложение MAX
 
 Приложение упаковано как мини-апп мессенджера MAX (dev.max.ru/docs/webapps):
 
-- В `index.html` подключён SDK `https://st.max.ru/js/max-web-app.js`, он даёт глобальный `WebApp`.
-  Адаптер — `apps/web/src/shared/max/sdk-bridge.ts`: launch-параметры, `start_param` диплинка,
-  системная кнопка «назад», haptic, `openLink`/`openMaxLink`, `DeviceStorage`. Вне MAX мост не падает,
-  а работает как обычный веб: показывается вход, хранилище — localStorage.
+- В `index.html` подключён SDK `https://st.max.ru/js/max-web-app.js` (глобальный `WebApp`). Адаптер —
+  `apps/web/src/shared/max/sdk-bridge.ts`: launch-параметры, `start_param` диплинка, системная кнопка «назад»,
+  haptic, `openLink`/`openMaxLink`, `DeviceStorage`. Вне MAX мост работает как обычный веб.
 - Вход по подписи: `WebApp.initData` уходит в `POST /auth/max`, сервер проверяет HMAC-SHA256
-  (`secret_key = HMAC("WebAppData", токен бота)`) — `apps/api/src/common/auth/providers/max-auth.provider.ts`.
+  (`secret_key = HMAC("WebAppData", токен бота)`) по алгоритму dev.max.ru/docs/webapps/validation —
+  `apps/api/src/common/auth/providers/max-auth.provider.ts`. Отказ логируется с причиной
+  (`bad_signature` / `stale` / `no_user`) без утечки секретов.
 
-Как подключить:
+Подключение:
 
-1. Разверните приложение по **https** (см. «Хостинг» ниже) — URL до 1024 символов, без пробелов.
-2. В настройках бота MAX (бизнес-платформа → Чаты → бот → ⋮ → Настройки) вставьте URL и выберите
-   тип кнопки (Открыть / Запустить / Играть).
-3. В `.env` задайте `AUTH_PROVIDER=max` и `MAX_BOT_TOKEN=<токен бота>`, пересоберите:
-   `docker compose up -d --build`. Режим входа по умолчанию — `VITE_AUTH_MODE=auto`: внутри MAX
-   вход по подписи, в обычном браузере — экран демо-пользователей, так что один адрес годится
-   и для мессенджера, и для показа.
-4. Диплинк с параметром: `https://max.ru/<botName>?startapp=<payload>` (латиница, цифры, `_`, `-`,
-   до 512 символов) — значение приходит в `bridge.getStartParam()`.
+1. Развернуть приложение по **https** (§18 или §19) — URL до 1024 символов.
+2. Бизнес-платформа MAX → Чаты → бот → ⋮ → Настройки: вставить URL, выбрать кнопку «Открыть».
+3. В окружении — `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN=<токен бота>`, `MAX_BOT_NAME=<ник без @>`.
+   `VITE_AUTH_MODE=auto`: внутри MAX — подпись, в браузере — демо-экран, один адрес годится для обоих.
+4. Диплинки: `https://max.ru/<botName>?startapp=<payload>` (латиница, цифры, `_`, `-`, до 512 символов) —
+   значение приходит в `bridge.getStartParam()`; приглашение ребёнка — `startapp=invite_<токен>`.
 
-Без токена бота приложение работает в dev-режиме входа (`VITE_AUTH_MODE=dev`): экран выбора
-демо-пользователя, подпись MAX не проверяется.
+## 18. Живой стенд на Vercel
 
-## Хостинг
+Docker — эталон для сдачи; для постоянного https-адреса стенд живёт на Vercel (ADR-014): статика
+`apps/web/dist` + одна функция `api/index.js`, в которую `vercel.json` переписывает весь `/api/*`.
 
-Нужен один https-домен, за которым стоит `compose.yaml`. Минимум — сервер с Docker, доменом и
-TLS (caddy/nginx/traefik перед портом 8080) либо любой PaaS, умеющий compose.
+- Вход функции — `apps/api/src/vercel.ts`: Nest поднимается один раз на инстанс; фоновые задачи
+  inline-очереди удерживают инстанс через `waitUntil` (лимит функции — 300 с). Занятия из правил расписания
+  создаёт job `schedule.materialize` при старте, не чаще раза в сутки (отметка в `kv_entries`).
+- **Сон и пробуждение.** Бесплатные тарифы останавливают функцию (Vercel) и базу (Neon) через ~5 минут
+  простоя; при пробуждении Neon рвёт соединения, и раньше первый запрос падал в 500
+  (`PostgreSQL connection: kind: Closed`). Теперь `vercel.ts` после простоя дольше 30 с делает пробный
+  `SELECT 1` и переподключается, а к `DATABASE_URL` добавляет `connect_timeout=15&pool_timeout=15`,
+  чтобы Prisma дождалась compute. Первый запрос после паузы — 3–6 с, дальше 0,3–0,5 с. Чтобы стенд не
+  засыпал совсем, достаточно внешнего пинга `GET /api/v1/health` раз в 4 минуты (любой uptime-монитор).
+- Сборка — `scripts/vercel-build.mjs`: turbo build → `prisma migrate deploy` → seed при `SEED_ON_DEPLOY=1`.
+  Миграции идут по `DATABASE_URL_UNPOOLED`. Preview-сборки базу не трогают (`MIGRATE_ON_PREVIEW=1` включает).
+  `.vercelignore` не даёт CLI отправить локальный `.env` и артефакты.
+- Переменные проекта (окружение **Production**): всё из `.env.example` без dev-значений плюс
+  `KV_DRIVER=postgres`, `COURSE_BUILDER_STALE_AFTER_SEC=360`, `GIGACHAT_CA_CERT_B64`, `VITE_API_URL=/api/v1`,
+  `VITE_MAX_MODE=real`, `ENABLE_EXPERIMENTAL_COREPACK=1`, `APP_ENV=staging`, свой `JWT_SECRET`;
+  `DATABASE_URL*` добавляет интеграция Neon.
+- Деплой: `vercel deploy --prod` из корня (проект привязан через `.vercel/`, он в `.gitignore`).
+  Тариф Hobby требует, чтобы автор коммита совпадал с владельцем аккаунта Vercel.
 
-Для **временного** адреса (демо, проверка мини-аппа в MAX) хватит туннеля к локальному стенду:
+## 19. Хостинг
 
-```bash
-docker compose up -d --build
-ssh -R 80:127.0.0.1:8080 nokey@localhost.run    # выдаст https://<...>.lhr.life
-```
+Нужен один https-домен, за которым стоит `compose.yaml`: сервер с Docker, доменом и TLS
+(caddy / nginx / traefik перед портом 8080) либо PaaS, умеющий compose. Временный адрес для демо —
+туннель к локальному стенду: `ssh -R 80:127.0.0.1:8080 nokey@localhost.run`.
 
-Перед публичным запуском в `.env`: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`,
-свой `JWT_SECRET` (≥ 32 символов), `PUBLIC_ORIGIN=https://<домен>`, `AI_PROVIDER=gigachat`
-с `GIGACHAT_AUTH_KEY`, явный `CORS_ORIGINS`, `PAYMENT_PROVIDER=yookassa` (+ ключи магазина). При
-`APP_ENV=production` api не стартует с dev-входом, дефолтным секретом и заглушками `mock`/`fake`.
-Миграции — `pnpm db:deploy` до раскатки api.
-Для горизонтального масштабирования — `QUEUE_DRIVER=bullmq` с Redis (ADR-012; отдельный процесс
-`node dist/worker.js`, рецепт в комментарии `compose.yaml`). `STORAGE_DRIVER=s3` валидацией env не
-проверяется и пока не готов: `S3Storage` — заглушка, рабочий драйвер — `local`.
+TLS-прокси должен передавать `X-Forwarded-For`: nginx стенда (`infra/nginx.conf`, модуль realip) доверяет
+ему только от loopback и частных сетей и дописывает адрес клиента, а api берёт последний адрес для лимитов
+частоты (`RATE_LIMIT_AUTH_PER_MIN` с одного IP). `compose.yaml` публикует 8080 только на loopback
+(`WEB_BIND`); прокси на другой машине — `WEB_BIND=<адрес>` либо подключить его к сети compose.
+
+Перед публичным запуском: `APP_ENV=production`, `AUTH_PROVIDER=max`, `MAX_BOT_TOKEN`, свой `JWT_SECRET`,
+`PUBLIC_ORIGIN=https://<домен>` (в Docker подставляется в `CORS_ORIGINS`, `API_URL`, `WEB_URL`),
+`AI_PROVIDER=gigachat` с ключом, `PAYMENT_PROVIDER=yookassa` с ключами магазина. Для горизонтального
+масштабирования — `QUEUE_DRIVER=bullmq` с Redis и отдельный процесс `node dist/worker.js`
+(рецепт в комментарии `compose.yaml`), `STORAGE_DRIVER=s3`.

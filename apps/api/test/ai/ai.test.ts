@@ -6,6 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import { DEMO_IDS } from '@edu/contracts/fixtures';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { InlineJobQueue } from '../../src/common/queue/inline-job-queue';
 import { JOB_QUEUE } from '../../src/common/queue/job-queue';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
@@ -19,6 +20,12 @@ function parseSse(text: string): Array<Record<string, unknown>> {
 
 describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
   let app: INestApplication;
+  /**
+   * Новый ученик онбординга: после тестов его зачисление убираем. Тестовая БД живёт между
+   * локальными прогонами, и иначе группа робототехники копит «Dev»-учеников — они вытесняют
+   * нужных из первых 50 кандидатов в группу (group-management.test).
+   */
+  let onboardedStudentId: string | null = null;
   const base = '/api/v1';
   const http = () => request(app.getHttpServer());
   const drain = () => (app.get(JOB_QUEUE) as InlineJobQueue).drain();
@@ -35,6 +42,12 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
     app = await createTestApp();
   });
   afterAll(async () => {
+    if (onboardedStudentId) {
+      await drain();
+      await app
+        .get(PrismaService)
+        .enrollment.deleteMany({ where: { studentId: onboardedStudentId } });
+    }
     await app.close();
   });
 
@@ -131,7 +144,7 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
       'Потом хочу попробовать шахматы',
     ];
     let done: Record<string, unknown> | undefined;
-    for (const text of answers) {
+    for (const [index, text] of answers.entries()) {
       const res = await http()
         .post(`${base}/student/onboarding/messages`)
         .set('Authorization', `Bearer ${token}`)
@@ -139,9 +152,39 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
         .expect(200);
       const events = parseSse(res.text);
       done = events[events.length - 1];
+      if (index === 0) {
+        // вопрос о целях предлагает кружки школы кнопками — только настоящие кружки из каталога
+        const options = done?.clubOptions as Array<{ id: string; title: string }>;
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.every((club) => typeof club.id === 'string' && club.title)).toBe(true);
+
+        // обновили страницу: знакомство продолжается с той же ленты и теми же кнопками
+        const resumed = await http()
+          .post(`${base}/student/onboarding/start`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+        expect(resumed.body.conversationId).toBe(start.body.conversationId);
+        expect(resumed.body.history.map((m: { role: string }) => m.role)).toEqual([
+          'ASSISTANT',
+          'USER',
+          'ASSISTANT',
+        ]);
+        expect(resumed.body.clubOptions.map((c: { id: string }) => c.id)).toEqual(
+          options.map((c) => c.id),
+        );
+      }
     }
     expect(done).toMatchObject({ type: 'done', isComplete: true });
     expect(done?.profileDraft).toBeTruthy();
+    expect(done?.clubOptions).toBeUndefined();
+
+    // профиль собран, кружки ещё не выбраны: после обновления страницы — сразу выбор кружков
+    const resumedComplete = await http()
+      .post(`${base}/student/onboarding/start`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(resumedComplete.body.conversationId).toBe(start.body.conversationId);
+    expect(resumedComplete.body.profileDraft).toEqual(done?.profileDraft);
 
     const recs = await http()
       .get(`${base}/student/onboarding/recommendations`)
@@ -161,15 +204,16 @@ describe.skipIf(!hasTestDatabase)('ai (integration, mock AI)', () => {
       })
       .expect(200);
     expect(me.body.student.onboardingCompleted).toBe(true);
+    onboardedStudentId = me.body.student.id as string;
 
     // диалог знакомства стал чатом с тьютором: тот же id, итоговая реплика про «сейчас/позже»
     const tutorChats = await http()
       .get(`${base}/ai/conversations?kind=TUTOR`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(tutorChats.body.items.map((c: { id: string }) => c.id)).toContain(
-      start.body.conversationId,
-    );
+    expect(
+      tutorChats.body.items.find((c: { id: string }) => c.id === start.body.conversationId),
+    ).toMatchObject({ kind: 'TUTOR', title: 'Знакомство с тьютором' });
     const history = await http()
       .get(`${base}/ai/conversations/${start.body.conversationId}/messages`)
       .set('Authorization', `Bearer ${token}`)

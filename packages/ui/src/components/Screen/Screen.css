@@ -5,8 +5,25 @@
   padding: var(--ui-space-4);
 }
 
-.ui-screen[data-fill] {
+.ui-screen[data-fill],
+.ui-screen[data-fixed] {
   min-height: 100%;
+}
+
+.ui-screen[data-grow] {
+  flex: 1 1 auto;
+}
+
+/* Экран во всю высоту скролл-области и не выше: дети делят место между собой (см. `fit`).
+ * Сжимаются только дети со `Stack scroll` / `ScoopPanel scroll` — у них свои правила. */
+.ui-screen[data-fit] {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+}
+
+.ui-screen[data-fit] > * {
+  flex-shrink: 0;
 }
 
 .ui-screen[data-padding='none'] {

@@ -77,6 +77,10 @@ export class TeacherDashboardService {
       start,
       new Date(now.getTime() + UPCOMING_DAYS * DAY_MS),
     );
+    // Ученик в двух группах преподавателя — один ученик, а не два зачисления.
+    const rosters = await Promise.all(
+      groups.map((group) => this.groups.listStudentIdsInGroup(group.id)),
+    );
     const rates = (values: Array<number | null>) => {
       const known = values.filter((value): value is number => value !== null);
       return known.length === 0 ? null : known.reduce((a, b) => a + b, 0) / known.length;
@@ -91,7 +95,7 @@ export class TeacherDashboardService {
       events,
       stats: {
         groupsCount: groups.length,
-        studentsCount: groups.reduce((sum, group) => sum + group.studentsCount, 0),
+        studentsCount: new Set(rosters.flat()).size,
         avgAttendanceRate: rates(groups.map((group) => group.attendanceRate)),
         avgCompletionRate: rates(groups.map((group) => group.completionRate)),
         needsAttentionCount: groups.reduce((sum, group) => sum + group.needsAttentionCount, 0),
@@ -235,7 +239,7 @@ export class TeacherDashboardService {
 
   private attendanceHistory(facts: StudentFacts, now: Date): AttendanceHistoryItem[] {
     return this.facts
-      .countableLessons(facts, now)
+      .pastLessons(facts, now)
       .flatMap((lesson) => {
         const status = facts.attendance.get(lesson.id);
         return status ? [{ lesson: { ...lesson, attendance: status }, status }] : [];
@@ -251,8 +255,13 @@ export class TeacherDashboardService {
     if (attendance.countable > 0 && attendance.attended / attendance.countable < LOW_ATTENDANCE)
       reasons.push('Низкая посещаемость');
 
+    // Срок, прошедший до зачисления ученика в группу, ему не в счёт (как в dueIn, docs/04 §4.6).
     const overdue = [...facts.assignments]
-      .filter((fact) => fact.dueAt && fact.dueAt.getTime() < now.getTime())
+      .filter((fact) => {
+        if (!fact.dueAt || fact.dueAt.getTime() >= now.getTime()) return false;
+        const enrolledAt = facts.enrolledAt.get(fact.groupId);
+        return !enrolledAt || enrolledAt.getTime() <= fact.dueAt.getTime();
+      })
       .sort((a, b) => (b.dueAt?.getTime() ?? 0) - (a.dueAt?.getTime() ?? 0));
     let row = 0;
     for (const fact of overdue) {
@@ -262,11 +271,17 @@ export class TeacherDashboardService {
     }
     if (row >= OVERDUE_IN_ROW) reasons.push('Просроченные сдачи подряд');
 
+    // Окно «нет активности» начинается не раньше зачисления в первую из групп преподавателя:
+    // у новичка ещё не было ни занятий, ни сдач.
+    const enrolledSince = Math.min(
+      ...facts.groups.map((group) => facts.enrolledAt.get(group.id)?.getTime() ?? Infinity),
+    );
     const lastActivity = Math.max(
       0,
+      Number.isFinite(enrolledSince) ? enrolledSince : 0,
       ...facts.assignments.map((fact) => fact.submission?.submittedAt?.getTime() ?? 0),
       ...this.facts
-        .countableLessons(facts, now)
+        .pastLessons(facts, now)
         .filter((lesson) => {
           const status = facts.attendance.get(lesson.id);
           return status && ATTENDED.includes(status);

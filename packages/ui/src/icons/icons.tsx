@@ -273,6 +273,42 @@ export function ChevronRightIcon(props: IconProps) {
   );
 }
 
+/** Шеврон вниз (раскрыть блок); повёрнутый — `ChevronUpIcon`. */
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 15l6-6 6 6" />
+    </Icon>
+  );
+}
+
+/** Три линии — меню / список (история чатов). */
+export function MenuIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M4 12h16M4 17h10" />
+    </Icon>
+  );
+}
+
+/** Карандаш над листом — новый чат / написать. */
+export function EditIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+      <path d="M18.4 2.6a2 2 0 0 1 2.8 2.8L12 14.6 8 16l1.4-4z" />
+    </Icon>
+  );
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -15,7 +15,7 @@ export function HomeworkPieCard({ counts }: HomeworkPieCardProps) {
   const { t } = useTranslation('performance');
   const titleId = useId();
   return (
-    <Stack as="section" gap={2} aria-labelledby={titleId}>
+    <Stack as="section" gap={2} aria-labelledby={titleId} data-tour="homework-pie">
       <Text as="h2" id={titleId} variant="small" weight="bold" align="center">
         {t('homework.title')}
       </Text>

@@ -205,6 +205,11 @@ describe('Общая успеваемость преподавателя', () =>
     ).toBeInTheDocument();
     // Легенда по курсам — каждый курс один раз, даже если групп несколько.
     expect(screen.getAllByText('посетили')).toHaveLength(3);
+    // Подписи столбцов: коды, а у группы без кода — название без курса (курс — в легенде).
+    const chart = screen.getByRole('img', { name: /^Посещения по группам/ });
+    expect(
+      [...chart.querySelectorAll('.ui-bar-chart__label')].map((label) => label.textContent),
+    ).toEqual(['001', '003', 'группа А']);
 
     const table = screen.getByRole('table', { name: 'Домашние задания по группам' });
     expect(
@@ -212,6 +217,10 @@ describe('Общая успеваемость преподавателя', () =>
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent),
     ).toEqual(['Группа', 'Правильно выполненные дз', 'Выполненные дз']);
+    // Колонка «Группа» — самая широкая (≈38%): название без кода не рвётся по буквам на 375px.
+    const widths = [...table.querySelectorAll('col')].map((col) => parseFloat(col.style.width));
+    expect(widths[0]).toBeGreaterThanOrEqual(35);
+    expect(widths[0]).toBe(Math.max(...widths));
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => row.textContent)).toEqual([
       '0013050',

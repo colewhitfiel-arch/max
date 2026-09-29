@@ -112,37 +112,82 @@ export class FamilyService {
   }
 
   /**
-   * Принять приглашение: связь становится ACTIVE, токен гасится. Повторное принятие тем же
-   * учеником возвращает прежний результат, другим — конфликт (ссылка одноразовая).
+   * Принять приглашение: связь становится ACTIVE, токен гасится — атомарно, в одной транзакции.
+   * - повтор тем же учеником возвращает прежний результат (идемпотентно), пока связь ACTIVE;
+   *   после отвязки погашенная ссылка связь не восстанавливает — `BUSINESS_RULE`;
+   * - уже принятое другим учеником — `CONFLICT` (ссылка одноразовая);
+   * - ученик уже привязан к этому родителю — `CONFLICT`, токен не гасится (родитель может
+   *   отправить ту же ссылку другому ребёнку);
+   * - истёкшее — `BUSINESS_RULE`, несуществующее — `NOT_FOUND`.
+   * Гонку двух учеников по одной ссылке решает условное обновление `acceptedAt IS NULL`.
    */
   async acceptInvite(token: string, studentId: string): Promise<{ parentId: string }> {
-    const invite = await this.findInvite(token);
-    if (!invite) throw Errors.notFound('Приглашение');
-    if (invite.acceptedAt) {
-      const row = await this.prisma.parentInvite.findUnique({
+    return this.prisma.$transaction(async (tx) => {
+      const invite = await tx.parentInvite.findUnique({
         where: { token },
-        select: { acceptedBy: true },
+        select: { parentId: true, expiresAt: true, acceptedAt: true, acceptedBy: true },
       });
-      if (row?.acceptedBy !== studentId) throw Errors.conflict('Ссылка уже использована');
-      return { parentId: invite.parentId };
-    }
-    if (invite.expiresAt.getTime() < Date.now()) throw Errors.businessRule('Ссылка просрочена');
-    await this.prisma.$transaction(async (tx) => {
-      await tx.parentInvite.update({
-        where: { token },
-        data: { acceptedAt: new Date(), acceptedBy: studentId },
+      if (!invite) throw Errors.notFound('Приглашение');
+      if (invite.acceptedAt) {
+        if (invite.acceptedBy !== studentId) throw Errors.conflict('Ссылка уже использована');
+        // Повтор идемпотентен, пока связь жива: погашенная ссылка не восстанавливает связь,
+        // которую родитель потом отвязал (для этого родитель присылает новую).
+        const current = await tx.parentStudentLink.findUnique({
+          where: { parentId_studentId: { parentId: invite.parentId, studentId } },
+          select: { status: true },
+        });
+        if (current?.status !== 'ACTIVE') throw Errors.businessRule('Ссылка уже использована');
+        return { parentId: invite.parentId };
+      }
+      const now = new Date();
+      if (invite.expiresAt.getTime() <= now.getTime())
+        throw Errors.businessRule('Срок действия ссылки истёк');
+
+      const link = await tx.parentStudentLink.findUnique({
+        where: { parentId_studentId: { parentId: invite.parentId, studentId } },
+        select: { status: true },
       });
+      if (link?.status === 'ACTIVE') {
+        // Двойное нажатие: соседний запрос прочитал ту же непогашенную ссылку, но успел её
+        // погасить и привязать ребёнка раньше — тогда это успех, а не «уже привязан».
+        const fresh = await tx.parentInvite.findUnique({
+          where: { token },
+          select: { acceptedBy: true },
+        });
+        if (fresh?.acceptedBy === studentId) return { parentId: invite.parentId };
+        throw Errors.conflict('Ребёнок уже привязан к этому родителю', { alreadyLinked: true });
+      }
+
+      const claimed = await tx.parentInvite.updateMany({
+        where: { token, acceptedAt: null, expiresAt: { gt: now } },
+        data: { acceptedAt: now, acceptedBy: studentId },
+      });
+      if (claimed.count === 0) {
+        // Параллельный запрос успел раньше: тот же ученик (двойное нажатие) — успех, иначе конфликт.
+        const winner = await tx.parentInvite.findUnique({
+          where: { token },
+          select: { acceptedBy: true },
+        });
+        if (winner?.acceptedBy === studentId) return { parentId: invite.parentId };
+        throw Errors.conflict('Ссылка уже использована');
+      }
+
+      // Отозванную или ожидающую связь восстанавливаем, новой — создаём.
       await tx.parentStudentLink.upsert({
         where: { parentId_studentId: { parentId: invite.parentId, studentId } },
-        create: {
-          parentId: invite.parentId,
-          studentId,
-          status: 'ACTIVE',
-          confirmedAt: new Date(),
-        },
-        update: { status: 'ACTIVE', confirmedAt: new Date() },
+        create: { parentId: invite.parentId, studentId, status: 'ACTIVE', confirmedAt: now },
+        update: { status: 'ACTIVE', confirmedAt: now },
       });
+      return { parentId: invite.parentId };
     });
-    return { parentId: invite.parentId };
+  }
+
+  /** Связь ученика с родителем уже активна (приглашение принимать незачем). */
+  async isLinked(parentId: string, studentId: string): Promise<boolean> {
+    const link = await this.prisma.parentStudentLink.findUnique({
+      where: { parentId_studentId: { parentId, studentId } },
+      select: { status: true },
+    });
+    return link?.status === 'ACTIVE';
   }
 }

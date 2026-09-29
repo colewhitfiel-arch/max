@@ -3,6 +3,7 @@ import { aiContract } from '@edu/contracts';
 import { TsRestHandler, tsRestHandler } from '@ts-rest/nest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermission } from '../../common/auth/decorators';
+import { RateLimit } from '../../common/rate-limit/rate-limit';
 import { OnboardingService } from './onboarding.service';
 import { ParentTutorService } from './parent-tutor.service';
 import { TrajectoryService } from './trajectory.service';
@@ -28,6 +29,7 @@ export class AiController {
   }
 
   @RequirePermission('student:onboarding.complete')
+  @RateLimit('ai')
   @TsRestHandler(aiContract.getOnboardingRecommendations)
   getOnboardingRecommendations(@CurrentUser() user: AuthUser) {
     return tsRestHandler(aiContract.getOnboardingRecommendations, async () => ({

@@ -11,6 +11,8 @@ export interface ChatMessageProps {
   streaming?: boolean;
   /** Доступное имя своего пузыря (по умолчанию «Ты»; родителю — «Вы»). */
   ownLabel?: string;
+  /** Плавно появиться (новое сообщение ленты, см. `ChatBubble.appear`). */
+  appear?: boolean;
 }
 
 /** Аватар тьютора у пузыря: робот на синей подложке (как пункт нижнего меню). */
@@ -23,7 +25,14 @@ export function TutorAvatar({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' | 'xl' 
 }
 
 /** Сообщение чата: роль → сторона пузыря, у тьютора — аватар, под пузырём — время. */
-export function ChatMessage({ role, content, createdAt, streaming, ownLabel }: ChatMessageProps) {
+export function ChatMessage({
+  role,
+  content,
+  createdAt,
+  streaming,
+  ownLabel,
+  appear,
+}: ChatMessageProps) {
   const { t, i18n } = useTranslation('student');
   const own = role === 'USER';
   return (
@@ -32,6 +41,7 @@ export function ChatMessage({ role, content, createdAt, streaming, ownLabel }: C
       avatar={own ? undefined : <TutorAvatar />}
       meta={createdAt ? formatTime(createdAt, i18n.language) : undefined}
       streaming={streaming}
+      appear={appear}
       typingLabel={t('tutor.thinking')}
       // role=group: имя автора на div без роли скринридеры игнорируют.
       role="group"

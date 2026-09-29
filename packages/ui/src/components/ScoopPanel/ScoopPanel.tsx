@@ -7,6 +7,19 @@ export interface ScoopPanelProps extends HTMLAttributes<HTMLDivElement> {
   bleed?: boolean;
   /** Занять свободную высоту родителя (для `Screen fill`): фон тянется до низа экрана. */
   grow?: boolean;
+  /**
+   * Зайти кривой под блок над панелью на глубину кривой, как в макете: подпись выбранного
+   * сердца стоит над ровной серединой, а поднятые углы панели — по бокам от неё. Экономит
+   * высоту кривой (≈50px на 390px), иначе ложбина остаётся пустой полосой. Касания в зоне
+   * наезда проходят к блоку сверху. По умолчанию выключено.
+   */
+  overlap?: boolean;
+  /**
+   * Содержимое прокручивается внутри панели, под неподвижной кривой; фон тянется до низа
+   * экрана. Для `grow` в `Screen fit`: сам экран стоит, лента сердец над панелью не уезжает.
+   * По умолчанию выключено — панель растёт по содержимому.
+   */
+  scroll?: boolean;
 }
 
 /**
@@ -15,7 +28,7 @@ export interface ScoopPanelProps extends HTMLAttributes<HTMLDivElement> {
  * Кривая масштабируется по ширине; контент начинается под ровной серединой с обычными полями.
  */
 export const ScoopPanel = forwardRef<HTMLDivElement, ScoopPanelProps>(function ScoopPanel(
-  { bleed = true, grow = false, className, children, ...rest },
+  { bleed = true, grow = false, overlap = false, scroll = false, className, children, ...rest },
   ref,
 ) {
   return (
@@ -24,6 +37,8 @@ export const ScoopPanel = forwardRef<HTMLDivElement, ScoopPanelProps>(function S
       className={cx('ui-scoop-panel', className)}
       data-bleed={bleed || undefined}
       data-grow={grow || undefined}
+      data-overlap={overlap || undefined}
+      data-scroll={scroll || undefined}
       {...rest}
     >
       {/* Фон одним слоем с общей прозрачностью: шапка-кривая и тело не дают шва на стыке. */}
@@ -38,7 +53,9 @@ export const ScoopPanel = forwardRef<HTMLDivElement, ScoopPanelProps>(function S
         </svg>
         <div className="ui-scoop-panel__fill" />
       </div>
-      <div className="ui-scoop-panel__body">{children}</div>
+      <div className="ui-scoop-panel__body">
+        {scroll ? <div className="ui-scoop-panel__scroll">{children}</div> : children}
+      </div>
     </div>
   );
 });

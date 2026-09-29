@@ -8,6 +8,31 @@
   flex: 1 1 auto;
 }
 
+/* Прокручивает содержимое само; min-height: 0 даёт сжаться в flex-колонке.
+ * position: relative — абсолютные потомки (скрытые input чекбоксов) прокручиваются и
+ * обрезаются вместе с областью, а не растягивают экран. */
+.ui-stack[data-scroll] {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* `Screen fit`: сжимается под доступное место (перебивает flex-shrink: 0 у детей экрана). */
+.ui-screen[data-fit] > .ui-stack[data-scroll],
+.ui-stack[data-scroll] > .ui-stack[data-scroll] {
+  flex-shrink: 1;
+}
+
+/* `Screen fixed`: занимает свободное место экрана. Поля по 4px с обратным отступом:
+ * кольцо фокуса полей у края не обрезается прокруткой. */
+.ui-screen[data-fixed] > .ui-stack[data-scroll] {
+  flex: 1 1 0;
+  margin: calc(-1 * var(--ui-space-1));
+  padding: var(--ui-space-1);
+}
+
 .ui-stack[data-gap='0'] {
   gap: 0;
 }

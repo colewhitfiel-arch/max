@@ -14,6 +14,8 @@ export interface ScreenHeaderProps {
   /** Колокольчик со счётчиком непрочитанных → /notifications. */
   bell?: boolean;
   actions?: ReactNode;
+  /** Действие слева (после «Назад»): например, история чатов тьютора. */
+  leading?: ReactNode;
   /** По умолчанию `plain` — без плашки, заголовок по центру (как на главной из макета). */
   variant?: PageHeaderVariant;
   /** Прилипать к верху скролл-области (см. `PageHeader.sticky`). */
@@ -52,6 +54,7 @@ export function ScreenHeader({
   back,
   bell = false,
   actions,
+  leading,
   variant = 'plain',
   sticky,
 }: ScreenHeaderProps) {
@@ -68,6 +71,7 @@ export function ScreenHeader({
       subtitle={subtitle}
       onBack={onBack}
       backLabel={t('actions.back')}
+      leading={leading}
       actions={
         actions || bell ? (
           <>

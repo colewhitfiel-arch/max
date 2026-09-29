@@ -149,10 +149,23 @@ export class StudentFactsService {
   // ---------- показатели ----------
 
   /**
-   * Занятия, которые идут в зачёт посещаемости: не отменены, уже начались и прошли после
-   * зачисления ученика в группу (docs/04 §4.6).
+   * Занятия, которые идут в зачёт посещаемости: проведённые (`DONE`) и прошедшие после
+   * зачисления ученика в группу (docs/04 §4.6). Неотмеченное занятие (`PLANNED`) пропуском
+   * не считается.
    */
   countableLessons(
+    facts: StudentFacts,
+    now: Date,
+    options: { groupId?: string; since?: Date } = {},
+  ): LessonDto[] {
+    return this.pastLessons(facts, now, options).filter((lesson) => lesson.status === 'DONE');
+  }
+
+  /**
+   * Прошедшие занятия ученика: не отменены, уже начались и после зачисления. Из них берутся
+   * посещения для серии и кристаллов — там важна отметка, а не статус занятия (docs/04 §4.6).
+   */
+  pastLessons(
     facts: StudentFacts,
     now: Date,
     options: { groupId?: string; since?: Date } = {},
@@ -185,7 +198,10 @@ export class StudentFactsService {
     };
   }
 
-  /** Знаменатель «выполнения»: срок внутри окна либо задание без срока, опубликованное в окне. */
+  /**
+   * Знаменатель «выполнения»: срок внутри окна либо задание без срока, опубликованное в окне;
+   * срок (публикация) — не раньше зачисления ученика в группу (docs/04 §4.6).
+   */
   dueIn(
     facts: StudentFacts,
     from: Date,
@@ -195,7 +211,9 @@ export class StudentFactsService {
     const inWindow = facts.assignments.filter((fact) => {
       if (groupId && fact.groupId !== groupId) return false;
       const at = fact.dueAt ?? fact.publishedAt;
-      return !!at && at.getTime() >= from.getTime() && at.getTime() <= to.getTime();
+      if (!at || at.getTime() < from.getTime() || at.getTime() > to.getTime()) return false;
+      const enrolledAt = facts.enrolledAt.get(fact.groupId);
+      return !enrolledAt || enrolledAt.getTime() <= at.getTime();
     });
     return {
       due: inWindow.length,
@@ -285,7 +303,7 @@ export class StudentFactsService {
   }
 
   gamification(facts: StudentFacts, now: Date): { streakDays: number; points: number } {
-    const attendedLessons = this.countableLessons(facts, now).filter((lesson) => {
+    const attendedLessons = this.pastLessons(facts, now).filter((lesson) => {
       const status = facts.attendance.get(lesson.id);
       return status && ATTENDED.includes(status);
     });
