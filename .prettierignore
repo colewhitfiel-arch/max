@@ -8,3 +8,6 @@ packages/db/generated
 packages/db/prisma/schema/migrations
 pnpm-lock.yaml
 *.md
+
+# Генерируется из контрактов (pnpm --filter @edu/contracts openapi), 1+ МБ
+docs/api/openapi.json

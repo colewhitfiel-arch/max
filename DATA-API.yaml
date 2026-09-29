@@ -1,0 +1,152 @@
+# Описание собственного API для технической проверки (формат сдачи хакатона MAX × Минобрнауки).
+# Полная спецификация — docs/api/openapi.json (OpenAPI 3.0, генерируется из контрактов:
+# `pnpm --filter @edu/contracts openapi`). Стриминговые ручки (SSE) — docs/05-api-contracts.md §5.1.
+
+version: '1.0'
+solution: Мини-приложение дополнительного образования в MAX (бот «Вектор», @se14447967_bot)
+team: se14447967
+baseUrl: https://max-edu.vercel.app/api/v1
+
+# Тестовые учётные записи. Пароля нет: демо-вход `POST /auth/dev` выдаёт пару токенов по maxUserId
+# (доступен, пока APP_ENV != production; на стенде — staging). Роль указывается в теле запроса.
+testAccounts:
+  - role: STUDENT
+    maxUserId: max-student-1
+    name: Алексей Смирнов
+  - role: STUDENT
+    maxUserId: max-student-2
+    name: Даша Иванова
+  - role: PARENT
+    maxUserId: max-parent-1
+    name: Ольга Смирнова
+  - role: TEACHER
+    maxUserId: max-teacher-1
+    name: Мария Иванова (также PARENT — переключение через POST /auth/switch-role)
+codes:
+  schoolInviteCode: SCHOOL1 # для получения роли TEACHER
+  childLinkCodes: { max-student-1: ALX123, max-student-2: DSH456 }
+
+# Общие правила: JSON UTF-8; авторизация — заголовок `Authorization: Bearer <accessToken>`
+# из ответа /auth/dev; ошибки — `{ error: { code, message, details?, requestId } }`,
+# заголовок X-Request-Id есть в каждом ответе.
+
+checks:
+  - id: health
+    description: Живость api и базы данных
+    method: GET
+    path: /health
+    role: none
+    expectedStatus: [200]
+    expectedResponse:
+      contentType: application/json
+      required: [status, db, version, time]
+      example: { status: ok, db: ok, version: 0.1.0, time: '2026-09-29T12:24:28.069Z' }
+
+  - id: auth-dev-student
+    description: Демо-вход учеником, выдача токенов и профиля
+    method: POST
+    path: /auth/dev
+    role: none
+    headers: { Content-Type: application/json }
+    body: { maxUserId: max-student-1, roles: [STUDENT] }
+    expectedStatus: [200]
+    expectedResponse:
+      contentType: application/json
+      required: [accessToken, refreshToken, me]
+      fields: { me.activeRole: STUDENT, me.user.firstName: Алексей }
+
+  - id: me
+    description: Текущий пользователь и активная роль
+    method: GET
+    path: /me
+    role: STUDENT
+    expectedStatus: [200]
+    expectedResponse:
+      contentType: application/json
+      required: [user, roles, activeRole, settings]
+
+  - id: me-unauthorized
+    description: Без токена — 401 с кодом UNAUTHORIZED
+    method: GET
+    path: /me
+    role: none
+    expectedStatus: [401]
+    expectedResponse: { contentType: application/json, fields: { error.code: UNAUTHORIZED } }
+
+  - id: student-home
+    description: Главная ученика — занятия сегодня и ближайшие, задания, кружки, статистика
+    method: GET
+    path: /student/home
+    role: STUDENT
+    expectedStatus: [200]
+    expectedResponse:
+      { contentType: application/json, required: [today, upcoming, tasks, stats, clubs] }
+
+  - id: student-assignments
+    description: Задания ученика
+    method: GET
+    path: /student/assignments
+    role: STUDENT
+    query: { limit: 20 }
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json, required: [items] }
+
+  - id: notifications
+    description: Уведомления пользователя (только непрочитанные)
+    method: GET
+    path: /notifications
+    role: STUDENT
+    query: { unreadOnly: 'true' }
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json, required: [items] }
+
+  - id: tutor-conversation
+    description: Создать диалог с ИИ-тьютором (ответы — SSE на POST /ai/conversations/{id}/messages)
+    method: POST
+    path: /ai/conversations
+    role: STUDENT
+    headers: { Content-Type: application/json }
+    body: { kind: TUTOR }
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json, required: [id, kind] }
+
+  - id: teacher-home
+    description: Главная преподавателя — расписание дня
+    method: GET
+    path: /teacher/home
+    role: TEACHER
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json }
+
+  - id: teacher-assignments
+    description: Задания преподавателя
+    method: GET
+    path: /teacher/assignments
+    role: TEACHER
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json, required: [items] }
+
+  - id: parent-children
+    description: Дети родителя (привязанные по коду)
+    method: GET
+    path: /parent/children
+    role: PARENT
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json, required: [items] }
+
+  - id: parent-child-home
+    description: Главная ребёнка для родителя; studentId — из /parent/children (items[].student.id)
+    method: GET
+    path: /parent/children/{studentId}/home
+    pathParams: { studentId: '<items[0].student.id из parent-children>' }
+    role: PARENT
+    expectedStatus: [200]
+    expectedResponse: { contentType: application/json }
+
+  - id: role-guard
+    description: Ученик не видит ручки преподавателя — 403 FORBIDDEN
+    method: GET
+    path: /teacher/home
+    role: STUDENT
+    expectedStatus: [403]
+    expectedResponse: { contentType: application/json, fields: { error.code: FORBIDDEN } }
