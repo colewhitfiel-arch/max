@@ -293,4 +293,36 @@ describe('MaxSdkBridge', () => {
     // Без аккаунта общая копия — рабочая: не стирается.
     expect(await bridge.storage.get('auth.refresh')).toBe('r-shared');
   });
+
+  it('сканер QR: только камера, строка из `{ value }`; закрытие без кода — null', async () => {
+    const openCodeReader = vi.fn(async (_fileSelect?: boolean): Promise<unknown> => ({
+      value: 'https://max.ru/b',
+    }));
+    installSdk({ openCodeReader });
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(bridge.canScanQrCode()).toBe(true);
+    expect(await bridge.scanQrCode()).toBe('https://max.ru/b');
+    expect(openCodeReader).toHaveBeenCalledWith(false);
+
+    openCodeReader.mockRejectedValueOnce({ error: { code: 'client.open_code_reader.cancelled' } });
+    expect(await bridge.scanQrCode()).toBeNull();
+    openCodeReader.mockResolvedValueOnce({ value: '' });
+    expect(await bridge.scanQrCode()).toBeNull();
+    openCodeReader.mockRejectedValueOnce({ error: { code: 'client.camera.permission_denied' } });
+    await expect(bridge.scanQrCode()).rejects.toThrow(/permission_denied/);
+  });
+
+  it('сканера нет: SDK без openCodeReader или запуск вне MAX', async () => {
+    installSdk();
+    const bridge = new MaxSdkBridge();
+    await bridge.init();
+    expect(bridge.canScanQrCode()).toBe(false);
+    await expect(bridge.scanQrCode()).rejects.toThrow();
+
+    installSdk({ initData: undefined, openCodeReader: vi.fn() });
+    const outside = new MaxSdkBridge();
+    await outside.init();
+    expect(outside.canScanQrCode()).toBe(false);
+  });
 });

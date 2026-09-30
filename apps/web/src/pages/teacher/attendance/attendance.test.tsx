@@ -1,8 +1,14 @@
 /**
- * Посещаемость: выбор занятия (сегодня → ждут отметки → ближайшие) и лист отметки
- * (по умолчанию все «Был», массовые действия, сохранение всего листа разом).
+ * Посещаемость: выбор занятия (сегодня → ждут отметки → ближайшие), лист отметки
+ * (по умолчанию все «Был», массовые действия, сохранение всего листа разом) и QR-код занятия
+ * для самоотметки учеников (после него неотсканировавшие в листе — «Не был»).
  */
-import { AttendanceSheetSchema, type LessonDto, LessonsListSchema } from '@edu/contracts';
+import {
+  AttendanceQrSchema,
+  AttendanceSheetSchema,
+  type LessonDto,
+  LessonsListSchema,
+} from '@edu/contracts';
 import { ToastProvider } from '@edu/ui';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +16,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import type * as LessonEntity from '@/entities/lesson';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/shared/i18n';
+import { MaxBridgeProvider, MockMaxBridge } from '@/shared/max';
 import { AttendanceLessonsPage } from './ui/AttendanceLessonsPage';
+import { AttendanceQrPage } from './ui/AttendanceQrPage';
 import { AttendanceSheetPage } from './ui/AttendanceSheetPage';
 
 const id = (n: number) => `0190a000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`;
@@ -66,6 +74,7 @@ const ready = <T,>(data: T) => ({
 const hooks = vi.hoisted(() => ({
   calendar: null as unknown,
   sheet: null as unknown,
+  qr: null as unknown,
   mark: { mutate: vi.fn(), isPending: false },
 }));
 
@@ -73,6 +82,7 @@ vi.mock('@/entities/lesson', async (importOriginal) => ({
   ...(await importOriginal<typeof LessonEntity>()),
   useTeacherCalendar: () => hooks.calendar,
   useAttendanceSheet: () => hooks.sheet,
+  useAttendanceQr: () => hooks.qr,
   useMarkAttendance: () => hooks.mark,
 }));
 
@@ -83,15 +93,18 @@ function Location() {
 
 function renderAt(path: string) {
   return render(
-    <ToastProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <Location />
-        <Routes>
-          <Route path="/teacher/attendance" element={<AttendanceLessonsPage />} />
-          <Route path="/teacher/attendance/:lessonId" element={<AttendanceSheetPage />} />
-        </Routes>
-      </MemoryRouter>
-    </ToastProvider>,
+    <MaxBridgeProvider bridge={new MockMaxBridge({ launchParams: null })}>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Location />
+          <Routes>
+            <Route path="/teacher/attendance" element={<AttendanceLessonsPage />} />
+            <Route path="/teacher/attendance/:lessonId" element={<AttendanceSheetPage />} />
+            <Route path="/teacher/attendance/:lessonId/qr" element={<AttendanceQrPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    </MaxBridgeProvider>,
   );
 }
 
@@ -190,5 +203,96 @@ describe('Посещаемость преподавателя', () => {
 
     expect(screen.getByText('Опоздали: 1')).toBeInTheDocument();
     expect(screen.getByText('Были: 1')).toBeInTheDocument();
+  });
+});
+
+describe('Отметка по QR-коду', () => {
+  const todaySheet = (statuses: [string | null, string | null], overrides = {}) =>
+    ready(
+      AttendanceSheetSchema.parse({
+        lesson: lesson({ hoursFromNow: 0, ...overrides }),
+        rows: [
+          { student: student(0x21, 'Алексей'), status: statuses[0], comment: null },
+          { student: student(0x22, 'Даша'), status: statuses[1], comment: null },
+        ],
+      }),
+    );
+
+  beforeEach(() => {
+    hooks.qr = {
+      ...ready(
+        AttendanceQrSchema.parse({
+          lessonId: LESSON_ID,
+          code: 'qr_code_for_tests_0123456789',
+          url: 'https://max.ru/bot?startapp=checkin_qr_code_for_tests_0123456789',
+          expiresAt: new Date(Date.now() + 90_000).toISOString(),
+        }),
+      ),
+      isError: false,
+    };
+  });
+
+  it('в день занятия из листа открывается QR-код; в другой день и у отменённого — нет', async () => {
+    const user = userEvent.setup();
+    hooks.sheet = todaySheet([null, null]);
+    const { unmount } = renderAt(`/teacher/attendance/${LESSON_ID}`);
+    await user.click(screen.getByRole('button', { name: 'QR-код для отметки' }));
+    expect(screen.getByTestId('location')).toHaveTextContent(`/teacher/attendance/${LESSON_ID}/qr`);
+    unmount();
+
+    hooks.sheet = todaySheet([null, null], { status: 'CANCELLED' });
+    const cancelled = renderAt(`/teacher/attendance/${LESSON_ID}`);
+    expect(screen.queryByRole('button', { name: 'QR-код для отметки' })).not.toBeInTheDocument();
+    cancelled.unmount();
+
+    hooks.sheet = ready(
+      AttendanceSheetSchema.parse({
+        lesson: lesson({ hoursFromNow: -72 }),
+        rows: [{ student: student(0x21, 'Алексей'), status: null, comment: null }],
+      }),
+    );
+    renderAt(`/teacher/attendance/${LESSON_ID}`);
+    expect(screen.queryByRole('button', { name: 'QR-код для отметки' })).not.toBeInTheDocument();
+  });
+
+  it('экран кода: QR, кто уже отметился; «Завершить» — в лист, где остальные «Не был»', async () => {
+    const user = userEvent.setup();
+    hooks.sheet = todaySheet(['PRESENT', null]);
+    renderAt(`/teacher/attendance/${LESSON_ID}/qr`);
+
+    expect(screen.getByRole('img', { name: 'QR-код для отметки на занятии' })).toBeInTheDocument();
+    expect(screen.getByText('Отметились: 1 из 2')).toBeInTheDocument();
+    expect(screen.getByText('Алексей')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Завершить и отметить остальных' }));
+    expect(screen.getByTestId('location')).toHaveTextContent(`/teacher/attendance/${LESSON_ID}`);
+    expect(screen.getByText('Были: 1')).toBeInTheDocument();
+    expect(screen.getByText('Не были: 1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(hooks.mark.mutate).toHaveBeenCalledWith(
+      {
+        rows: [
+          { studentId: id(0x21), status: 'PRESENT' },
+          { studentId: id(0x22), status: 'ABSENT' },
+        ],
+      },
+      expect.anything(),
+    );
+  });
+
+  it('код не выдан (занятие не сегодня) — ошибка сервера вместо QR', () => {
+    hooks.sheet = todaySheet([null, null]);
+    hooks.qr = {
+      data: undefined,
+      error: new Error('QR-код для отметки открывается только в день занятия'),
+      isPending: false,
+      isError: true,
+      isSuccess: false,
+      refetch: vi.fn(),
+    };
+    renderAt(`/teacher/attendance/${LESSON_ID}/qr`);
+    expect(screen.queryByRole('img', { name: /QR-код/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
   });
 });

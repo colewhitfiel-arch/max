@@ -1,4 +1,5 @@
 import { startDemoTour } from '@/features/demo-tour';
+import { checkInPathFromStartParam } from '@/pages/check-in/start-param';
 import { invitePathFromStartParam } from '@/pages/invite/start-param';
 import type { MaxBridge } from '@/shared/max';
 
@@ -27,9 +28,12 @@ export const START_PARAM_WAIT_MS = 8_000;
 /** Переход по диплинку этого запуска; null — ещё не применялся. */
 let applied: Promise<boolean> | null = null;
 
-/** Экран для полезной нагрузки диплинка; null — неизвестная или пустая. */
+/**
+ * Экран для полезной нагрузки диплинка; null — неизвестная или пустая. `invite_<token>` —
+ * приглашение ребёнка, `checkin_<код>` — отметка на занятии по QR, снятому обычной камерой.
+ */
 export function startParamPath(startParam: string | null | undefined): string | null {
-  return invitePathFromStartParam(startParam);
+  return invitePathFromStartParam(startParam) ?? checkInPathFromStartParam(startParam);
 }
 
 /**

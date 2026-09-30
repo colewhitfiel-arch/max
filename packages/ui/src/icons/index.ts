@@ -37,6 +37,7 @@ export {
   MoonIcon,
   PieChartIcon,
   PlusIcon,
+  QrCodeIcon,
   RefreshIcon,
   SearchIcon,
   SendIcon,

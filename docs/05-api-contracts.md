@@ -196,9 +196,16 @@ GroupInvite = { token, url }   // url = ${WEB_URL}/join/${token}; многора
 GET /teacher/lessons/:lessonId/attendance → AttendanceSheet
 PUT /teacher/lessons/:lessonId/attendance { rows: [{ studentId, status: AttendanceStatus, comment? }] } → AttendanceSheet
                                           // upsert всех строк; переводит Lesson в DONE
+GET  /teacher/lessons/:lessonId/attendance/qr → AttendanceQr        // teacher:attendance.mark; только в день занятия, не отменённое (422)
+POST /student/attendance/check-in { code }    → CheckInResult       // student:attendance.check-in; PRESENT, Lesson → DONE, идемпотентно
+                                          // 422 BUSINESS_RULE, details.reason: CODE_INVALID | CODE_EXPIRED | LESSON_CANCELLED | NOT_ENROLLED
 
 AttendanceSheet = { lesson: LessonDto, rows: [{ student: StudentBrief, status: AttendanceStatus|null, comment? }] }
+AttendanceQr    = { lessonId, code, url, expiresAt }   // code — HMAC-подпись (lessonId, срок), живёт ATTENDANCE_QR_TTL_SEC = 90 с;
+                                                       // url — https://max.ru/<бот>?startapp=checkin_<code> или ${WEB_URL}/check-in/<code>
+CheckInResult   = { lesson: LessonDto /* с attendance */, status: AttendanceStatus, alreadyMarked: boolean }
 ```
+Хелперы: `parseAttendanceQrValue(строка сканера)` → код или null, `parseAttendanceCheckInStartParam(startapp)`, `attendanceCheckInStartParam(code)` (docs/07 F6a).
 
 ### `courses.ts` + `blocks/` — владелец B4
 ```

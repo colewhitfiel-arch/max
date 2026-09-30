@@ -4,6 +4,7 @@
  * календаря — ошибка с повтором; листание месяцев в шторке не сбрасывает выбранный день.
  */
 import type { LessonDto, LessonsList, StudentHomeDto } from '@edu/contracts';
+import { ToastProvider } from '@edu/ui';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -11,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as LessonEntity from '@/entities/lesson';
 import type * as NotificationEntity from '@/entities/notification';
 import '@/shared/i18n';
+import { MaxBridgeProvider, MockMaxBridge } from '@/shared/max';
 import { StudentHomePage } from './ui/StudentHomePage';
 
 const id = (n: number) => `0190a000-0000-7000-8000-${String(n).padStart(12, '0')}`;
@@ -103,9 +105,13 @@ const SEPTEMBER = { from: '2026-09-01', to: '2026-09-30' };
 
 function renderHome() {
   return render(
-    <MemoryRouter>
-      <StudentHomePage />
-    </MemoryRouter>,
+    <MaxBridgeProvider bridge={new MockMaxBridge({ launchParams: null })}>
+      <ToastProvider>
+        <MemoryRouter>
+          <StudentHomePage />
+        </MemoryRouter>
+      </ToastProvider>
+    </MaxBridgeProvider>,
   );
 }
 
@@ -137,6 +143,27 @@ describe('StudentHomePage — расписание', () => {
     const table = screen.getByRole('table', { name: 'Сегодня' });
     expect(within(table).getByText('001')).toBeInTheDocument();
     expect(within(table).queryByText('Робототехника, группа А')).not.toBeInTheDocument();
+  });
+
+  it('«Отметиться по QR» — только пока сегодня есть занятие без отметки «был»', () => {
+    hooks.home = ready(studentHome([lesson(1, 0, 16)]));
+    const { unmount } = renderHome();
+    expect(screen.getByRole('button', { name: 'Отметиться по QR' })).toBeInTheDocument();
+    unmount();
+
+    hooks.home = ready(
+      studentHome([
+        { ...lesson(1, 0, 10), attendance: 'PRESENT' },
+        { ...lesson(2, 0, 16), status: 'CANCELLED' },
+      ]),
+    );
+    const done = renderHome();
+    expect(screen.queryByRole('button', { name: 'Отметиться по QR' })).not.toBeInTheDocument();
+    done.unmount();
+
+    hooks.home = ready(studentHome([]));
+    renderHome();
+    expect(screen.queryByRole('button', { name: 'Отметиться по QR' })).not.toBeInTheDocument();
   });
 
   it('сбой календаря на дне вне недели главной — ошибка с повтором, а не «нет занятий»', async () => {

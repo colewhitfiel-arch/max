@@ -104,3 +104,6 @@ export * from './components/WalletHero';
 export * from './components/LineChart';
 export * from './components/BarChart';
 export * from './components/DataTable';
+
+// Посещаемость по QR-коду
+export * from './components/QrCode';

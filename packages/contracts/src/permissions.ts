@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   'student:trajectory.view',
   'student:parents.link',
   'student:groups.join',
+  'student:attendance.check-in',
   // родитель
   'parent:children.manage',
   'parent:child.home.view',
@@ -78,6 +79,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'student:trajectory.view',
     'student:parents.link',
     'student:groups.join',
+    'student:attendance.check-in',
   ],
   PARENT: [
     ...COMMON,

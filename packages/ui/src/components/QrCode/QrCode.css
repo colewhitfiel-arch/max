@@ -1,0 +1,20 @@
+/* Цвета не из темы намеренно: сканеры надёжно читают только тёмные модули на светлом фоне,
+ * инвертированный (светлый на тёмном) код многие не видят. */
+.ui-qr-code {
+  width: 100%;
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border-radius: var(--ui-radius-md);
+  background: #fff;
+  overflow: hidden;
+}
+
+.ui-qr-code > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ui-qr-code path {
+  fill: #000;
+}

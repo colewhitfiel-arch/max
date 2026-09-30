@@ -220,5 +220,46 @@
       "expected": "Answer: {{answer}}",
       "score": "{{correct}} of {{total}} correct"
     }
+  },
+  "checkIn": {
+    "scan": "Check in by QR",
+    "title": "Lesson check-in",
+    "notOurCode": "This is not a lesson QR code",
+    "notOurCodeHint": "Scan the code on the teacher’s screen",
+    "scanFailed": "Could not open the scanner",
+    "scanFailedHint": "Allow MAX to use the camera and try again",
+    "manualTitle": "Check in to the lesson",
+    "manualHint": "The QR scanner works in the MAX app. Here you can paste the link from the QR code that your teacher sent.",
+    "manualLabel": "Link from the QR code",
+    "manualSubmit": "Check in",
+    "pending": "Checking in…",
+    "done": "You are checked in",
+    "doneHint": "Your teacher can see that you are at the lesson",
+    "already": "Already checked in",
+    "alreadyHint": "No need to check in again",
+    "lesson": "{{club}} · {{time}}",
+    "failed": "Could not check in",
+    "scanAgain": "Scan again",
+    "goHome": "Home",
+    "notStudent": "Only a student can check in",
+    "notStudentHint": "Switch to the student role and scan the code again",
+    "errors": {
+      "CODE_INVALID": {
+        "title": "The code did not work",
+        "hint": "Scan the QR code on the teacher’s screen again"
+      },
+      "CODE_EXPIRED": {
+        "title": "The code has expired",
+        "hint": "It refreshes every half a minute — scan the code on the teacher’s screen again"
+      },
+      "LESSON_CANCELLED": {
+        "title": "The lesson is cancelled",
+        "hint": "No need to check in"
+      },
+      "NOT_ENROLLED": {
+        "title": "This lesson is not in your group",
+        "hint": "You can only check in to your own groups’ lessons. If you study here, ask the teacher to add you to the group"
+      }
+    }
   }
 }

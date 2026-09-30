@@ -10,4 +10,8 @@ export const teacherAttendanceRoutes: RouteObject[] = [
     path: 'attendance/:lessonId',
     lazy: lazyRoute(() => import('./ui/AttendanceSheetPage'), 'AttendanceSheetPage'),
   },
+  {
+    path: 'attendance/:lessonId/qr',
+    lazy: lazyRoute(() => import('./ui/AttendanceQrPage'), 'AttendanceQrPage'),
+  },
 ];

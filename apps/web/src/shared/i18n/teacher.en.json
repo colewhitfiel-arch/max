@@ -284,6 +284,21 @@
       "ABSENT": "Out",
       "LATE": "Late",
       "EXCUSED": "Exc."
+    },
+    "qr": {
+      "open": "QR code for check-in",
+      "title": "QR check-in",
+      "label": "QR code to check in to the lesson",
+      "hint": "Students open the app in MAX, tap “Check in by QR” on the home screen and point the camera at this code.",
+      "refresh": "The code refreshes every {{seconds}} s: a photo forwarded to someone who is absent will not work.",
+      "checkedIn": "Checked in: {{count}} of {{total}}",
+      "nobodyYet": "Nobody has checked in yet",
+      "stale": "Could not refresh the code — check your connection",
+      "copy": "Copy link",
+      "copied": "Link copied — it is valid for {{seconds}} s",
+      "copyFailed": "Could not copy the link",
+      "finish": "Finish and mark the rest",
+      "finishHint": "Whoever did not scan the code will be marked “Absent” — review the sheet and save."
     }
   },
   "newGroup": {

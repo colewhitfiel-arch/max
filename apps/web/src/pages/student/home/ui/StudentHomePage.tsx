@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useStudentHome } from '@/entities/dashboard';
 import { lessonsOfDay, useStudentCalendar } from '@/entities/lesson';
 import { useNotifications } from '@/entities/notification';
+import { QrCheckInButton } from '@/features/qr-check-in';
 import { diffCalendarDays, startOfDay, toDateOnly } from '@/shared/lib/dates';
 import { AsyncState, DashboardSkeleton } from '@/shared/ui';
 import { AttendanceWeekCard } from '@/widgets/student-home-attendance';
@@ -31,6 +32,19 @@ function homeWindowDays(upcoming: LessonDto[], now: Date): number {
     0,
   );
   return Math.max(1, Math.min(HOME_WINDOW_DAYS, lastOffset));
+}
+
+/**
+ * Сегодня есть занятие, на котором ученик ещё не отмечен «был»/«опоздал», — показываем
+ * «Отметиться по QR» (docs/07 F6a). Отметился на всех — кнопка уходит.
+ */
+function needsCheckIn(today: LessonDto[]): boolean {
+  return today.some(
+    (lesson) =>
+      lesson.status !== 'CANCELLED' &&
+      lesson.attendance !== 'PRESENT' &&
+      lesson.attendance !== 'LATE',
+  );
 }
 
 const monthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
@@ -82,6 +96,7 @@ function StudentHomeContent({ home }: { home: StudentHomeDto }) {
           .map((lesson) => lesson.group.club)}
         allSubjects={home.clubs.map((item) => item.club)}
       />
+      {needsCheckIn(home.today) && <QrCheckInButton />}
       <DaySchedule
         headerRef={scheduleHeaderRef}
         date={day}

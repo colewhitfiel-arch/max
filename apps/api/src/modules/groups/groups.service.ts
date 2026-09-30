@@ -334,14 +334,35 @@ export class GroupsService {
     teacherId: string,
     lessonId: string,
   ): Promise<{ lesson: LessonDto; groupId: string }> {
+    const found = await this.findLesson(lessonId);
+    if (!found) throw Errors.notFound('Занятие');
+    if (found.teacherId !== teacherId) throw Errors.forbidden('Занятие другого преподавателя');
+    return { lesson: found.lesson, groupId: found.groupId };
+  }
+
+  /**
+   * Публичный сервис: занятие с группой, её преподавателем и школой кружка — без проверки
+   * владельца (самоотметка ученика по QR: чьё занятие, решает подписанный код). null — нет такого.
+   */
+  async findLesson(
+    lessonId: string,
+  ): Promise<{ lesson: LessonDto; groupId: string; teacherId: string; schoolId: string } | null> {
     const row = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
-        group: { select: { id: true, title: true, teacherId: true, ...groupBriefInclude } },
+        group: {
+          select: {
+            id: true,
+            title: true,
+            teacherId: true,
+            ...groupBriefInclude,
+            club: { select: { ...groupBriefInclude.club.select, schoolId: true } },
+          },
+        },
       },
     });
-    if (!row) throw Errors.notFound('Занятие');
-    if (row.group.teacherId !== teacherId) throw Errors.forbidden('Занятие другого преподавателя');
+    if (!row) return null;
+    const { schoolId, ...club } = row.group.club;
     return {
       lesson: {
         id: row.id,
@@ -353,9 +374,11 @@ export class GroupsService {
         room: row.room,
         status: row.status,
         cancelReason: row.cancelReason,
-        group: toGroupBrief(row.group),
+        group: toGroupBrief({ ...row.group, club }),
       },
       groupId: row.groupId,
+      teacherId: row.group.teacherId,
+      schoolId,
     };
   }
 
