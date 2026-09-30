@@ -33,6 +33,26 @@ export class AuthController {
 
   @Public()
   @RateLimit('auth')
+  @TsRestHandler(authContract.register)
+  register() {
+    return tsRestHandler(authContract.register, async ({ body }) => ({
+      status: 200,
+      body: await this.identity.register(body),
+    }));
+  }
+
+  @Public()
+  @RateLimit('auth')
+  @TsRestHandler(authContract.loginPassword)
+  loginPassword() {
+    return tsRestHandler(authContract.loginPassword, async ({ body }) => ({
+      status: 200,
+      body: await this.identity.loginPassword(body.login, body.password),
+    }));
+  }
+
+  @Public()
+  @RateLimit('auth')
   @TsRestHandler(authContract.refresh)
   refresh() {
     return tsRestHandler(authContract.refresh, async ({ body }) => ({

@@ -570,6 +570,80 @@ export class AssignmentsService {
   }
 
   /**
+   * Публичный сервис для courses: сдача задания блока курса — что нужно, чтобы засчитать блок
+   * и проверить тест автоматически. null — сдачи нет или задание не из блока курса.
+   */
+  async blockSubmission(submissionId: string): Promise<{
+    submissionId: string;
+    blockId: string;
+    studentId: string;
+    answers: BlockAnswers | null;
+  } | null> {
+    const submission = await this.repo.findSubmissionById(submissionId);
+    if (!submission) return null;
+    const assignment = await this.repo.findById(submission.assignmentId);
+    if (!assignment?.blockId) return null;
+    return {
+      submissionId: submission.id,
+      blockId: assignment.blockId,
+      studentId: submission.studentId,
+      answers: (submission.answers ?? null) as BlockAnswers | null,
+    };
+  }
+
+  /**
+   * Публичный сервис для courses: автопроверка теста из курса. Доля верных ответов (0–100)
+   * переводится в шкалу задания; проверяющим записывается автор задания, событие
+   * `submission.graded` — как при ручной проверке (уведомления, аналитика).
+   */
+  async autoGrade(submissionId: string, percent: number, feedback: string): Promise<void> {
+    const submission = await this.repo.findSubmissionById(submissionId);
+    if (!submission || submission.status !== 'SUBMITTED') return;
+    const assignment = await this.repo.findById(submission.assignmentId);
+    if (!assignment) return;
+    const score = Math.round((Math.min(100, Math.max(0, percent)) * assignment.maxScore) / 100);
+    const gradedAt = new Date();
+    await this.repo.grade(submission.id, {
+      status: 'GRADED',
+      score,
+      feedback,
+      gradedById: assignment.teacherId,
+      gradedAt,
+    });
+    await this.events.emit('submission.graded', {
+      submissionId: submission.id,
+      assignmentId: assignment.id,
+      studentId: submission.studentId,
+      groupId: assignment.groupId,
+      score,
+      maxScore: assignment.maxScore,
+      status: 'GRADED',
+      at: gradedAt.toISOString(),
+    });
+  }
+
+  /**
+   * Публичный сервис для courses: последняя сдача ученика по заданию блока — разбор теста в
+   * плеере курса. `attemptsLeft` null — попытки не ограничены. null — задания или сдачи нет.
+   */
+  async lastBlockAnswersOfStudent(
+    studentId: string,
+    blockId: string,
+  ): Promise<{ answers: BlockAnswers | null; attemptsLeft: number | null } | null> {
+    const row = await this.repo.findForStudentByBlock(studentId, blockId);
+    if (!row) return null;
+    const submission = await this.repo.findSubmission(row.id, studentId);
+    if (!submission || submission.status === 'NOT_STARTED') return null;
+    return {
+      answers: (submission.answers ?? null) as BlockAnswers | null,
+      attemptsLeft:
+        row.allowedAttempts === null
+          ? null
+          : Math.max(0, row.allowedAttempts - submission.attemptsCount),
+    };
+  }
+
+  /**
    * Создать задания для блоков курса. Идемпотентно по `blockId`: блок, у которого задание уже
    * есть, пропускается — поэтому повторная публикация курса только добавляет новые модули.
    * Возвращает число созданных заданий.

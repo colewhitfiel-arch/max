@@ -78,8 +78,10 @@ export const filesHandlers = [
     file.uploaded = true;
     // Тело читается один раз: байты храним всегда (ссылка `url` из FileDto рабочая для любого
     // типа), текст для text/* — из тех же байт.
-    file.blob = new Blob([await request.arrayBuffer()], { type: file.mime });
-    file.text = file.mime.startsWith('text/') ? await file.blob.text() : null;
+    const bytes = await request.arrayBuffer();
+    file.blob = new Blob([bytes], { type: file.mime });
+    // Текст — из байт, а не `blob.text()`: у Blob из jsdom этого метода нет.
+    file.text = file.mime.startsWith('text/') ? new TextDecoder().decode(bytes) : null;
     if (file.mime.startsWith('image/')) file.objectUrl = objectUrlOf(file.blob);
     return new HttpResponse(null, { status: 204 });
   }),

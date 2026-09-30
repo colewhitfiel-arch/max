@@ -1,12 +1,15 @@
 /** Курсы и блоки: ученик (просмотр/прогресс), преподаватель (список/создание/структура), course-builder. */
 import {
+  type Assignment,
   type BlockAnswers,
   type Course,
   type CourseBlock,
   CompleteBlockBodySchema,
   CompleteBlockResultSchema,
+  CourseProgressReportSchema,
   CreateCourseBodySchema,
   OpenBlockResultSchema,
+  PublishCourseBodySchema,
   StudentBlockDetailSchema,
   StudentCourseDetailSchema,
   StudentCoursesListSchema,
@@ -21,6 +24,7 @@ import {
   groupBrief,
   groupIdsOfStudent,
   groupsOfTeacher,
+  studentBrief,
   studentIdsOfGroup,
 } from '../demo';
 import { apiError, apiUrl, authed, json, query, readBody } from '../lib';
@@ -77,6 +81,18 @@ function quizScore(block: CourseBlock, answers: BlockAnswers | undefined): numbe
     return set.size === q.correctOptionIds.length && q.correctOptionIds.every((id) => set.has(id));
   }).length;
   return Math.round((correct / questions.length) * 100);
+}
+
+/** Блоки, которые при публикации становятся заданиями (как `ASSIGNABLE_BLOCK_TYPES` в API). */
+const ASSIGNABLE_BLOCK_TYPES: readonly string[] = ['QUIZ', 'QUESTION', 'PRACTICE', 'HOMEWORK'];
+
+/** Курс преподавателя (иначе 404/403). */
+function ownedCourse(userId: string, courseId: string | undefined): Course | Response {
+  const teacher = teacherOfUser(userId);
+  const course = db.courses.find((c) => c.id === courseId);
+  if (!course) return apiError('NOT_FOUND', 'Курс не найден');
+  if (!teacher || course.teacherId !== teacher.id) return apiError('FORBIDDEN', 'Чужой курс');
+  return course;
 }
 
 function teacherCourseDetail(courseId: string) {
@@ -340,6 +356,85 @@ export const coursesHandlers = [
         if (!course) return apiError('NOT_FOUND', 'Курс не найден');
         if (!teacher || course.teacherId !== teacher.id) return apiError('FORBIDDEN', 'Чужой курс');
         return json(TeacherCourseDetailSchema, teacherCourseDetail(course.id));
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  // Публикация: курс виден ученикам группы, блоки-задания становятся заданиями (идемпотентно).
+  http.post<{ courseId: string }>(
+    apiUrl('/teacher/courses/:courseId/publish'),
+    authed(
+      async ({ auth, params, request }) => {
+        const course = ownedCourse(auth.user.id, params.courseId);
+        if (course instanceof Response) return course;
+        const body = await readBody(request, PublishCourseBodySchema);
+        if (!body.ok) return body.response;
+        if (course.status === 'ARCHIVED') return apiError('BUSINESS_RULE', 'Курс в архиве');
+        for (const block of allBlocksOf(course.id)) {
+          if (!ASSIGNABLE_BLOCK_TYPES.includes(block.type)) continue;
+          if (db.assignments.some((a) => a.blockId === block.id)) continue;
+          db.assignments.push({
+            id: crypto.randomUUID(),
+            groupId: course.groupId,
+            teacherId: course.teacherId,
+            courseId: course.id,
+            blockId: block.id,
+            studentIds: [],
+            title: block.title,
+            description: null,
+            type: block.type as Assignment['type'],
+            dueAt: null,
+            maxScore: 100,
+            allowedAttempts: null,
+            publishedAt: new Date().toISOString(),
+          });
+        }
+        course.status = 'PUBLISHED';
+        course.publishedAt ??= new Date().toISOString();
+        return json(TeacherCourseDetailSchema, teacherCourseDetail(course.id));
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  http.post<{ courseId: string }>(
+    apiUrl('/teacher/courses/:courseId/archive'),
+    authed(
+      ({ auth, params }) => {
+        const course = ownedCourse(auth.user.id, params.courseId);
+        if (course instanceof Response) return course;
+        course.status = 'ARCHIVED';
+        return json(TeacherCourseDetailSchema, teacherCourseDetail(course.id));
+      },
+      ['TEACHER'],
+    ),
+  ),
+
+  http.get<{ courseId: string }>(
+    apiUrl('/teacher/courses/:courseId/progress'),
+    authed(
+      ({ auth, params }) => {
+        const course = ownedCourse(auth.user.id, params.courseId);
+        if (course instanceof Response) return course;
+        const blocks = allBlocksOf(course.id);
+        const students = studentIdsOfGroup(course.groupId).map((studentId) => {
+          const done = blocks
+            .map((b) => progressOf(studentId, b.id))
+            .filter((p) => p?.status === 'COMPLETED');
+          const last = done
+            .map((p) => p?.completedAt)
+            .filter((at): at is string => !!at)
+            .sort()
+            .at(-1);
+          return {
+            student: studentBrief(studentId),
+            percent: courseProgressPercent(course.id, studentId),
+            completedBlocks: done.length,
+            lastActivityAt: last ?? null,
+          };
+        });
+        return json(CourseProgressReportSchema, { students });
       },
       ['TEACHER'],
     ),

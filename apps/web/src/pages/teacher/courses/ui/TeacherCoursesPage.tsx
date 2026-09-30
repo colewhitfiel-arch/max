@@ -1,4 +1,16 @@
-import { Button, Card, EmptyState, Field, Input, Screen, Select, Stack, useToast } from '@edu/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Screen,
+  Select,
+  SparkIcon,
+  Stack,
+  Text,
+  useToast,
+} from '@edu/ui';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -7,7 +19,10 @@ import { useTeacherGroups } from '@/entities/group';
 import { describeApiError } from '@/shared/api/errors';
 import { AsyncState, ScreenHeader, SectionTitle } from '@/shared/ui';
 
-/** `/teacher/courses` — `GET /teacher/courses` + создание пустого курса. */
+/**
+ * `/teacher/courses` — `GET /teacher/courses`: курс из конспекта с ИИ (конструктор), свои курсы
+ * (архив — отдельно, внизу) и создание пустого курса.
+ */
 export function TeacherCoursesPage() {
   const { t } = useTranslation('teacher');
   const { t: tc } = useTranslation('common');
@@ -39,22 +54,55 @@ export function TeacherCoursesPage() {
     <>
       <ScreenHeader title={t('courses.title')} back="/teacher/settings" bell />
       <Screen>
+        <Card>
+          <Stack gap={2}>
+            <Text weight="medium">{t('courses.fromNotes')}</Text>
+            <Text variant="small" tone="muted">
+              {t('courses.fromNotesHint')}
+            </Text>
+            <Button
+              fullWidth
+              leftIcon={<SparkIcon />}
+              onClick={() => navigate('/teacher/course-builder')}
+            >
+              {t('courses.fromNotesAction')}
+            </Button>
+          </Stack>
+        </Card>
         <AsyncState
           query={query}
           isEmpty={(list) => list.items.length === 0}
           empty={<EmptyState title={t('courses.empty')} description={t('courses.emptyHint')} />}
         >
-          {(list) => (
-            <Stack gap={3} data-tour="teacher-courses">
-              {list.items.map((course) => (
-                <TeacherCourseCardView
-                  key={course.id}
-                  course={course}
-                  onClick={() => navigate(`/teacher/courses/${course.id}`)}
-                />
-              ))}
-            </Stack>
-          )}
+          {(list) => {
+            const active = list.items.filter((course) => course.status !== 'ARCHIVED');
+            const archived = list.items.filter((course) => course.status === 'ARCHIVED');
+            return (
+              <>
+                <Stack gap={3} data-tour="teacher-courses">
+                  {active.map((course) => (
+                    <TeacherCourseCardView
+                      key={course.id}
+                      course={course}
+                      onClick={() => navigate(`/teacher/courses/${course.id}`)}
+                    />
+                  ))}
+                </Stack>
+                {archived.length > 0 && (
+                  <Stack gap={2}>
+                    <SectionTitle>{t('courses.archivedSection')}</SectionTitle>
+                    {archived.map((course) => (
+                      <TeacherCourseCardView
+                        key={course.id}
+                        course={course}
+                        onClick={() => navigate(`/teacher/courses/${course.id}`)}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </>
+            );
+          }}
         </AsyncState>
 
         <Stack gap={2}>

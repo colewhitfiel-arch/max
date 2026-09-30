@@ -4,9 +4,10 @@ import {
   type StudentBlockDetail,
   type VideoContent,
 } from '@edu/contracts';
-import { Button, Card, Divider, LinkIcon, Markdown, Stack, Text, useToast } from '@edu/ui';
+import { Button, Card, LinkIcon, Markdown, Stack, Text, useToast } from '@edu/ui';
 import { useTranslation } from 'react-i18next';
 import { useMaxBridge } from '@/shared/max';
+import { FillGapsExercise, FlashcardsExercise, MatchingExercise } from './interactive';
 
 function hostOf(url: string): string | null {
   try {
@@ -62,33 +63,15 @@ function TextBlock({ markdown }: { markdown: string }) {
   );
 }
 
-/** Интерактивный блок: карточки, пары и текст с пропусками — пока просто читаемый материал. */
+/** Интерактивный блок: карточки переворачиваются, пары сопоставляются, пропуски проверяются. */
 function InteractiveBlock({ content }: { content: InteractiveContent }) {
   switch (content.kind) {
     case 'FLASHCARDS':
-      return (
-        <Stack gap={2}>
-          {content.data.cards.map((card, index) => (
-            <Stack key={`${card.front}-${index}`} gap={1}>
-              {index > 0 && <Divider />}
-              <Text weight="medium">{card.front}</Text>
-              <Text tone="muted">{card.back}</Text>
-            </Stack>
-          ))}
-        </Stack>
-      );
+      return <FlashcardsExercise data={content.data} />;
     case 'MATCHING':
-      return (
-        <Stack gap={1}>
-          {content.data.pairs.map((pair, index) => (
-            <Text key={`${pair.left}-${index}`}>
-              {pair.left} — {pair.right}
-            </Text>
-          ))}
-        </Stack>
-      );
+      return <MatchingExercise data={content.data} />;
     case 'FILL_GAPS':
-      return <Text preserveLines>{content.data.text}</Text>;
+      return <FillGapsExercise data={content.data} />;
   }
 }
 

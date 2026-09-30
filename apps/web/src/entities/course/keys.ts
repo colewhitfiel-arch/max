@@ -8,4 +8,6 @@ export const courseKeys = {
   teacherList: (query: ListTeacherCoursesQuery) =>
     [...queryKeys.teacher, 'courses', query] as const,
   teacherDetail: (courseId: string) => [...queryKeys.teacher, 'courses', courseId] as const,
+  teacherProgress: (courseId: string) =>
+    [...queryKeys.teacher, 'courses', courseId, 'progress'] as const,
 };

@@ -192,7 +192,7 @@ describe('CourseBuilderPage', () => {
   it('короткое дополнение к материалам — ошибка у поля', async () => {
     const user = userEvent.setup();
     renderAt('/teacher/course-builder');
-    await user.click(screen.getByRole('radio', { name: 'Из файлов' }));
+    await user.click(screen.getByRole('radio', { name: 'Из конспекта' }));
     expect(screen.getByText('Если заполняете — минимум 10 символов')).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Дополнение к материалам (необязательно)'), 'коротко');

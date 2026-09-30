@@ -63,7 +63,10 @@ TeacherProfile  id PK, userId FK unique, schoolId FK, qualification?, bio?, phot
                 subjects ClubCategory[]=[]         // какие кружки ведёт — выбирает сам, сколько угодно
 RefreshToken    id PK, userId FK, tokenHash (unique), activeRole Role? (восстанавливается при refresh),
                 expiresAt, revokedAt?
+UserCredential  userId PK/FK (cascade), login (unique, нижний регистр), passwordHash
+                // вход по логину и паролю вне MAX (F21); хэш scrypt `scrypt$N$r$p$salt$hash`, пароль не хранится
 ```
+У аккаунта, созданного регистрацией (`POST /auth/register`), `User.maxUserId` служебный — `web:<uuid>`: с id пользователей MAX (числа) он не пересекается, вход через MAX такой аккаунт не находит, и наоборот.
 `User.avatarUrl` — ссылка из провайдера (MAX), перезаписывается при каждом входе. Своё фото пользователя (`PUT /me/avatar`) пока не хранится: ручка отвечает 501. **Планируется** `User.avatarFileId?` (файл purpose `AVATAR`; в `MeDto`/`UserBrief` — свежая подписанная ссылка), тогда вход не будет затирать выбранное фото (docs/12, техдолг).
 
 ### school (`school.prisma`)
@@ -163,6 +166,8 @@ StudentClubInterest id PK, studentId FK, clubId FK, status ClubInterestStatus (C
 File            id PK, ownerUserId FK, purpose FilePurpose, fileName, mime, sizeBytes, storageKey (unique),
                 confirmedAt?, status FileStatus=UPLOADED, extractedTextKey?,
                 extractMeta json? { pages, headings[] }, error?
+StoredObject    key PK (= File.storageKey или `<storageKey>.txt`), data bytea, contentType?, sizeBytes
+                // байты файлов при STORAGE_DRIVER=postgres (serverless-стенд без S3, ADR-015); читает только порт StorageProvider
 CourseGenerationJob id PK, teacherId FK, groupId FK, materialIds string[] (File.id),
                 instructions text?, targetTitle?, sourceKind string='MATERIALS' (MATERIALS|TOPIC), topic text?,
                 target string='COURSE' (COURSE|HOMEWORK), targetCourseId uuid? (Course.id, дополняемый курс),

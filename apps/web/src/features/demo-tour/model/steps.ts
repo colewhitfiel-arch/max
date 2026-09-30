@@ -1,11 +1,14 @@
 /**
- * Сценарий демонстрационного режима: по шагу на функцию, ученик → родитель → преподаватель.
- * Каждый шаг — кто должен быть в сессии (демо-пользователь из фикстур), какой экран открыть
- * и какой элемент подсветить (`data-tour` на экране). Тексты — `demo:steps.<id>.title|text`.
- * Идентификаторы в путях — детерминированные id демо-мира (seed = фикстуры).
+ * Сценарий демонстрационного режима: по шагу на функцию — сначала «Конспект → курс» (главный
+ * сценарий: преподаватель загружает конспект, ученик проходит готовый курс), затем ученик →
+ * родитель → преподаватель. Каждый шаг — кто должен быть в сессии (демо-пользователь из
+ * фикстур), какой экран открыть и какой элемент подсветить (`data-tour` на экране). Тексты —
+ * `demo:steps.<id>.title|text`. Идентификаторы в путях — детерминированные id демо-мира
+ * (seed = фикстуры) или то, что тур создал в этом прогоне (`DemoContext`).
  */
 import type { Role } from '@edu/contracts';
 import { DEMO_IDS, demoUsers } from '@edu/contracts/fixtures';
+import type { DemoContext } from './pipeline';
 
 export interface DemoPersona {
   userId: string;
@@ -42,7 +45,10 @@ export const DEMO_PERSONAS = {
 } as const satisfies Record<string, DemoPersona>;
 
 export type DemoPersonaKey = keyof typeof DEMO_PERSONAS;
-export type DemoSection = 'intro' | 'student' | 'parent' | 'teacher';
+export type DemoSection = 'intro' | 'course' | 'student' | 'parent' | 'teacher';
+
+/** Настоящие действия тура перед показом шага (один раз за прогон, результат — в `DemoContext`). */
+export type DemoAction = 'generateCourse' | 'publishCourse';
 
 export interface DemoStep {
   /** Ключ текстов: `demo:steps.<id>.title` и `demo:steps.<id>.text`. */
@@ -50,8 +56,11 @@ export interface DemoStep {
   section: DemoSection;
   /** Кто должен быть в сессии; нет — сессию не трогаем. */
   persona?: DemoPersonaKey;
-  /** Экран шага; нет — остаёмся на текущем. */
-  path?: string;
+  /**
+   * Экран шага; нет — остаёмся на текущем. Функция — экран того, что тур создал в этом прогоне
+   * (задача генерации, курс); `undefined` — создать не удалось, остаёмся на текущем.
+   */
+  path?: string | ((context: DemoContext) => string | undefined);
   /** Значение `data-tour` подсвечиваемого элемента; нет — карточка по центру. */
   target?: string;
   /**
@@ -59,12 +68,90 @@ export interface DemoStep {
    * у поля ввода оставались видны. По умолчанию — вниз.
    */
   overlaySide?: 'top' | 'bottom';
+  /** Что сделать до показа шага: загрузить конспект и запустить генерацию, опубликовать курс. */
+  action?: DemoAction;
+  /** Ждать, пока ИИ соберёт черновик курса (до нескольких минут на GigaChat). */
+  waitFor?: 'draftReady';
+  /** Карточка шага показывает живой прогресс генерации и сама идёт дальше, когда черновик готов. */
+  live?: 'generation';
 }
+
+/** Экран шага с учётом того, что тур уже создал. */
+export function stepPath(step: DemoStep, context: DemoContext): string | undefined {
+  return typeof step.path === 'function' ? step.path(context) : step.path;
+}
+
+const jobPath = ({ jobId }: DemoContext) =>
+  jobId ? `/teacher/course-builder/${jobId}` : undefined;
+const teacherCoursePath = ({ courseId }: DemoContext) =>
+  courseId ? `/teacher/courses/${courseId}` : undefined;
 
 const alexey = DEMO_IDS.students.alexey;
 
 export const DEMO_STEPS: readonly DemoStep[] = [
   { id: 'welcome', section: 'intro' },
+
+  // Конспект → курс: всё по-настоящему, через API
+  {
+    id: 'courseUpload',
+    section: 'course',
+    persona: 'teacher',
+    path: '/teacher/course-builder',
+    target: 'course-builder',
+  },
+  {
+    id: 'courseGenerate',
+    section: 'course',
+    persona: 'teacher',
+    action: 'generateCourse',
+    path: jobPath,
+    target: 'generation-progress',
+    live: 'generation',
+  },
+  {
+    id: 'courseDraft',
+    section: 'course',
+    persona: 'teacher',
+    waitFor: 'draftReady',
+    path: jobPath,
+    target: 'generation-draft',
+  },
+  {
+    id: 'coursePublish',
+    section: 'course',
+    persona: 'teacher',
+    action: 'publishCourse',
+    path: teacherCoursePath,
+    target: 'course-status',
+  },
+  {
+    id: 'courseStudent',
+    section: 'course',
+    persona: 'student',
+    path: ({ courseId }) => (courseId ? `/student/courses/${courseId}` : undefined),
+    target: 'course-progress',
+  },
+  {
+    id: 'courseLesson',
+    section: 'course',
+    persona: 'student',
+    path: ({ lessonId }) => (lessonId ? `/student/blocks/${lessonId}` : undefined),
+    target: 'block-player',
+  },
+  {
+    id: 'courseQuiz',
+    section: 'course',
+    persona: 'student',
+    path: ({ quizId }) => (quizId ? `/student/blocks/${quizId}` : undefined),
+    target: 'quiz-answer',
+  },
+  {
+    id: 'courseProgress',
+    section: 'course',
+    persona: 'teacher',
+    path: teacherCoursePath,
+    target: 'course-progress',
+  },
 
   // Ученик
   {
@@ -255,13 +342,6 @@ export const DEMO_STEPS: readonly DemoStep[] = [
     persona: 'teacher',
     path: '/teacher/assignments/new',
     target: 'assign-steps',
-  },
-  {
-    id: 'teacherBuilder',
-    section: 'teacher',
-    persona: 'teacher',
-    path: '/teacher/course-builder',
-    target: 'course-builder',
   },
   {
     id: 'teacherAttendance',

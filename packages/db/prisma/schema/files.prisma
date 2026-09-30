@@ -22,3 +22,17 @@ model File {
   @@index([ownerUserId, purpose])
   @@map("files")
 }
+
+/// Байты файлов при STORAGE_DRIVER=postgres: хранилище для serverless-стенда без S3 (ADR-014).
+/// Ключ — тот же `storageKey`, что у File (и `<storageKey>.txt` для извлечённого текста).
+/// Ни один модуль не читает таблицу напрямую — только через порт StorageProvider.
+model StoredObject {
+  key         String   @id
+  data        Bytes
+  contentType String?  @map("content_type")
+  sizeBytes   Int      @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("stored_objects")
+}

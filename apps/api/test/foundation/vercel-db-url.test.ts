@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withServerlessDbParams } from '../../src/vercel';
+import { serverlessStorageDriver, withServerlessDbParams } from '../../src/vercel';
 
 describe('withServerlessDbParams (Vercel + Neon)', () => {
   it('добавляет connect_timeout, pool_timeout и connection_limit к строке подключения', () => {
@@ -25,5 +25,17 @@ describe('withServerlessDbParams (Vercel + Neon)', () => {
 
   it('некорректную строку возвращает как есть', () => {
     expect(withServerlessDbParams('not a url')).toBe('not a url');
+  });
+});
+
+describe('serverlessStorageDriver (Vercel)', () => {
+  it('без S3 файлы хранятся в Postgres: общего диска у инстансов нет', () => {
+    expect(serverlessStorageDriver(undefined)).toBe('postgres');
+    expect(serverlessStorageDriver('local')).toBe('postgres');
+    expect(serverlessStorageDriver('postgres')).toBe('postgres');
+  });
+
+  it('заданный S3 не подменяется', () => {
+    expect(serverlessStorageDriver('s3')).toBe('s3');
   });
 });

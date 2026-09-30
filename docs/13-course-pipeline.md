@@ -82,6 +82,19 @@ READY        событие generation.finished; PUT draft → правки; POS
 `studentIds`, `dueAt`. DTO задачи (`GenerationJobDto`) отдаёт их клиенту; в списке задач `draft`
 и `knowledge` опущены.
 
+## Ревью, публикация и прохождение (клиент)
+
+- Ревью черновика — блоки раскрываются с содержимым и ответами (`entities/course` `BlockPreview`); «Опубликовать
+  для группы» = `accept` + `publish` без параметров (`entities/generation` `usePublishGeneratedCourse`), «Сохранить
+  черновиком» = только `accept`. Экран курса преподавателя — публикация черновика, архив, «Прогресс учеников».
+- Ученик проходит курс в плеере (`widgets/course-player`): материал засчитывается «Дальше», интерактив (карточки,
+  пары, пропуски) проверяется на клиенте, тест — сдачей задания с автопроверкой сразу (`CoursesEvents` →
+  `AssignmentsService.autoGrade`) и разбором попытки (`quizReview`). Сценарий — docs/07 F3, F8.
+- Пример конспекта для проверки без своих файлов — `apps/web/src/features/upload-file/samples/arduino-distance.md`
+  («Взять пример конспекта»; им же пользуется демо-тур, docs/07 F20).
+- Файлы на serverless-стенде — `STORAGE_DRIVER=postgres` (ADR-015): загрузка и извлечение текста работают
+  между инстансами функции.
+
 ## Что дальше (не сделано)
 
 - Редакторы блоков черновика на клиенте (9 типов) — сейчас ревью read-only + `PUT draft` доступен в API.
@@ -89,7 +102,6 @@ READY        событие generation.finished; PUT draft → правки; POS
   `position = { index: 0, total: 1 }`, но отдельной «домашней» формулировки у него нет.
 - pptx и изображения (OCR) — `NOT_IMPLEMENTED`.
 - S3-адаптер хранилища (`S3Storage`) остаётся заглушкой; локальный драйвер работает end-to-end.
-- Пропуски `FILL_GAPS` и карточки ученику пока не рендерятся (нет блока INTERACTIVE в плеере курса — workstream B).
 
 ## Лимиты GigaChat
 

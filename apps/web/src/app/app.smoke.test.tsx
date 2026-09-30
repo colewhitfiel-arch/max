@@ -74,6 +74,9 @@ const renderApp = () =>
   );
 
 const findText = (text: string | RegExp) => screen.findByText(text, {}, WAIT);
+/** Экран входа в браузере открывается на «Вход»; демо-пользователи — на вкладке «Демо». */
+const openDemoUsers = async (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(await screen.findByRole('radio', { name: 'Демо' }, WAIT));
 /** Ждём заголовок экрана (h1 из PageHeader) — значит, lazy-страница загрузилась и роутер idle. */
 const expectPage = async (title: string | RegExp) => {
   await screen.findByRole('heading', { level: 1, name: title }, WAIT);
@@ -89,8 +92,10 @@ describe('foundation smoke (mock API)', () => {
       const user = userEvent.setup();
       renderApp();
 
-      // Аноним попадает на /auth с демо-пользователями.
+      // Аноним попадает на /auth; демо-пользователи — на вкладке «Демо».
       await expectPage('Вход');
+      await openDemoUsers(user);
+
       await user.click(await findText('Алексей Смирнов'));
 
       // /student: главная по макету — посещения за неделю и расписание на сегодня из фикстур.
@@ -139,6 +144,7 @@ describe('foundation smoke (mock API)', () => {
       const user = userEvent.setup();
       renderApp();
       await expectPage('Вход');
+      await openDemoUsers(user);
       await user.click(await findText('Мария Иванова'));
 
       // /teacher: главная по макету — оранжевый акцент, чип кошелька без плюса и расписание дня,
@@ -171,6 +177,7 @@ describe('foundation smoke (mock API)', () => {
       expect(router.state.location.pathname).toBe('/teacher/performance');
       await user.click(await screen.findByRole('button', { name: 'Группа 001: ученики' }, WAIT));
       await expectPage('Группа 001');
+
       await user.click(await findText('Алексей Смирнов'));
       await expectPage(/Смирнов А\./);
       expect(router.state.location.pathname).toMatch(/^\/teacher\/students\//);
@@ -214,6 +221,7 @@ describe('foundation smoke (mock API)', () => {
       const user = userEvent.setup();
       renderApp();
       await expectPage('Вход');
+      await openDemoUsers(user);
       await user.click(await findText('Ольга Смирнова'));
       await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
       await expectPage('Главная');
@@ -255,6 +263,8 @@ describe('foundation smoke (mock API)', () => {
         expect(router.state.location.state).toEqual({ from: `/invite/${token}` });
 
         // После входа ученик возвращается на приглашение, а не на главную или онбординг.
+        await openDemoUsers(user);
+
         await user.click(await findText('Алексей Смирнов'));
         await expectPage('Приглашение');
         expect(router.state.location.pathname).toBe(`/invite/${token}`);
@@ -278,6 +288,7 @@ describe('foundation smoke (mock API)', () => {
         const user = userEvent.setup();
         renderApp();
         await expectPage('Вход');
+        await openDemoUsers(user);
         await user.click(await findText('Ольга Смирнова'));
         await waitFor(() => expect(router.state.location.pathname).toBe('/parent'), WAIT);
         expect(useAuthStore.getState().me?.settings.locale).toBe('en');

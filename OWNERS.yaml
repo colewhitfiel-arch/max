@@ -115,6 +115,8 @@ owners:
     - apps/web/src/pages/not-found/**
     - apps/web/src/entities/session/**
     - apps/web/src/features/dev-login/**
+    # Регистрация и вход по логину и паролю (вне MAX).
+    - apps/web/src/features/password-auth/**
     - apps/web/src/features/switch-role/**
     # Демонстрационный режим: тур по всем ролям поверх приложения (кнопка на экране входа).
     - apps/web/src/features/demo-tour/**
@@ -157,6 +159,8 @@ owners:
     - apps/web/src/features/create-assignment/**
     - apps/web/src/features/grade-submission/**
     - packages/contracts/src/entities/course.ts
+    # Плеер курса ученика: шаги курса, тест с разбором, сдача заданий из блоков.
+    - apps/web/src/widgets/course-player/**
     # Карта кружков и рекомендации на экране «Задания» ученика.
     - apps/web/src/widgets/homework-map/**
     - apps/web/src/widgets/homework-recommendations/**

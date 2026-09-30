@@ -1,15 +1,16 @@
 {
   "start": {
     "button": "Demo mode",
-    "hint": "A step-by-step tour of every feature: student, parent, teacher"
+    "hint": "A step-by-step tour: an AI course from notes, then student, parent and teacher"
   },
   "sections": {
     "intro": "Demo mode",
     "student": "Student",
     "parent": "Parent",
-    "teacher": "Teacher"
+    "teacher": "Teacher",
+    "course": "Notes → course"
   },
-  "jumpTo": "Or jump straight to a role:",
+  "jumpTo": "Or jump straight to a section:",
   "loginFailed": "Could not sign in as a demo user",
   "controls": {
     "next": "Next",
@@ -23,7 +24,39 @@
   "steps": {
     "welcome": {
       "title": "Welcome!",
-      "text": "We will show the app through the eyes of a student, a parent and a teacher. Each step opens a real screen with demo school data and highlights a feature — you can try it. Use Next and Back or the ← → keys; the cross closes the tour and leaves you in the app."
+      "text": "First, the main scenario: a teacher uploads lesson notes, AI builds a course, a student takes it. Everything happens for real. Then we show the app through the eyes of a student, a parent and a teacher: each step opens a real screen with demo school data and highlights a feature you can try. Use «Next» and «Back» or the ← → keys; the cross closes the tour."
+    },
+    "courseUpload": {
+      "title": "The teacher uploads lesson notes",
+      "text": "The main scenario. Teacher Maria uploads lesson notes (PDF, DOCX, TXT or Markdown) and picks a group — AI turns them into a course. For the demo we take ready-made notes about the HC-SR04 distance sensor. Press «Next»: we upload the file and start the generation for real."
+    },
+    "courseGenerate": {
+      "title": "AI builds the course",
+      "text": "GigaChat parses the notes: splits the text into knowledge atoms, builds concepts and writes lessons — theory, quizzes, flashcards and tasks. Every statement is checked against the notes. It usually takes a minute or two; the tour moves on by itself once the draft is ready."
+    },
+    "courseDraft": {
+      "title": "Course draft",
+      "text": "Done: modules with theory, quizzes and interactive exercises. Tap any block to see its content with the right answers. The teacher can save the draft or publish the course for the group right away."
+    },
+    "coursePublish": {
+      "title": "Course published",
+      "text": "One button — and the students of the «Robotics» group see the course. Quizzes, questions and practice became assignments; quizzes are graded automatically."
+    },
+    "courseStudent": {
+      "title": "The course for the student",
+      "text": "Alexey studies in this group and sees the new course right away: progress and the «Start the course» button."
+    },
+    "courseLesson": {
+      "title": "Course player",
+      "text": "The course goes step by step: theory, flashcards, gaps, matching. «Next» counts the step and opens the next one; progress is shown on top. Try flipping through."
+    },
+    "courseQuiz": {
+      "title": "Instantly graded quiz",
+      "text": "Pick the answers and press «Check answers» — the score and a per-question review appear at once. The result goes to the teacher as a graded assignment."
+    },
+    "courseProgress": {
+      "title": "Student progress",
+      "text": "Maria sees how much of the course each student has done and when they last studied. Below are all course modules with block contents."
     },
     "onboarding": {
       "title": "Meeting the AI tutor",
@@ -129,10 +162,6 @@
       "title": "Assign homework",
       "text": "Three steps: to whom (group and students), what (one assignment or a whole course) and the material — your own files or a description. The AI builder then assembles the material, and the student sees it in the course."
     },
-    "teacherBuilder": {
-      "title": "AI course builder",
-      "text": "Describe a topic in your own words or upload materials (pdf, docx, txt, md) — the AI writes a summary, breaks it into knowledge atoms and assembles a course with lessons and practice."
-    },
     "teacherAttendance": {
       "title": "Attendance",
       "text": "Pick a lesson and mark each student: present, absent, late or excused — or «Everyone came» in one tap."
@@ -163,8 +192,15 @@
     },
     "finish": {
       "title": "That's all!",
-      "text": "You have seen all three roles. «Done» leaves demo mode and returns you to role selection. The cross closes the tour but keeps you in the app as the demo user.",
-      "textLogin": "You have seen all three roles. «Done» leaves demo mode and returns you to the sign-in screen. The cross closes the tour but keeps you in the app as the demo user."
+      "text": "You have seen a course built from notes and all three roles. «Done» leaves the demo mode and returns to role selection. The cross closes the tour but keeps you in the app as the demo user.",
+      "textLogin": "You have seen a course built from notes and all three roles. «Done» leaves the demo mode and returns to the sign-in screen: register your own account there and try everything yourself. The cross closes the tour but keeps you in the app as the demo user."
     }
+  },
+  "pipeline": {
+    "courseTitle": "HC-SR04 distance sensor",
+    "failed": "The demo step failed",
+    "generationFailed": "Course generation failed",
+    "generationTimeout": "AI takes too long — try the section once more",
+    "progress": "Generation progress"
   }
 }

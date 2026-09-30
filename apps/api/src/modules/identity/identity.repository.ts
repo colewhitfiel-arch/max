@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { ClubCategory, Role } from '@edu/contracts';
-import type { Prisma } from '@edu/db';
+import { Prisma } from '@edu/db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { ExternalIdentity } from '../../common/auth/auth-user';
 
@@ -17,6 +18,7 @@ const userWithProfiles = {
   },
   parent: { select: { id: true } },
   teacher: { select: { id: true, schoolId: true, subjects: true, qualification: true } },
+  credential: { select: { login: true } },
 } satisfies Prisma.UserInclude;
 
 export type UserWithProfiles = Prisma.UserGetPayload<{ include: typeof userWithProfiles }>;
@@ -48,6 +50,49 @@ export class IdentityRepository {
       },
       include: userWithProfiles,
     });
+  }
+
+  /**
+   * Новый пользователь с логином и паролем (регистрация вне MAX). `maxUserId` у него служебный
+   * (`web:<uuid>`): с id пользователей MAX (числа) не пересекается. null — логин уже занят.
+   */
+  async createUserWithCredential(input: {
+    login: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string | null;
+  }): Promise<UserWithProfiles | null> {
+    try {
+      return await this.prisma.user.create({
+        data: {
+          maxUserId: `web:${randomUUID()}`,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          locale: 'ru',
+          lastSeenAt: new Date(),
+          notificationSettings: { create: {} },
+          credential: { create: { login: input.login, passwordHash: input.passwordHash } },
+        },
+        include: userWithProfiles,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
+        return null;
+      throw error;
+    }
+  }
+
+  async findCredentialByLogin(
+    login: string,
+  ): Promise<{ userId: string; passwordHash: string } | null> {
+    return this.prisma.userCredential.findUnique({
+      where: { login },
+      select: { userId: true, passwordHash: true },
+    });
+  }
+
+  async touchLastSeen(userId: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { lastSeenAt: new Date() } });
   }
 
   async findById(userId: string): Promise<UserWithProfiles | null> {

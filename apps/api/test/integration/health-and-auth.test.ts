@@ -2,8 +2,10 @@
  * Полный поток: HTTP → NestJS → Prisma → PostgreSQL. Нужна тестовая БД (pnpm db:up, DATABASE_URL_TEST).
  */
 import type { INestApplication } from '@nestjs/common';
+import { DEMO_IDS } from '@edu/contracts/fixtures';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { createTestApp, hasTestDatabase } from '../helpers/test-app';
 
 describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
@@ -159,27 +161,31 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
     }
   });
 
-  it('на стенде (APP_ENV=staging) роль преподавателя — только по коду школы; демо-преподаватель входит', async () => {
+  it('на стенде (APP_ENV=staging) роль преподавателя без кода — в демо-школе; неверный код — 422', async () => {
     const stagingApp = await createTestApp({ APP_ENV: 'staging' });
     const http = () => request(stagingApp.getHttpServer());
+    const prisma = stagingApp.get(PrismaService);
+    const run = Date.now();
+    const maxUserIds = [`max-teacher-nocode-${run}`, `max-parent-nocode-${run}`];
     try {
-      const run = Date.now();
+      // Новый аккаунт проходит весь сценарий преподавателя без администратора школы.
       const direct = await http()
         .post(`${base}/auth/dev`)
-        .send({ maxUserId: `max-teacher-nocode-${run}`, roles: ['TEACHER'] })
-        .expect(422);
-      expect(direct.body.error.code).toBe('BUSINESS_RULE');
+        .send({ maxUserId: maxUserIds[0], roles: ['TEACHER'] })
+        .expect(200);
+      expect(direct.body.me.teacher.schoolId).toBe(DEMO_IDS.school);
 
       const parent = await http()
         .post(`${base}/auth/dev`)
-        .send({ maxUserId: `max-parent-nocode-${run}`, roles: ['PARENT'] })
+        .send({ maxUserId: maxUserIds[1], roles: ['PARENT'] })
         .expect(200);
       const addRole = (inviteCode?: string) =>
         http()
           .post(`${base}/auth/roles`)
           .set('Authorization', `Bearer ${parent.body.accessToken}`)
           .send({ role: 'TEACHER', inviteCode });
-      await addRole().expect(422);
+      const wrong = await addRole('NO-SUCH-SCHOOL').expect(422);
+      expect(wrong.body.error.code).toBe('BUSINESS_RULE');
       const withCode = await addRole('SCHOOL1').expect(200);
       expect(withCode.body.me.teacher).not.toBeNull();
 
@@ -190,6 +196,7 @@ describe.skipIf(!hasTestDatabase)('health + auth (integration)', () => {
         .expect(200);
       expect(demo.body.me.activeRole).toBe('TEACHER');
     } finally {
+      await prisma.user.deleteMany({ where: { maxUserId: { in: maxUserIds } } });
       await stagingApp.close();
     }
   });

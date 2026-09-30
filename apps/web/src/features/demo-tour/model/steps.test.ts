@@ -1,7 +1,10 @@
 import { demoUsers } from '@edu/contracts/fixtures';
 import { describe, expect, it } from 'vitest';
 import { i18n } from '@/shared/i18n';
-import { DEMO_PERSONAS, DEMO_STEPS, firstStepOf } from './steps';
+import { DEMO_PERSONAS, DEMO_STEPS, firstStepOf, stepPath } from './steps';
+
+/** Контекст прогона, в котором раздел «Конспект → курс» уже всё создал. */
+const CONTEXT = { jobId: 'job', courseId: 'course', lessonId: 'lesson', quizId: 'quiz' };
 
 describe('сценарий демонстрационного режима', () => {
   it('id шагов уникальны; первый — приветствие, последний — итог', () => {
@@ -36,18 +39,30 @@ describe('сценарий демонстрационного режима', () 
   it('экраны шагов — в разделе роли демо-пользователя', () => {
     const prefix = { STUDENT: '/student', PARENT: '/parent', TEACHER: '/teacher' } as const;
     for (const step of DEMO_STEPS) {
-      if (!step.persona || !step.path || step.path === '/onboarding') continue;
+      const path = stepPath(step, CONTEXT);
+      if (!step.persona || !path || path === '/onboarding') continue;
       const role = DEMO_PERSONAS[step.persona].role as keyof typeof prefix;
-      expect(step.path.startsWith(prefix[role]), step.id).toBe(true);
+      expect(path.startsWith(prefix[role]), step.id).toBe(true);
     }
   });
 
-  it('разделы идут подряд: ученик → родитель → преподаватель', () => {
-    expect(firstStepOf('student')).toBe(1);
+  it('экраны созданного в прогоне появляются только после действий, которые их создают', () => {
+    const dynamic = DEMO_STEPS.filter((step) => typeof step.path === 'function');
+    for (const step of dynamic) expect(stepPath(step, {}), step.id).toBeUndefined();
+    const generate = DEMO_STEPS.findIndex((step) => step.action === 'generateCourse');
+    const publish = DEMO_STEPS.findIndex((step) => step.action === 'publishCourse');
+    expect(generate).toBeGreaterThan(0);
+    expect(publish).toBeGreaterThan(generate);
+    expect(DEMO_STEPS.findIndex((step) => step.waitFor === 'draftReady')).toBe(generate + 1);
+  });
+
+  it('разделы идут подряд: конспект → курс, ученик, родитель, преподаватель', () => {
+    expect(firstStepOf('course')).toBe(1);
+    expect(firstStepOf('course')).toBeLessThan(firstStepOf('student'));
     expect(firstStepOf('student')).toBeLessThan(firstStepOf('parent'));
     expect(firstStepOf('parent')).toBeLessThan(firstStepOf('teacher'));
     const sections = DEMO_STEPS.map((step) => step.section);
     const order = sections.filter((section, i) => section !== sections[i - 1]);
-    expect(order).toEqual(['intro', 'student', 'parent', 'teacher', 'intro']);
+    expect(order).toEqual(['intro', 'course', 'student', 'parent', 'teacher', 'intro']);
   });
 });

@@ -1,9 +1,21 @@
-import { AppLayout, Button, ErrorState, PageHeader, Screen, Spinner, Stack, Text } from '@edu/ui';
+import {
+  AppLayout,
+  Button,
+  Card,
+  ErrorState,
+  PageHeader,
+  Screen,
+  SegmentedControl,
+  Spinner,
+  Stack,
+  Text,
+} from '@edu/ui';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useLocation, useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { StartDemoButton } from '@/features/demo-tour';
 import { DevLoginForm } from '@/features/dev-login';
+import { PasswordLoginForm, RegisterForm } from '@/features/password-auth';
 import { describeApiError } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/hooks';
 import { effectiveAuthMode } from '@/shared/auth/store';
@@ -20,14 +32,26 @@ function returnPath(state: unknown): string {
   return typeof from === 'string' && from.startsWith('/') && !from.startsWith('/auth') ? from : '/';
 }
 
+/** Вкладки экрана входа вне MAX; выбранная — в `?tab=`, чтобы ссылкой делиться сразу регистрацией. */
+const TABS = ['login', 'register', 'demo'] as const;
+type Tab = (typeof TABS)[number];
+const isTab = (value: string | null): value is Tab => TABS.includes(value as Tab);
+
 /**
- * `/auth`: dev — демо-пользователи; max — автовход по launch-параметрам и ошибка при неудаче.
- * Сверху — «Демонстрационный режим»: тур по всем ролям для жюри (features/demo-tour).
+ * `/auth`: в браузере — вход по логину и паролю, регистрация нового аккаунта и демо-аккаунты;
+ * внутри MAX — автовход по launch-параметрам и ошибка при неудаче. Сверху — «Демонстрационный
+ * режим»: тур по всем ролям для жюри (features/demo-tour).
  */
 export function LoginPage() {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get('tab');
+  const tab: Tab = isTab(tabParam) ? tabParam : 'login';
+  // `replace` + прежний state: вкладки не копят историю и не теряют, куда вернуться после входа.
+  const setTab = (next: string) =>
+    setParams({ tab: next }, { replace: true, state: location.state as unknown });
   const { status, error, loginMax } = useAuth();
   const bridge = useMaxBridge();
   const autoLoginRef = useRef(false);
@@ -67,8 +91,10 @@ export function LoginPage() {
     <AppLayout
       header={
         <PageHeader
-          title={t('login.title')}
-          subtitle={authMode === 'dev' ? t('login.subtitle') : undefined}
+          title={
+            authMode === 'dev' && tab === 'register' ? t('login.registerTitle') : t('login.title')
+          }
+          subtitle={authMode === 'dev' ? t(`login.subtitle.${tab}`) : undefined}
         />
       }
     >
@@ -93,7 +119,29 @@ export function LoginPage() {
               </Stack>
             )
           ) : (
-            <DevLoginForm onLoggedIn={goToTarget} />
+            <Stack gap={4}>
+              <SegmentedControl
+                fullWidth
+                aria-label={t('login.tabsLabel')}
+                value={tab}
+                onChange={setTab}
+                options={TABS.map((value) => ({ value, label: t(`login.tabs.${value}`) }))}
+              />
+              {tab === 'login' && (
+                <Card>
+                  <PasswordLoginForm
+                    onLoggedIn={goToTarget}
+                    onRegister={() => setTab('register')}
+                  />
+                </Card>
+              )}
+              {tab === 'register' && (
+                <Card>
+                  <RegisterForm onRegistered={goToTarget} onLogin={() => setTab('login')} />
+                </Card>
+              )}
+              {tab === 'demo' && <DevLoginForm onLoggedIn={goToTarget} />}
+            </Stack>
           )}
           {config.isDev && (
             <Button variant="ghost" size="sm" onClick={() => navigate('/dev/ui')}>

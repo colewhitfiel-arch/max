@@ -16,10 +16,11 @@ export interface PutOptions {
 
 /**
  * Порт файлового хранилища. Реализации: LocalFsStorage (dev: диск + раздача через api),
- * S3Storage (prod: presigned URL). Модули не знают, где лежат байты — только ключ.
+ * PostgresStorage (serverless-стенд: байты в БД, раздача через api), S3Storage (prod: presigned URL).
+ * Модули не знают, где лежат байты — только ключ.
  */
 export interface StorageProvider {
-  readonly driver: 'local' | 's3';
+  readonly driver: 'local' | 'postgres' | 's3';
   /** Прямой upload из клиента (presigned URL или локальная ручка api). */
   createUploadTarget(
     key: string,

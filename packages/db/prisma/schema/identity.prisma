@@ -111,3 +111,17 @@ model RefreshToken {
   @@index([userId])
   @@map("refresh_tokens")
 }
+
+/// Вход по логину и паролю (регистрация вне MAX: браузер, стенд). Пароль — только хэш scrypt.
+model UserCredential {
+  userId       String   @id @map("user_id") @db.Uuid
+  /// Логин в нижнем регистре: латиница, цифры, точка, дефис, подчёркивание
+  login        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}

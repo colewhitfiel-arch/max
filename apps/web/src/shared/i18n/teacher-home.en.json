@@ -9,5 +9,11 @@
     "title": "Tell us what you teach",
     "text": "Choose your clubs — then create groups students join with a link",
     "action": "Choose clubs"
+  },
+  "start": {
+    "title": "First steps",
+    "text": "Create a group and send students the invite link, then upload lesson notes — AI will build a course for the group.",
+    "group": "Create a group",
+    "course": "Course from notes"
   }
 }

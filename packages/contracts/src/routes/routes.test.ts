@@ -40,7 +40,7 @@ function collectRoutes(router: AppRouter, prefix = ''): Array<{ key: string; rou
 }
 
 const routes = collectRoutes(apiContract);
-const PUBLIC_PATH = /^\/(health(\/.*)?|auth\/(max|dev|refresh)|webhooks\/.*)$/;
+const PUBLIC_PATH = /^\/(health(\/.*)?|auth\/(max|dev|register|login|refresh)|webhooks\/.*)$/;
 
 describe('apiContract', () => {
   it('список роутов METHOD path стабилен', () => {
@@ -51,6 +51,8 @@ describe('apiContract', () => {
         "GET /health/live",
         "POST /auth/max",
         "POST /auth/dev",
+        "POST /auth/register",
+        "POST /auth/login",
         "POST /auth/refresh",
         "POST /auth/roles",
         "POST /auth/switch-role",
@@ -188,7 +190,7 @@ describe('apiContract', () => {
     expect(API_PREFIX).toBe('/api/v1');
   });
 
-  it('публичные роуты — только health, auth/max|dev|refresh и webhooks', () => {
+  it('публичные роуты — только health, auth/max|dev|register|login|refresh и webhooks', () => {
     for (const { key, route } of routes) {
       const meta = route.metadata as RouteMeta;
       if (meta.auth === 'public') {

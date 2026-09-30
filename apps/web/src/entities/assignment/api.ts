@@ -18,11 +18,15 @@ export function useStudentAssignments(query: ListStudentAssignmentsQuery = {}) {
   });
 }
 
-/** `GET /student/assignments/:id`. */
-export function useStudentAssignment(assignmentId: string) {
+/**
+ * `GET /student/assignments/:id`. `enabled: false` — задания нет (блок курса без задания):
+ * запрос не уходит, а хук всё равно вызывается на каждом рендере.
+ */
+export function useStudentAssignment(assignmentId: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: assignmentKeys.studentDetail(assignmentId),
     queryFn: () => call(api.assignments.getStudentAssignment({ params: { assignmentId } })),
+    enabled: options.enabled ?? true,
   });
 }
 

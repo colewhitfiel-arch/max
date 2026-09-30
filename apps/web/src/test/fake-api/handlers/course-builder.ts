@@ -44,16 +44,19 @@ function atomsFrom(text: string, source: string): KnowledgeBase['atoms'] {
 function knowledgeFor(job: Job): KnowledgeBase {
   const source = job.topic ?? job.materials.map((m) => m.fileName).join(', ');
   const fileTexts = job.materials.map((m) => db.files.find((f) => f.id === m.id)?.text ?? '');
-  const raw = fileTexts.some(Boolean)
-    ? fileTexts.join('\n\n')
-    : [
-        `${source}. Это тема занятия: важно понять, зачем она нужна и где применяется.`,
-        `Ключевое правило: действуй по шагам и проверяй результат после каждого шага.`,
-        `Типичная ошибка — пропускать проверку и торопиться с выводами.`,
-        `Пример: разбери простой случай, затем усложни условие и повтори.`,
-        `Практика: примени правило на своём примере и опиши, что получилось.`,
-        `Итог: сформулируй своими словами, что нового узнал.`,
-      ].join('\n\n');
+  // Байты File из jsdom fetch в Node не передаёт (в теле — «[object File]»): нет атомов из
+  // файла — работаем по заготовке темы, как если бы в файле был только заголовок.
+  const raw =
+    atomsFrom(fileTexts.join(' '), 'файл').length > 0
+      ? fileTexts.join('\n\n')
+      : [
+          `${source}. Это тема занятия: важно понять, зачем она нужна и где применяется.`,
+          `Ключевое правило: действуй по шагам и проверяй результат после каждого шага.`,
+          `Типичная ошибка — пропускать проверку и торопиться с выводами.`,
+          `Пример: разбери простой случай, затем усложни условие и повтори.`,
+          `Практика: примени правило на своём примере и опиши, что получилось.`,
+          `Итог: сформулируй своими словами, что нового узнал.`,
+        ].join('\n\n');
   const atoms = atomsFrom(raw, job.topic ? 'topic' : (job.materials[0]?.fileName ?? 'файл'));
   const nodes: KnowledgeBase['nodes'] = [];
   for (let i = 0; i < atoms.length; i += 2) {

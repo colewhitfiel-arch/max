@@ -68,11 +68,28 @@
     "create": "New course",
     "createTitle": "Course title",
     "group": "Group",
-    "created": "Course created"
+    "created": "Course created",
+    "publish": "Publish for the group",
+    "publishHint": "Only you see the draft. Once published, the course appears for the group students, and quizzes and tasks become assignments with auto-graded quizzes.",
+    "published": "Course published",
+    "publishedHint": "The group students see the course. Archiving hides it from them.",
+    "archive": "Archive",
+    "archived": "Course archived",
+    "archivedSection": "Archive",
+    "progressTitle": "Student progress",
+    "progressEmpty": "No students in the group yet",
+    "progressEmptyHint": "Invite students with the link from the group card",
+    "openGroup": "Open the group",
+    "studentProgress": "{{percent}}% done",
+    "lastActivity": "Activity: {{date}}",
+    "notStarted": "Not started yet",
+    "fromNotes": "AI course from lesson notes",
+    "fromNotesHint": "Upload lesson notes — AI splits them into lessons with theory, quizzes, flashcards and tasks.",
+    "fromNotesAction": "Create a course from notes"
   },
   "courseBuilder": {
     "title": "Course builder",
-    "description": "Describe a topic or practice in your own words — the AI writes the notes, splits them into knowledge atoms and builds a course with lessons and practice. Or upload your materials (pdf, docx, txt, md).",
+    "description": "Upload lesson notes (pdf, docx, txt, md) — AI splits them into knowledge atoms and builds a course: theory, quizzes, flashcards and tasks. No notes — describe the topic and AI will write them.",
     "jobs": "Generation jobs",
     "empty": "No generation jobs yet",
     "stage": {
@@ -96,17 +113,17 @@
       "OUTLINING": "The AI extracts knowledge nodes citing atoms; citations are verified by code",
       "GENERATING": "Writing lessons per module: theory, quiz, gaps, practice",
       "ASSEMBLING": "Assembling the course draft",
-      "READY": "Draft is ready — review and accept to create the course",
+      "READY": "The draft is ready — review the lessons and quizzes (tap a block to expand it) and publish the course for the group",
       "ACCEPTED": "Course created as a draft",
       "FAILED": "Failed — try refining the topic or uploading another file",
       "CANCELLED": "Generation cancelled"
     },
     "form": {
       "modeTopic": "By topic",
-      "modeMaterials": "From files",
+      "modeMaterials": "From notes",
       "modeLabel": "Course source",
       "modeTopicHint": "No notes: describe the topic, lesson plan or practice — the AI writes the notes itself.",
-      "modeMaterialsHint": "Upload notes, a handbook or slides — text is extracted automatically.",
+      "modeMaterialsHint": "Upload lesson notes (pdf, docx, txt, md) — AI will turn them into lessons, quizzes and flashcards. No file at hand — take the sample.",
       "group": "Group",
       "groupPlaceholder": "Choose a group",
       "materials": "Materials",
@@ -131,12 +148,15 @@
       "instructionsPlaceholder": "E.g. more practice, short texts, quiz at the end",
       "title": "Course title",
       "submit": "Generate course",
-      "started": "Generation started"
+      "started": "Generation started",
+      "sample": "Use sample notes",
+      "noGroups": "Create a group first — the course is published for its students",
+      "createGroup": "Create a group"
     },
     "job": {
       "title": "Course generation",
       "progress": "Generation progress",
-      "accept": "Accept draft",
+      "accept": "Save as draft",
       "accepted": "Course created",
       "openCourse": "Open course",
       "cancel": "Cancel",
@@ -151,7 +171,9 @@
         "flashcards_other": "{{count}} cards",
         "fillGaps": "fill in the gaps",
         "matching": "matching"
-      }
+      },
+      "publish": "Publish for the group",
+      "published": "Course published — the group students already see it"
     }
   },
   "assignments": {
@@ -301,5 +323,19 @@
     "resetHint": "The old link stops working — useful if it was shared with the wrong people",
     "resetDone": "Link updated, the old one no longer works",
     "resetError": "Could not reset the link"
+  },
+  "coursePreview": {
+    "videoFile": "Video from a file",
+    "explanation": "Explanation",
+    "passScore": "Pass score: {{value}}%",
+    "expectedAnswer": "Model answer",
+    "rubric": "Rubric",
+    "submission": {
+      "TEXT": "Text answer",
+      "FILE": "File answer",
+      "BOTH": "Text and file answer",
+      "NONE": "No submission"
+    },
+    "notSupported": "Preview of this block is not available yet"
   }
 }

@@ -134,6 +134,8 @@ const hooks = vi.hoisted(() => ({
 
 vi.mock('@/entities/dashboard', () => ({ useTeacherHome: () => hooks.home }));
 vi.mock('@/entities/payment', () => ({ useTeacherWallet: () => hooks.wallet }));
+// Группы есть — карточка «Первые шаги» нового преподавателя не показывается.
+vi.mock('@/entities/group', () => ({ useTeacherGroups: () => ({ data: { items: [{}] } }) }));
 vi.mock('@/entities/lesson', async (importOriginal) => ({
   ...(await importOriginal<typeof LessonEntity>()),
   useTeacherCalendar: (period: { from: string; to: string }, options?: { enabled?: boolean }) =>

@@ -1,4 +1,9 @@
-import type { CompleteBlockBody, CreateCourseBody, ListTeacherCoursesQuery } from '@edu/contracts';
+import type {
+  CompleteBlockBody,
+  CreateCourseBody,
+  ListTeacherCoursesQuery,
+  PublishCourseBody,
+} from '@edu/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, call } from '@/shared/api/client';
 import { queryKeys } from '@/shared/api/query-keys';
@@ -12,11 +17,12 @@ export function useStudentCourses() {
   });
 }
 
-/** `GET /student/courses/:courseId`. */
-export function useStudentCourse(courseId: string) {
+/** `GET /student/courses/:courseId`; `enabled: false` — курс ещё неизвестен (плеер ждёт блок). */
+export function useStudentCourse(courseId: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: courseKeys.studentDetail(courseId),
     queryFn: () => call(api.courses.getStudentCourse({ params: { courseId } })),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -74,5 +80,42 @@ export function useCreateCourse() {
   return useMutation({
     mutationFn: (body: CreateCourseBody) => call(api.courses.createCourse({ body })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.teacher }),
+  });
+}
+
+/**
+ * `POST /teacher/courses/:courseId/publish`: курс виден ученикам группы, блоки-задания
+ * (тест, вопрос, практика, ДЗ) становятся заданиями. Без параметров — всей группе, без срока.
+ */
+export function usePublishCourse(courseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: PublishCourseBody) =>
+      call(api.courses.publishCourse({ params: { courseId }, body })),
+    onSuccess: (course) => {
+      queryClient.setQueryData(courseKeys.teacherDetail(courseId), course);
+      return queryClient.invalidateQueries({ queryKey: queryKeys.teacher });
+    },
+  });
+}
+
+/** `POST /teacher/courses/:courseId/archive`: курс пропадает у учеников. */
+export function useArchiveCourse(courseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => call(api.courses.archiveCourse({ params: { courseId } })),
+    onSuccess: (course) => {
+      queryClient.setQueryData(courseKeys.teacherDetail(courseId), course);
+      return queryClient.invalidateQueries({ queryKey: queryKeys.teacher });
+    },
+  });
+}
+
+/** `GET /teacher/courses/:courseId/progress` — прогресс учеников группы по курсу. */
+export function useCourseProgress(courseId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: courseKeys.teacherProgress(courseId),
+    queryFn: () => call(api.courses.getCourseProgress({ params: { courseId } })),
+    enabled: options.enabled ?? true,
   });
 }

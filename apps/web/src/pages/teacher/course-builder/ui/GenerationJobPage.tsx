@@ -3,6 +3,8 @@ import {
   Badge,
   Button,
   Card,
+  ChevronDownIcon,
+  ChevronUpIcon,
   Inline,
   ListRow,
   markdownToText,
@@ -17,12 +19,14 @@ import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
+import { BlockPreview } from '@/entities/course';
 import {
   generationStageTone,
   isGenerationRunning,
   useAcceptGenerationJob,
   useCancelGenerationJob,
   useGenerationJob,
+  usePublishGeneratedCourse,
 } from '@/entities/generation';
 import { describeApiError } from '@/shared/api/errors';
 import { formatRate } from '@/shared/lib/format';
@@ -50,7 +54,38 @@ function blockPreview(block: CourseDraftBlock, t: TFunction<'teacher'>): string 
   }
 }
 
-/** `/teacher/course-builder/:jobId` — прогресс стадий, база знаний и ревью черновика (F8). */
+/** Блок черновика: строка с кратким превью; нажатие раскрывает содержимое целиком (с ответами). */
+function DraftBlockRow({ block }: { block: CourseDraftBlock }) {
+  const { t } = useTranslation('teacher');
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ListRow
+        title={block.title}
+        subtitle={open ? undefined : blockPreview(block, t)}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        right={
+          <Inline gap={1} align="center" wrap={false}>
+            <Badge tone="neutral">{t(`common:blockType.${block.type}`)}</Badge>
+            {open ? <ChevronUpIcon size={18} /> : <ChevronDownIcon size={18} />}
+          </Inline>
+        }
+      />
+      {open && (
+        <Card padding="md">
+          <BlockPreview block={block} />
+        </Card>
+      )}
+    </>
+  );
+}
+
+/**
+ * `/teacher/course-builder/:jobId` — прогресс стадий, база знаний и ревью черновика (F8).
+ * Готовый черновик публикуется одной кнопкой (принять → опубликовать для группы) или
+ * сохраняется черновиком курса, чтобы опубликовать позже.
+ */
 export function GenerationJobPage() {
   const { jobId = '' } = useParams();
   const { t } = useTranslation('teacher');
@@ -59,15 +94,29 @@ export function GenerationJobPage() {
   const query = useGenerationJob(jobId);
   const accept = useAcceptGenerationJob(jobId);
   const cancel = useCancelGenerationJob(jobId);
+  const publish = usePublishGeneratedCourse(jobId);
   const [tab, setTab] = useState('draft');
 
-  const onAccept = () =>
+  const onError = (error: unknown) =>
+    toast.show({ tone: 'danger', title: describeApiError(error) });
+
+  const onSaveDraft = () =>
     accept.mutate(undefined, {
       onSuccess: ({ courseId }) => {
         toast.show({ tone: 'success', title: t('courseBuilder.job.accepted') });
         navigate(`/teacher/courses/${courseId}`);
       },
-      onError: (error) => toast.show({ tone: 'danger', title: describeApiError(error) }),
+      onError,
+    });
+
+  /** Принять черновик и сразу опубликовать курс для группы: ученики видят его сразу. */
+  const onPublish = () =>
+    publish.mutate(undefined, {
+      onSuccess: ({ courseId }) => {
+        toast.show({ tone: 'success', title: t('courseBuilder.job.published') });
+        navigate(`/teacher/courses/${courseId}`);
+      },
+      onError,
     });
 
   const renderJob = (job: GenerationJobDto) => {
@@ -75,9 +124,10 @@ export function GenerationJobPage() {
     const knowledge = job.knowledge ?? null;
     // Пока черновика нет (стадии до READY), показываем базу знаний — вкладка «Черновик» недоступна.
     const activeTab = job.draft ? tab : 'knowledge';
+    const busy = publish.isPending || accept.isPending;
     return (
       <Stack gap={4}>
-        <Card>
+        <Card data-tour="generation-progress">
           <Stack gap={2}>
             <Inline justify="between" align="center" wrap={false}>
               <Text weight="medium">{t(`courseBuilder.stage.${job.stage}`)}</Text>
@@ -107,14 +157,25 @@ export function GenerationJobPage() {
                 {job.topic}
               </Text>
             )}
-            <Inline gap={2}>
+            <Stack gap={2} data-tour={job.stage === 'READY' ? 'generation-publish' : undefined}>
               {job.stage === 'READY' && (
-                <Button loading={accept.isPending} onClick={onAccept}>
-                  {t('courseBuilder.job.accept')}
-                </Button>
+                <>
+                  <Button fullWidth loading={publish.isPending} disabled={busy} onClick={onPublish}>
+                    {t('courseBuilder.job.publish')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    loading={accept.isPending}
+                    disabled={busy}
+                    onClick={onSaveDraft}
+                  >
+                    {t('courseBuilder.job.accept')}
+                  </Button>
+                </>
               )}
               {job.stage === 'ACCEPTED' && job.courseId && (
-                <Button onClick={() => navigate(`/teacher/courses/${job.courseId}`)}>
+                <Button fullWidth onClick={() => navigate(`/teacher/courses/${job.courseId}`)}>
                   {t('courseBuilder.job.openCourse')}
                 </Button>
               )}
@@ -122,17 +183,12 @@ export function GenerationJobPage() {
                 <Button
                   variant="secondary"
                   loading={cancel.isPending}
-                  onClick={() =>
-                    cancel.mutate(undefined, {
-                      onError: (error) =>
-                        toast.show({ tone: 'danger', title: describeApiError(error) }),
-                    })
-                  }
+                  onClick={() => cancel.mutate(undefined, { onError })}
                 >
                   {t('courseBuilder.job.cancel')}
                 </Button>
               )}
-            </Inline>
+            </Stack>
           </Stack>
         </Card>
 
@@ -153,7 +209,7 @@ export function GenerationJobPage() {
         )}
 
         {activeTab === 'draft' && job.draft && (
-          <Stack gap={3}>
+          <Stack gap={3} data-tour="generation-draft">
             <Stack gap={1}>
               <Text variant="title">{job.draft.title}</Text>
               {job.draft.description && <Text tone="muted">{job.draft.description}</Text>}
@@ -170,12 +226,7 @@ export function GenerationJobPage() {
                 )}
                 <Card padding="none">
                   {module.blocks.map((block, blockIndex) => (
-                    <ListRow
-                      key={`${block.title}-${blockIndex}`}
-                      title={block.title}
-                      subtitle={blockPreview(block, t)}
-                      right={<Badge tone="neutral">{t(`common:blockType.${block.type}`)}</Badge>}
-                    />
+                    <DraftBlockRow key={`${block.title}-${blockIndex}`} block={block} />
                   ))}
                 </Card>
               </Stack>

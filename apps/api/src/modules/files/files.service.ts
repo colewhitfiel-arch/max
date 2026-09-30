@@ -14,7 +14,7 @@ import { Errors } from '../../common/errors/app-error';
 import { AppLogger } from '../../common/logger/logger.service';
 import { canExtractNow, extractText, supportsExtraction } from './extract/text-extractor';
 import { type FileRow, FilesRepository } from './files.repository';
-import { LocalFsStorage } from './storage/local-fs.storage';
+import { SignedLinkStorage } from './storage/signed-link.storage';
 import { STORAGE, type StorageProvider, buildStorageKey } from './storage/storage-provider';
 
 /** Материал для пайплайна: текст и мета. */
@@ -244,8 +244,8 @@ export class FilesService {
     return row;
   }
 
-  private requireLocalStorage(): LocalFsStorage {
-    if (!(this.storage instanceof LocalFsStorage)) {
+  private requireLocalStorage(): SignedLinkStorage {
+    if (!(this.storage instanceof SignedLinkStorage)) {
       throw Errors.notFound('Локальные ссылки на файлы');
     }
     return this.storage;

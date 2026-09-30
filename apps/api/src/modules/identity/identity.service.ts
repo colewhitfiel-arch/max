@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   type AuthResult,
   CLUB_CATEGORIES,
+  type RegisterBody,
   type MeDto,
   type Role,
   type StudentBrief,
@@ -23,6 +24,7 @@ import { InjectEnv } from '../../config/env.module';
 import { FamilyService } from '../family/family.service';
 import { SchoolService } from '../school/school.service';
 import { IdentityRepository, type UserWithProfiles } from './identity.repository';
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './password';
 
 const LINK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -80,6 +82,36 @@ export class IdentityService {
     user = (await this.repo.findById(user.id))!;
     this.log.info({ userId: user.id, roles }, 'dev-вход');
     return this.issueSession(user, roles[0] ?? this.pickActiveRole(user, null));
+  }
+
+  /**
+   * Регистрация по логину и паролю — вход без MAX (браузер, стенд). Пользователь создаётся без
+   * ролей: дальше обычный сценарий — выбор роли (`needsRoleSetup`) и онбординг этой роли.
+   */
+  async register(body: RegisterBody): Promise<AuthResult> {
+    const login = normalizeLogin(body.login);
+    const taken = () => Errors.conflict('Этот логин уже занят — придумайте другой');
+    if (await this.repo.findCredentialByLogin(login)) throw taken();
+    const user = await this.repo.createUserWithCredential({
+      login,
+      passwordHash: await hashPassword(body.password),
+      firstName: body.firstName.trim(),
+      lastName: body.lastName?.trim() || null,
+    });
+    // Гонка двух регистраций с одним логином: уникальный индекс пропустит только одну.
+    if (!user) throw taken();
+    this.log.info({ userId: user.id }, 'регистрация по логину');
+    return this.issueSession(user, null);
+  }
+
+  /** Вход по логину и паролю. Ошибка одна на любой случай — не выдаём, есть ли такой логин. */
+  async loginPassword(login: string, password: string): Promise<AuthResult> {
+    const credential = await this.repo.findCredentialByLogin(normalizeLogin(login));
+    const valid = await verifyPassword(password, credential?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!credential || !valid) throw Errors.unauthorized('Неверный логин или пароль');
+    await this.repo.touchLastSeen(credential.userId);
+    const user = await this.requireUser(credential.userId);
+    return this.issueSession(user, this.pickActiveRole(user, null));
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
@@ -152,9 +184,9 @@ export class IdentityService {
         let schoolId = user.teacher?.schoolId ?? null;
         if (!schoolId) {
           if (!inviteCode) {
-            // Только в локальной разработке допускаем вход преподавателем без кода — берём
-            // первую школу. На стенде (staging) код обязателен: демо-преподаватель уже с профилем.
-            if (this.env.APP_ENV === 'development')
+            // Вне production (локально и на демо-стенде) преподаватель без кода попадает в
+            // демо-школу — так новый аккаунт проходит весь сценарий без администратора школы.
+            if (this.env.APP_ENV !== 'production')
               schoolId = (await this.school.findByInviteCode('SCHOOL1'))?.id ?? null;
             if (!schoolId)
               throw Errors.businessRule('Для роли преподавателя нужен код приглашения школы');
@@ -357,6 +389,7 @@ export class IdentityService {
       activeRole: this.pickActiveRole(user, activeRole),
       needsRoleSetup: roles.length === 0,
       settings: { theme: user.theme, locale: user.locale },
+      login: user.credential?.login ?? null,
       student: user.student
         ? {
             id: user.student.id,
@@ -389,4 +422,9 @@ export class IdentityService {
     }
     throw Errors.internal('Не удалось сгенерировать код привязки');
   }
+}
+
+/** Логин хранится и ищется в нижнем регистре: «Masha» и «masha» — один аккаунт. */
+function normalizeLogin(login: string): string {
+  return login.trim().toLowerCase();
 }

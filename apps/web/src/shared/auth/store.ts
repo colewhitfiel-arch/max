@@ -3,7 +3,7 @@
  * (`auth.access`, `auth.refresh`), профиль `MeDto` — только в памяти (перезапрашивается на старте).
  * Сессия из входа через MAX привязана к MAX-пользователю запуска (`auth.maxUser`).
  */
-import type { AuthResult, MeDto, Role, TokenPair } from '@edu/contracts';
+import type { AuthResult, MeDto, RegisterBody, Role, TokenPair } from '@edu/contracts';
 import { create } from 'zustand';
 import { api, call, setApiAuthAdapter } from '../api/client';
 import { ApiClientError, apiErrorFromException } from '../api/errors';
@@ -32,6 +32,10 @@ export interface AuthState {
 
   loginDev(maxUserId: string, roles: Role[]): Promise<MeDto>;
   loginMax(launchParams: string | null): Promise<MeDto>;
+  /** Вход по логину и паролю (вне MAX). */
+  loginPassword(login: string, password: string): Promise<MeDto>;
+  /** Регистрация по логину и паролю: новый аккаунт без ролей → выбор роли. */
+  register(body: RegisterBody): Promise<MeDto>;
   refresh(): Promise<TokenPair>;
   logout(): Promise<void>;
   switchRole(role: Role): Promise<MeDto>;
@@ -118,6 +122,30 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         const error = apiErrorFromException(cause);
         set({ error });
         throw error;
+      }
+    },
+
+    async loginPassword(login, password) {
+      try {
+        const result = await call(api.auth.loginPassword({ body: { login, password } }));
+        queryClient.clear();
+        const me = await applyAuthResult(result);
+        await persistSessionOwner(null);
+        return me;
+      } catch (cause) {
+        throw apiErrorFromException(cause);
+      }
+    },
+
+    async register(body) {
+      try {
+        const result = await call(api.auth.register({ body }));
+        queryClient.clear();
+        const me = await applyAuthResult(result);
+        await persistSessionOwner(null);
+        return me;
+      } catch (cause) {
+        throw apiErrorFromException(cause);
       }
     },
 

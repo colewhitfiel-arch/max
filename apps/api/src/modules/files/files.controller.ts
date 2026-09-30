@@ -10,7 +10,7 @@ import { FilesService } from './files.service';
 /** Типы, которые безопасно показывать inline с origin API; остальное (html, svg…) — скачивание. */
 const INLINE_MIME = new Set(['image/png', 'image/jpeg', 'image/webp', 'application/pdf']);
 
-/** Реализация contracts/routes/files.ts + локальные ручки загрузки/скачивания (STORAGE_DRIVER=local). */
+/** Реализация contracts/routes/files.ts + ручки загрузки/скачивания через api (STORAGE_DRIVER=local|postgres). */
 @Controller()
 export class FilesController {
   constructor(private readonly files: FilesService) {}

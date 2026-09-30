@@ -7,7 +7,7 @@
 | Что | Где |
 |---|---|
 | Продукт | `docs/00-product-spec.md` |
-| Архитектура и решения | `docs/02-architecture.md`, `docs/adr/*` (ADR-001…013) |
+| Архитектура и решения | `docs/02-architecture.md`, `docs/adr/*` (ADR-001…016) |
 | Что реально построено в foundation | `docs/FOUNDATION.md` |
 | Модель данных | `docs/04-data-model.md` → `packages/db/prisma/schema/*.prisma` |
 | API | `docs/05-api-contracts.md` → `packages/contracts/src/routes/*.ts` (код первичен для форм, документ — для смысла) |
@@ -119,6 +119,7 @@ apps/api/src
 ## 11. Authentication
 
 - Бэк: `apps/api/src/common/auth`. `AuthGuard` (глобальный) проверяет Bearer JWT и кладёт `AuthUser { userId, maxUserId, roles, activeRole, profileId }` в запрос; `@CurrentUser()` его отдаёт; `@Public()` отключает проверку. Провайдер (`AUTH_PROVIDER=dev|max`) только подтверждает личность; сессии выдаёт `modules/identity`.
+- Вход по логину и паролю (вне MAX, ADR-016): `POST /api/v1/auth/register { login, password, firstName, lastName? }` → аккаунт без ролей; `POST /api/v1/auth/login { login, password }`. Таблица `user_credentials` (хэш scrypt, `identity/password.ts`), у таких пользователей `maxUserId = web:<uuid>`.
 - Dev-вход: `POST /api/v1/auth/dev { maxUserId, roles }` — создаёт пользователя/роли/профили при необходимости. Демо-пользователи: `max-student-1`, `max-student-2`, `max-parent-1`, `max-teacher-1` (он же родитель). Любой другой id — новый пользователь.
 - Фронт: `shared/auth/store.ts` (zustand), `useAuth()`, `useMe()`, `useActiveRole()`; экран `/auth` (dev: выбор демо-пользователя), `/auth/role` (добавить/выбрать роль). Токены — в `MaxBridge.storage`. Refresh по 401 делает клиент автоматически.
 - Production через MAX: `MaxAuthProvider` (`apps/api/src/common/auth/providers/max-auth.provider.ts`) — схема подписи помечена как «сверить с dev.max.ru» (workstream J).
@@ -137,7 +138,7 @@ apps/api/src
 
 ## 15. Storage
 
-`apps/api/src/modules/files/storage`: порт `StorageProvider` (`@Inject(STORAGE)`), `LocalFsStorage` (dev: `.data/storage`, подписанные ссылки `/files/local/:token`), `S3Storage` (заглушка `NOT_IMPLEMENTED`). Ключи — `buildStorageKey(purpose, fileId, fileName)`. Сущность `File` в Prisma. Контракт — `contracts/routes/files.ts`. Реализация ручек upload/confirm/get и S3 — workstream G.
+`apps/api/src/modules/files/storage`: порт `StorageProvider` (`@Inject(STORAGE)`), `SignedLinkStorage` (подписанные ссылки `/files/local/:token` через api) и его наследники `LocalFsStorage` (dev: `.data/storage`) и `PostgresStorage` (`STORAGE_DRIVER=postgres`, таблица `stored_objects` — serverless без S3, ADR-015), `S3Storage` (presigned URL). Ключи — `buildStorageKey(purpose, fileId, fileName)`. Сущность `File` в Prisma. Контракт — `contracts/routes/files.ts`. Реализация ручек upload/confirm/get и S3 — workstream G.
 
 ## 16. Migrations
 

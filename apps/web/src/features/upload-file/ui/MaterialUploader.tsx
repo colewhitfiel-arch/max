@@ -1,15 +1,28 @@
 import { type FileDto, MATERIAL_MIME_TYPES } from '@edu/contracts';
-import { Button, Card, CloseIcon, IconButton, ListRow, Stack, Text, useToast } from '@edu/ui';
+import {
+  Button,
+  Card,
+  CloseIcon,
+  IconButton,
+  ListRow,
+  SparkIcon,
+  Stack,
+  Text,
+  useToast,
+} from '@edu/ui';
 import type { TFunction } from 'i18next';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadFile } from '@/entities/file';
 import { describeApiError } from '@/shared/api/errors';
+import { sampleMaterialFile } from '../model/sample';
 
 export interface MaterialUploaderProps {
   value: FileDto[];
   onChange: (files: FileDto[]) => void;
   disabled?: boolean;
+  /** Кнопка «Пример конспекта»: загрузить готовый конспект, чтобы попробовать без своих файлов. */
+  withSample?: boolean;
 }
 
 const ACCEPT = [...MATERIAL_MIME_TYPES, '.md', '.txt'].join(',');
@@ -32,7 +45,7 @@ interface UploadingItem {
 }
 
 /** Выбор и загрузка материалов курса (pdf/docx/txt/md) через presigned/local URL (F8). */
-export function MaterialUploader({ value, onChange, disabled }: MaterialUploaderProps) {
+export function MaterialUploader({ value, onChange, disabled, withSample }: MaterialUploaderProps) {
   const { t, i18n } = useTranslation('teacher');
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,9 +55,8 @@ export function MaterialUploader({ value, onChange, disabled }: MaterialUploader
   valueRef.current = value;
   const nextUploadId = useRef(0);
 
-  const onPick = async (list: FileList | null) => {
-    if (!list || list.length === 0) return;
-    const files = Array.from(list);
+  const upload = async (files: File[]) => {
+    if (files.length === 0) return;
     const items = files.map((file) => ({ id: nextUploadId.current++, name: file.name, file }));
     setUploading((prev) => [...prev, ...items.map(({ id, name }) => ({ id, name }))]);
     for (const { id, file } of items) {
@@ -58,6 +70,10 @@ export function MaterialUploader({ value, onChange, disabled }: MaterialUploader
         setUploading((prev) => prev.filter((item) => item.id !== id));
       }
     }
+  };
+
+  const onPick = async (list: FileList | null) => {
+    await upload(list ? Array.from(list) : []);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -72,15 +88,29 @@ export function MaterialUploader({ value, onChange, disabled }: MaterialUploader
         aria-label={t('courseBuilder.form.materials')}
         onChange={(event) => void onPick(event.target.files)}
       />
-      <Button
-        variant="secondary"
-        fullWidth
-        disabled={disabled}
-        loading={uploading.length > 0}
-        onClick={() => inputRef.current?.click()}
-      >
-        {t('courseBuilder.form.pickFiles')}
-      </Button>
+      <Stack gap={2}>
+        <Button
+          variant="secondary"
+          fullWidth
+          disabled={disabled}
+          loading={uploading.length > 0}
+          onClick={() => inputRef.current?.click()}
+        >
+          {t('courseBuilder.form.pickFiles')}
+        </Button>
+        {withSample && (
+          <Button
+            variant="ghost"
+            fullWidth
+            leftIcon={<SparkIcon />}
+            disabled={disabled || uploading.length > 0}
+            onClick={() => void upload([sampleMaterialFile()])}
+            data-tour="sample-material"
+          >
+            {t('courseBuilder.form.sample')}
+          </Button>
+        )}
+      </Stack>
       <Text variant="caption" tone="muted">
         {t('courseBuilder.form.filesHint')}
       </Text>

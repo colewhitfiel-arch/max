@@ -49,7 +49,7 @@ export const envSchema = z
      * Пусто — включено везде, кроме NODE_ENV=test.
      */
     RATE_LIMIT_ENABLED: boolFromString.optional(),
-    /** Входов и обновлений сессии (/auth/max, /auth/dev, /auth/refresh) в минуту с одного IP. */
+    /** Входов, регистраций и обновлений сессии (/auth/max, /auth/dev, /auth/login, /auth/register, /auth/refresh) в минуту с одного IP. */
     RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(60),
     /** Попыток привязки ребёнка (код, приглашение) в час на пару пользователь + IP. */
     RATE_LIMIT_LINK_PER_HOUR: z.coerce.number().int().positive().default(10),
@@ -113,7 +113,8 @@ export const envSchema = z
      */
     COURSE_BUILDER_STALE_AFTER_SEC: z.coerce.number().int().min(60).default(1800),
 
-    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    /** `postgres` — байты в БД (serverless без S3: у инстансов нет общего диска). */
+    STORAGE_DRIVER: z.enum(['local', 'postgres', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('.data/storage'),
     S3_ENDPOINT: optionalString,
     S3_REGION: z.string().default('ru-central1'),

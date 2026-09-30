@@ -1,7 +1,11 @@
 {
   "login": {
     "title": "Sign in",
-    "subtitle": "Dev mode: pick a demo user",
+    "subtitle": {
+      "login": "Sign in with your login and password",
+      "register": "New account — student, parent or teacher",
+      "demo": "Ready-made demo accounts with data"
+    },
     "demoUsers": "Demo users",
     "custom": "Custom user",
     "maxUserId": "maxUserId",
@@ -11,7 +15,14 @@
     "rolesRequired": "Pick at least one role",
     "maxTitle": "Signing in via MAX…",
     "maxHint": "Verifying messenger launch params",
-    "maxFailed": "Failed to sign in via MAX"
+    "maxFailed": "Failed to sign in via MAX",
+    "tabsLabel": "Sign-in method",
+    "tabs": {
+      "login": "Sign in",
+      "register": "Sign up",
+      "demo": "Demo"
+    },
+    "registerTitle": "Sign up"
   },
   "roleSetup": {
     "title": "Who are you?",
@@ -21,11 +32,16 @@
     "current": "Your roles",
     "add": "Add role",
     "inviteCode": "School invite code",
-    "inviteCodeHint": "Required for the teacher role",
+    "inviteCodeHint": "Enter the code if your school administration gave you one. It can stay empty on the test stand",
     "continue": "Continue",
     "STUDENT": "I am a student",
     "PARENT": "I am a parent",
-    "TEACHER": "I am a teacher"
+    "TEACHER": "I am a teacher",
+    "hints": {
+      "STUDENT": "Meet the AI tutor, clubs, courses and assignments",
+      "PARENT": "Link your child by code, progress and club payments",
+      "TEACHER": "Groups, AI courses from lecture notes, attendance and grading"
+    }
   },
   "switch": {
     "title": "Switch role",
@@ -61,5 +77,29 @@
     "futureLabel": "Want to try later",
     "clubOptions": "Clubs to choose from",
     "pickedReason": "You picked this club while talking to the tutor"
+  },
+  "password": {
+    "login": "Login",
+    "loginPlaceholder": "e.g. masha.ivanova",
+    "loginHint": "Latin letters, digits, dot, hyphen, underscore",
+    "password": "Password",
+    "passwordHint": "At least {{count}} characters",
+    "repeat": "Repeat password",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "submitLogin": "Sign in",
+    "submitRegister": "Sign up",
+    "noAccount": "Create an account",
+    "haveAccount": "I already have an account",
+    "nextStep": "Next you will choose a role: student, parent or teacher",
+    "errors": {
+      "firstName": "Enter your first name",
+      "loginLength": "Login must be {{min}}–{{max}} characters",
+      "loginChars": "Only Latin letters, digits, dot, hyphen and underscore",
+      "passwordLength": "Password must be at least {{count}} characters",
+      "repeat": "Passwords do not match",
+      "invalid": "Wrong login or password",
+      "taken": "This login is taken — choose another one"
+    }
   }
 }

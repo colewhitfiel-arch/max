@@ -66,6 +66,23 @@ export function useAcceptGenerationJob(jobId: string) {
   });
 }
 
+/**
+ * Принять черновик и сразу опубликовать курс для группы (`accept` → `POST /teacher/courses/:id/publish`):
+ * блоки-задания становятся заданиями всей группы без срока, ученики видят курс сразу. Повтор
+ * после сбоя публикации безопасен — `accept` и публикация идемпотентны.
+ */
+export function usePublishGeneratedCourse(jobId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { courseId } = await call(api.courseBuilder.acceptGenerationJob({ params: { jobId } }));
+      await call(api.courses.publishCourse({ params: { courseId }, body: { assignments: [] } }));
+      return { courseId };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.teacher }),
+  });
+}
+
 /** `POST /teacher/course-builder/jobs/:id/cancel`. */
 export function useCancelGenerationJob(jobId: string) {
   const queryClient = useQueryClient();

@@ -12,7 +12,7 @@
 - Списки: `{ items: T[], nextCursor?: string }`; параметры `cursor`, `limit` (≤100, по умолчанию 20).
 - Периоды: `?from=YYYY-MM-DD&to=YYYY-MM-DD`, по умолчанию последние 30 дней.
 - Идемпотентность: заголовок `Idempotency-Key` (1–128 символов, `IdempotencyKeyHeadersSchema`) **обязателен** на `POST /student/assignments/:id/submit`, `POST /parent/children/:id/payments`, `POST /parent/wallet/top-up`, `POST /teacher/wallet/withdraw`; без него — 400 `VALIDATION`. Повтор с тем же ключом отдаёт первый результат; пока первый запрос с этим ключом ещё выполняется — 409 `CONFLICT` (ключ занимается атомарно до операции, `common/kv/idempotency.ts`). Клиент держит один ключ на попытку (ретрай и двойной клик — тот же ключ), новый — на новую попытку.
-- Лимиты частоты (`common/rate-limit`, fixed window в `KeyValueStore`): вход и обновление сессии (`/auth/max`, `/auth/dev`, `/auth/refresh`) — `RATE_LIMIT_AUTH_PER_MIN` в минуту с IP (последний адрес `X-Forwarded-For`: его ставит Vercel или дописывает nginx стенда — за доверенным TLS-прокси это настоящий клиент, модуль realip; README «Хостинг»); привязка ребёнка по коду и принятие приглашения — `RATE_LIMIT_LINK_PER_HOUR` в час на пару пользователь + IP (посетители публичного стенда под общим демо-родителем не мешают друг другу) и не больше `RATE_LIMIT_LINK_USER_PER_HOUR` в час на пользователя с любых адресов (по умолчанию 50: смена IP перебор кода не открывает; в потолок идут только попытки, прошедшие лимит своего адреса, — общий на всех посетителей демо-аккаунта); вызовы ИИ (сообщения тьютору ученика и родителя, онбординг: реплики и рекомендации) — `RATE_LIMIT_AI_PER_MIN` в минуту на пользователя; создание задачи course-builder (одна задача — много вызовов GigaChat) — отдельно, `RATE_LIMIT_GENERATION_PER_HOUR` в час на пользователя (по умолчанию 10). Сверх лимита — 429 `RATE_LIMITED` и `Retry-After` (секунды до конца окна).
+- Лимиты частоты (`common/rate-limit`, fixed window в `KeyValueStore`): вход, регистрация и обновление сессии (`/auth/max`, `/auth/dev`, `/auth/login`, `/auth/register`, `/auth/refresh`) — `RATE_LIMIT_AUTH_PER_MIN` в минуту с IP (последний адрес `X-Forwarded-For`: его ставит Vercel или дописывает nginx стенда — за доверенным TLS-прокси это настоящий клиент, модуль realip; README «Хостинг»); привязка ребёнка по коду и принятие приглашения — `RATE_LIMIT_LINK_PER_HOUR` в час на пару пользователь + IP (посетители публичного стенда под общим демо-родителем не мешают друг другу) и не больше `RATE_LIMIT_LINK_USER_PER_HOUR` в час на пользователя с любых адресов (по умолчанию 50: смена IP перебор кода не открывает; в потолок идут только попытки, прошедшие лимит своего адреса, — общий на всех посетителей демо-аккаунта); вызовы ИИ (сообщения тьютору ученика и родителя, онбординг: реплики и рекомендации) — `RATE_LIMIT_AI_PER_MIN` в минуту на пользователя; создание задачи course-builder (одна задача — много вызовов GigaChat) — отдельно, `RATE_LIMIT_GENERATION_PER_HOUR` в час на пользователя (по умолчанию 10). Сверх лимита — 429 `RATE_LIMITED` и `Retry-After` (секунды до конца окна).
 - Стриминг: `text/event-stream`; события `token { text }`, `done { messageId, ... }`, `error { code, message }`. ts-rest SSE не типизирует — стриминговые ручки описываются zod-схемами событий в `routes/streaming.ts` и реализуются обычным Nest-контроллером.
 - Эволюция контракта: добавление полей — свободно (опциональные); удаление/переименование — через депрекейт в этом документе и одну итерацию.
 
@@ -51,6 +51,9 @@ ApiError = { error: { code: ErrorCode; message: string; details?: unknown } }
 ```
 POST /auth/max            public   { launchParams: string } → AuthResult
 POST /auth/dev            dev-only { maxUserId: string, roles: Role[] } → AuthResult
+POST /auth/register       public   { login, password, firstName, lastName? } → AuthResult   // вне MAX; новый аккаунт без ролей
+                                   // login 3–32 [A-Za-z0-9._-] без учёта регистра, password ≥ 8; 409 CONFLICT — логин занят
+POST /auth/login          public   { login, password } → AuthResult   // 401 — неверный логин или пароль (один текст на оба случая)
 POST /auth/refresh        public   { refreshToken } → { accessToken, refreshToken }
 POST /auth/roles          auth     { role: Role, inviteCode?: string } → AuthResult   // STUDENT/PARENT свободно; TEACHER — по School.inviteCode
 POST /auth/switch-role    auth     { role: Role } → AuthResult
@@ -64,7 +67,7 @@ POST /student/link-code/rotate  student → { linkCode }
 
 AuthResult = { accessToken, refreshToken, me: MeDto }
 MeDto = { user: UserBrief, roles: Role[], activeRole: Role|null, needsRoleSetup: boolean,
-          settings: { theme, locale },
+          settings: { theme, locale }, login?: string|null /* аккаунт с паролем */,
           student?: { id, onboardingCompleted: boolean, schoolId?, linkCode, classLabel? },
           parent?: { id, childrenCount: number },
           teacher?: { id, schoolId, subjects: ClubCategory[], qualification? } }   // subjects пусто — «Что вы ведёте?»
@@ -205,10 +208,18 @@ GET  /student/courses/:courseId          → { id, title, description?, group: G
                                               modules: [{ id, title, order, blocks: [{ id, title, type, order, estimatedMinutes?, isRequired,
                                                                                        progress: BlockProgressStatus|null }] }] }
 GET  /student/blocks/:blockId            → { id, title, type, content /* без ответов, см. ниже */, moduleId, courseId,
-                                              assignment?: AssignmentBrief, progress: { status, attempts, score? }|null }
+                                              assignment?: AssignmentBrief, progress: { status, attempts, score? }|null,
+                                              quizReview?: QuizReview /* QUIZ-задание: разбор последней попытки */ }
 POST /student/blocks/:blockId/open       → { progress }
-POST /student/blocks/:blockId/complete   { answers?: unknown } → { progress, score?, courseProgress: { percent, completedBlocks, totalBlocks } }
-                                          // QUIZ: проверяет; блоки-задания: делегирует в assignments.submitFromBlock
+POST /student/blocks/:blockId/complete   { answers?: unknown } → { progress, score?, courseProgress: { percent, completedBlocks, totalBlocks },
+                                                                  quizReview?: QuizReview }
+                                          // QUIZ: проверяет; блоки-задания сдаются через assignments: сдача (submission.submitted)
+                                          // засчитывает блок, а тест из курса проверяется сразу (AssignmentsService.autoGrade → GRADED)
+
+QuizReview = { score: Percent, passScore: Percent, passed: boolean,
+               questions: [{ questionId, correct: boolean, pickedOptionIds: string[],
+                             correctOptionIds?: string[], explanation?: string }] }
+               // правильные варианты и пояснение — только у верно отвеченных вопросов или когда попытки кончились
 
 GET  /teacher/courses?groupId            → { items: [{ id, title, group: GroupBrief, status, modulesCount, blocksCount, publishedAt?, avgProgress }] }
 POST /teacher/courses                    { groupId, title, description? } → TeacherCourseDetail

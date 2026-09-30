@@ -102,6 +102,7 @@ export function RoleSetupPage() {
                 <ListRow
                   key={role}
                   title={t(`roleSetup.${role}`)}
+                  subtitle={t(`roleSetup.hints.${role}`)}
                   right={selected === role ? <Badge tone="info">✓</Badge> : undefined}
                   disabled={existing.includes(role)}
                   onClick={() => setSelected(role)}

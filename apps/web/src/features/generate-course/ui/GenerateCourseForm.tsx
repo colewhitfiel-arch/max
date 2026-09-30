@@ -10,12 +10,14 @@ import {
   Textarea,
   useToast,
 } from '@edu/ui';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useCreateGenerationJob } from '@/entities/generation';
 import { useTeacherGroups } from '@/entities/group';
 import { MaterialUploader } from '@/features/upload-file';
 import { describeApiError } from '@/shared/api/errors';
+import { teacherGroupPaths } from '@/shared/lib/teacher-paths';
 
 export interface GenerateCourseFormProps {
   onCreated: (jobId: string) => void;
@@ -24,21 +26,29 @@ export interface GenerateCourseFormProps {
 type Mode = 'topic' | 'materials';
 
 /**
- * Запуск генерации курса (F8) в двух режимах: по теме/практике без конспекта — ИИ сам пишет
- * конспект-атомы; из загруженных материалов — текст извлекается из файлов.
+ * Запуск генерации курса (F8) в двух режимах: из загруженного конспекта (по умолчанию) — текст
+ * извлекается из файлов; по теме/практике без конспекта — ИИ сам пишет конспект-атомы.
+ * Единственная группа выбирается сама; групп нет — ссылка на создание группы.
  */
 export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
   const { t } = useTranslation('teacher');
   const { t: tc } = useTranslation('common');
   const toast = useToast();
+  const navigate = useNavigate();
   const groups = useTeacherGroups();
   const create = useCreateGenerationJob();
-  const [mode, setMode] = useState<Mode>('topic');
+  const [mode, setMode] = useState<Mode>('materials');
   const [groupId, setGroupId] = useState('');
   const [topic, setTopic] = useState('');
   const [files, setFiles] = useState<FileDto[]>([]);
   const [instructions, setInstructions] = useState('');
   const [title, setTitle] = useState('');
+
+  const groupItems = groups.data?.items;
+  useEffect(() => {
+    if (!groupId && groupItems?.length === 1) setGroupId(groupItems[0]!.id);
+  }, [groupId, groupItems]);
+  const noGroups = groupItems?.length === 0;
 
   const topicTrimmed = topic.trim();
   const topicValid =
@@ -81,8 +91,8 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
           value={mode}
           onChange={(value) => setMode(value as Mode)}
           options={[
-            { value: 'topic', label: t('courseBuilder.form.modeTopic') },
             { value: 'materials', label: t('courseBuilder.form.modeMaterials') },
+            { value: 'topic', label: t('courseBuilder.form.modeTopic') },
           ]}
         />
         <Text variant="caption" tone="muted">
@@ -114,11 +124,30 @@ export function GenerateCourseForm({ onCreated }: GenerateCourseFormProps) {
               {tc('actions.retry')}
             </Button>
           )}
+          {noGroups && (
+            <Stack gap={1}>
+              <Text variant="caption" tone="muted">
+                {t('courseBuilder.form.noGroups')}
+              </Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate(teacherGroupPaths.create)}
+              >
+                {t('courseBuilder.form.createGroup')}
+              </Button>
+            </Stack>
+          )}
         </Stack>
 
         {mode === 'materials' && (
           <Field label={t('courseBuilder.form.materials')} required>
-            <MaterialUploader value={files} onChange={setFiles} disabled={create.isPending} />
+            <MaterialUploader
+              value={files}
+              onChange={setFiles}
+              disabled={create.isPending}
+              withSample
+            />
           </Field>
         )}
 

@@ -165,5 +165,60 @@
     "recommendations": "Recommendations",
     "copied": "Code copied",
     "copyFailed": "Could not copy — write the code down manually"
+  },
+  "player": {
+    "step": "Step {{n}} of {{total}}",
+    "progress": "{{done}} of {{total}} done",
+    "prev": "Back",
+    "next": "Next",
+    "skip": "Skip",
+    "finish": "Course summary",
+    "start": "Start the course",
+    "continue": "Continue: {{title}}",
+    "toCourses": "Back to courses",
+    "finishedTitle": "Course completed!",
+    "finishedText": "All {{count}} steps done — great job",
+    "quiz": {
+      "check": "Check answers",
+      "answerAll": "Answer every question",
+      "result": "Result",
+      "passed": "Quiz passed",
+      "notPassed": "You need at least {{score}}%",
+      "retry": "Try again",
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "hintRetry": "Re-read the theory and try again — the right answer opens once you get it right"
+    },
+    "task": {
+      "waiting": "Submitted — the step counts, the teacher will grade it"
+    },
+    "flashcards": {
+      "front": "Question",
+      "back": "Answer",
+      "tapHint": "Tap the card to flip it",
+      "showFront": "Show question",
+      "showBack": "Show answer",
+      "known": "I know it",
+      "repeat": "Again",
+      "progress": "{{done}} of {{total}} learned",
+      "done_one": "All {{count}} card learned",
+      "done_other": "All {{count}} cards learned",
+      "again": "Repeat the deck"
+    },
+    "matching": {
+      "pickLeft": "Pick a term",
+      "pickRight": "Now pick its match",
+      "terms": "Terms",
+      "definitions": "Matches",
+      "miss": "Not a match — try another one",
+      "done": "All pairs found"
+    },
+    "gaps": {
+      "gap": "Gap {{n}}",
+      "check": "Check",
+      "right": "Correct",
+      "expected": "Answer: {{answer}}",
+      "score": "{{correct}} of {{total}} correct"
+    }
   }
 }

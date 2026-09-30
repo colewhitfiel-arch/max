@@ -44,7 +44,7 @@ describe('RoleSetupPage', () => {
     const user = userEvent.setup();
     renderPage([]);
     const demo = screen.getByRole('button', { name: 'Демонстрационный режим' });
-    const student = screen.getByRole('button', { name: 'Я ученик' });
+    const student = screen.getByRole('button', { name: /^Я ученик/ });
     // Кнопка — выше списка ролей.
     expect(demo.compareDocumentPosition(student) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await user.click(demo);

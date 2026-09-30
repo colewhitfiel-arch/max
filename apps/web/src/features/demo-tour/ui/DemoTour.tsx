@@ -9,10 +9,11 @@ import { AUTH_PATH } from '@/shared/auth/role-routes';
 import { effectiveAuthMode } from '@/shared/auth/store';
 import { useMaxBridge } from '@/shared/max';
 import { findTourTarget, prepareStep } from '../model/prepare';
-import { DEMO_STEPS, type DemoSection, firstStepOf } from '../model/steps';
+import { DEMO_STEPS, type DemoSection, firstStepOf, stepPath } from '../model/steps';
 import { useDemoTourStore } from '../model/store';
+import { GenerationLive } from './GenerationLive';
 
-const ROLE_SECTIONS: DemoSection[] = ['student', 'parent', 'teacher'];
+const ROLE_SECTIONS: DemoSection[] = ['course', 'student', 'parent', 'teacher'];
 /** Как часто сверяем положение цели (подгрузка картинок, анимации сдвигают вёрстку). */
 const TRACK_MS = 250;
 
@@ -68,8 +69,14 @@ export function DemoTour() {
   const { logout } = useAuth();
   /** Идёт выход из демо-аккаунта после «Готово». */
   const [leaving, setLeaving] = useState(false);
-  const { active, index, go, stop } = useDemoTourStore(
-    useShallow((s) => ({ active: s.active, index: s.index, go: s.go, stop: s.stop })),
+  const { active, index, context, go, stop } = useDemoTourStore(
+    useShallow((s) => ({
+      active: s.active,
+      index: s.index,
+      context: s.context,
+      go: s.go,
+      stop: s.stop,
+    })),
   );
   /** Шаг, для которого экран уже открыт и цель найдена. */
   const [prepared, setPrepared] = useState<number | null>(null);
@@ -92,9 +99,10 @@ export function DemoTour() {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
+        // Сорвался вход демо-пользователем или настоящее действие шага (загрузка, генерация).
         toast.show({
           tone: 'danger',
-          title: t('loginFailed'),
+          title: step.action || step.waitFor ? t('pipeline.failed') : t('loginFailed'),
           description: describeApiError(error),
         });
         stop();
@@ -110,10 +118,11 @@ export function DemoTour() {
   // остаётся на месте (без мигания); переход на другой экран — затемнение со спиннером.
   const current = DEMO_STEPS[index];
   const previous = prepared === null ? undefined : DEMO_STEPS[prepared];
+  const previousPath = previous && stepPath(previous, context);
   const sameScreen =
     previous !== undefined &&
     current !== undefined &&
-    (current.path ?? previous.path) === previous.path &&
+    (stepPath(current, context) ?? previousPath) === previousPath &&
     (current.persona ?? previous.persona) === previous.persona;
   const ready = prepared === index;
   const shownIndex = ready || !sameScreen || prepared === null ? index : prepared;
@@ -166,6 +175,9 @@ export function DemoTour() {
     >
       <Stack gap={3}>
         <Text variant="small">{t(`steps.${shown.id}.${textKey}`)}</Text>
+        {shown.live === 'generation' && context.jobId && (
+          <GenerationLive jobId={context.jobId} onReady={() => go(shownIndex + 1)} />
+        )}
         {isWelcome && (
           <Stack gap={2}>
             <Text variant="caption" tone="muted">

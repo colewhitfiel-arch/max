@@ -1,1 +1,1 @@
-export { uploadFile, useUploadFile, type UploadFileInput } from './api';
+export { mimeOf, uploadFile, useUploadFile, type UploadFileInput } from './api';

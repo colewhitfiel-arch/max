@@ -20,6 +20,8 @@ export function useAuth() {
       isAuthenticated: s.status === 'authenticated',
       loginDev: s.loginDev,
       loginMax: s.loginMax,
+      loginPassword: s.loginPassword,
+      register: s.register,
       logout: s.logout,
       switchRole: s.switchRole,
       addRole: s.addRole,

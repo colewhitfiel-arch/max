@@ -6,6 +6,7 @@ export {
   useCreateGenerationJob,
   useUpdateGenerationDraft,
   useAcceptGenerationJob,
+  usePublishGeneratedCourse,
   useCancelGenerationJob,
 } from './api';
 export { generationStageTone } from './model';

@@ -231,6 +231,7 @@ model User {
   parent               ParentProfile?
   teacher              TeacherProfile?
   refreshTokens        RefreshToken[]
+  credential           UserCredential?
   files                File[]
   conversations        AiConversation[]
   activityEvents       ActivityEvent[]

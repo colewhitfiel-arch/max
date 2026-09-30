@@ -46,6 +46,8 @@ export const MeDtoSchema = z.object({
   /** true — ролей нет, нужно пройти выбор роли. */
   needsRoleSetup: z.boolean(),
   settings: UserSettingsSchema,
+  /** Логин для входа по паролю; null — аккаунт без пароля (вход через MAX или демо). */
+  login: z.string().nullable().optional(),
   student: MeStudentSchema.nullable(),
   parent: MeParentSchema.nullable(),
   teacher: MeTeacherSchema.nullable(),
@@ -77,6 +79,41 @@ export const LoginDevBodySchema = z.object({
   roles: z.array(RoleSchema).min(1),
 });
 export type LoginDevBody = z.infer<typeof LoginDevBodySchema>;
+
+/** Логин: 3–32 символа — латиница, цифры, точка, дефис, подчёркивание; регистр не важен. */
+export const LOGIN_PATTERN = /^[A-Za-z0-9._-]+$/;
+export const LOGIN_MIN_LENGTH = 3;
+export const LOGIN_MAX_LENGTH = 32;
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
+export const LoginSchema = z
+  .string()
+  .trim()
+  .min(LOGIN_MIN_LENGTH, `Логин — минимум ${LOGIN_MIN_LENGTH} символа`)
+  .max(LOGIN_MAX_LENGTH, `Логин — не длиннее ${LOGIN_MAX_LENGTH} символов`)
+  .regex(LOGIN_PATTERN, 'Логин: латиница, цифры, точка, дефис, подчёркивание');
+
+export const PasswordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `Пароль — минимум ${PASSWORD_MIN_LENGTH} символов`)
+  .max(PASSWORD_MAX_LENGTH, `Пароль — не длиннее ${PASSWORD_MAX_LENGTH} символов`);
+
+/** Регистрация вне MAX (браузер): новый пользователь без ролей — дальше выбор роли. */
+export const RegisterBodySchema = z.object({
+  login: LoginSchema,
+  password: PasswordSchema,
+  firstName: z.string().trim().min(1, 'Укажите имя').max(60),
+  lastName: z.string().trim().max(60).optional(),
+});
+export type RegisterBody = z.infer<typeof RegisterBodySchema>;
+
+/** Вход по логину и паролю: формат логина не проверяется — ответ одинаков для любой ошибки. */
+export const LoginPasswordBodySchema = z.object({
+  login: z.string().trim().min(1).max(64),
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+});
+export type LoginPasswordBody = z.infer<typeof LoginPasswordBodySchema>;
 
 export const RefreshBodySchema = z.object({ refreshToken: z.string().min(1) });
 export type RefreshBody = z.infer<typeof RefreshBodySchema>;
@@ -134,6 +171,22 @@ export const authContract = c.router(
       responses: { 200: AuthResultSchema },
       summary: 'Dev-вход без MAX (только в dev-окружении)',
       metadata: publicRoute({ devOnly: true }),
+    },
+    register: {
+      method: 'POST',
+      path: '/auth/register',
+      body: RegisterBodySchema,
+      responses: { 200: AuthResultSchema },
+      summary: 'Регистрация по логину и паролю (вне MAX); 409 — логин занят',
+      metadata: publicRoute(),
+    },
+    loginPassword: {
+      method: 'POST',
+      path: '/auth/login',
+      body: LoginPasswordBodySchema,
+      responses: { 200: AuthResultSchema },
+      summary: 'Вход по логину и паролю; 401 — неверный логин или пароль',
+      metadata: publicRoute(),
     },
     refresh: {
       method: 'POST',

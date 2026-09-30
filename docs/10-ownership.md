@@ -67,7 +67,7 @@
 
 ## 10.5. Владелец «web-shell»
 
-`apps/web/src/app/**` (роутер, shells, bottom-nav config, providers), `apps/web/src/shared/{api,auth,max}/**`, `apps/web/src/shared/config.ts`, `apps/web/src/shared/{store,ui}/**`, `apps/web/src/shared/i18n/**` (кроме словарей фич, см. ниже), `apps/web/src/shared/lib/**`, `apps/web/vite.config.ts`, `apps/web/package.json` и остальные конфиги пакета (`apps/web/*`, `apps/web/public/**`, `apps/web/src/*`, `apps/web/src/test/**`), а также foundation-экраны и фичи входа: `pages/{auth,admin,forbidden,not-found}/**`, `entities/session/**`, `features/{dev-login,switch-role}/**`, `widgets/account-section/**`. Внутри `shared/api/**` доменные MSW-хендлеры `mocks/handlers/<domain>.ts`, закреплённые в `OWNERS.yaml` за workstream'ом (например, `course-builder.ts`, `files.ts` — G), принадлежат ему; `shared/max/**` на время workstream J — у J (координация с web-shell).
+`apps/web/src/app/**` (роутер, shells, bottom-nav config, providers), `apps/web/src/shared/{api,auth,max}/**`, `apps/web/src/shared/config.ts`, `apps/web/src/shared/{store,ui}/**`, `apps/web/src/shared/i18n/**` (кроме словарей фич, см. ниже), `apps/web/src/shared/lib/**`, `apps/web/vite.config.ts`, `apps/web/package.json` и остальные конфиги пакета (`apps/web/*`, `apps/web/public/**`, `apps/web/src/*`, `apps/web/src/test/**`), а также foundation-экраны и фичи входа: `pages/{auth,admin,forbidden,not-found}/**`, `entities/session/**`, `features/{dev-login,password-auth,switch-role}/**`, `widgets/account-section/**`. Внутри `shared/api/**` доменные MSW-хендлеры `mocks/handlers/<domain>.ts`, закреплённые в `OWNERS.yaml` за workstream'ом (например, `course-builder.ts`, `files.ts` — G), принадлежат ему; `shared/max/**` на время workstream J — у J (координация с web-shell).
 
 Механизмы, чтобы FE-агенты не трогали shell:
 - **Роуты**: фича экспортирует `pages/<role>/<feature>/routes.tsx` (`RouteObject[]`); владелец shell подключает одной строкой в `router.tsx`.
@@ -84,7 +84,7 @@
 - I — `pages/teacher/wallet/**`, `features/withdraw-wallet/**`;
 - D — общий виджет `widgets/homework-performance/**` (статусы заданий, сетка, карточка задания): его используют родитель и преподаватель.
 
-Прочие закрепления вне режима репетитора: `widgets/{homework-map,homework-recommendations}/**` (экран «Задания» ученика) — B; `pages/student/settings/**` и `widgets/notification-settings/**` — L; `apps/api/test/analytics/**` — A.
+Прочие закрепления вне режима репетитора: `widgets/{homework-map,homework-recommendations}/**` (экран «Задания» ученика) и `widgets/course-player/**` (плеер курса) — B; `pages/student/settings/**` и `widgets/notification-settings/**` — L; `apps/api/test/analytics/**` — A.
 
 Префиксы виджетов не пересекаются: у каждого `widgets/teacher-*` один владелец (E — главная и группы, F — ученик и успеваемость). Пути экранов преподавателя, на которые ссылаются страницы разных фич, и состояние навигации «открыт из приложения» — в `shared/lib/{teacher-paths,navigation}.ts` (web-shell): страницы не импортируют модули друг друга.
 

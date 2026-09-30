@@ -191,7 +191,7 @@ describe('InviteAcceptPage', () => {
 
     expect(await screen.findByText('Это приглашение для ученика', {}, WAIT)).toBeVisible();
     expect(screen.queryByText('Откройте ссылку в аккаунте ребёнка')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Я ученик' }));
+    await user.click(screen.getByRole('button', { name: /^Я ученик/ }));
 
     expect(
       await screen.findByText('Мария Иванова хочет следить за твоими успехами', {}, WAIT),

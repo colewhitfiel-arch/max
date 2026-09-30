@@ -102,6 +102,29 @@ export const BlockProgressBriefSchema = z.object({
 export type BlockProgressBrief = z.infer<typeof BlockProgressBriefSchema>;
 
 /**
+ * Разбор попытки теста: верно ли отвечен каждый вопрос. Правильные варианты и пояснение
+ * отдаются только по верно отвеченным вопросам или когда попытки закончились — иначе
+ * следующая попытка превратилась бы в списывание.
+ */
+export const QuizReviewQuestionSchema = z.object({
+  questionId: z.string(),
+  correct: z.boolean(),
+  pickedOptionIds: z.array(z.string()),
+  correctOptionIds: z.array(z.string()).optional(),
+  explanation: z.string().optional(),
+});
+export type QuizReviewQuestion = z.infer<typeof QuizReviewQuestionSchema>;
+
+export const QuizReviewSchema = z.object({
+  /** Доля верных ответов, %. */
+  score: PercentSchema,
+  passScore: PercentSchema,
+  passed: z.boolean(),
+  questions: z.array(QuizReviewQuestionSchema),
+});
+export type QuizReview = z.infer<typeof QuizReviewSchema>;
+
+/**
  * Блок для ученика: содержимое по типу без ответов (QUIZ — без правильных вариантов и пояснений,
  * QUESTION — без эталона и критериев; см. `toStudentBlock`) + задание и прогресс.
  */
@@ -111,6 +134,8 @@ export const StudentBlockDetailSchema = z.intersection(
     courseId: IdSchema,
     assignment: AssignmentBriefSchema.nullable(),
     progress: BlockProgressBriefSchema.nullable(),
+    /** QUIZ: разбор последней попытки (ученик уже отвечал); иначе не передаётся. */
+    quizReview: QuizReviewSchema.optional(),
   }),
 );
 export type StudentBlockDetail = z.infer<typeof StudentBlockDetailSchema>;
@@ -123,6 +148,8 @@ export const CompleteBlockResultSchema = z.object({
   /** Балл автопроверки QUIZ; null для остальных типов. */
   score: z.number().int().nullable(),
   courseProgress: CourseProgressBriefSchema,
+  /** QUIZ: разбор этой попытки. */
+  quizReview: QuizReviewSchema.optional(),
 });
 export type CompleteBlockResult = z.infer<typeof CompleteBlockResultSchema>;
 

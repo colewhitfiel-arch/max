@@ -6,8 +6,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { DEMO_PERSONAS, DEMO_STEPS, useDemoTourStore } from '@/features/demo-tour';
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
+import { DEMO_PERSONAS, DEMO_STEPS, stepPath, useDemoTourStore } from '@/features/demo-tour';
 import { queryClient } from '@/shared/api/query-client';
 import { resetAuthStore, useAuthStore } from '@/shared/auth/store';
 import { i18n } from '@/shared/i18n';
@@ -21,6 +21,25 @@ import { router } from './router';
 import { resetStartParamForTests } from './start-param';
 
 const server = setupServer(...handlers);
+
+/**
+ * Как в браузере: прерванный переход роутера отменяется. Общий shim в `test/setup.ts` убирает
+ * `signal` у `Request` (jsdom и undici несовместимы), и прерванный переход там всё равно
+ * фиксируется: редирект с `/` после входа демо-пользователем догонял переход тура на экран шага.
+ */
+function abortableNavigations(): () => void {
+  const Base = globalThis.Request;
+  class AbortableRequest extends Base {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(input, init);
+      if (init?.signal) Object.defineProperty(this, 'signal', { value: init.signal });
+    }
+  }
+  globalThis.Request = AbortableRequest;
+  return () => {
+    globalThis.Request = Base;
+  };
+}
 const WAIT = { timeout: 15_000 };
 
 function createBridge() {
@@ -52,6 +71,8 @@ describe('демонстрационный режим (mock API)', () => {
     'проходит все шаги: пользователь, экран и подсветка на каждом',
     { timeout: 180_000 },
     async () => {
+      const restore = abortableNavigations();
+      onTestFinished(restore);
       const user = userEvent.setup();
       render(
         <Providers bridge={createBridge()}>
@@ -72,7 +93,9 @@ describe('демонстрационный режим (mock API)', () => {
           expect(me?.user.id, step.id).toBe(persona.userId);
           expect(me?.activeRole, step.id).toBe(persona.role);
         }
-        if (step.path) expect(window.location.pathname, step.id).toBe(step.path);
+        const path = stepPath(step, useDemoTourStore.getState().context);
+        if (step.path) expect(path, `${step.id}: тур не создал экран шага`).toBeDefined();
+        if (path) expect(window.location.pathname, step.id).toBe(path);
         if (step.target) {
           expect(
             document.querySelector(`[data-tour="${step.target}"]`),

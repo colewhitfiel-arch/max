@@ -6,6 +6,7 @@ import {
   type CourseBlock,
   type CourseProgressBrief,
   type OpenBlockResult,
+  type QuizReview,
   type StudentBlockDetail,
   type StudentCourseDetail,
   type StudentCoursesList,
@@ -67,6 +68,54 @@ export function quizScore(block: CourseBlock, answers: BlockAnswers | undefined)
     );
   }).length;
   return percentOf(correct, questions.length);
+}
+
+/** Ответы на тест (а не текст/файлы): у каждого вопроса — массив выбранных вариантов. */
+function quizAnswersOf(answers: BlockAnswers | null | undefined): Record<string, string[]> {
+  if (!answers || typeof answers !== 'object') return {};
+  const out: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(answers as Record<string, unknown>)) {
+    if (Array.isArray(value)) out[key] = value.filter((id): id is string => typeof id === 'string');
+  }
+  return out;
+}
+
+/**
+ * Разбор попытки теста: верно ли отвечен каждый вопрос. Правильные варианты и пояснение —
+ * только по верным ответам или когда попытки кончились (`revealAll`): иначе следующая попытка
+ * превратилась бы в списывание. Не QUIZ — undefined.
+ */
+export function buildQuizReview(
+  block: CourseBlock,
+  answers: BlockAnswers | null | undefined,
+  revealAll: boolean,
+): QuizReview | undefined {
+  if (block.type !== 'QUIZ') return undefined;
+  const chosen = quizAnswersOf(answers);
+  const score = quizScore(block, answers ?? undefined) ?? 0;
+  return {
+    score,
+    passScore: block.content.passScore,
+    passed: score >= block.content.passScore,
+    questions: block.content.questions.map((question) => {
+      const picked = chosen[question.id] ?? [];
+      const set = new Set(picked);
+      const correct =
+        set.size === question.correctOptionIds.length &&
+        question.correctOptionIds.every((id) => set.has(id));
+      return {
+        questionId: question.id,
+        correct,
+        pickedOptionIds: picked,
+        ...(correct || revealAll
+          ? {
+              correctOptionIds: question.correctOptionIds,
+              ...(question.explanation ? { explanation: question.explanation } : {}),
+            }
+          : {}),
+      };
+    }),
+  };
 }
 
 /**
@@ -176,6 +225,14 @@ export class StudentCoursesService {
         where: { studentId_blockId: { studentId, blockId: block.id } },
       }),
     ]);
+    // Тест, на который ученик уже отвечал заданием, — с разбором последней попытки.
+    const last =
+      block.type === 'QUIZ' && assignment
+        ? await this.assignments.lastBlockAnswersOfStudent(studentId, block.id)
+        : null;
+    const quizReview = last?.answers
+      ? buildQuizReview(toBlock(block), last.answers, last.attemptsLeft === 0)
+      : undefined;
     return {
       ...toStudentBlock(toBlock(block)),
       courseId,
@@ -183,6 +240,7 @@ export class StudentCoursesService {
       progress: progress
         ? { status: progress.status, attempts: progress.attempts, score: progress.score }
         : null,
+      ...(quizReview ? { quizReview } : {}),
     };
   }
 
@@ -214,38 +272,67 @@ export class StudentCoursesService {
     const studentId = requireStudent(user);
     const { block, courseId } = await this.requireVisibleBlock(studentId, blockId);
     const score = quizScore(toBlock(block), body.answers);
-    const completedAt = new Date();
-    const progress = await this.prisma.blockProgress.upsert({
-      where: { studentId_blockId: { studentId, blockId: block.id } },
-      create: {
-        studentId,
-        blockId: block.id,
-        status: 'COMPLETED',
-        completedAt,
-        attempts: 1,
-        score,
-      },
-      update: {
-        status: 'COMPLETED',
-        completedAt,
-        attempts: { increment: 1 },
-        score,
-      },
-    });
-    const courseProgress = await this.recalcCourseProgress(studentId, courseId, completedAt);
-    await this.events.emit('block.completed', {
+    const { progress, courseProgress } = await this.markCompleted(
       studentId,
-      blockId: block.id,
+      block.id,
       courseId,
-      ...(score === null ? {} : { score }),
-      at: completedAt.toISOString(),
-    });
-    this.log.info({ studentId, blockId: block.id, courseId, score }, 'блок пройден');
+      score,
+    );
+    const quizReview = buildQuizReview(toBlock(block), body.answers, false);
     return {
       progress: { status: progress.status, attempts: progress.attempts, score: progress.score },
       score,
       courseProgress,
+      ...(quizReview ? { quizReview } : {}),
     };
+  }
+
+  /**
+   * Сдано задание из блока курса (событие `submission.submitted`): блок засчитывается, тест
+   * проверяется автоматически — балл уходит в задание, как если бы его поставил преподаватель.
+   * Остальные типы (вопрос, практика, ДЗ) по-прежнему проверяет преподаватель.
+   */
+  async completeFromSubmission(submissionId: string): Promise<void> {
+    const info = await this.assignments.blockSubmission(submissionId);
+    if (!info) return;
+    const row = await this.prisma.courseBlock.findUnique({
+      where: { id: info.blockId },
+      include: { module: { select: { courseId: true } } },
+    });
+    if (!row) return;
+    const score = quizScore(toBlock(row), info.answers ?? undefined);
+    if (score !== null)
+      await this.assignments.autoGrade(
+        info.submissionId,
+        score,
+        `Тест проверен автоматически: ${score}% верных ответов`,
+      );
+    await this.markCompleted(info.studentId, row.id, row.module.courseId, score);
+  }
+
+  /** Блок пройден: прогресс блока, read-model курса и событие `block.completed`. */
+  private async markCompleted(
+    studentId: string,
+    blockId: string,
+    courseId: string,
+    score: number | null,
+  ) {
+    const completedAt = new Date();
+    const progress = await this.prisma.blockProgress.upsert({
+      where: { studentId_blockId: { studentId, blockId } },
+      create: { studentId, blockId, status: 'COMPLETED', completedAt, attempts: 1, score },
+      update: { status: 'COMPLETED', completedAt, attempts: { increment: 1 }, score },
+    });
+    const courseProgress = await this.recalcCourseProgress(studentId, courseId, completedAt);
+    await this.events.emit('block.completed', {
+      studentId,
+      blockId,
+      courseId,
+      ...(score === null ? {} : { score }),
+      at: completedAt.toISOString(),
+    });
+    this.log.info({ studentId, blockId, courseId, score }, 'блок пройден');
+    return { progress, courseProgress };
   }
 
   // ---------- внутреннее ----------

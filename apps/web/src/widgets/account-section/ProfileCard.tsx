@@ -9,7 +9,7 @@ export interface ProfileCardProps {
   to?: string;
 }
 
-/** Карточка пользователя в шапке настроек: аватар, имя, роль; тап — на экран профиля. */
+/** Карточка пользователя в шапке настроек: аватар, имя, роль и логин; тап — на экран профиля. */
 export function ProfileCard({ to }: ProfileCardProps) {
   const { t } = useTranslation('common');
   const { me } = useAuth();
@@ -21,7 +21,11 @@ export function ProfileCard({ to }: ProfileCardProps) {
       <ListRow
         left={<Avatar name={name} src={me.user.avatarUrl} size="lg" />}
         title={name || t('user.noName')}
-        subtitle={me.activeRole ? t(`roles.${me.activeRole}`) : undefined}
+        subtitle={
+          [me.activeRole ? t(`roles.${me.activeRole}`) : null, me.login ? `@${me.login}` : null]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
         onClick={to ? () => navigate(to) : undefined}
         aria-label={to ? t('settings.openProfile') : undefined}
       />

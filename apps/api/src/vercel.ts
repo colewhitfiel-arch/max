@@ -62,8 +62,18 @@ export function withServerlessDbParams(url: string): string {
   return parsed.toString();
 }
 
+/**
+ * На Vercel у инстансов нет общего диска: файл, загруженный в один, другой не видит (а /tmp
+ * исчезает вместе с инстансом). Локальное хранилище здесь не работает никогда, поэтому без S3
+ * байты живут в Postgres — загрузка конспектов и сдач работает и на бесплатном стенде.
+ */
+export function serverlessStorageDriver(driver: string | undefined): string {
+  return driver === 's3' ? 's3' : 'postgres';
+}
+
 async function create(): Promise<Instance> {
   materializeCaCert();
+  process.env.STORAGE_DRIVER = serverlessStorageDriver(process.env.STORAGE_DRIVER);
   if (process.env.DATABASE_URL) {
     process.env.DATABASE_URL = withServerlessDbParams(process.env.DATABASE_URL);
   }

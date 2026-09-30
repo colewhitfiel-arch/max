@@ -1,5 +1,5 @@
 # Описание собственного API для технической проверки (формат сдачи хакатона MAX × Минобрнауки).
-# Полная спецификация — openapi.json (OpenAPI 3.0, генерируется из контрактов:
+# Полная спецификация — openapi.json (OpenAPI 3.1, генерируется из контрактов:
 # `pnpm --filter @edu/contracts openapi`). Стриминговые ручки (SSE) — docs/05-api-contracts.md §5.1.
 
 version: '1.0'
@@ -29,6 +29,36 @@ codes:
 # Общие правила: JSON UTF-8; авторизация — заголовок `Authorization: Bearer <accessToken>`
 # из ответа /auth/dev; ошибки — `{ error: { code, message, details?, requestId } }`,
 # заголовок X-Request-Id есть в каждом ответе.
+
+# Как получить токен для проверки с ролью `role` (role: none — без заголовка Authorization).
+auth:
+  type: bearer
+  header: Authorization
+  scheme: Bearer
+  obtain:
+    method: POST
+    path: /auth/dev
+    headers: { Content-Type: application/json }
+    body: { maxUserId: '<testAccounts[role].maxUserId>', roles: ['<role>'] }
+    expectedStatus: [200]
+    tokenField: accessToken
+  accountByRole: { STUDENT: max-student-1, PARENT: max-parent-1, TEACHER: max-teacher-1 }
+
+# Обязательные проверки — основная функциональность; все они описаны ниже в checks.
+requiredChecks:
+  - health
+  - auth-dev-student
+  - me
+  - me-unauthorized
+  - student-home
+  - student-assignments
+  - notifications
+  - tutor-conversation
+  - teacher-home
+  - teacher-assignments
+  - parent-children
+  - parent-child-home
+  - role-guard
 
 checks:
   - id: health
@@ -135,10 +165,10 @@ checks:
     expectedResponse: { contentType: application/json, required: [items] }
 
   - id: parent-child-home
-    description: Главная ребёнка для родителя; studentId — из /parent/children (items[].student.id)
+    description: Главная ребёнка для родителя; studentId — Алексей из seed (= items[0].student.id в /parent/children)
     method: GET
     path: /parent/children/{studentId}/home
-    pathParams: { studentId: '<items[0].student.id из parent-children>' }
+    pathParams: { studentId: 00000000-0000-7000-8000-000000000015 }
     role: PARENT
     expectedStatus: [200]
     expectedResponse: { contentType: application/json }

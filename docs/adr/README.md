@@ -17,3 +17,6 @@
 | [ADR-011](ADR-011-plain-css-ui-layer.md) | UI-слой на обычном CSS с токенами вместо Tailwind | accepted |
 | [ADR-012](ADR-012-dev-without-docker.md) | Dev без Docker: embedded PostgreSQL, inline-очередь, локальное хранилище | accepted |
 | [ADR-013](ADR-013-api-client-and-response-format.md) | Формат ответов API и единый клиент | accepted |
+| [ADR-014](ADR-014-vercel-serverless-deploy.md) | Живой стенд на Vercel: статика + одна serverless-функция с NestJS | accepted, дополнен ADR-015 |
+| [ADR-015](ADR-015-postgres-file-storage-on-serverless.md) | Файлы в Postgres на serverless-стенде без S3 | accepted |
+| [ADR-016](ADR-016-password-auth-outside-max.md) | Регистрация и вход по логину и паролю вне MAX | accepted |

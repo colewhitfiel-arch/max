@@ -73,7 +73,12 @@ describe('mock world (msw/node)', () => {
     });
     await loginAs('teacher');
     await expect(
-      call(api.courses.archiveCourse({ params: { courseId: DEMO_IDS.course } })),
+      call(
+        api.courses.updateBlock({
+          params: { blockId: DEMO_IDS.course },
+          body: { type: 'TEXT', title: 'Новый заголовок' },
+        }),
+      ),
     ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
   });
 
