@@ -6,6 +6,7 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router';
 import { DemoTour } from '@/features/demo-tour';
 import { adminRoutes } from '@/pages/admin/routes';
 import { authRoutes } from '@/pages/auth/routes';
+import { checkInRoutes } from '@/pages/check-in/routes';
 import { forbiddenRoute } from '@/pages/forbidden/routes';
 import { inviteRoutes, joinRoutes } from '@/pages/invite/routes';
 import { notFoundRoute } from '@/pages/not-found/routes';
@@ -111,6 +112,8 @@ export const routes: RouteObject[] = [
   { path: '/invite', element: <RequireAuth />, children: inviteRoutes },
   // Ссылка-приглашение в группу преподавателя (F19): открывает ученик, роль проверяет страница.
   { path: '/join', element: <RequireAuth />, children: joinRoutes },
+  // Отметка на занятии по QR-коду (F6a): сканер ученика и диплинк; роль проверяет страница.
+  { path: '/check-in', element: <RequireAuth />, children: checkInRoutes },
   { path: '/admin', element: <RequireAuth />, children: adminRoutes },
   ...devRoutes,
   { path: '/403', ...forbiddenRoute },

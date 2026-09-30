@@ -92,6 +92,8 @@ describe('apiContract', () => {
         "DELETE /teacher/groups/:groupId/students/:studentId",
         "GET /teacher/lessons/:lessonId/attendance",
         "PUT /teacher/lessons/:lessonId/attendance",
+        "GET /teacher/lessons/:lessonId/attendance/qr",
+        "POST /student/attendance/check-in",
         "GET /student/courses",
         "GET /student/courses/:courseId",
         "GET /student/blocks/:blockId",

@@ -11,6 +11,7 @@ import {
   Card,
   Divider,
   Inline,
+  QrCodeIcon,
   Screen,
   SegmentedControl,
   Stack,
@@ -19,10 +20,10 @@ import {
 } from '@edu/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { attendanceTone, useAttendanceSheet, useMarkAttendance } from '@/entities/lesson';
 import { describeApiError } from '@/shared/api/errors';
-import { formatDate, formatTimeRange } from '@/shared/lib/dates';
+import { formatDate, formatTimeRange, isSameDay } from '@/shared/lib/dates';
 import { AsyncState, ScreenHeader } from '@/shared/ui';
 
 /** По умолчанию считаем, что пришли все: преподаватель отмечает только тех, кого не было. */
@@ -30,11 +31,18 @@ const DEFAULT_STATUS: AttendanceStatus = 'PRESENT';
 
 type Marks = Record<string, AttendanceStatus>;
 
-/** Уже проставленные отметки сохраняем, остальным ставим «пришёл». */
-function initialMarks(sheet: AttendanceSheet): Marks {
-  return Object.fromEntries(
-    sheet.rows.map((row) => [row.student.id, row.status ?? DEFAULT_STATUS]),
-  );
+/** Уже проставленные отметки сохраняем, остальным ставим `unmarked` («пришёл», после QR — «не был»). */
+function initialMarks(sheet: AttendanceSheet, unmarked: AttendanceStatus): Marks {
+  return Object.fromEntries(sheet.rows.map((row) => [row.student.id, row.status ?? unmarked]));
+}
+
+/**
+ * Статус неотмеченных по умолчанию. После отметки по QR-коду (экран QR передаёт
+ * `state.unmarked`) кто не отсканировал код — «не был», иначе все считаются пришедшими.
+ */
+function unmarkedStatus(state: unknown): AttendanceStatus {
+  const requested = (state as { unmarked?: unknown } | null)?.unmarked;
+  return requested === 'ABSENT' ? 'ABSENT' : DEFAULT_STATUS;
 }
 
 const studentName = (user: { firstName: string; lastName: string | null }) =>
@@ -43,21 +51,24 @@ const studentName = (user: { firstName: string; lastName: string | null }) =>
 /**
  * `/teacher/attendance/:lessonId` — лист посещаемости (docs/07 F6, шаг 2).
  * Все по умолчанию «пришли», преподаватель меняет только отличия и сохраняет разом:
- * `PUT` перезаписывает лист целиком, поэтому повторное сохранение безопасно.
+ * `PUT` перезаписывает лист целиком, поэтому повторное сохранение безопасно. В день занятия —
+ * «QR-код для отметки»: ученики отмечаются сами (F6a), лист дозаполняется здесь.
  */
 export function AttendanceSheetPage() {
   const { lessonId = '' } = useParams();
   const { t, i18n } = useTranslation('teacher');
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const query = useAttendanceSheet(lessonId);
   const mark = useMarkAttendance(lessonId);
   const [marks, setMarks] = useState<Marks | null>(null);
+  const unmarked = unmarkedStatus(location.state);
 
   // Лист пришёл (или обновился после сохранения) — берём его отметки за основу.
   useEffect(() => {
-    if (query.data) setMarks(initialMarks(query.data));
-  }, [query.data]);
+    if (query.data) setMarks(initialMarks(query.data, unmarked));
+  }, [query.data, unmarked]);
 
   const setAll = (status: AttendanceStatus) => {
     if (!query.data) return;
@@ -67,7 +78,7 @@ export function AttendanceSheetPage() {
   const onSave = (sheet: AttendanceSheet) => {
     const rows: MarkAttendanceRow[] = sheet.rows.map((row) => ({
       studentId: row.student.id,
-      status: marks?.[row.student.id] ?? DEFAULT_STATUS,
+      status: marks?.[row.student.id] ?? row.status ?? unmarked,
     }));
     mark.mutate(
       { rows },
@@ -87,11 +98,14 @@ export function AttendanceSheetPage() {
       <Screen fill>
         <AsyncState query={query}>
           {(sheet) => {
-            const current = marks ?? initialMarks(sheet);
+            const current = marks ?? initialMarks(sheet, unmarked);
             const counts = ATTENDANCE_STATUSES.map((status) => ({
               status,
               count: sheet.rows.filter((row) => current[row.student.id] === status).length,
             })).filter((item) => item.count > 0);
+            // QR-код выдаётся только в день занятия и не для отменённого (так же решает сервер).
+            const canShowQr =
+              sheet.lesson.status !== 'CANCELLED' && isSameDay(sheet.lesson.startsAt, new Date());
             return (
               <Stack gap={4} grow>
                 <Card>
@@ -111,6 +125,17 @@ export function AttendanceSheetPage() {
                     </Inline>
                   </Stack>
                 </Card>
+
+                {canShowQr && (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    leftIcon={<QrCodeIcon />}
+                    onClick={() => navigate(`/teacher/attendance/${lessonId}/qr`)}
+                  >
+                    {t('attendance.qr.open')}
+                  </Button>
+                )}
 
                 <Inline gap={2}>
                   <Button variant="secondary" size="sm" onClick={() => setAll('PRESENT')}>
@@ -138,7 +163,7 @@ export function AttendanceSheetPage() {
                           fullWidth
                           size="sm"
                           aria-label={studentName(row.student.user)}
-                          value={current[row.student.id] ?? DEFAULT_STATUS}
+                          value={current[row.student.id] ?? unmarked}
                           onChange={(value) =>
                             setMarks({
                               ...current,

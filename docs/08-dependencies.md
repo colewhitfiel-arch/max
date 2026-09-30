@@ -29,7 +29,7 @@
 | catalog | school, identity (TeacherBrief) | — |
 | groups | catalog, identity, school (tz) | — |
 | family | identity | — |
-| attendance | groups, identity | — |
+| attendance | groups, identity, school (tz: QR-код — только в день занятия) | — |
 | courses | groups, assignments, files | — |
 | assignments | groups, files | `course.published` |
 | payments | family, groups, catalog | — |
@@ -47,7 +47,7 @@
 | identity | `getUser(id)`, `getStudentProfile(id)`, `getTeacherProfile(id)`, `getParentProfile(id)`, `findStudentByLinkCode(code)`, `briefs(userIds)`, `listStudentIdsOfSchool(schoolId)` (кандидаты в группы преподавателя) |
 | school | `getSchool(id)`, `getSettings(id)`, `timezone(schoolId)` |
 | catalog | `getClub(id)`, `listClubs(schoolId?)`, `clubBriefs(ids)`, `teacherCard(teacherId, viewerRole)`, `createClub(input)` (кружок новой группы преподавателя, F19) |
-| groups | `getGroup(id)`, `groupBrief(id)`, `listGroupsByTeacher(teacherId)`, `listStudentIdsInGroup(groupId)`, `listEnrollments(studentId)`, `isEnrolled(studentId, groupId)`, `listLessons({ groupIds \| studentId, from, to })`, `getLesson(id)`, `getEnrollment(id)` |
+| groups | `getGroup(id)`, `groupBrief(id)`, `listGroupsByTeacher(teacherId)`, `listStudentIdsInGroup(groupId)`, `listEnrollments(studentId)`, `isEnrolled(studentId, groupId)`, `listLessons({ groupIds \| studentId, from, to })`, `getLesson(id)` (реализован как `findLesson(id)` — с преподавателем и школой группы, для QR-отметки), `getEnrollment(id)` |
 | attendance | `listByStudent(studentId, period)`, `listByLesson(lessonId)`, `countable(studentId, period)` |
 | courses | `listPublishedByGroups(groupIds)`, `getProgress(studentId, courseId)`, `listCourseProgress(studentId)`, `blockBrief(id)` |
 | assignments | `listForStudent(studentId, filter)`, `listForGroup(groupId, filter)`, `createFromBlocks(event)`, `submitFromBlock(studentId, blockId, answers)`, `listSubmissions(studentId, period)` |

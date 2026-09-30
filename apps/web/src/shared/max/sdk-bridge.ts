@@ -76,6 +76,29 @@ interface MaxWebAppSdk {
   SecureStorage?: MaxStorageSdk;
   enableClosingConfirmation?: () => void;
   disableClosingConfirmation?: () => void;
+  /**
+   * Встроенный сканер QR: `fileSelect=false` — только камера. Отвечает `{ value }` (строка из
+   * кода), отказ — `{ error: { code } }`.
+   */
+  openCodeReader?: (fileSelect?: boolean) => Promise<unknown>;
+}
+
+/** Строка из ответа `openCodeReader`: `{ value }` по документации MAX, на всякий случай и голая строка. */
+function scannedValue(answer: unknown): string | null {
+  const raw =
+    answer !== null && typeof answer === 'object' && 'value' in answer
+      ? (answer as { value: unknown }).value
+      : answer;
+  return typeof raw === 'string' && raw.trim() !== '' ? raw : null;
+}
+
+/** Код отказа сканера (`{ error: { code } }`); закрытие без кода — не ошибка, а «ничего». */
+function isScanCancelled(cause: unknown): boolean {
+  const code =
+    cause !== null && typeof cause === 'object' && 'error' in cause
+      ? (cause as { error?: { code?: unknown } }).error?.code
+      : undefined;
+  return typeof code === 'string' && /cancel|close|abort|dismiss/i.test(code);
 }
 
 /** Оставлена для обратной совместимости: мост больше не падает без SDK, а работает «вне MAX». */
@@ -271,6 +294,30 @@ export class MaxSdkBridge implements MaxBridge {
     if (!haptic) return;
     if (kind === 'success' || kind === 'error') haptic.notificationOccurred?.(kind);
     else haptic.impactOccurred?.(kind);
+  }
+
+  canScanQrCode(): boolean {
+    return this.isInsideMax() && typeof this.sdk?.openCodeReader === 'function';
+  }
+
+  /**
+   * Сканер MAX: камера и распознавание — на стороне мессенджера. Только камера (`fileSelect`
+   * выключен): отмечаются по коду на экране преподавателя, а не по пересланному снимку.
+   */
+  async scanQrCode(): Promise<string | null> {
+    const sdk = this.sdk;
+    if (!sdk?.openCodeReader || !this.isInsideMax())
+      throw new Error('[max-bridge] сканер QR недоступен вне MAX');
+    try {
+      return scannedValue(await sdk.openCodeReader(false));
+    } catch (cause) {
+      if (isScanCancelled(cause)) return null;
+      const code =
+        cause !== null && typeof cause === 'object' && 'error' in cause
+          ? String((cause as { error?: { code?: unknown } }).error?.code ?? '')
+          : '';
+      throw new Error(`[max-bridge] сканер QR не открылся${code ? `: ${code}` : ''}`, { cause });
+    }
   }
 
   on<E extends MaxBridgeEvent>(event: E, handler: MaxEventHandler<E>): () => void {

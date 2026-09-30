@@ -90,4 +90,30 @@ export class AttendanceRepository {
       ),
     );
   }
+
+  /** Отметка одного ученика на занятии; null — ещё не отмечен. */
+  async findStatus(lessonId: string, studentId: string): Promise<AttendanceStatus | null> {
+    const row = await this.prisma.attendance.findUnique({
+      where: { lessonId_studentId: { lessonId, studentId } },
+      select: { status: true },
+    });
+    return row?.status ?? null;
+  }
+
+  /**
+   * Самоотметка по QR: ученик пришёл. Upsert по уникальному индексу (lessonId+studentId) —
+   * повторный или параллельный скан не создаёт дублей; комментарий преподавателя не трогаем.
+   */
+  async markPresent(
+    lessonId: string,
+    studentId: string,
+    markedById: string,
+    markedAt: Date,
+  ): Promise<void> {
+    await this.prisma.attendance.upsert({
+      where: { lessonId_studentId: { lessonId, studentId } },
+      create: { lessonId, studentId, status: 'PRESENT', markedById, markedAt },
+      update: { status: 'PRESENT', markedById, markedAt },
+    });
+  }
 }

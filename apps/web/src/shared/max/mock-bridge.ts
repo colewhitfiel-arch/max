@@ -144,6 +144,17 @@ export class MockMaxBridge implements MaxBridge {
     console.debug(`[max-bridge:mock] haptic(${kind})`);
   }
 
+  /** Камеры мессенджера в браузере нет: код вводят вручную (ссылка с экрана преподавателя). */
+  canScanQrCode(): boolean {
+    return false;
+  }
+
+  async scanQrCode(): Promise<string | null> {
+    // eslint-disable-next-line no-console -- намеренная трассировка mock-bridge
+    console.debug('[max-bridge:mock] scanQrCode() — сканера нет, ничего не отсканировано');
+    return null;
+  }
+
   on<E extends MaxBridgeEvent>(event: E, handler: MaxEventHandler<E>): () => void {
     const set = this.handlers[event] as Set<MaxEventHandler<E>>;
     set.add(handler);

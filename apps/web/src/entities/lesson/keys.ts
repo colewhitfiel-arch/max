@@ -10,4 +10,6 @@ export const lessonKeys = {
     [...queryKeys.teacher, 'groups', groupId, 'lessons', period] as const,
   attendance: (lessonId: string) =>
     [...queryKeys.teacher, 'lessons', lessonId, 'attendance'] as const,
+  attendanceQr: (lessonId: string) =>
+    [...queryKeys.teacher, 'lessons', lessonId, 'attendance-qr'] as const,
 };

@@ -46,6 +46,12 @@ describe('startParamPath', () => {
     expect(startParamPath('invite_../../etc/passwd0000')).toBeNull();
     expect(startParamPath(null)).toBeNull();
   });
+
+  it('QR занятия, снятый камерой телефона: checkin_<код> → /check-in/<код>', () => {
+    expect(startParamPath(`checkin_${TOKEN}`)).toBe(`/check-in/${TOKEN}`);
+    expect(startParamPath('checkin_short')).toBeNull();
+    expect(startParamPath('checkin_')).toBeNull();
+  });
 });
 
 describe('applyStartParam', () => {

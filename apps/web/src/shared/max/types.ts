@@ -52,6 +52,16 @@ export interface MaxBridge {
   close(): void;
   openLink(url: string): void;
   haptic(kind: HapticKind): void;
+  /**
+   * Есть встроенный сканер QR-кодов мессенджера (внутри MAX с `openCodeReader`). Вне MAX —
+   * false: фича предлагает ввести код вручную.
+   */
+  canScanQrCode(): boolean;
+  /**
+   * Открыть встроенный сканер MAX — только камера, без выбора снимка из галереи. Строка из
+   * кода; null — сканер закрыли, ничего не отсканировав. Бросает, если сканер не открылся.
+   */
+  scanQrCode(): Promise<string | null>;
   storage: MaxStorage;
   /** Подписка на события; возвращает функцию отписки. */
   on<E extends MaxBridgeEvent>(event: E, handler: MaxEventHandler<E>): () => void;
